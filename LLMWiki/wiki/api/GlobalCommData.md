@@ -1,0 +1,159 @@
+---
+title: GlobalCommData API 参考
+date: 2026-07-02
+tags: [API, 通讯, 全局状态, 事件总线]
+source: raw/skills/02-Development/GeneralTechSpecialist.md
+---
+
+# GlobalCommData API 参考
+
+> 全局数据通讯中心（事件总线模式）。
+> 物理文件：`Comm/SystemComm.cs`（由原 `GlobalCommData.cs` 与 `SystemStatus.cs` 合并而来）。
+> 职责按优先级分为 3 类：全局事件触发、全局日志管理、全局通讯配置管理。
+> **自动调整参数管理已迁出到 [[api/WeldDataManager]]。**
+> **全局状态机已迁出到 [[api/LineLaserWorkflow]] 的 `LineLaserWorkflowState`。**
+
+## 核心类
+
+```csharp
+static class GlobalCommData
+{
+    // 1. 全局事件触发
+    public static event EventHandler<MessageArgs> EventInfoHandler;
+    public static event EventHandler<string> CommunicationCommandReceived;
+
+    // 2. 全局日志管理
+    // MachineLog 和 TcpMessageLog 为内部字段，外部代码禁止直接调用
+    // 所有模块日志统一通过 ShowLog 接口输出
+    public static Log MachineLog;
+    public static Log TcpMessageLog;
+    public static void ShowLog(string TAG, string message, MessageLevel msgLevel = MessageLevel.Info, MessageType msgType = MessageType.Debug);
+    public static void ShowCommunicationLog(string source, string message);
+
+    // 3. 全局通讯配置管理
+    public static CommunicationManager mCommunicationManager;
+    public static void BroadcastCommunicationCommand(string message);
+
+    // 遗留支持
+    public static AuthManager mAuthManager;
+    public static OperateLevel mOperateLevel;
+
+    // 7. UI 配置（AntdUI.Config 一次性加载，2026-08-13 新增）
+    private static bool _uiConfigLoaded;           // 一次性加载守卫
+    public static void UIConfigSetting();           // 集中管理 AntdUI.Config：主题(IsLight+Theme) + 文本渲染(TextRenderingHint/HighQuality)
+}
+```
+
+## 同文件类型定义
+
+`SystemComm.cs` 同时定义了以下枚举和事件参数类：
+
+```csharp
+public enum MessageType { Summary, Run, Flow, Debug }
+public enum MessageLevel { Info, Warning, Error }
+public enum OperateLevel { Operator = 2, Engineer = 1, Admin = 0 }
+public enum LineLaserWorkflowState { Uninitialized, Initializing, Standby, Starting, Acquiring, Analyzing, Adjusting, Completed, ErrorAborted, ManualStopped }
+public enum WorkflowSignalCode { None, Completed, ConsecutiveFailureExceeded, ManualStopped }
+
+public class MessageArgs : EventArgs
+{
+    public string strMessage;
+    public Color MessageShowColor;
+}
+
+// 2026-08-31（ADR-042）：流程态事件参数已统一为泛型 WorkflowStepChangedEventArgs<TStep>，
+// 原 LineLaserWorkflowStateChangedEventArgs 等自有参数类已删除
+public class WorkflowStepChangedEventArgs<TStep> : EventArgs where TStep : struct
+{
+    public TStep OldState;
+    public TStep NewState;
+    public string Reason;
+    public DateTime Timestamp;
+}
+
+public class WorkflowCompletedEventArgs : EventArgs { ... }
+public class WorkflowErrorAbortedEventArgs : EventArgs { ... }
+public class WorkflowManualStoppedEventArgs : EventArgs { ... }
+public class AnalysisImageDisplayEventArgs : EventArgs { ... }
+```
+
+## 自动调整参数管理（已迁出）
+
+自动调整参数管理已迁出到 [[api/WeldDataManager]]。`GlobalCommData` 不再持有 `mAutoParam`、`mAutoParamManage`、`mConfigManager`、`CurrentAutoParamId`。
+
+| 原字段 | 新位置 | 说明 |
+|--------|--------|------|
+| `GlobalCommData.CurrentAutoParamId` | `WeldDataManager.Instance.CurrentAutoParamId` | INI 持久化 |
+| `GlobalCommData.mAutoParam` | `WeldDataManager.Instance.mAutoParam` | 运行时对象 |
+| `GlobalCommData.mAutoParamManage` | `WeldDataManager.Instance.mAutoParamManage` | 分段数据表管理 |
+| `GlobalCommData.mConfigManager` | `WeldDataManager.Instance.mConfigManager` | 配置映射管理 |
+
+## 通讯指令流程
+
+```
+[通讯实现] TCP/S7/Profinet/Robot
+        │
+        ▼
+GlobalCommData.BroadcastCommunicationCommand(message)
+        │
+        ▼
+GlobalCommData.CommunicationCommandReceived
+        │
+        ▼
+[Workflow] LineLaserWorkflow.OnCommunicationCommandReceived
+        │
+        ▼
+GlobalCommData.ShowCommunicationLog(source, message)
+        │
+        ▼
+EventInfoHandler → MainPage.inputLog（AntdUI.Input，受 ShowCommLog 开关控制）
+```
+
+## 使用规范
+
+- 所有模块通过 GlobalCommData 进行跨模块通信
+- 事件处理必须检查 InvokeRequired（UI 线程安全）
+- **系统状态统一由 [[api/LineLaserWorkflow]] 的 `LineLaserWorkflowState` 管理；UI 通过订阅 `LineLaserWorkflow.Instance.StateChanged` 刷新状态显示**
+- **日志统一接口：`ShowLog(TAG, message, msgLevel)` 是唯一对外日志接口，所有模块禁止直接调用 `MachineLog.Debug/Info/Error/Warn`**
+- **msgLevel 控制文件日志等级映射**：
+
+| msgLevel | 文件日志等级 | UI 颜色 |
+|----------|-------------|---------|
+| `MessageLevel.Info` | `MachineLog.Info` | 黑色 |
+| `MessageLevel.Warning` | `MachineLog.Warn` | 蓝色 |
+| `MessageLevel.Error` | `MachineLog.Error` | 红色 |
+- 高频事件参数已类级复用，避免每次调用 `new MessageArgs` 产生 GC 压力
+- 所有 static 字段在 static 构造函数中集中初始化（ADR-002）
+- 通讯 XML 结构已扩展为 7 个，按设备类型分离：Server/Client/Send/Recive（通用 TCP）+ RobotServer/RobotClient（机器人）+ PLC（PLC 通讯），详见 [[decisions/ADR-010-CommXmlSeparation]]
+- 通用 TCP 通讯实例 `TcpIpComm` 由 `mCommunicationManager` 持有和管理，访问路径为 `GlobalCommData.mCommunicationManager.TcpIpComm`
+- 通讯日志显示开关已扩展为 3 个：`ShowCommLog` / `ShowRobotCommLog` / `ShowPlcCommLog`，各通讯页面独立控制
+- 三个通讯页面均订阅 `EventInfoHandler` 事件，在 `chkShowCommLog` 勾选时将通讯日志显示到页面 `txtLog`
+- 自动调整参数管理已迁出到 [[api/WeldDataManager]]，不再使用 `ParamConfigXdoc`
+
+## 新增/变更
+
+- **新增 `UIConfigSetting()`（2026-08-13）**：集中管理 AntdUI.Config 全局 UI 配置，一次性加载（`_uiConfigLoaded` 守卫）。将原先分散在 `Program.Main`（`TextRenderingHint`/`TextRenderingHighQuality`）与 `FormMain` 构造函数（`IsLight` + `Theme().Dark().Light().FormBorderColor()`）的 AntdUI 配置统一迁入，`FormMain` 构造改调 `GlobalCommData.UIConfigSetting()`
+- **通讯 XML 配置按设备类型分离（ADR-010）**：新增 `RobotServerXdoc` / `RobotClientXdoc` / `PlcXdoc`，新增 `ShowRobotCommLog` / `ShowPlcCommLog` INI 持久化开关
+- **三个通讯页面完善**：CommGeneralPage 新增保存配置按钮和事件订阅；CommRobotPage 改用 `RobotServerXdoc`，新增保存配置按钮和 `chkShowCommLog`；CommPLCPage 改用 `PlcXdoc`，新增保存配置按钮和 `chkShowCommLog`
+- 新增 `mCommunicationManager`：通讯对象持久化配置管理，内部持有 Server/Client/Send/Receive XML
+- 新增 `CommunicationCommandReceived` + `BroadcastCommunicationCommand`：统一通讯指令广播
+- 新增 `ShowCommunicationLog(source, message)`：受 `mCommunicationManager.ShowCommLog` 控制的通讯日志
+- 迁出 `CurrentAutoParamId`、`mAutoParam`、`mAutoParamManage`、`mConfigManager` 到 [[api/WeldDataManager]]
+- **合并 `GlobalCommData.cs` 与 `SystemStatus.cs` 为 `SystemComm.cs`**
+- **移除 `MachineStatus` 枚举、`MachineStatusMessageArgs`、`EventStatusHandler`、`CurrentStatus`、`LastStatus`**
+- **系统状态管理迁移到 [[api/LineLaserWorkflow]] 的 `LineLaserWorkflowState`**
+- **`TCPIPComm` 纳入 `CommunicationManager` 管理，访问路径改为 `mCommunicationManager.TcpIpComm`**
+- 删除 `EventTcpInfoHandler`、`EventTcpClientInfoHandler`、`EventLineLaserInfoHandler`、`EventRobotInfoHandler`
+- 删除 `ShowTcpMessage`、`ShowTcpClientMessage`、`ShowLaserData`
+- 删除 `ServerXdoc`、`ClientXdoc`、`SendXdoc`、`ReciveXdoc`、`ParamConfigXdoc`、`RenderConfigXdoc`
+- `TCPIPComm` 已迁移到 `AdaWeldSystem.Comm.Ethernet` 命名空间
+
+## 已知问题
+
+- 与 [[modules/WeldParamControl]] 存在循环依赖
+- 与 [[modules/SqlLiteDatabase]] 存在循环依赖
+- 与 [[modules/FileOperate]] 存在循环依赖
+
+---
+
+*来源：raw/skills/02-Development/GeneralTechSpecialist.md*

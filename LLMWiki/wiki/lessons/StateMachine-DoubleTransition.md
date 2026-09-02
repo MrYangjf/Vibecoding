@@ -1,0 +1,39 @@
+﻿# 教训：状态机重复转换
+
+## 现象
+
+初始化日志中出现 `非法状态转换: Initializing -> Initializing`，随后初始化立即失败，设备状态停留在 `Initializing` 而无法进入 `Standby`。
+
+## 根因
+
+工作流层（`LineLaserWorkflow.Initialize()` / `InitializeSync()`）手动调用了一次 `_deviceStateMachine.TryTransition(DeviceState.Initializing, ...)`，而设备状态机模板方法 `_deviceStateMachine.Initialize()` 内部第一步也会调用 `TryTransition(DeviceState.Initializing, ...)`。两次转换同一个目标状态，第二次必然命中"非法状态转换"守卫，`Initialize()` 直接返回 false。
+
+```
+工作流层:  TryTransition(Initializing)   → 成功  Uninitialized → Initializing
+模板方法:  TryTransition(Initializing)   → 失败  Initializing → Initializing（非法）
+          Initialize() 返回 false        → 初始化失败
+```
+
+## 修复
+
+移除工作流层的重复 `TryTransition(Initializing)` 调用。设备状态机的 `Initializing → 四步初始化 → Standby/Alarm` 完整流程统一由 `DeviceInitializationStateMachineBase.Initialize()` 模板方法负责，工作流层只需要转换自己的工作流状态（`LineLaserWorkflowState`）。
+
+**正确模式**：
+```csharp
+// 工作流层：只管工作流状态机
+TransitionTo(LineLaserWorkflowState.Initializing);
+// 设备状态机的 Initializing 转换由模板方法内部负责
+InitializeWorker();  // 内部调 _deviceStateMachine.Initialize(...)
+```
+
+## 预防措施
+
+1. **职责分层**：工作流状态机（WorkflowState）和设备状态机（DeviceState）各司其职，工作流层不要越俎代庖操作设备状态机的初始化转换。
+2. **代码审查**：新增初始化入口方法时，检查是否存在重复的状态转换。
+3. **错误日志定位**：看到 `非法状态转换: X -> X` 时，第一反应就是找重复的 `TryTransition(X)` 调用。
+
+## 相关页面
+
+- [[modules/DeviceControl]]
+- [[modules/IntelligentLaserCam]]
+- [[modules/DeviceControl]]

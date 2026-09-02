@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>AdaWeldSystem LLM Wiki Browser</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background: #ffffff; color: #1f2328; height: 100vh; overflow: hidden; }
+
+  /* ===== Toolbar ===== */
+  .toolbar { height: 52px; background: #ffffff; border-bottom: 1px solid #d0d7de; display: flex; align-items: center; padding: 0 16px; gap: 8px; flex-shrink: 0; box-shadow: 0 1px 2px rgba(31,35,40,0.04); z-index: 20; position: relative; }
+  .toolbar .logo { font-weight: 700; font-size: 15px; color: #1f2328; display: flex; align-items: center; gap: 8px; margin-right: 8px; }
+  .toolbar .logo::before { content: ""; display: inline-block; width: 22px; height: 22px; background: linear-gradient(135deg, #0969da 0%, #54aeff 100%); border-radius: 6px; }
+  .toolbar button { background: #f6f8fa; color: #24292f; border: 1px solid #d0d7de; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+  .toolbar button:hover { background: #eaeef2; border-color: #afb8c1; }
+  .toolbar button.primary { background: #1f883d; color: white; border-color: #1f883d; }
+  .toolbar button.primary:hover { background: #1a7f37; border-color: #1a7f37; }
+  .toolbar button.active { background: #0969da; color: white; border-color: #0969da; }
+  .toolbar input { background: #ffffff; border: 1px solid #d0d7de; color: #1f2328; padding: 6px 12px; border-radius: 6px; width: 280px; font-size: 13px; transition: border-color 0.15s, box-shadow 0.15s; }
+  .toolbar input:focus { outline: none; border-color: #0969da; box-shadow: 0 0 0 3px rgba(9,105,218,0.15); }
+  .toolbar .view-btns { margin-left: auto; display: flex; gap: 4px; }
+  .toolbar .project-info { font-size: 12px; color: #656d76; margin-left: 4px; }
+  .toolbar .toolbar-separator { width: 1px; height: 24px; background: #d0d7de; margin: 0 4px; }
+  .toolbar .auto-refresh-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #24292f; cursor: pointer; user-select: none; }
+  .toolbar .auto-refresh-toggle input { margin: 0; }
+  .toolbar .watch-status { font-size: 11px; color: #656d76; background: #f6f8fa; border: 1px solid #d0d7de; padding: 2px 8px; border-radius: 10px; min-width: 44px; text-align: center; }
+  .toolbar .watch-status.ok { color: #1a7f37; background: #dafbe1; border-color: #b4f0c3; }
+  .toolbar .watch-status.warn { color: #9a6700; background: #fff8c5; border-color: #f5d547; }
+
+  /* ===== Update Banner ===== */
+  .update-banner { position: fixed; top: 62px; right: 20px; background: #ffffff; border: 1px solid #d0d7de; border-left: 4px solid #0969da; border-radius: 8px; padding: 12px 16px; box-shadow: 0 4px 16px rgba(31,35,40,0.12); z-index: 50; display: none; flex-direction: column; gap: 10px; min-width: 260px; max-width: 360px; }
+  .update-banner.show { display: flex; animation: bannerSlide 0.25s ease-out; }
+  .update-banner .banner-title { font-size: 13px; font-weight: 600; color: #1f2328; }
+  .update-banner .banner-desc { font-size: 12px; color: #656d76; line-height: 1.5; }
+  .update-banner .banner-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .update-banner .banner-actions button { font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+  .update-banner .banner-actions .refresh-btn { background: #0969da; color: #ffffff; border: 1px solid #0969da; }
+  .update-banner .banner-actions .refresh-btn:hover { background: #0550ae; }
+  .update-banner .banner-actions .dismiss-btn { background: #f6f8fa; color: #24292f; border: 1px solid #d0d7de; }
+  .update-banner .banner-actions .dismiss-btn:hover { background: #eaeef2; }
+  @keyframes bannerSlide { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ===== Main Layout ===== */
+  .main { display: flex; height: calc(100vh - 52px - 26px); position: relative; }
+
+  /* ===== Sidebar ===== */
+  .sidebar { width: 280px; background: #f6f8fa; border-right: 1px solid #d0d7de; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .sidebar-header { padding: 12px 14px; border-bottom: 1px solid #d0d7de; background: #ffffff; display: flex; align-items: center; justify-content: space-between; }
+  .sidebar-header h3 { font-size: 11px; text-transform: uppercase; color: #656d76; letter-spacing: 0.6px; font-weight: 700; }
+  .sidebar-header .collapse-all { font-size: 11px; color: #0969da; cursor: pointer; }
+  .sidebar-header .collapse-all:hover { text-decoration: underline; }
+  .file-tree { flex: 1; overflow-y: auto; padding: 8px 0; user-select: none; font-size: 13px; }
+  .file-tree ul { list-style: none; }
+  .file-tree li { position: relative; }
+  .tree-row { display: flex; align-items: center; gap: 4px; padding: 3px 10px; cursor: pointer; line-height: 1.6; border-radius: 4px; margin: 1px 6px; transition: background 0.12s; }
+  .tree-row:hover { background: #eaeef2; }
+  .tree-row.active { background: #ddf4ff !important; color: #0969da !important; border-left: 3px solid #0969da; padding-left: 7px; margin-left: 6px; }
+  .tree-row .toggle { width: 14px; text-align: center; font-size: 10px; color: #656d76; cursor: pointer; flex-shrink: 0; user-select: none; transition: transform 0.15s; display: inline-flex; align-items: center; justify-content: center; }
+  .tree-row .toggle.collapsed::before { content: "\203A"; font-size: 14px; }
+  .tree-row .toggle.expanded::before { content: "\203A"; font-size: 14px; transform: rotate(90deg); display: inline-block; }
+  .tree-row .toggle.leaf { visibility: hidden; }
+  .tree-row .icon { width: 16px; height: 16px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .tree-row .icon svg { width: 14px; height: 14px; display: block; }
+  .tree-row .icon.folder { color: #54aeff; }
+  .tree-row .icon.file { color: #656d76; }
+  .tree-row .icon.file-cat-index { color: #0969da; }
+  .tree-row .icon.file-cat-log { color: #0969da; }
+  .tree-row .icon.file-cat-adr { color: #9a6700; }
+  .tree-row .icon.file-cat-lesson { color: #1a7f37; }
+  .tree-row .icon.file-cat-api { color: #8250df; }
+  .tree-row .icon.file-cat-skill { color: #bf3989; }
+  .tree-row .icon.file-cat-module { color: #1f2328; }
+  .tree-row .icon.file-cat-project { color: #0969da; }
+  .tree-row .icon.file-cat-people { color: #1a7f37; }
+  .tree-row .icon.file-cat-raw { color: #656d76; }
+  .tree-row .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .tree-row .badge { font-size: 10px; padding: 1px 5px; border-radius: 10px; background: #eaeef2; color: #656d76; margin-left: auto; }
+  .tree-children { display: block; padding-left: 14px; position: relative; }
+  .tree-children.hidden { display: none; }
+  .tree-children::before { content: ""; position: absolute; left: 6px; top: 0; bottom: 0; width: 1px; background: #d0d7de; }
+
+  /* ===== Content ===== */
+  .content { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .content-header { padding: 10px 24px; border-bottom: 1px solid #eaeef2; background: #ffffff; display: flex; align-items: center; gap: 8px; font-size: 12px; color: #656d76; flex-shrink: 0; }
+  .content-header .breadcrumb { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .content-header .breadcrumb a { color: #0969da; text-decoration: none; cursor: pointer; }
+  .content-header .breadcrumb a:hover { text-decoration: underline; }
+  .content-header .breadcrumb .sep { color: #afb8c1; }
+  .content-body { flex: 1; display: flex; overflow: hidden; }
+  .markdown-body { flex: 1; overflow-y: auto; padding: 24px 32px; line-height: 1.7; min-width: 0; }
+  .markdown-body h1, .markdown-body h2, .markdown-body h3 { margin-top: 24px; margin-bottom: 12px; color: #1f2328; border-bottom: 1px solid #d0d7de; padding-bottom: 6px; scroll-margin-top: 20px; }
+  .markdown-body h1 { font-size: 30px; border-bottom-width: 2px; padding-bottom: 10px; }
+  .markdown-body h2 { font-size: 22px; }
+  .markdown-body h3 { font-size: 18px; border-bottom: none; }
+  .markdown-body h4 { font-size: 16px; margin-top: 20px; scroll-margin-top: 20px; }
+  .markdown-body h5, .markdown-body h6 { font-size: 14px; margin-top: 16px; color: #656d76; scroll-margin-top: 20px; }
+  .markdown-body p { margin-bottom: 12px; }
+  .markdown-body code { background: rgba(175,184,193,0.2); padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 13px; }
+  .markdown-body pre { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 12px 0; position: relative; }
+  .markdown-body pre code { background: transparent; padding: 0; }
+  .markdown-body pre .code-lang { position: absolute; top: 0; right: 0; background: #eaeef2; color: #656d76; font-size: 10px; padding: 2px 8px; border-bottom-left-radius: 6px; text-transform: uppercase; }
+  .markdown-body table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; border-radius: 6px; overflow: hidden; border: 1px solid #d0d7de; }
+  .markdown-body th, .markdown-body td { border: 1px solid #d0d7de; padding: 8px 12px; text-align: left; }
+  .markdown-body th { background: #f6f8fa; font-weight: 600; }
+  .markdown-body tr:nth-child(even) { background: rgba(175,184,193,0.05); }
+  .markdown-body a { color: #0969da; text-decoration: none; cursor: pointer; }
+  .markdown-body a:hover { text-decoration: underline; }
+  .markdown-body a.wiki-link { border-bottom: 1px dashed #0969da; }
+  .markdown-body a.wiki-link:hover { background: rgba(9,105,218,0.08); border-radius: 3px; text-decoration: none; }
+  .markdown-body a.wiki-link.missing { color: #cf222e; border-bottom-color: #cf222e; }
+  .markdown-body ul, .markdown-body ol { margin: 8px 0 8px 24px; }
+  .markdown-body li { margin: 4px 0; }
+  .markdown-body li > ul, .markdown-body li > ol { margin-top: 2px; }
+  .markdown-body blockquote { border-left: 4px solid #d0d7de; padding: 8px 16px; color: #656d76; margin: 12px 0; background: #f6f8fa; border-radius: 0 6px 6px 0; }
+  .markdown-body hr { border: none; border-top: 1px solid #d0d7de; margin: 20px 0; }
+  .markdown-body img { max-width: 100%; border-radius: 6px; border: 1px solid #eaeef2; }
+  .markdown-body .header-anchor { float: left; margin-left: -20px; padding-right: 4px; color: #afb8c1; opacity: 0; transition: opacity 0.12s; font-weight: 400; text-decoration: none; }
+  .markdown-body h1:hover .header-anchor, .markdown-body h2:hover .header-anchor, .markdown-body h3:hover .header-anchor, .markdown-body h4:hover .header-anchor { opacity: 1; }
+  .markdown-body .task-list-item { list-style: none; margin-left: -20px; }
+  .markdown-body .task-list-item input { margin-right: 6px; }
+
+  /* ===== TOC Panel ===== */
+  .toc-panel { width: 220px; background: #ffffff; border-left: 1px solid #d0d7de; overflow-y: auto; padding: 16px; flex-shrink: 0; font-size: 12px; }
+  .toc-panel h4 { font-size: 11px; text-transform: uppercase; color: #656d76; letter-spacing: 0.6px; margin-bottom: 10px; font-weight: 700; }
+  .toc-panel ul { list-style: none; }
+  .toc-panel li { margin: 4px 0; }
+  .toc-panel a { color: #24292f; text-decoration: none; display: block; padding: 3px 6px; border-radius: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toc-panel a:hover { background: #f6f8fa; color: #0969da; }
+  .toc-panel a.active { background: #ddf4ff; color: #0969da; font-weight: 600; }
+  .toc-panel .level-1 { font-weight: 600; }
+  .toc-panel .level-2 { padding-left: 12px; }
+  .toc-panel .level-3 { padding-left: 24px; }
+  .toc-panel .level-4 { padding-left: 36px; }
+  .toc-panel.empty { display: none; }
+
+  /* ===== Dashboard ===== */
+  .dashboard { flex: 1; overflow-y: auto; padding: 32px 40px; background: #ffffff; }
+  .dashboard-hero { max-width: 760px; margin-bottom: 32px; }
+  .dashboard-hero h1 { font-size: 32px; margin-bottom: 10px; color: #1f2328; }
+  .dashboard-hero p { font-size: 15px; color: #656d76; line-height: 1.6; }
+  .dashboard-stats { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; }
+  .stat-card { background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 10px; padding: 16px 20px; min-width: 130px; }
+  .stat-card .value { font-size: 24px; font-weight: 700; color: #1f2328; }
+  .stat-card .label { font-size: 12px; color: #656d76; margin-top: 2px; }
+  .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; max-width: 1200px; }
+  .dash-card { background: #ffffff; border: 1px solid #d0d7de; border-radius: 10px; padding: 18px; cursor: pointer; transition: all 0.15s; box-shadow: 0 1px 2px rgba(31,35,40,0.04); }
+  .dash-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(31,35,40,0.08); border-color: #afb8c1; }
+  .dash-card .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .dash-card .card-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .dash-card .card-title { font-size: 15px; font-weight: 700; color: #1f2328; }
+  .dash-card .card-desc { font-size: 13px; color: #656d76; line-height: 1.5; }
+  .dash-card .card-meta { font-size: 11px; color: #0969da; margin-top: 10px; font-weight: 600; }
+  .dash-card.wiki .card-icon { background: #ddf4ff; }
+  .dash-card.raw .card-icon { background: #dafbe1; }
+  .dash-card.logs .card-icon { background: #fff8c5; }
+  .dash-card.recent .card-icon { background: #f6f8fa; }
+  .quick-links { margin-top: 32px; max-width: 1200px; }
+  .quick-links h3 { font-size: 14px; color: #656d76; margin-bottom: 12px; font-weight: 600; }
+  .quick-links-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .quick-link { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer; font-size: 13px; color: #24292f; transition: all 0.12s; }
+  .quick-link:hover { background: #f6f8fa; border-color: #0969da; color: #0969da; }
+
+  /* ===== Graph Panel (light theme) ===== */
+  .graph-panel { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #ffffff; display: none; flex-direction: column; z-index: 10; }
+  .graph-panel.show { display: flex; }
+  .graph-panel .graph-header { display: flex; align-items: center; padding: 10px 16px; background: #f6f8fa; border-bottom: 1px solid #d0d7de; flex-shrink: 0; }
+  .graph-panel .graph-header h3 { font-size: 12px; text-transform: uppercase; color: #656d76; letter-spacing: 0.5px; flex: 1; font-weight: 600; }
+  .graph-panel .graph-header .graph-actions { display: flex; gap: 6px; }
+  .graph-panel .graph-header .graph-actions button { background: #ffffff; color: #24292f; border: 1px solid #d0d7de; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: background 0.15s; }
+  .graph-panel .graph-header .graph-actions button:hover { background: #eaeef2; }
+  #graph-canvas { flex: 1; cursor: grab; background: #ffffff; }
+  #graph-canvas:active { cursor: grabbing; }
+  .graph-legend { padding: 8px 16px; font-size: 12px; color: #656d76; border-top: 1px solid #d0d7de; flex-shrink: 0; background: #ffffff; display: flex; gap: 16px; align-items: center; }
+  .graph-legend .item { display: flex; align-items: center; gap: 5px; }
+  .graph-legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .graph-legend .graph-hint { margin-left: auto; color: #656d76; font-size: 11px; }
+
+  .main { position: relative; }
+  .main.view-graph .sidebar,
+  .main.view-graph .content { display: none; }
+
+  /* ===== Status Bar ===== */
+  .status-bar { height: 26px; background: #f6f8fa; border-top: 1px solid #d0d7de; display: flex; align-items: center; padding: 0 16px; font-size: 11px; color: #656d76; gap: 16px; flex-shrink: 0; }
+  .status-bar .sep { color: #d0d7de; }
+
+  /* ===== Search Results ===== */
+  .search-result-item { padding: 14px 18px; cursor: pointer; border-bottom: 1px solid #eaeef2; transition: background 0.12s; }
+  .search-result-item:hover { background: #f6f8fa; }
+  .search-result-item .title { color: #0969da; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .search-result-item .title .match-type { font-size: 10px; padding: 2px 6px; border-radius: 10px; background: #ddf4ff; color: #0969da; font-weight: 700; }
+  .search-result-item .path { font-size: 11px; color: #656d76; margin-top: 3px; }
+  .search-result-item .snippet { color: #424a53; font-size: 13px; margin-top: 6px; line-height: 1.5; }
+  .search-result-item .snippet .highlight { background: #fff8c5; padding: 1px 2px; border-radius: 3px; font-weight: 600; }
+  .search-summary { padding: 18px 24px; border-bottom: 1px solid #eaeef2; background: #ffffff; }
+  .search-summary h2 { font-size: 18px; margin-bottom: 6px; }
+  .search-summary p { color: #656d76; font-size: 13px; }
+
+  /* ===== No Data ===== */
+  .no-data { padding: 60px 40px; text-align: center; color: #656d76; }
+  .no-data h2 { margin-bottom: 12px; color: #1f2328; }
+  .no-data p { margin-bottom: 8px; }
+  .no-data button { margin-top: 16px; padding: 10px 20px; background: #1f883d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; }
+
+  /* ===== Back to Top ===== */
+  .back-to-top { position: fixed; right: 260px; bottom: 40px; width: 36px; height: 36px; background: #ffffff; border: 1px solid #d0d7de; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.2s, transform 0.2s; box-shadow: 0 2px 6px rgba(31,35,40,0.08); z-index: 5; font-size: 16px; color: #656d76; }
+  .back-to-top.visible { opacity: 1; }
+  .back-to-top:hover { background: #f6f8fa; color: #0969da; border-color: #0969da; }
+
+  /* ===== Scrollbars ===== */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #d0d7de; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #afb8c1; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="logo">AdaWeld Wiki</div>
+  <button onclick="showDashboard()" title="返回首页">首页</button>
+  <button class="primary" onclick="refreshData()">刷新数据</button>
+  <input type="text" id="search-input" placeholder="搜索知识库..." onkeydown="if(event.key==='Enter')doSearch()">
+  <button onclick="doSearch()">搜索</button>
+  <span class="project-info" id="project-info"></span>
+  <div class="toolbar-separator"></div>
+  <label class="auto-refresh-toggle" title="开启后 WikiBrowser 会定期检测 wiki_data.js 是否已更新">
+    <input type="checkbox" id="auto-refresh-check" checked onchange="toggleAutoRefresh()">
+    <span>自动检测更新</span>
+  </label>
+  <span class="watch-status" id="watch-status" title="自动检测状态">检测中</span>
+  <div class="view-btns">
+    <button id="view-browse" class="active" onclick="switchView('browse')">浏览</button>
+    <button id="view-graph" onclick="switchView('graph')">图谱</button>
+    <button id="view-index" onclick="switchView('index')">索引</button>
+    <button id="view-log" onclick="switchView('log')">日志</button>
+  </div>
+</div>
+
+<div class="main" id="main-area">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <h3>文件树</h3>
+      <span class="collapse-all" onclick="toggleAllFolders(false)" title="折叠全部">折叠全部</span>
+    </div>
+    <div class="file-tree" id="file-tree"></div>
+  </div>
+  <div class="content" id="content-area">
+    <div class="content-header" id="content-header">
+      <div class="breadcrumb" id="breadcrumb"></div>
+    </div>
+    <div class="content-body">
+      <div class="markdown-body" id="markdown-body"></div>
+      <div class="toc-panel" id="toc-panel">
+        <h4>页面目录</h4>
+        <ul id="toc-list"></ul>
+      </div>
+    </div>
+  </div>
+  <div class="graph-panel" id="graph-panel">
+    <div class="graph-header">
+      <h3>知识图谱</h3>
+      <div class="graph-actions">
+        <button onclick="graphZoom(1.3)" title="放大">+</button>
+        <button onclick="graphZoom(0.7)" title="缩小">-</button>
+        <button onclick="graphResetView()" title="重置视图">重置</button>
+        <button onclick="switchView('browse')" title="返回浏览">返回浏览</button>
+      </div>
+    </div>
+    <canvas id="graph-canvas"></canvas>
+    <div class="graph-legend">
+      <div class="item"><div class="dot" style="background:#0969da"></div> wiki</div>
+      <div class="item"><div class="dot" style="background:#1a7f37"></div> raw</div>
+      <div class="item"><div class="dot" style="background:#9a6700"></div> logs</div>
+      <div class="item" style="color:#656d76"><span style="margin-right:4px">&#8212;</span> 链接</div>
+      <div class="graph-hint">拖拽平移 &middot; 滚轮缩放 &middot; 点击跳转</div>
+    </div>
+  </div>
+</div>
+
+<div class="back-to-top" id="back-to-top" onclick="scrollToTop()" title="回到顶部">&#8593;</div>
+
+<div class="status-bar" id="status-bar">
+  <span id="status-pages">页面: 0</span>
+  <span id="status-links">链接: 0</span>
+  <span id="status-file">当前: 未加载</span>
+  <span id="status-generated">数据: 未生成</span>
+  <span id="status-watch">检测: 未启动</span>
+</div>
+
+<div class="update-banner" id="update-banner">
+  <div class="banner-title">LLMWiki 已更新</div>
+  <div class="banner-desc" id="update-banner-desc">检测到新的 wiki 数据，点击刷新查看最新内容。</div>
+  <div class="banner-actions">
+    <button class="dismiss-btn" onclick="dismissUpdateBanner()">稍后</button>
+    <button class="refresh-btn" onclick="refreshPage()">立即刷新</button>
+  </div>
+</div>
+
+<script>
+// ==================== State ====================
+var allFiles = [];
+var currentFile = null;
+var currentView = "browse";
+var wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
+var historyStack = [];
+var historyIndex = -1;
+
+// Auto-refresh / watch state
+var WATCH_INTERVAL_MS = 10000;          // 默认轮询间隔 10 秒
+var watchTimer = null;
+var watchEnabled = true;
+var currentMaxMtime = null;             // 用于检测文件变化
+var updateDetected = false;
+var isLoading = false;
+
+// ==================== Init ====================
+document.addEventListener("DOMContentLoaded", function() {
+  // Restore user preference for auto-refresh
+  var saved = localStorage.getItem("wiki_auto_refresh");
+  if (saved !== null) {
+    watchEnabled = saved === "true";
+    var cb = document.getElementById("auto-refresh-check");
+    if (cb) cb.checked = watchEnabled;
+  }
+
+  loadWikiData();
+});
+
+function loadWikiData() {
+  if (isLoading) return;
+  isLoading = true;
+
+  // ===== 强制清除所有旧状态，防止缓存残留 =====
+  allFiles = [];
+  currentFile = null;
+  historyStack = [];
+  historyIndex = -1;
+  currentMaxMtime = null;
+  updateDetected = false;
+  window.WIKI_DATA = null;
+
+  setWatchStatus("加载中...", "ok");
+  document.getElementById("markdown-body").innerHTML =
+    '<div class="no-data"><h2>正在加载 LLMWiki 数据...</h2><p>正在从服务器动态读取文件，请稍候。</p></div>';
+
+  fetch("/api/files?t=" + Date.now() + "&_r=" + Math.random(), { cache: "no-store" })
+    .then(function(res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function(data) {
+      window.WIKI_DATA = data;  // 兼容可能依赖此变量的代码
+      initFromData(data);
+      initAutoRefresh();
+      isLoading = false;
+    })
+    .catch(function(err) {
+      isLoading = false;
+      showLoadError(err.message);
+      // 3 秒后自动重试
+      setTimeout(loadWikiData, 3000);
+    });
+}
+
+function showLoadError(msg) {
+  document.getElementById("markdown-body").innerHTML =
+    '<div class="no-data">' +
+    '<h2>无法加载 Wiki 数据</h2>' +
+    '<p>错误: ' + escapeHtml(msg) + '</p>' +
+    '<p>请确保 <code>wiki_server.py</code> 正在运行，然后点击刷新。</p>' +
+    '<button onclick="refreshData()">刷新</button>' +
+    '</div>';
+  document.getElementById("project-info").textContent = "未连接";
+  document.getElementById("breadcrumb").innerHTML = "";
+  setWatchStatus("连接失败", "warn");
+}
+
+function escapeHtml(s) {
+  var div = document.createElement("div");
+  div.appendChild(document.createTextNode(s));
+  return div.innerHTML;
+}
+
+function initFromData(data) {
+  allFiles = data.files.map(function(f) {
+    return { path: f.path, name: f.name, content: f.content, size: f.size, modified: f.modified };
+  });
+  currentMaxMtime = data.maxMtime || null;
+  var rootName = (data.wikiRoot || "LLMWiki").split("/").pop();
+  document.getElementById("project-info").textContent = rootName + " (" + allFiles.length + " 页)";
+  var now = new Date();
+  var ts = now.getFullYear() + "-" + String(now.getMonth()+1).padStart(2,"0") + "-" + String(now.getDate()).padStart(2,"0") + " " + String(now.getHours()).padStart(2,"0") + ":" + String(now.getMinutes()).padStart(2,"0") + ":" + String(now.getSeconds()).padStart(2,"0");
+  document.getElementById("status-generated").textContent = "数据: " + (data.generatedAt || "实时") + " | 页面加载: " + ts;
+  buildTree();
+  updateStatus();
+  showDashboard();
+}
+
+// ==================== Dashboard ====================
+function showDashboard() {
+  currentFile = null;
+  updateBreadcrumb([]);
+  highlightTreeItem(null);
+  var groups = {};
+  allFiles.forEach(function(f) {
+    var g = f.path.split("/")[0];
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(f);
+  });
+  var groupMeta = {
+    "wiki": { title: "Wiki 知识层", desc: "AI 维护的项目知识：模块说明、API 参考、设计决策、经验教训等", icon: "&#128218;", class: "wiki" },
+    "raw": { title: "Raw 原始资料", desc: "开发团队 Skill 规范、第三方技术知识、代码快照、历史记录", icon: "&#128230;", class: "raw" },
+    "logs": { title: "Logs 索引日志", desc: "全库内容索引与变更日志", icon: "&#128196;", class: "logs" }
+  };
+  var totalLinks = 0;
+  allFiles.forEach(function(f) {
+    var matches = f.content.match(wikiLinkRegex);
+    if (matches) totalLinks += matches.length;
+  });
+
+  var html = ['<div class="dashboard">'];
+  html.push('<div class="dashboard-hero">');
+  html.push('<h1>AdaWeldSystem LLM Wiki</h1>');
+  html.push('<p>基于 Andrej Karpathy LLM Wiki 理论构建的知识库。左侧浏览文件树，顶部搜索全文，右侧查看页面目录，图谱视图展示页面链接关系。</p>');
+  html.push('</div>');
+
+  html.push('<div class="dashboard-stats">');
+  html.push('<div class="stat-card"><div class="value">' + allFiles.length + '</div><div class="label">总页面</div></div>');
+  html.push('<div class="stat-card"><div class="value">' + totalLinks + '</div><div class="label">双向链接</div></div>');
+  html.push('<div class="stat-card"><div class="value">' + Object.keys(groups).length + '</div><div class="label">分类</div></div>');
+  html.push('</div>');
+
+  html.push('<div class="dashboard-grid">');
+  Object.keys(groups).forEach(function(g) {
+    var meta = groupMeta[g] || { title: g, desc: "", icon: "&#128451;", class: "" };
+    var firstFile = groups[g][0];
+    html.push('<div class="dash-card ' + meta.class + '" onclick="openCategory(\'' + g + '\')">');
+    html.push('<div class="card-header"><div class="card-icon">' + meta.icon + '</div><div class="card-title">' + escapeHtml(meta.title) + '</div></div>');
+    html.push('<div class="card-desc">' + escapeHtml(meta.desc) + '</div>');
+    html.push('<div class="card-meta">' + groups[g].length + ' 个页面 &rarr;</div>');
+    html.push('</div>');
+  });
+  html.push('</div>');
+
+  // Recent / important quick links
+  var quick = [];
+  var idx = findFile("logs/index.md");
+  if (idx) quick.push({ path: idx.path, title: "&#128204; 全库索引" });
+  var log = findFile("logs/log.md");
+  if (log) quick.push({ path: log.path, title: "&#128197; 变更日志" });
+  var overview = findFile("wiki/project/overview.md");
+  if (overview) quick.push({ path: overview.path, title: "&#128640; 项目总览" });
+  var arch = findFile("wiki/project/architecture.md");
+  if (arch) quick.push({ path: arch.path, title: "&#127959; 系统架构" });
+  var agents = findFile("AGENTS.md");
+  if (agents) quick.push({ path: agents.path, title: "&#129302; AI 工作规则" });
+
+  if (quick.length > 0) {
+    html.push('<div class="quick-links">');
+    html.push('<h3>快速入口</h3>');
+    html.push('<div class="quick-links-grid">');
+    quick.forEach(function(q) {
+      html.push('<div class="quick-link" onclick="openFileByPath(\'' + q.path + '\')">' + q.title + '</div>');
+    });
+    html.push('</div></div>');
+  }
+
+  html.push('</div>');
+  document.getElementById("markdown-body").innerHTML = html.join("\n");
+  document.getElementById("status-file").textContent = "当前: 首页";
+  buildToc([]);
+  switchView("browse");
+}
+
+function openCategory(group) {
+  var files = allFiles.filter(function(f) { return f.path.indexOf(group + "/") === 0; });
+  if (files.length === 0) return;
+  var first = files[0];
+  // Prefer index files
+  var idx = files.find(function(f) { return f.name.toLowerCase() === "index"; });
+  if (idx) first = idx;
+  openFile(first);
+  switchView("browse");
+}
+
+// ==================== Tree ====================
+
+// SVG 图标定义（清晰、统一，替代易混淆的 emoji）
+var SVG_FOLDER = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5L5.5 1H1.75z"/></svg>';
+var SVG_FILE = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M9.5 1H3.75A1.75 1.75 0 0 0 2 2.75v10.5c0 .966.784 1.75 1.75 1.75h8.5A1.75 1.75 0 0 0 14 13.25V5.5L9.5 1zm0 1.5L12.5 5.5H9.5V2.5zM3.75 2.5h4.25v3.5a1 1 0 0 0 1 1h4v6.25a.25.25 0 0 1-.25.25h-9a.25.25 0 0 1-.25-.25V2.75a.25.25 0 0 1 .25-.25z"/></svg>';
+
+// 根据文件路径返回分类（用于着色），分类对应 CSS .file-cat-xxx
+function getFileCategory(path) {
+  var p = path.toLowerCase();
+  if (p.indexOf("index") >= 0) return "index";
+  if (p.indexOf("log") >= 0) return "log";
+  if (p.indexOf("decisions/") >= 0 || /^adr-/i.test(p.split("/").pop())) return "adr";
+  if (p.indexOf("lessons/") >= 0) return "lesson";
+  if (p.indexOf("api/") >= 0) return "api";
+  if (p.indexOf("skills/") >= 0) return "skill";
+  if (p.indexOf("modules/") >= 0) return "module";
+  if (p.indexOf("project/") >= 0) return "project";
+  if (p.indexOf("people/") >= 0) return "people";
+  if (p.indexOf("raw/") >= 0 || p.indexOf("history") >= 0 || p.indexOf("knowledge") >= 0) return "raw";
+  return "file";
+}
+
+function buildTree() {
+  var tree = document.getElementById("file-tree");
+  tree.innerHTML = "";
+  var rootUl = document.createElement("ul");
+  tree.appendChild(rootUl);
+  var nodeMap = { "": rootUl };
+
+  allFiles.forEach(function(f) {
+    var parts = f.path.split("/");
+    var parentPath = "";
+    for (var i = 0; i < parts.length - 1; i++) {
+      var currentPath = parts.slice(0, i + 1).join("/");
+      if (!nodeMap[currentPath]) {
+        var folderLi = document.createElement("li");
+        var row = document.createElement("div");
+        row.className = "tree-row";
+        var toggle = document.createElement("span");
+        toggle.className = "toggle expanded";
+        toggle.onclick = function(e) {
+          e.stopPropagation();
+          toggleFolder(this);
+        };
+        var icon = document.createElement("span");
+        icon.className = "icon folder";
+        icon.innerHTML = SVG_FOLDER;
+        var label = document.createElement("span");
+        label.className = "label";
+        label.textContent = parts[i];
+        row.appendChild(toggle);
+        row.appendChild(icon);
+        row.appendChild(label);
+        folderLi.appendChild(row);
+        var childrenUl = document.createElement("ul");
+        childrenUl.className = "tree-children";
+        folderLi.appendChild(childrenUl);
+        nodeMap[parentPath].appendChild(folderLi);
+        nodeMap[currentPath] = childrenUl;
+      }
+      parentPath = currentPath;
+    }
+    var fileLi = document.createElement("li");
+    var fileRow = document.createElement("div");
+    fileRow.className = "tree-row";
+    fileRow.setAttribute("data-path", f.path);
+    fileRow.onclick = function() {
+      var path = this.getAttribute("data-path");
+      var wf = findFile(path);
+      if (wf) { openFile(wf); switchView("browse"); }
+    };
+    var leafToggle = document.createElement("span");
+    leafToggle.className = "toggle leaf";
+    var cat = getFileCategory(f.path);
+    var fileIcon = document.createElement("span");
+    fileIcon.className = "icon file file-cat-" + cat;
+    fileIcon.innerHTML = SVG_FILE;
+    var fileLabel = document.createElement("span");
+    fileLabel.className = "label";
+    fileLabel.textContent = f.name;
+    fileRow.appendChild(leafToggle);
+    fileRow.appendChild(fileIcon);
+    fileRow.appendChild(fileLabel);
+    fileLi.appendChild(fileRow);
+    nodeMap[parentPath].appendChild(fileLi);
+  });
+}
+
+function toggleFolder(toggle) {
+  var children = toggle.parentNode.nextElementSibling;
+  if (children) {
+    children.classList.toggle("hidden");
+    toggle.classList.toggle("collapsed");
+    toggle.classList.toggle("expanded");
+  }
+}
+
+function toggleAllFolders(expand) {
+  var toggles = document.querySelectorAll(".tree-row .toggle");
+  toggles.forEach(function(t) {
+    if (t.classList.contains("leaf")) return;
+    var children = t.parentNode.nextElementSibling;
+    if (!children) return;
+    var shouldExpand = expand !== false;
+    children.classList.toggle("hidden", !shouldExpand);
+    t.classList.toggle("collapsed", !shouldExpand);
+    t.classList.toggle("expanded", shouldExpand);
+  });
+}
+
+function highlightTreeItem(path) {
+  var rows = document.querySelectorAll(".tree-row");
+  rows.forEach(function(row) {
+    row.classList.remove("active");
+    if (path && row.getAttribute("data-path") === path) row.classList.add("active");
+  });
+}
+
+// ==================== File Open ====================
+function openFile(wf) {
+  if (!wf) return;
+  currentFile = wf;
+  document.getElementById("markdown-body").innerHTML = renderMarkdown(wf.content);
+  document.getElementById("status-file").textContent = "当前: " + wf.path;
+  updateBreadcrumb(wf.path.split("/"));
+  highlightTreeItem(wf.path);
+  bindWikiLinks();
+  buildTocFromContent();
+  bindBackToTop();
+}
+
+function updateBreadcrumb(parts) {
+  var bc = document.getElementById("breadcrumb");
+  if (!parts || parts.length === 0) {
+    bc.innerHTML = "<span>首页</span>";
+    return;
+  }
+  var html = ['<a onclick="showDashboard()">首页</a>'];
+  var accum = "";
+  parts.forEach(function(part, idx) {
+    accum = accum ? accum + "/" + part : part;
+    var isLast = idx === parts.length - 1;
+    html.push('<span class="sep">/</span>');
+    if (isLast) {
+      html.push('<span>' + escapeHtml(part) + '</span>');
+    } else {
+      html.push('<a onclick="openPath(\'' + accum + '\')">' + escapeHtml(part) + '</a>');
+    }
+  });
+  bc.innerHTML = html.join("");
+}
+
+function openPath(path) {
+  // 如果 path 是文件夹，找到该文件夹下的第一个文件或 index
+  var candidates = allFiles.filter(function(f) { return f.path.indexOf(path + "/") === 0; });
+  if (candidates.length === 0) return;
+  var idx = candidates.find(function(f) { return f.name.toLowerCase() === "index"; });
+  openFile(idx || candidates[0]);
+  switchView("browse");
+}
+
+function openFileByPath(path) { var f = findFile(path); if (f) { openFile(f); switchView("browse"); } }
+
+function bindWikiLinks() {
+  var links = document.querySelectorAll("a.wiki-link");
+  links.forEach(function(link) {
+    link.onclick = function(e) {
+      e.preventDefault();
+      var targetName = this.getAttribute("data-wiki-target");
+      var target = findFileByName(targetName);
+      if (target) {
+        openFile(target);
+      } else {
+        alert("未找到页面: [[" + targetName + "]]");
+      }
+    };
+  });
+}
+
+function findFile(path) {
+  for (var i = 0; i < allFiles.length; i++) {
+    if (allFiles[i].path === path) return allFiles[i];
+  }
+  return null;
+}
+
+function findFileByName(name) {
+  var lower = name.toLowerCase();
+  for (var i = 0; i < allFiles.length; i++) {
+    if (allFiles[i].name.toLowerCase() === lower) return allFiles[i];
+  }
+  for (var i = 0; i < allFiles.length; i++) {
+    if (allFiles[i].path.toLowerCase().indexOf(lower) >= 0) return allFiles[i];
+  }
+  return null;
+}
+
+// ==================== TOC ====================
+function buildTocFromContent() {
+  var body = document.getElementById("markdown-body");
+  var headers = body.querySelectorAll("h1, h2, h3, h4");
+  var toc = [];
+  headers.forEach(function(h, idx) {
+    if (!h.id) h.id = "toc-" + idx;
+    var level = parseInt(h.tagName[1], 10);
+    toc.push({ level: level, text: h.textContent.replace("#", "").trim(), id: h.id });
+  });
+  buildToc(toc);
+}
+
+function buildToc(toc) {
+  var panel = document.getElementById("toc-panel");
+  var list = document.getElementById("toc-list");
+  if (toc.length === 0) {
+    panel.classList.add("empty");
+    list.innerHTML = "";
+    return;
+  }
+  panel.classList.remove("empty");
+  var html = [];
+  toc.forEach(function(item) {
+    html.push('<li class="level-' + item.level + '"><a href="#' + item.id + '" onclick="scrollToToc(event, \'' + item.id + '\')">' + escapeHtml(item.text) + '</a></li>');
+  });
+  list.innerHTML = html.join("\n");
+}
+
+function scrollToToc(e, id) {
+  if (e) e.preventDefault();
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function bindBackToTop() {
+  var body = document.getElementById("markdown-body");
+  var btn = document.getElementById("back-to-top");
+  body.onscroll = function() {
+    if (body.scrollTop > 200) btn.classList.add("visible");
+    else btn.classList.remove("visible");
+    updateTocActive();
+  };
+}
+
+function scrollToTop() {
+  document.getElementById("markdown-body").scrollTop = 0;
+}
+
+function updateTocActive() {
+  var body = document.getElementById("markdown-body");
+  var headers = body.querySelectorAll("h1, h2, h3, h4");
+  var top = body.scrollTop + 30;
+  var activeId = null;
+  headers.forEach(function(h) {
+    if (h.offsetTop <= top) activeId = h.id;
+  });
+  if (!activeId) return;
+  var links = document.querySelectorAll("#toc-list a");
+  links.forEach(function(a) {
+    a.classList.toggle("active", a.getAttribute("href") === "#" + activeId);
+  });
+}
+
+// ==================== Markdown Renderer ====================
+var headerCounter = 0;
+function renderMarkdown(text) {
+  if (!text) return "";
+  headerCounter = 0;
+  var lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  var result = [];
+  var i = 0;
+  while (i < lines.length) {
+    var line = lines[i];
+    var trimmed = line.replace(/^\s+/, "");
+    if (!trimmed) { result.push("<br/>"); i++; continue; }
+    if (/^\s*([-]{3,}|\*{3,})\s*$/.test(trimmed)) { result.push("<hr/>"); i++; continue; }
+    if (trimmed.indexOf("```") === 0) {
+      var lang = trimmed.substring(3).trim();
+      i++; var codeLines = [];
+      while (i < lines.length && lines[i].trim().indexOf("```") !== 0) { codeLines.push(lines[i]); i++; }
+      i++;
+      var langLabel = lang ? '<div class="code-lang">' + escapeHtml(lang) + '</div>' : "";
+      result.push("<pre>" + langLabel + "<code>" + escapeHtml(codeLines.join("\n")) + "</code></pre>"); continue;
+    }
+    var hMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (hMatch) {
+      var level = hMatch[1].length;
+      var id = "toc-" + (headerCounter++);
+      result.push('<h' + level + ' id="' + id + '"><a href="#' + id + '" class="header-anchor">#</a>' + processInline(hMatch[2]) + '</h' + level + '>');
+      i++; continue;
+    }
+    if (trimmed.indexOf(">") === 0) {
+      var quoteLines = [];
+      while (i < lines.length && lines[i].trim().indexOf(">") === 0) {
+        var q = lines[i].trim();
+        if (q.indexOf("> ") === 0) q = q.substring(2);
+        else if (q.indexOf(">") === 0) q = q.substring(1);
+        quoteLines.push(q); i++;
+      }
+      result.push("<blockquote>" + processInline(quoteLines.join("\n")).replace(/\n/g, "<br/>") + "</blockquote>");
+      continue;
+    }
+    if (isTableLine(trimmed) && i + 1 < lines.length && isTableSeparator(lines[i + 1].trim())) {
+      var tableResult = renderTable(lines, i);
+      result.push(tableResult.html);
+      i = tableResult.nextIdx;
+      continue;
+    }
+    if (/^\d+\.\s+/.test(trimmed)) {
+      var listResult = renderList(lines, i, true);
+      result.push(listResult.html);
+      i = listResult.nextIdx;
+      continue;
+    }
+    if (/^[-\*+]\s+/.test(trimmed)) {
+      var listResult = renderList(lines, i, false);
+      result.push(listResult.html);
+      i = listResult.nextIdx;
+      continue;
+    }
+    result.push("<p>" + processInline(line) + "</p>");
+    i++;
+  }
+  return result.join("\n");
+}
+
+function processInline(text) {
+  text = text.replace(/!\[([^\]]*)\]\(([^\)]+)\)/g, function(m, alt, src) {
+    return '<img src="' + escapeHtml(src) + '" alt="' + escapeHtml(alt) + '" />';
+  });
+  text = text.replace(/\[\[([^\]]+)\]\]/g, function(m, name) {
+    var target = findFileByName(name);
+    var cls = target ? "wiki-link" : "wiki-link missing";
+    return '<a class="' + cls + '" data-wiki-target="' + escapeHtml(name) + '">[[' + escapeHtml(name) + ']]</a>';
+  });
+  text = text.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, function(m, linkText, url) {
+    return '<a href="' + escapeHtml(url) + '" target="_blank">' + escapeHtml(linkText) + '</a>';
+  });
+  text = text.replace(/\*\*(.+?)\*\*/g, function(m, c) { return "<strong>" + escapeHtml(c) + "</strong>"; });
+  text = text.replace(/~~(.+?)~~/g, function(m, c) { return "<del>" + escapeHtml(c) + "</del>"; });
+  text = text.replace(/\*(.+?)\*/g, function(m, c) { return "<em>" + escapeHtml(c) + "</em>"; });
+  text = text.replace(/`([^`]+)`/g, function(m, c) { return "<code>" + escapeHtml(c) + "</code>"; });
+  return text;
+}
+
+function isTableLine(line) { return line.indexOf("|") === 0; }
+function isTableSeparator(line) {
+  if (line.indexOf("|") !== 0) return false;
+  var stripped = line.replace(/\|/g, "").trim();
+  return /^[\s\-:]+$/.test(stripped);
+}
+function splitTableCells(line) {
+  var trimmed = line.trim();
+  if (trimmed.charAt(0) === "|") trimmed = trimmed.substring(1);
+  if (trimmed.charAt(trimmed.length - 1) === "|") trimmed = trimmed.substring(0, trimmed.length - 1);
+  return trimmed.split("|");
+}
+function renderTable(lines, startIdx) {
+  var table = ["<table>"];
+  var headerCells = splitTableCells(lines[startIdx].trim());
+  table.push("<tr>");
+  headerCells.forEach(function(cell) { table.push("<th>" + processInline(cell.trim()) + "</th>"); });
+  table.push("</tr>");
+  var i = startIdx + 2;
+  while (i < lines.length && isTableLine(lines[i].trim())) {
+    table.push("<tr>");
+    splitTableCells(lines[i].trim()).forEach(function(cell) {
+      table.push("<td>" + processInline(cell.trim()) + "</td>");
+    });
+    table.push("</tr>"); i++;
+  }
+  table.push("</table>");
+  return { html: table.join("\n"), nextIdx: i };
+}
+function renderList(lines, startIdx, ordered) {
+  var tag = ordered ? "ol" : "ul";
+  var list = ["<" + tag + ">"];
+  var i = startIdx;
+  while (i < lines.length) {
+    var line = lines[i];
+    var trimmed = line.trim();
+    if (ordered) {
+      var m = trimmed.match(/^(\d+)\.\s+(.*)$/);
+      if (!m) break;
+      list.push(renderListItem(m[2]));
+    } else {
+      if (!/^[-\*+]\s+/.test(trimmed)) break;
+      list.push(renderListItem(trimmed.substring(2)));
+    }
+    i++;
+  }
+  list.push("</" + tag + ">");
+  return { html: list.join("\n"), nextIdx: i };
+}
+function renderListItem(text) {
+  if (/^\[([ xX])\]\s+/.test(text)) {
+    var checked = text.charAt(1).toLowerCase() === "x";
+    return '<li class="task-list-item"><input type="checkbox" ' + (checked ? "checked" : "") + ' disabled /> ' + processInline(text.substring(3)) + '</li>';
+  }
+  return "<li>" + processInline(text) + "</li>";
+}
+function escapeHtml(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ==================== View Switch ====================
+function switchView(view) {
+  currentView = view;
+  var mainArea = document.getElementById("main-area");
+  mainArea.classList.toggle("view-graph", view === "graph");
+  document.getElementById("view-browse").classList.toggle("active", view === "browse" || view === "index" || view === "log");
+  document.getElementById("view-graph").classList.toggle("active", view === "graph");
+  document.getElementById("view-index").classList.toggle("active", view === "index");
+  document.getElementById("view-log").classList.toggle("active", view === "log");
+  var graphPanel = document.getElementById("graph-panel");
+  if (view === "graph") { graphPanel.classList.add("show"); drawGraph(); }
+  else { graphPanel.classList.remove("show"); }
+  if (view === "index") {
+    var idx = findFile("logs/index.md");
+    if (idx) openFile(idx);
+    else document.getElementById("markdown-body").innerHTML = "<p>未找到 logs/index.md</p>";
+  } else if (view === "log") {
+    var log = findFile("logs/log.md");
+    if (log) openFile(log);
+    else document.getElementById("markdown-body").innerHTML = "<p>未找到 logs/log.md</p>";
+  }
+}
+
+// ==================== Search ====================
+function doSearch() {
+  var query = document.getElementById("search-input").value.trim();
+  var lowerQuery = query.toLowerCase();
+  if (!query || query.length < 2) { alert("请输入至少 2 个字符"); return; }
+  var results = [];
+  allFiles.forEach(function(f) {
+    var nameLower = f.name.toLowerCase();
+    var contentLower = f.content.toLowerCase();
+    var nameMatch = nameLower.indexOf(lowerQuery) >= 0;
+    var contentIdx = contentLower.indexOf(lowerQuery);
+    if (nameMatch || contentIdx >= 0) {
+      var snippet = "";
+      if (contentIdx >= 0) {
+        var start = Math.max(0, contentIdx - 50);
+        var end = Math.min(f.content.length, contentIdx + 120);
+        snippet = f.content.substring(start, end);
+      }
+      results.push({ score: nameMatch ? 3 : 1, file: f, snippet: snippet, matchType: nameMatch ? "文件名" : "内容" });
+    }
+  });
+  if (results.length === 0) {
+    document.getElementById("markdown-body").innerHTML = '<div class="search-summary"><h2>无搜索结果</h2><p>未找到包含 <b>' + escapeHtml(query) + '</b> 的内容</p></div>';
+    updateBreadcrumb([]);
+    buildToc([]);
+    switchView("browse"); return;
+  }
+  results.sort(function(a, b) { return b.score - a.score; });
+  var html = ['<div class="search-summary">'];
+  html.push('<h2>搜索结果: ' + escapeHtml(query) + '</h2>');
+  html.push('<p>共 ' + results.length + ' 条匹配</p>');
+  html.push('</div>');
+  results.slice(0, 50).forEach(function(r) {
+    html.push('<div class="search-result-item" onclick="openFileByPath(\'' + r.file.path + '\')">');
+    html.push('<div class="title"><span class="match-type">' + r.matchType + '</span>' + escapeHtml(r.file.name) + '</div>');
+    html.push('<div class="path">' + escapeHtml(r.file.path) + '</div>');
+    if (r.snippet) {
+      html.push('<div class="snippet">...' + highlightQuery(r.snippet, query) + '...</div>');
+    }
+    html.push('</div>');
+  });
+  document.getElementById("markdown-body").innerHTML = html.join("\n");
+  updateBreadcrumb(["搜索: " + query]);
+  buildToc([]);
+  switchView("browse");
+}
+
+function highlightQuery(snippet, query) {
+  var lower = query.toLowerCase();
+  var idx = snippet.toLowerCase().indexOf(lower);
+  if (idx < 0) return escapeHtml(snippet);
+  var before = snippet.substring(0, idx);
+  var match = snippet.substring(idx, idx + query.length);
+  var after = snippet.substring(idx + query.length);
+  return escapeHtml(before) + '<span class="highlight">' + escapeHtml(match) + '</span>' + escapeHtml(after);
+}
+
+// ==================== Graph (Obsidian-style) ====================
+var graphNodes = {};
+var graphEdges = [];
+var graphAnimId = null;
+var graphHoverId = null;       // 当前悬停的节点 path
+var graphPanX = 0, graphPanY = 0, graphScale = 1;
+var graphIsDragging = false, graphDragStartX = 0, graphDragStartY = 0;
+var graphIsRunning = false;
+
+// Light-theme color palette (GitHub-style)
+var GRAPH_COLORS = {
+  wiki: "#0969da",
+  raw:  "#1a7f37",
+  logs: "#9a6700",
+  default: "#888888"
+};
+var GRAPH_HOVER = "#cf222e";
+var GRAPH_EDGE_DEFAULT = "rgba(208,215,222,0.5)";
+var GRAPH_EDGE_HIGHLIGHT = "#cf222e";
+var GRAPH_LABEL_BG = "rgba(255,255,255,0.92)";
+var GRAPH_TITLE_BG = "rgba(255,255,255,0.95)";
+
+function graphZoom(factor) {
+  graphScale = Math.max(0.15, Math.min(6, graphScale * factor));
+  renderGraphFrame();
+}
+
+function graphResetView() {
+  graphScale = 1; graphPanX = 0; graphPanY = 0;
+  renderGraphFrame();
+}
+
+function getConnectedIds(path) {
+  var connected = {};
+  graphEdges.forEach(function(e) {
+    if (e[0] === path) connected[e[1]] = true;
+    if (e[1] === path) connected[e[0]] = true;
+  });
+  return connected;
+}
+
+function drawGraph() {
+  var canvas = document.getElementById("graph-canvas");
+  var panel = document.getElementById("graph-panel");
+  if (graphAnimId) cancelAnimationFrame(graphAnimId);
+  graphIsRunning = false;
+
+  setTimeout(function() {
+    var w = panel.clientWidth;
+    var h = panel.clientHeight - 90;
+    if (w <= 0 || h <= 0) return;
+    canvas.width = w;
+    canvas.height = h;
+    if (allFiles.length === 0) return;
+
+    // Build nodes & edges
+    graphNodes = {};
+    graphEdges = [];
+    allFiles.forEach(function(f) {
+      graphNodes[f.path] = {
+        path: f.path,
+        label: f.name,
+        group: f.path.split("/")[0],
+        x: 0, y: 0,
+        vx: 0, vy: 0
+      };
+      var matches = f.content.match(wikiLinkRegex);
+      if (matches) {
+        matches.forEach(function(m) {
+          var targetName = m.substring(2, m.length - 2);
+          var target = findFileByName(targetName);
+          if (target && target.path !== f.path) {
+            // avoid duplicate edges
+            var exists = graphEdges.some(function(e) {
+              return (e[0] === f.path && e[1] === target.path) ||
+                     (e[0] === target.path && e[1] === f.path);
+            });
+            if (!exists) graphEdges.push([f.path, target.path]);
+          }
+        });
+      }
+    });
+
+    var ids = Object.keys(graphNodes);
+    var cx = w / 2, cy = h / 2;
+
+    // Initialize positions: random within viewport
+    ids.forEach(function(id) {
+      var n = graphNodes[id];
+      n.x = cx + (Math.random() - 0.5) * w * 0.6;
+      n.y = cy + (Math.random() - 0.5) * h * 0.6;
+      n.vx = 0; n.vy = 0;
+    });
+
+    // Adaptive iterations based on node count
+    var maxIter = Math.max(300, Math.min(800, ids.length * 8));
+    var iter = 0;
+
+    function step() {
+      if (iter >= maxIter) { renderGraphFrame(); return; }
+
+      // Repulsion (all pairs)
+      for (var i = 0; i < ids.length; i++) {
+        for (var j = i + 1; j < ids.length; j++) {
+          var a = graphNodes[ids[i]];
+          var b = graphNodes[ids[j]];
+          var dx = a.x - b.x;
+          var dy = a.y - b.y;
+          var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          var force = 800 / (dist * dist) * 0.08;
+          var fx = (dx / dist) * force;
+          var fy = (dy / dist) * force;
+          a.vx += fx; a.vy += fy;
+          b.vx -= fx; b.vy -= fy;
+        }
+      }
+
+      // Attraction (connected pairs)
+      graphEdges.forEach(function(e) {
+        var a = graphNodes[e[0]];
+        var b = graphNodes[e[1]];
+        if (!a || !b) return;
+        var dx = b.x - a.x;
+        var dy = b.y - a.y;
+        var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        var ideal = Math.min(120, Math.max(60, Math.sqrt(w * h) / 12));
+        var force = (dist - ideal) * 0.006;
+        var fx = (dx / dist) * force;
+        var fy = (dy / dist) * force;
+        a.vx += fx; a.vy += fy;
+        b.vx -= fx; b.vy -= fy;
+      });
+
+      // Center gravity
+      ids.forEach(function(id) {
+        var n = graphNodes[id];
+        n.vx += (cx - n.x) * 0.0008;
+        n.vy += (cy - n.y) * 0.0008;
+      });
+
+      // Update positions
+      ids.forEach(function(id) {
+        var n = graphNodes[id];
+        n.x += n.vx;
+        n.y += n.vy;
+        n.vx *= 0.6;
+        n.vy *= 0.6;
+        // Soft boundary
+        var margin = 50;
+        if (n.x < margin) n.vx += 0.5;
+        if (n.x > w - margin) n.vx -= 0.5;
+        if (n.y < margin) n.vy += 0.5;
+        if (n.y > h - margin) n.vy -= 0.5;
+      });
+
+      iter++;
+      if (iter % 4 === 0) renderGraphFrame();
+      graphAnimId = requestAnimationFrame(step);
+    }
+
+    graphIsRunning = true;
+    graphAnimId = requestAnimationFrame(step);
+
+    // ---- Mouse events ----
+    canvas.onmousedown = function(e) {
+      if (graphHoverId) return;
+      graphIsDragging = true;
+      graphDragStartX = e.clientX - graphPanX;
+      graphDragStartY = e.clientY - graphPanY;
+      canvas.style.cursor = "grabbing";
+    };
+    window.onmousemove = function(e) {
+      if (graphIsDragging) {
+        graphPanX = e.clientX - graphDragStartX;
+        graphPanY = e.clientY - graphDragStartY;
+        renderGraphFrame();
+      }
+    };
+    window.onmouseup = function() {
+      graphIsDragging = false;
+      canvas.style.cursor = graphHoverId ? "pointer" : "grab";
+    };
+    canvas.onwheel = function(e) {
+      e.preventDefault();
+      var rect = canvas.getBoundingClientRect();
+      var mx = e.clientX - rect.left;
+      var my = e.clientY - rect.top;
+      var oldScale = graphScale;
+      var factor = e.deltaY < 0 ? 1.12 : 0.89;
+      graphScale = Math.max(0.15, Math.min(6, graphScale * factor));
+      graphPanX = mx - (mx - graphPanX) * (graphScale / oldScale);
+      graphPanY = my - (my - graphPanY) * (graphScale / oldScale);
+      renderGraphFrame();
+    };
+    canvas.onmousemove = function(e) {
+      var rect = canvas.getBoundingClientRect();
+      var mx = (e.clientX - rect.left - graphPanX) / graphScale;
+      var my = (e.clientY - rect.top - graphPanY) / graphScale;
+      var found = null;
+      Object.keys(graphNodes).forEach(function(id) {
+        var n = graphNodes[id];
+        var dx = mx - n.x, dy = my - n.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 12) found = id;
+      });
+      if (found !== graphHoverId) {
+        graphHoverId = found;
+        canvas.style.cursor = found ? "pointer" : (graphIsDragging ? "grabbing" : "grab");
+        renderGraphFrame();
+      }
+    };
+    canvas.onclick = function(e) {
+      if (graphHoverId) {
+        var f = findFile(graphHoverId);
+        if (f) { openFile(f); switchView("browse"); }
+      }
+    };
+    canvas.onmouseleave = function() {
+      if (graphHoverId) {
+        graphHoverId = null;
+        renderGraphFrame();
+      }
+    };
+  }, 80);
+}
+
+function renderGraphFrame() {
+  var canvas = document.getElementById("graph-canvas");
+  if (!canvas) return;
+  var ctx = canvas.getContext("2d");
+  var w = canvas.width, h = canvas.height;
+  var nodes = graphNodes;
+  var edges = graphEdges;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(graphPanX, graphPanY);
+  ctx.scale(graphScale, graphScale);
+
+  // Compute highlighted connections
+  var highlightIds = {};
+  var highlightEdges = {};
+  if (graphHoverId) {
+    highlightIds[graphHoverId] = true;
+    graphEdges.forEach(function(e, ei) {
+      if (e[0] === graphHoverId || e[1] === graphHoverId) {
+        highlightIds[e[0]] = true;
+        highlightIds[e[1]] = true;
+        highlightEdges[ei] = true;
+      }
+    });
+  }
+
+  // Draw edges
+  edges.forEach(function(e, ei) {
+    var a = nodes[e[0]];
+    var b = nodes[e[1]];
+    if (!a || !b) return;
+    var isHighlight = highlightEdges[ei];
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    if (isHighlight) {
+      ctx.strokeStyle = GRAPH_EDGE_HIGHLIGHT;
+      ctx.lineWidth = 1.8;
+    } else {
+      ctx.strokeStyle = graphHoverId ? "rgba(208,215,222,0.2)" : GRAPH_EDGE_DEFAULT;
+      ctx.lineWidth = 0.7;
+    }
+    ctx.stroke();
+  });
+
+  // Draw nodes
+  Object.keys(nodes).forEach(function(id) {
+    var n = nodes[id];
+    var color = GRAPH_COLORS[n.group] || GRAPH_COLORS["default"];
+    var isHover = (graphHoverId === id);
+    var isConnected = highlightIds[id] && graphHoverId && !isHover;
+    var r = isHover ? 7 : (isConnected ? 5 : 3.5);
+
+    // Glow for hovered node
+    if (isHover) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, 14, 0, 2 * Math.PI);
+      ctx.fillStyle = "rgba(207,34,46,0.12)";
+      ctx.fill();
+    }
+
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+    if (isHover) {
+      ctx.fillStyle = GRAPH_HOVER;
+    } else if (isConnected) {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.9;
+    } else {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = (graphHoverId && !highlightIds[id]) ? 0.12 : 0.72;
+    }
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+
+    // Draw label for connected nodes only (hovered node gets its title drawn separately below)
+    if (isConnected) {
+      var label = n.label;
+      // Truncate long names for cleaner look
+      if (label.length > 22) label = label.substring(0, 20) + "...";
+      ctx.font = "11px \"Microsoft YaHei\", sans-serif";
+      var tw = ctx.measureText(label).width;
+      var lx = n.x + r + 6;
+      var ly = n.y + 4;
+      // Background pill
+      ctx.fillStyle = "#0969da";
+      ctx.globalAlpha = 0.88;
+      roundRectPath(ctx, lx - 5, ly - 13, tw + 10, 18, 4);
+      ctx.fill();
+      ctx.globalAlpha = 1.0;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(label, lx, ly);
+    }
+  });
+
+  // Draw hover node title (centered above node) — single label, no duplicate
+  if (graphHoverId && nodes[graphHoverId]) {
+    var hn = nodes[graphHoverId];
+    var title = hn.label;
+    ctx.font = "bold 13px \"Microsoft YaHei\", sans-serif";
+    var tw = ctx.measureText(title).width;
+    var px = hn.x - tw / 2;
+    var py = hn.y - 20;
+    // Shadow for depth
+    ctx.shadowColor = "rgba(0,0,0,0.15)";
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    // Background card
+    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = GRAPH_HOVER;
+    ctx.lineWidth = 1.5;
+    roundRectPath(ctx, px - 8, py - 13, tw + 16, 22, 6);
+    ctx.fill();
+    ctx.stroke();
+    // Reset shadow
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    // Title text
+    ctx.fillStyle = GRAPH_HOVER;
+    ctx.fillText(title, px, py + 3);
+  }
+
+  ctx.restore();
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return; }
+  r = Math.min(r, w / 2, h / 2);
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ==================== Status ====================
+function updateStatus() {
+  document.getElementById("status-pages").textContent = "页面: " + allFiles.length;
+  var linkCount = 0;
+  allFiles.forEach(function(f) {
+    var matches = f.content.match(wikiLinkRegex);
+    if (matches) linkCount += matches.length;
+  });
+  document.getElementById("status-links").textContent = "链接: " + linkCount;
+}
+
+function setWatchStatus(text, type) {
+  var el = document.getElementById("watch-status");
+  if (el) {
+    el.textContent = text;
+    el.className = "watch-status " + (type || "ok");
+  }
+  var statusText = "检测: " + text;
+  if (currentMaxMtime) statusText += " (实时)";
+  var watchEl = document.getElementById("status-watch");
+  if (watchEl) watchEl.textContent = statusText;
+}
+
+// ==================== Auto-refresh / Watch ====================
+function initAutoRefresh() {
+  if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  if (!watchEnabled) {
+    setWatchStatus("已关闭", "");
+    return;
+  }
+  // file:// 协议下 fetch 无法工作，给出友好提示
+  if (window.location.protocol === "file:") {
+    setWatchStatus("需HTTP服务", "warn");
+    document.getElementById("status-watch").title = "检测到当前通过 file:// 打开页面，浏览器无法直接轮询文件。请通过 localhost 或关闭自动检测。";
+    return;
+  }
+  setWatchStatus("检测中", "ok");
+  // 首次立即检测一次
+  setTimeout(checkForUpdates, 500);
+  watchTimer = setInterval(checkForUpdates, WATCH_INTERVAL_MS);
+}
+
+function toggleAutoRefresh() {
+  watchEnabled = document.getElementById("auto-refresh-check").checked;
+  localStorage.setItem("wiki_auto_refresh", watchEnabled ? "true" : "false");
+  initAutoRefresh();
+}
+
+function checkForUpdates() {
+  if (updateDetected) return;
+  fetch("/api/status?t=" + Date.now() + "&_r=" + Math.random(), { cache: "no-store" })
+    .then(function(res) { return res.json(); })
+    .then(function(status) {
+      var newMtime = status.maxMtime || 0;
+      if (!currentMaxMtime) {
+        currentMaxMtime = newMtime;
+        setWatchStatus("已同步", "ok");
+        return;
+      }
+      if (newMtime !== currentMaxMtime) {
+        onUpdateDetected(status);
+      } else {
+        setWatchStatus("已最新", "ok");
+      }
+    })
+    .catch(function(err) {
+      setWatchStatus("失败", "warn");
+      console.warn("WikiBrowser watch error:", err);
+    });
+}
+
+function onUpdateDetected(status) {
+  updateDetected = true;
+  if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  setWatchStatus("有更新", "warn");
+  showUpdateBanner(status);
+}
+
+function showUpdateBanner(status) {
+  var banner = document.getElementById("update-banner");
+  var desc = document.getElementById("update-banner-desc");
+  var timeStr = status.generatedAt || "";
+  desc.textContent = "检测到 LLMWiki 文件已更新" + (timeStr ? "（" + timeStr + "）" : "") + "，点击刷新查看最新内容。";
+  banner.classList.add("show");
+}
+
+function dismissUpdateBanner() {
+  var banner = document.getElementById("update-banner");
+  if (banner) banner.classList.remove("show");
+  updateDetected = false;
+  if (watchEnabled && !watchTimer) {
+    watchTimer = setInterval(checkForUpdates, WATCH_INTERVAL_MS * 3);
+  }
+}
+
+function refreshData() {
+  updateDetected = false;
+  if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
+  loadWikiData();
+}
+
+// ==================== Regenerate (now just refresh from API) ====================
+// 保留兼容，实际已改为从 API 动态刷新
+function regenerateData() {
+  refreshData();
+}
+</script>
+</body>
+</html>
