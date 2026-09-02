@@ -26,7 +26,7 @@ source: AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs
 | Panel 面板 | FlowPanel | 关键控件 | 用途 |
 |-----------|-----------|----------|------|
 | `panelCalib` 标定数据参数 | `flowPanelCalib` | `txtFrontOffset` / `txtAngle` / `txtScaleX` / `txtCenterX` / `txtCenterY` / `txtApproach`（`AntdUI.Input`）、`btnSaveCalib`（`AntdUI.Button`） | 写入 `MoveControlData.Instance`（见 [[api/MoveControlData]]） |
-| `panelSim` 模拟测试参数 | `flowPanelSim` | `cmbProfile`（`AntdUI.Select`：V型/U型/平直/随机）、`chkRandom`（`AntdUI.Checkbox`）、`cmbSimMode`（`AntdUI.Select`：关闭/A/B/C）、`txtStartX` / `txtSpeed` / `txtTargetDist`（`AntdUI.Input`）、`btnSaveSim` / `btnStartSim`（`AntdUI.Button`） | 写入 `SimulationWorkflow`（`SimStartX`/`SimSpeed`/`SimTargetDistance`/`CurrentSimMode`，[[api/SimulationWorkflow]]）并套用至 `VirtualCameraRun`（`CameraSelector.Active as VirtualCameraRun`，[[modules/VirtualCam]]） |
+| `panelSim` 模拟测试参数 | `flowPanelSim` | `cmbProfile`（`AntdUI.Select`：V型/U型/平直/随机）、`chkRandom`（`AntdUI.Checkbox`）、`cmbSimMode`（`AntdUI.Select`：关闭/A/B/C）、`txtStartX` / `txtSpeed` / `txtTargetDist`（`AntdUI.Input`）、`btnSaveSim` / `btnStartSim`（`AntdUI.Button`） | 写入 `DeviceControlWork`（`SimStartX`/`SimSpeed`/`SimTargetDistance`/`CurrentMode`，[[api/DeviceControlWork]]）并套用至 `VirtualCameraRun`（`CameraSelector.Active as VirtualCameraRun`，[[modules/VirtualCam]]） |
 | `panelAxis` 运动轴参数 | `flowPanelAxis` | `lblAxisTitle` / `lblAxisNote`（`AntdUI.Label`，占位） | 预留（待对接真实运动控制器，通过 [[api/MotionManager]] 管理） |
 
 **FlowPanel 配置规范**：`Align=TAlignFlow.Left`（左对齐流式）、`Gap=8`（控件间距）、`Padding=(10,4,10,4)`（内边距）、`Dock=Fill`；Label 统一尺寸 `Size=(150, 34)` + `TextAlign=MiddleLeft`；Input/Select 统一尺寸 `Size=(160, 32)`；Controls.Add 按「label→input」顺序成对添加，自动从左到右排列并换行。
@@ -38,15 +38,15 @@ source: AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs
 | 方法 | 说明 |
 |------|------|
 | `PopulateComboBoxItems()` | ctor 中填充 `cmbProfile` / `cmbSimMode` 下拉项 |
-| `LoadFromModel()` | 开启时从 `MoveControlData` / `SimulationWorkflow` / `VirtualCameraRun` 回填各控件 |
+| `LoadFromModel()` | 开启时从 `MoveControlData` / `DeviceControlWork`（模拟参数）/ `VirtualCameraRun` 回填各控件 |
 | `BtnSaveCalib_Click(object, EventArgs)` | 写回 `MoveControlData` 六项标定参数并调用 `MoveControlData.Instance.Save()` 落盘至 `Config/INI/MoveControlData.ini`，`Message.success(this, ...)` 提示 |
-| `BtnSaveSim_Click(object, EventArgs)` | 写回 `SimulationWorkflow` 模拟参数（含 SeamProfile/RandomMode 持久化代理）+ 应用 `VirtualCameraRun` 轮廓/随机设置，并调用 `SimulationWorkflow.Instance.Save()` 落盘至 `Config/INI/SimulationController.ini` |
-| `BtnStartSim_Click(object, EventArgs)` | 模拟流程启停总入口：开启时 `Enable(mode)` → 订阅线激光状态 → `StartLineLaserWithPending()` → V3跟踪工作流 → 按钮转「停止」；**启动任一步骤异常**由 `ShowSimErrorDialog` 将按钮转红色「清理异常」并弹 Modal，后续步骤以 `_simError` 短路；停止时**先退订事件再**反向停止三套流程（避免 `Stop` 触发 `StateChanged` 异步回调二次进入停止路径）→ `Disable()` → `ShowSimStopMessage`(Message 弹窗) + `LogSimStopSummary`(清晰停止原因) → 按钮恢复「开启模拟流程」。**清理分支兜底**：`_simError \|\| LineLaserWorkflow.State==ErrorAborted` 任一成立即进 `CleanupSimError()`（防异步事件使 `_simError` 错位导致不恢复） |
+| `BtnSaveSim_Click(object, EventArgs)` | 写回 `DeviceControlWork` 模拟参数（含 SeamProfile/RandomMode 持久化代理）+ 应用 `VirtualCameraRun` 轮廓/随机设置，并调用 `DeviceControlWork.Instance.SaveSimulation()` 落盘至 `Config/INI/SimulationController.ini` |
+| `BtnStartSim_Click(object, EventArgs)` | 模拟流程启停总入口：开启时 `EnableSimulation(mode)` → 订阅线激光状态 → `StartLineLaserWithPending()` → 运控跟踪工作流（`MotionControlWorkflow`）→ 按钮转「停止」；**启动任一步骤异常**由 `ShowSimErrorDialog` 将按钮转红色「清理异常」并弹 Modal，后续步骤以 `_simError` 短路；停止时**先退订事件再**反向停止三套流程（避免 `Stop` 触发 `StateChanged` 异步回调二次进入停止路径）→ `Disable()` → `ShowSimStopMessage`(Message 弹窗) + `LogSimStopSummary`(清晰停止原因) → 按钮恢复「开启模拟流程」。**清理分支兜底**：`_simError \|\| LineLaserWorkflow.State==ErrorAborted` 任一成立即进 `CleanupSimError()`（防异步事件使 `_simError` 错位导致不恢复） |
 | `SetSimButtonMode(SimButtonMode)` | 模拟按钮三态控制：Start(空闲/幽灵按钮Primary) / Stop(运行中/实心红背景Error) / Cleanup(异常终止/实心红背景Error)；通过 `Ghost + Type` 组合实现背景色切换（`Ghost=false` 时 `Type=Error` 才是红色实心背景） |
 | `CleanupSimError()` | **2026-08-27 修复**：清理异常并复位。各后端调用（`StopSimulationFlows`/`Reset`/`Disable`）各自独立 try/catch 记录，按钮复位 `SetSimButtonMode(Start)` 与 `ShowSimStopMessage`/`LogSimStopSummary` 均置于 **`finally`**，确保无论后端是否抛异常按钮**必定恢复默认态**且必出停止确认（解决「点击清理异常后无反应/不恢复」+「停止无清晰原因/无弹窗」） |
 | `ShowSimErrorDialog(string)` | **2026-08-27 新增/修正（13:47 修复）**：模拟异常统一提示（**需用户确认**）= `GlobalCommData.ShowLog` + `AntdUI.Modal.open(TType.Error)` 弹窗 + 按钮转红色「清理异常」（`ShowSimErrorButton`）；`InvokeRequired` 时 `BeginInvoke` 封送（异步，不阻塞工作流线程，见 [[guides/WinForms-UI-Threading]]）。区别于正常停止用 `AntdUI.Message`(无需确认)。**2026-08-27 13:47 修复**：`else`（UI 线程）分支 content 原误用未定义 `m`，已改为方法参数 `msg`；`Form.ActiveForm` 作 owner 合法，级联误报"Form→Target"消失，见 [[lessons/AntdUI-Modal-Config-Overload-Cascade]] |
 | `ShowSimStopMessage(string)` | **2026-08-27 新增**：正常停止提示（**无需确认**）= `GlobalCommData.ShowLog` + `AntdUI.Message.info` 弹窗（原因文本如「用户停止指令/焊缝行程完成/异常清理恢复」）；`InvokeRequired` 封送 |
-| `LogSimStopSummary(string)` | **2026-08-27 新增**：停止原因确认信息 = 汇总 `LineLaserWorkflow.State` / `LaserCamBoxTrackingWorkflow.State` / `MonitorCameraWorkflow.State` / `SimulationWorkflow` 模拟模式态，输出「人话」式停止原因（区别于底层「状态迁移」调试日志） |
+| `LogSimStopSummary(string)` | **2026-08-27 新增**：停止原因确认信息 = 汇总 `LineLaserWorkflow.WeldStatus` / `MotionControlWorkflow.WeldStatus` / `MonitorCameraWorkflow.WeldStatus` / `DeviceControlWork` 模拟模式态，输出「人话」式停止原因（区别于底层「状态迁移」调试日志） |
 | `ParseDouble(AntdUI.Input, double)` | 静态解析辅助，失败回退默认值 |
 
 > 事件绑定在设计器生成代码内：`btnSaveCalib.Click` / `btnSaveSim.Click` / `btnStartSim.Click` → 对应 handler。
@@ -60,7 +60,7 @@ source: AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs
 
 ## 协作
 
-- 上游：标定数据 → [[api/MoveControlData]]；模拟/轮廓 → [[api/SimulationWorkflow]] + [[api/VirtualCameraRun]]。
+- 上游：标定数据 → [[api/MoveControlData]]；模拟/轮廓 → [[api/DeviceControlWork]] + [[api/VirtualCameraRun]]。
 - 容器：[[modules/UIDesign]] 的 `NavPage` 参数界面实例（ControlPage）。
 
 ---

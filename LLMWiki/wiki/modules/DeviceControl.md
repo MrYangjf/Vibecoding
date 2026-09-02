@@ -23,7 +23,8 @@ source: AdaWeldSystem/MainDeviceControl/ 模块源码
 | `SubDeviceWeldStatus` | `Standby`(0)/`PreWork`(1)/`Starting`(2)/`Working`(3)/`Stopping`(4)/`ErrorAborted`(5)/`ManualStopped`(6) | 子设备焊接过程态（7 态） | 同上 | `Instance.WeldStatus` |
 | `MainDeviceStatus` | `Running`(0)/`Alarm`(1)/`EStop`(2)/`Stop`(3)/`NoReset`(4)/`Reseting`(5) | 主设备运行态（6 态，过程状态） | 同上 | `DeviceControlWork.Instance.Status` |
 
-- 旧四态 `DeviceState` 枚举、**已删除**；旧各工作流自有流程态枚举（`LineLaserWorkflowState`/`MonitorWorkflowState`/`LaserCamBoxWorkflowState`/`WeldParamControlWorkflowState`/`LaserWeldHeadWorkflowState`）**降为私有 `_phase`/`_flowState` 字段**，仅驱动 `FlowProcess()`，不再对外暴露；对外状态统一经 `SubDeviceWeldStatus` 承载。
+- 旧四态 `DeviceState` 枚举**已删除**。
+- 旧各工作流自有流程态枚举（`LineLaserWorkflowState`/`MonitorWorkflowState`/`LaserCamBoxWorkflowState`/`WeldParamControlWorkflowState`/`LaserWeldHeadWorkflowState`）**降为私有 `_phase`/`_flowState` 字段**，仅驱动 `FlowProcess()`，不再对外暴露；对外状态统一经 `SubDeviceWeldStatus` 承载。
 - `MainDeviceFlowState` 枚举（机器人 Pose 驱动的整机流程态）**已删除**，由 `MainDeviceStatus` 取代。
 
 ### 状态写入唯一入口（强制）
@@ -70,19 +71,15 @@ MainDeviceControl/
 │   ├── CommandTable.cs               机器人握手协议        ns ...DeviceState
 │   └── DeviceWorkflowBase.cs         工作流基类（非泛型）  ns ...FlowState
 ├── DeviceWorkflow/                   命名空间 AdaWeldSystem.MainDeviceControl.DeviceWorkflow
-│   ├── DeviceControlWork.cs          整机主控（取代 MainDeviceWorkflow）   ns ...DeviceWorkflow
-│   ├── DeviceStatusWork.cs           安全检查（取代 SafetyWorkflow）        ns ...DeviceWorkflow
+│   ├── DeviceControlWork.cs          整机主控（MainDeviceStatus + 5 步上电初始化）  ns ...DeviceWorkflow
+│   ├── DeviceStatusWork.cs           安全/IO/状态管控（三线程）                   ns ...DeviceWorkflow
 │   ├── LineLaserWorkflow.cs          线激光
 │   ├── MonitorCameraWorkflow.cs      监控相机
 │   ├── MotionControlWorkflow.cs      运控（CAMBOX）
 │   ├── WeldParamControlWorkflow.cs   焊接工艺控制
 │   └── LaserWeldHeadWorkflow.cs      焊接头（骨架）
-│   ※ 2026-09-01 `WorkflowStateBase.cs` 已删除，泛型机制并入非泛型 `DeviceWorkflowBase`（ADR-049）
-│   ※ `SimulationWorkflow.cs` 已删除，成员归并 `DeviceControlWork`（模拟真相源 = [[api/MainDeviceWorkflow]]）
-│   ※ Safety/ 子目录已解散平铺；状态契约已内联各工作流文件
-│     （WorkflowState.cs 删除，AdaWeldSystem.Workflow 命名空间不复存在，2026-08-28）
 │   ※ 2026-09-01 `FaultRecoveryManager.cs`（含 FaultCategory / FaultRecord）迁出至 [[modules/ProductFileManager]]，
-│     本目录 7 工作流为其消费方（ADR-046 §3）
+│     本目录 7 个类为其消费方（ADR-046 §3）；模拟模式真相源为 `DeviceControlWork`（`*Simulation` API）
 ```
 
 > **目录 ≠ 命名空间（2026-09-01 起）**：`DeviceState/` 与 `FlowState/` 已合并为物理目录 `DeviceStateApiCore/`，但**命名空间刻意保持不变**——`DeviceStateBase.cs` / `CommandTable.cs` 仍为 `AdaWeldSystem.MainDeviceControl.DeviceState`，`DeviceWorkflowBase.cs` 仍为 `AdaWeldSystem.MainDeviceControl.FlowState`。理由：改名会波及 7 个工作流及全部消费方的 `using`，收益为零。以下小节标题沿用**命名空间语义**标注。
@@ -187,7 +184,7 @@ MainDeviceControl/
 
 ## 整机主控与安全：删除并归并
 
-### DeviceControlWork（取代 MainDeviceWorkflow）
+### DeviceControlWork
 
 `public class DeviceControlWork`（单例，**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**），自带运行线程（节拍 `BeatMs=10`）与内部执行步（`_workStep` + `GetStepName`）。对外状态为 `MainDeviceStatus`（6 态），原整机流程态 `MainDeviceFlowState` 不再存在（转内部私有执行步常量）。承接：
 
@@ -199,11 +196,11 @@ MainDeviceControl/
 - 子设备级联：经 `DeviceStatusWork.Instance.IsSafe` 门控；`ConnectOn`/`ConnectOff` 级联各子设备
 
 > 主设备不再有「整机流程态」，改为 **主设备运行态（过程状态）** `MainDeviceStatus`。各 `SetStatus(...)` 调用见 `DeviceControlWork.cs`（Running/Alarm/EStop/Stop/NoReset/Reseting）。
-> API 详见 [[api/MainDeviceWorkflow]]（现述 DeviceControlWork）。
+> API 详见 [[api/DeviceControlWork]]（现述 DeviceControlWork）。
 
-### DeviceStatusWork（取代 SafetyWorkflow）
+### DeviceStatusWork
 
-`public class DeviceStatusWork`（单例），安全检查三合一（`IsSafe` / `CheckDeviceStates` / 故障记录）归并至此；监控未启动返回 `true`（不阻断整机）。API 详见 [[api/SafetyWorkflow]]（现述 DeviceStatusWork）。
+`public class DeviceStatusWork`（单例），安全检查三合一（`IsSafe` / `CheckDeviceStates` / 故障记录）归并至此；监控未启动返回 `true`（不阻断整机）。API 详见 [[api/DeviceStatusWork]]（现述 DeviceStatusWork）。
 
 ---
 
@@ -221,9 +218,9 @@ MainDeviceControl/
 
 > 段位规范：0 待机 / 1~9 入口准备 / 10~99 主链路 A / 100~199 主链路 B / 700~799 清料 / 800~899 成功收尾 / 900~999 失败收尾。详见 [[standards/StepDrivenWorkflow]] 第五章。
 
-### DeviceStatusWork — 安全/IO/状态管控（取代 SafetyWorkflow）
+### DeviceStatusWork — 安全/IO/状态管控
 
-由 `SafetyFlow.cs`（阈值与 PLC 地址）+ `SafetyInterlock.cs`（互锁判定）+ `SafetyWorkflow.cs`（监控循环）合并后，整体迁为 `DeviceStatusWork.cs`（ADR-044 三合一 + ADR-049 归并）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
+`DeviceStatusWork.cs` 单文件承载：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（ADR-044 三合一 + ADR-049 归并）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
 
 **三线程（非步骤驱动）**：`DeviceStatusWork` 是独立管控类，不继承 `DeviceWorkflowBase`，由三个常驻线程驱动（各 20Hz）——`IOWork`（AboveNormal）周期互锁检查 → 失败 `ReportAlarm` + `RecordFault`，恢复 `ReportAlarmCleared`；`EMGWork`（Highest）急停轮询 → 按下 `EStopMachine`、释放 `EStopCancel`；`StatusWork`（Normal）反射 `DeviceControlWork.Status` 到三色灯。
 
@@ -231,7 +228,7 @@ MainDeviceControl/
 
 **随整机启动**：`StartWork()` 由 `DeviceControlWork.StartMachine` 调用、`CloseWork()` 由 `StopMachine`/`Dispose` 调用，不再需显式单独启动。
 
-API 详见 [[api/SafetyWorkflow]]（现述 DeviceStatusWork）。
+API 详见 [[api/DeviceStatusWork]]（现述 DeviceStatusWork）。
 
 ### DeviceControlWork — 上电初始化 5 步
 
@@ -266,7 +263,7 @@ return _initialized ? SubDeviceState.Connected : SubDeviceState.Disconnected;
 | `DeviceStatusWork.cs` | 安全检查流程（三合一）：互锁阈值与 PLC 地址 + 互锁判定 + 监控循环 |
 | `ProductFileManager/FaultRecoveryManager.cs` | **已迁出本模块（2026-09-01，ADR-046 §3）**：单例，故障恢复闭环 + `FaultCategory` / `FaultRecord` 数据载体；本目录 7 工作流为其消费方 |
 
-详见 [[modules/Safety]]、[[modules/ProductFileManager]]、[[api/SafetyWorkflow]]。
+详见 [[modules/Safety]]、[[modules/ProductFileManager]]、[[api/DeviceStatusWork]]。
 
 重试策略：通讯 3 次/5s、相机 2 次、线激光 3 次、安全类 0 次。
 

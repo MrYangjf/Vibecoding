@@ -16,6 +16,7 @@ severity: critical
 两层命名体系不一致：
 - **策略注册层**：用英文设备 key（`LineLaser` / `MotionControl` / `Monitor` / `LaserWeldHead`）
 - **故障记录层**：用 `IDeviceStateMachine.StateName`（中文显示名：`"线激光"` / `"运动控制"` / ...）
+  > **注**：`IDeviceStateMachine` 已于 2026-08-28 删除，现行等价物为基类 `DeviceStateBase.Tag`（各工作流构造时传入中文名，如 `DeviceStatusWork` 传 `"Safety"`、`DeviceControlWork` 传 `"MainDevice"`）。**「注册 key 与记录 key 必须同源」的教训不变**，详见本页下方消费方清单。
 
 `ResolveKey` 做的是 `device.IndexOf(k)` 子串匹配——中文名里不可能包含英文字符串，匹配永远失败。
 

@@ -6,6 +6,8 @@ status: accepted
 ---
 
 > ⚠️ **已被取代（2026-09-02）**：本 ADR 的「`ManualOn`/`ManualOff` 手动连接」被新主控设计 `ConnectOn`/`ConnectOff` 契约取代（语义一致，命名收敛），详见 [[decisions/ADR-049-ThreeStateModelRefactor]]。本页保留作历史参考，不再作为现行约束。
+>
+> **类名注记**：本文中的 `MainDeviceWorkflow` **现为 `DeviceControlWork`**（ADR-049），`PowerOnInitialize` 现为 `InitializeMachine()`。模拟模式归并结论（`SimulationWorkflow` → 整机主控）继续有效。
 
 # ADR-048：自动运行/手动连接模型（FlowProcess 唯一执行器 + 手动非阻塞连接）
 
@@ -97,7 +99,7 @@ status: accepted
 
 - [[standards/StepDrivenWorkflow]] — 执行步与节拍
 - [[modules/DeviceControl]] / [[architecture/DeviceControlArchitecture]]
-- [[api/MainDeviceWorkflow]] — 模拟 API 新真相源
-- [[api/SimulationWorkflow]] — 墓碑（已删除）
+- [[api/DeviceControlWork]] — 模拟 API 新真相源
+- [[api/DeviceControlWork]] — 墓碑（已删除）
 - [[decisions/ADR-017-SimulationModeThroughThreeWorkflows]] — 部分取代
-- [[decisions/ADR-047-StepDrivenWorkflow]] / [[decisions/ADR-042-WorkflowStateBaseGeneric]]
+- [[decisions/ADR-047-StepDrivenWorkflow]] / ADR-042（已删除，见 ADR-049）

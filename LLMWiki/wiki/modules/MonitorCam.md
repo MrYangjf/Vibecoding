@@ -18,9 +18,9 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 | `MonitorCam/Api/HikvisionCameraApi.cs` | **海康面阵相机真实实现**：基于 MvCameraControl.Net SDK，满足 `IMonitorCameraApi` 契约。详细用法见 [[api/HikvisionCameraSDK]] |
 | `MonitorCam/MonitorCameraRun.cs` | **运行控制单例（2026-08-03 合并）**：Live/PIL 模式 + 采集完成信号，解耦具体 SDK。内含 `MonitorCameraConfig` 配置类（IP/端口/曝光/尺寸，持久化到 `Config/INI/MonitorCamera.ini`）和 `MonitorCameraFrameCompletedEventArgs` 帧完成事件参数。原独立文件 `MonitorCameraConfig.cs` 和 `MonitorCameraEventArgs.cs` 已合并入本文件 |
 | `MonitorCam/MonitorAlgorithmManager.cs` | 监控相机算法管理器（单例）：持有唯一一套可配置算法参数（对中容差/质量合格分），持久化到 `Config/INI/MonitorAlgorithm.ini`，无 JOB 切换（参见 [[api/MonitorAlgorithmManager]]） |
-| `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` | **监控相机工作流单例**：采集→分析→显示→结果，复用回调等待取图（ADR-005）。继承 `DeviceWorkflowBase<MonitorWorkflowState>`，流程态 8 态映射设备态四态 |
+| `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` | **监控相机工作流单例**：采集→分析→显示→结果，复用回调等待取图（ADR-005）。继承**非泛型** `DeviceWorkflowBase`，对外暴露连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`，内部分支用私有阶段枚举 |
 
-> **已删除文件（勿再引用）**：`MonitorCam/Api/MonitorCameraStateMachine.cs`（监控相机状态机）随 `DeviceStateMachine/` 目录于 2026-08-28 整目录删除（ADR-041）；`Workflow/` 目录同期删除，工作流已迁入 `MainDeviceControl/DeviceWorkflow/`。
+> **已删除文件（勿再引用）**：`MonitorCam/Api/MonitorCameraStateMachine.cs`（监控相机状态机）随 `DeviceStateMachine/` 目录整目录删除；`Workflow/` 目录同期删除，工作流已迁入 `MainDeviceControl/DeviceWorkflow/`。
 
 ### 重组要点
 
@@ -28,9 +28,9 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 - **`MonitorCameraWorkflow` 迁入 `MainDeviceControl/DeviceWorkflow/`**（2026-08-28，ADR-041）：工作流统一由 `MainDeviceControl` 承载，`MonitorCam` 模块只保留相机硬件层和算法管理层。
 - **健康巡检下沉到 `MonitorCameraRun`**：不再作为独立工作流，也不并入工作流线程；`MonitorCameraPhase` / `MonitorSupervisionState` 枚举保留在 `MonitorCam/Api/` 接口层。
 
-## 监控相机设备态与流程态（当前事实）
+## 监控相机设备状态（当前事实：三态模型）
 
-> **2026-08-28 起（ADR-041）**：`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 基类、以及 `MonitorCameraStateMachine` 均**已删除**，不再有独立的监控相机状态机文件。设备态收敛为**四态**，流程态由工作流承载。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
+> 独立的监控相机状态机文件**不存在**：`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 基类、`MonitorCameraStateMachine` 均已删除。监控相机的状态由工作流承载——对外只暴露**连接态 `SubDeviceState`** 与**焊接过程态 `SubDeviceWeldStatus`**，内部分支用**私有阶段枚举**（7 态，已删 `Displaying`）。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
 
 **职责分工**：
 
@@ -38,9 +38,9 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 |---|---|---|
 | 相机运行、健康巡检、帧数据 | `MonitorCameraRun` | `MonitorCam/MonitorCameraRun.cs`（健康巡检下沉于此，非工作流） |
 | 检测阶段（`MonitorCameraPhase`：Unknown / PreWeldAlignment / WeldQuality） | `MonitorCam/Api/` 接口层 | `MonitorCam/Api/IMonitorCameraApi.cs` |
-| 流程态（8 态）与设备态四态映射 | `MonitorCameraWorkflow` | `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` |
+| 连接态 + 焊接过程态 + 执行步 | `MonitorCameraWorkflow` | `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` |
 
-**流程态 `MonitorWorkflowState`（8 态）与设备态映射**：`Uninitialized`→`Disconnect`；`Standby`/`ManualStopped`→`Connect`；`Acquiring`/`Analyzing`/`Displaying`/`Completed`/`Stopping`→`Work`；`ErrorAborted`→`Alarm`。
+> 私有阶段 → `SubDeviceWeldStatus` 的映射表见 [[architecture/DeviceControlArchitecture]] §6（**唯一维护点**，本页不复制，避免两处漂移）。
 
 > **权责边界（ADR-043）**：流程只输出「进度」，图像/连接态/健康度由 `MonitorCameraRun` 输出（`FrameCompletedEvent` / `StatusChanged`），算法结果由流程以只读属性 `LastResult` 暴露。执行细则见 [[standards/WorkflowResponsibilityBoundary]]。
 
@@ -53,20 +53,21 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 
 > Live 模式（`ChangeMode(true)`）通过 `HikvisionCameraApi` 实时采集回调持续触发 `FrameReceived` → `FrameCompletedEvent`，**不参与 Workflow 回调流程**。参见 [[guides/Project-Tools]]。
 
-## 工作流状态机
+## 工作流阶段（私有，不对外）
 
-状态（定义于 `Comm/SystemComm.cs` 的 `MonitorWorkflowState`）：
+**私有阶段枚举** `MonitorWorkflowState`，内联于 `MonitorCameraWorkflow.cs` 文件尾（**不再定义于 `Comm/SystemComm.cs`**），仅驱动 `FlowProcess()`；对外统一映射为焊接过程态 `SubDeviceWeldStatus`（映射表见 [[architecture/DeviceControlArchitecture]] §6 单一维护点）。
 
-| 状态 | 说明 |
+| 阶段 | 说明 |
 |------|------|
 | Uninitialized | 未初始化 |
 | Standby | 待机（已连接，等待启动） |
 | Acquiring | 采集中（回调等待信号） |
 | Analyzing | 分析中（调用 `ImageAlgorithm` 算法） |
-| Displaying | 输出画面（触发 DisplayEvent） |
 | Completed | 完成（单次循环结束，回到 Standby） |
 | ErrorAborted | 异常终止（采集/分析失败或异常） |
 | ManualStopped | 手动停止 |
+
+> 旧 `Displaying` 态已删除——显示属 UI 职责，不在流程态中（[[standards/WorkflowResponsibilityBoundary]] R5）。
 
 流程：`AcquireImage → AnalyzeImage → TriggerDisplay → TriggerResult`（连续模式 do-while 循环）。
 检测阶段由 `MonitorCameraPhase`（Unknown / PreWeldAlignment / WeldQuality）区分。
@@ -88,7 +89,7 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 - **算法参数管理**：`MonitorCameraWorkflow.AnalyzeImage()` 统一从 `MonitorAlgorithmManager.Instance` 读取 `AlignmentConfig` / `QualityConfig`（单一可配置算法，持久化到 `Config/INI/MonitorAlgorithm.ini`，无 JOB 切换），实现算法配置与相机硬件配置分离（参见 [[api/MonitorAlgorithmManager]]）
 - **UI**：由 [[modules/UIDesign]] 的 `Sub2UI/MonitorCamPage` 页面驱动与展示
 - **解耦**：不引用 SmartRayCam / HikRobotCam / LineLaserWorkflow，单向依赖 `Comm`（枚举/事件参数）与 `EmguALG`
-- **并行工作流**：与 [[modules/Workflow]] 的 `LineLaserWorkflow` 同为回调等待取图模式（[[decisions/ADR-005-CallbackAcquisition]]），但完全解耦；状态机对比见 [[api/MonitorCameraWorkflow]]
+- **并行工作流**：与 [[modules/DeviceControl]] 的 `LineLaserWorkflow` 同为回调等待取图模式（[[decisions/ADR-005-CallbackAcquisition]]），但完全解耦；状态机对比见 [[api/MonitorCameraWorkflow]]
 - **配置**：INI 落盘遵循 [[decisions/ADR-008-ConfigLayout]]（路径 `Config/INI/MonitorCamera.ini`）
 
 ## 设计决策

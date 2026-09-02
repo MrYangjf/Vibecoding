@@ -107,6 +107,9 @@ MainDeviceControl/
 │   └── DeviceWorkflowBase.cs         ← 非泛型工作流基类（命名空间 ...FlowState）：
 │                                        六抽象契约 + 执行步层 + 步骤驱动三件套（ADR-047）
 │
+├── DeviceLog.cs                      ← 设备日志统一出口（静态类，2026-09-03 新增）
+│                                      封装 GlobalCommData.ShowLog，全目录唯一设备日志调用点；
+│                                      标签约定见 [[api/DeviceLog]]，规范见 [[standards/CodeSimplification]] §三⑤
 ├── DeviceControlWork.cs              ← 主设备运行管控（独立单例，不继承 DeviceWorkflowBase）
 │                                      整机运行编排、机器人信号交互、级联 5 子设备、模拟模式
 ├── DeviceStatusWork.cs               ← 安全/IO/状态管控（独立单例，不继承 DeviceWorkflowBase）
@@ -123,7 +126,7 @@ MainDeviceControl/
 │     调用需 `using AdaWeldSystem.ProductFileManager`；持久化仍在 `SqlLiteDatabase/FaultRecordManager`
 ```
 
-> **已删除文件/目录（勿再引用）**：`WorkflowStateBase.cs`、`MainDeviceWorkflow.cs`、`SafetyWorkflow.cs`、`SimulationWorkflow.cs`（2026-09-02 ADR-049 删除或归并）；`SafetyFlow.cs`、`SafetyInterlock.cs` 于 2026-08-31 合并进 `SafetyWorkflow.cs` 后再归并为 `DeviceStatusWork.cs`（[[decisions/ADR-044-SafetyCheckConsolidation]]）；`DeviceStateMachine/`、`Workflow/Device/`、`DataModels/` 三目录于 2026-08-28 整目录删除（[[decisions/ADR-041-MainDeviceControlArchitecture]]）；**`DeviceState/` 与 `FlowState/` 两目录于 2026-09-01 合并为 `DeviceStateApiCore/`**（文件本身未删，仅改路径）。
+> **已删除文件/目录（勿再引用）**：`WorkflowStateBase.cs`、`MainDeviceWorkflow.cs`、`SafetyWorkflow.cs`、`SimulationWorkflow.cs`（2026-09-02 ADR-049 删除或归并）；`SafetyFlow.cs`、`SafetyInterlock.cs` 于 2026-08-31 合并进 `SafetyWorkflow.cs` 后再归并为 `DeviceStatusWork.cs`（[[decisions/ADR-044-SafetyCheckConsolidation]]）；`DeviceStateMachine/`、`Workflow/Device/`、`DataModels/` 三目录于 2026-08-28 整目录删除（ADR-041（已删除，见 ADR-049））；**`DeviceState/` 与 `FlowState/` 两目录于 2026-09-01 合并为 `DeviceStateApiCore/`**（文件本身未删，仅改路径）。
 
 > **命名空间约定（2026-08-28 收敛，2026-09-01 目录再收敛）**：`MainDeviceControl/` 下全部代码统一收敛为三个命名空间——`...DeviceState` / `...FlowState` / `...DeviceWorkflow`；状态契约内联各工作流文件，`AdaWeldSystem.Workflow` 命名空间不复存在。
 >
@@ -147,6 +150,37 @@ DeviceWorkflowBase         （非泛型工作流：六抽象契约 + 执行步�
 | `DeviceStatusWork` | 安全/IO/状态管控（三线程） | 被 `DeviceControlWork.StartMachine`/`StopMachine`/`Dispose` 拉起/关闭；`DeviceControlWork.IsRobotPoseSafe` 读取其 `IsSafe` |
 
 **易误判点**：`State`/`StateSwitched`/`WeldStatus`/`WeldStatusChanged`/`IsAlarm` 由 `DeviceStateBase` 提供；`WorkStep`/`GoStep`/`BeatMs`/`FlowProcess` 由 `DeviceWorkflowBase` 提供。具体工作流文件内 grep 不到是**正常的**，不构成编译错误。
+
+### 日志出口约定（2026-09-03 确立，强制）
+
+`MainDeviceControl/` 下**所有设备日志**经 `DeviceLog` 静态类写出，禁止直接调 `GlobalCommData.ShowLog`（全目录唯一例外是 `DeviceLog.cs` 内部的封装点）。
+
+| 角色 | 标签 | 出口 |
+|---|---|---|
+| 子工作流（继承 `DeviceWorkflowBase`） | 基类 `public string Tag { get; protected set; }`，构造函数首行赋值 | 基类 `protected Log(...)` |
+| `DeviceControlWork` / `DeviceStatusWork` | 私有 `_tag` | 本类私有 `Log(...)` → `DeviceLog.Write(_tag, ...)` |
+| `DeviceStateBase` | 抽象属性 `StateName` | `DeviceLog.Write(StateName, ...)` |
+| 模拟模式子控制器 | `_simTag` | `DeviceLog.Write(_simTag, ...)` |
+
+> ⚠️ **禁止**子类再声明 `Tag` / `_tag` 同名成员——`private const string Tag` 遮蔽基类属性会触发 **CS0108**
+> 且造成 `string` 与基类类型对撞，多态语义失效。
+
+**通讯日志不在此列**：收发报文内容仍走 `GlobalCommData.ShowCommunicationLog`（全记录不摘要）；
+连接 `open`/`close` 归设备日志。
+
+### 独立管控类的步机制同源约束（2026-09-03 修复）
+
+`DeviceControlWork` 不继承 `DeviceWorkflowBase`，自带私有 `GoStep`/`IsStepTimeout`/`ResetStepTime`/`FailFlow`/`GetStepName`。
+**这些实现必须与基类保持同源不变量**，否则基类补的正确性保障无法传导：
+
+| 不变量 | 违反后果 |
+|---|---|
+| `RunLoop` 非运行态必须 `else { ResetStepTime(); }` | 停机超 `PoseWaitTimeoutMs`（60s）后再开机，首拍即误判超时跳 900 失败收尾 |
+| `StartMachine()` 内 `GoStep(StepIdle)` 复位步号与时间戳 | 沿用停机时刻步号/时间戳，同样误判 |
+| 步时间戳 `long` 用 `Interlocked.Exchange` / `Interlocked.Read` | 32 位平台撕裂读，`DateTime` 构造出荒谬时间 |
+| 状态读取一律走 `Status` 属性（`_statusLock`） | 加锁与不加锁的读混用 = 没加锁，门控在竞态窗口失效 |
+
+> 详见 [[lessons/DeviceControlWorkInheritanceBypass]]；规范见 [[standards/StepDrivenWorkflow]] §2.2。
 
 ---
 
@@ -367,7 +401,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 ### 8.3 不入上电级联
 
-`WeldParamControlWorkflow` **不纳入** `MainDeviceWorkflow` 自动初始化（`InitializeAllSubDevices`）级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（见 [[decisions/ADR-013-WorkflowAsAdjustmentDriver]]）。
+`WeldParamControlWorkflow` **不纳入** `DeviceControlWork` 上电初始化（`InitializeMachine`）级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（见 [[decisions/ADR-013-WorkflowAsAdjustmentDriver]]）。
 
 ### 8.4 振镜摆幅待实现
 
@@ -379,7 +413,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 ### 9.1 文件归属（ADR-044 合并 + ADR-049 归并）
 
-**安全检查只有一个文件**：`MainDeviceControl/DeviceWorkflow/DeviceStatusWork.cs`（由 `SafetyWorkflow` 重命名归并，参考 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型，见 `主控设计.xlsx` 的「设备安全/IO/状态管控」泳道）。
+**安全检查只有一个文件**：`MainDeviceControl/DeviceStatusWork.cs`（设计来源参考 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型，见 `主控设计.xlsx` 的「设备安全/IO/状态管控」泳道）。
 
 `DeviceStatusWork` 是**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**，由三个常驻监控线程内聚而成，各自经 `DeviceControlWork` 单一控制源变更主设备运行态（权责边界见 ADR-043）：
 
@@ -400,7 +434,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 `FaultRecoveryManager.cs`：**2026-09-01 已迁出本层**，现位于 `ProductFileManager/`（命名空间 `AdaWeldSystem.ProductFileManager`），是故障恢复数据的归口使用方。单例，持有 `FaultCategory` / `FaultRecord` 数据载体，提供 `RecordFault`；SQLite 落库经 `SqlLiteDatabase/FaultRecordManager`（表 `FaultRecord`，`DataBase\FaultRecord.db`）。本层 8 个工作流是其消费方，记录 key 须与注册 key 同源，见 [[lessons/FaultRecoveryDeviceKey]]。
 
-> **已删除（不要再引用）**：`SafetyFlow.cs`、`SafetyInterlock.cs` 两个独立文件已并入 `SafetyWorkflow.cs`，后整体重命名为 `DeviceStatusWork.cs`（ADR-049）。旧 `SafetyWorkflowState` 枚举、旧四态 `DeviceState` 映射均已删除。
+> **已删除（不要再引用）**：`SafetyFlow.cs`、`SafetyInterlock.cs` 两个独立文件已并入 `DeviceStatusWork.cs`（ADR-044 + ADR-049）。旧 `SafetyWorkflowState` 枚举、旧四态 `DeviceState` 映射均已删除。
 > **门控口径**：`DeviceControlWork.IsRobotPoseSafe()` → `DeviceStatusWork.Instance.IsSafe`；**监控未启动时不门控（返回 true）**，避免 PLC 未标定环境阻断整机。
 > **启动方式**：`StartWork()` 由 `DeviceControlWork.StartMachine` 调用，随整机启动而启动；PLC 未连接时 `Check()` 恒定失败，启动监控即会门控整机（与 ADR-044 口径一致）。
 > **急停专责**：急停按钮由 `EMGWork` 线程独占处置（置 `EStop`），与 `IOWork` 的互锁报警（`Alarm`）分离，避免两态互相翻转。
@@ -558,7 +592,7 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 
 | 模块 | 职责 | 备注 |
 |---|---|---|
-| `MainDeviceControl` | 设备控制中枢：设备态/流程态基类 + 7 个工作流 | 依赖最广，见本页 §2 目录结构 |
+| `MainDeviceControl` | 设备控制中枢：三态基类 + 5 个子设备工作流 + 2 个整机管控类 | 依赖最广，见本页 §2 目录结构 |
 | `LineLaserCam` | 线激光相机（SmartRay / HikRobot / VirtualCam / IntelligentLaserCam + `Api` 接口层） | `Api` 子层为独立命名空间 `LineLaserCamApi` |
 | `MonitorCam` | 监控相机（`MonitorCameraRun` + `Api` 算法管理） | 健康巡检已下沉 `MonitorCameraRun` |
 | `MotionControl` | 运控（正运动 ZMotion / CAMBOX / MoveControlData / MotionManager） | CAMBOX 见本页 §10 |
@@ -572,7 +606,7 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 | `PCLOperate` | 3D 点云数据处理（模块名沿用 `PointCloudData`，见 [[modules/PointCloudData]]） | |
 | `ProductFileManager` | 产品文件管理 | |
 
-> **已删除目录（勿再出现在依赖图中）**：`Workflow/`、`DataModels/`、`DeviceStateMachine/`（2026-08-28 并入 `MainDeviceControl`，见 [[decisions/ADR-041-MainDeviceControlArchitecture]]）；`PointCloudData/`、`InteliWeld/`（能力分别并入 `EmguALG` / `WeldParamControl`）。
+> **已删除目录（勿再出现在依赖图中）**：`Workflow/`、`DataModels/`、`DeviceStateMachine/`（2026-08-28 并入 `MainDeviceControl`，见 ADR-041（已删除，见 ADR-049））；`PointCloudData/`、`InteliWeld/`（能力分别并入 `EmguALG` / `WeldParamControl`）。
 
 ---
 
@@ -657,7 +691,7 @@ graph TD
 | `Comm` ↔ `SqlLiteDatabase` | 通讯 ↔ 持久化 | 低 | 提取共享数据模型到独立层 |
 | `EmguALG` ↔ `WeldParamControl` | 算法管道 ↔ 焊接工艺 | 中 | 算法结果经 `SeamFeatureResult` 单向上报，工艺层不再反向 using 算法管道 |
 | `SqlLiteDatabase` ↔ `WeldParamControl` | 持久化 ↔ 焊接工艺 | 低 | 焊接数据仓储上提为接口 |
-| `ProductFileManager` ↔ `MainDeviceControl` | 记录归口 ↔ 设备控制层 | 低 | **2026-09-01 新增且刻意保留**：`DeviceWorkflow/` 8 个工作流引用本模块记故障，`FaultRecord.State` 反向引用 `MainDeviceControl.DeviceState` 四态枚举。仅限枚举级，不涉及工作流层；断开须改 State 为 string 或下沉枚举，已评估后放弃 |
+| `ProductFileManager` ↔ `MainDeviceControl` | 记录归口 ↔ 设备控制层 | 低 | **2026-09-01 新增且刻意保留**：`DeviceWorkflow/` 下 5 个子工作流 + 2 个管控类引用本模块记故障，`FaultRecord.State` 反向引用 `MainDeviceControl.DeviceState` 的 `SubDeviceWeldStatus`（七态）枚举。仅限枚举级，不涉及工作流层；断开须改 State 为 string 或下沉枚举，已评估后放弃 |
 
 > 上述环由 `using` 静态推导得出，**改造前须确认是真实耦合还是冗余 using**（冗余 using 应直接删除而非重构）。
 > 环数由 4 组增至 5 组（2026-09-01，ADR-046 §3），新增的 `ProductFileManager` ↔ `MainDeviceControl` 为**有意设计**，非待清理项。
@@ -699,7 +733,7 @@ graph TD
 | [[modules/LineLaserCam]] | 英莱线激光相机，焊缝信息源头 |
 | [[modules/EmguALG]] | 算法管道 `PipelineManager`，承载 `SeamFeatureResult` 上报 |
 | [[modules/MotionControl]] | 运控硬件层，CAMBOX 跟踪依托正运动控制器 |
-| [[modules/UIDesign]] | UI 层，读 `Instance.Step`（流程态）与 `Instance.State`（设备态） |
+| [[modules/UIDesign]] | UI 层，读 `DeviceControlWork.Instance.Status`（整机运行态）与子设备 `Instance.WeldStatus` / `Instance.State` |
 
 ---
 
@@ -715,7 +749,7 @@ UI 读取状态时须区分三个层级（ADR-049 三态模型）：
 
 **注意**：`WeldStatus` 与 `State` 是两个**不同**的属性，不要混淆。UI 文件中同时出现两者是正常的。
 
-**变更事件统一契约（ADR-042/ADR-049）**：整机状态订阅 `DeviceControlWork.Instance.StatusChanged`（参数 `MainDeviceStatusChangedEventArgs`）；子设备订阅 `Instance.WeldStatusChanged`（参数 `WeldStatusChangedEventArgs`）与 `Instance.StateChanged`。原 `WorkflowStepChangedEventArgs<TStep>` / `LineLaserWorkflowStateChangedEventArgs` 等自有参数类已删除。
+**变更事件统一契约（ADR-049）**：整机状态订阅 `DeviceControlWork.Instance.StatusChanged`（参数 `MainDeviceStatusChangedEventArgs`）；子设备订阅 `Instance.WeldStatusChanged`（参数 `WeldStatusChangedEventArgs`）与 `Instance.StateChanged`。原泛型 `WorkflowStepChangedEventArgs<TStep>` / `LineLaserWorkflowStateChangedEventArgs` 等自有参数类已删除。
 
 > **权责边界（ADR-043，2026-08-31）**：流程只输出「进度」，不输出「数据」。图像/连接态/健康度由子设备对象输出（如 `MonitorCameraRun.FrameCompletedEvent` / `StatusChanged`），算法结果由流程以只读属性暴露（如 `MonitorCameraWorkflow.LastResult`）。流程不得转发子设备事件（订阅方直接订阅 `MotionControlWorkflow.Instance.Tracker`），不得自造 `XxxCompleted` / `ErrorAborted` / `ManualStopped` 事件。执行细则见 [[standards/WorkflowResponsibilityBoundary]]。
 
@@ -729,7 +763,7 @@ UI 读取状态时须区分三个层级（ADR-049 三态模型）：
 
 ## 14. 维护约定
 
-- **本页只写当前事实**，不做版本代际对比、不保留历史方案描述。架构演进的「为什么」记在 [[decisions/ADR-041-MainDeviceControlArchitecture]]、[[decisions/ADR-042-WorkflowStateBaseGeneric]]、[[decisions/ADR-043-WorkflowResponsibilityBoundary]]、[[decisions/ADR-044-SafetyCheckConsolidation]] 等 ADR 里，本页只给结论。
+- **本页只写当前事实**，不做版本代际对比、不保留历史方案描述。架构演进的「为什么」记在 ADR-041（已删除，见 ADR-049）、ADR-042（已删除，见 ADR-049）、[[decisions/ADR-043-WorkflowResponsibilityBoundary]]、[[decisions/ADR-044-SafetyCheckConsolidation]] 等 ADR 里，本页只给结论。
 - **改架构先改本页再改代码**；代码与本页冲突时以代码为准并立即回改本页。
 - 2026-09-01 起全库**不再保留历史架构页**（原 `V2-Architecture` / `V3-Architecture` / `V3-MotionControlArchitecture` 等代际页面已删除，其仍有效的技术内容已并入本页第 9、10 章）。
 - **本页是架构唯一真相源**：原 `project/architecture.md`（模块依赖图）与 `archive/` 分类已于 2026-09-01 合并入本页 / 移出，全库不再保留第二个架构页。历史归档内容（SunnyUI 迁移、代码精简进度快照）归 [[project/SunnyUI-Legacy]]、[[project/CodeSimplification-Progress-20260826]]。

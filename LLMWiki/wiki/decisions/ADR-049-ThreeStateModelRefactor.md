@@ -9,7 +9,7 @@ supersedes: [ADR-041, ADR-042]
 # ADR-049：主控设计三态模型重构
 
 > **2026-09-02 接受**：用户提交新主控设计（`主控设计.xlsx`，原档约定见 [[decisions/ADR-050-ArchitectureRawSource]]），对设备控制层状态模型做根本性重定义。
-> 本 ADR 取代 [[decisions/ADR-041-MainDeviceControlArchitecture]]、[[decisions/ADR-042-WorkflowStateBaseGeneric]] 的设计。
+> 本 ADR 取代 ADR-041（已删除，见 ADR-049）、ADR-042（已删除，见 ADR-049） 的设计。
 > **[[decisions/ADR-047-StepDrivenWorkflow]] 步骤驱动机制沿用**（三件套由新基类承载，见 §3）；**[[decisions/ADR-048-AutoManualDualWorkflow]] 部分取代**（`FlowProcess` 唯一执行器沿用；`ManualOn`/`ManualOff` 契约由 `ConnectOn`/`ConnectOff` 取代，见 §3）。
 > 旧四态 `DeviceState` 枚举、泛型 `WorkflowStateBase<TStep>` / `DeviceWorkflowBase<TStep>`、`MainDeviceFlowState` 枚举均已删除。
 
@@ -89,7 +89,7 @@ supersedes: [ADR-041, ADR-042]
 - 删除：`MainDeviceWorkflow.cs`、`SafetyWorkflow.cs`、`WorkflowStateBase.cs`
 - csproj：`DeviceWorkflowBase.cs`/`DeviceControlWork.cs`/`DeviceStatusWork.cs` 注册；`WorkflowStateBase.cs`/`MainDeviceWorkflow.cs`/`SafetyWorkflow.cs` 移除
 - 消费方（UI）：`FormMain.cs` / `MainPage.cs` / `ILCamPage.cs` / `MonitorCamPage.cs` / `MotionControlPage.cs`；`FaultRecoveryManager.cs`（`FaultRecord.State` 改型）
-- 模块文档：[[modules/DeviceControl]]、[[modules/Safety]]；API：[[api/MainDeviceWorkflow]]（现述 DeviceControlWork）、[[api/SafetyWorkflow]]（现述 DeviceStatusWork）
+- 模块文档：[[modules/DeviceControl]]、[[modules/Safety]]；API：[[api/DeviceControlWork]]（现述 DeviceControlWork）、[[api/DeviceStatusWork]]（现述 DeviceStatusWork）
 
 ## 已知约束
 

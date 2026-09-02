@@ -10,7 +10,7 @@ status: accepted
 ## 状态
 已采纳（2026-07-15）｜**结论有效，目录已迁移（2026-09-01 治理标注）**
 
-> **ℹ️ 路径过期（结论不变）**：本 ADR 中的 `Workflow/` 目录已由 [[decisions/ADR-041-MainDeviceControlArchitecture]] 解散，工作流实现类现位于 `MainDeviceControl/DeviceWorkflow/`。
+> **ℹ️ 路径过期（结论不变）**：本 ADR 中的 `Workflow/` 目录已由 ADR-041（已删除，见 ADR-049） 解散，工作流实现类现位于 `MainDeviceControl/DeviceWorkflow/`。
 > **核心结论仍然有效且仍是硬约束**：`LineLaserWorkflow` 是 `WeldProcess` 调整的**唯一驱动源**，`TriggerAdjustment()` 无参、由流程在 Adjust 步骤调用，手动模式直接跳 Complete 从而天然跳过调整。
 > **当前真相源**：[[modules/DeviceControl]]、[[api/LineLaserWorkflow]]、[[api/WeldParamControlWorkflow]]。
 
@@ -39,7 +39,7 @@ status: accepted
 - 负面 / 待决：机器人 X 真实读取仍依赖通信层对接（当前为 WeldProcess.RobotWeldData.PosX 占位）；合并 [[decisions/ADR-012-WeldActionRecord]] 中「WeldProcess 独立驱动」的旧描述已在本 ADR 纠正。
 
 ## 相关
-- [[modules/Workflow]]（LineLaserWorkflow 状态机/Step）
+- [[modules/DeviceControl]]（LineLaserWorkflow 状态机/Step）
 - [[modules/WeldParamControl]]（WeldProcess.TriggerAdjustment）
 - [[api/LineLaserWorkflow]]（状态转换 + 已修复问题清单）
 - [[decisions/ADR-012-WeldActionRecord]]（双记录数据模型）

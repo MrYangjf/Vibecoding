@@ -282,7 +282,7 @@ $pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
 
 > 图谱退役后（ADR-025），Grep 是 Phase 0 Step 0.7 与 Phase 2 Step 2.5 的**唯一**代码定位手段。它有一个必须防范的行为：**单次 Grep 的匹配结果会被截断**，返回条数远少于真实命中数时**不会有任何提示**。
 
-**事故实例**：迁移 `FaultRecoveryManager` 时首次 `Grep(pattern="FaultRecoveryManager|FaultRecordManager|FaultCategory|FaultRecord")` 只返回 2 个消费方（`SafetyWorkflow`、`MainDeviceWorkflow`）。改用 `FaultRecord\b` 加词边界缩小命中范围后再次检索，实际是 **6 个**——遗漏的 4 个（`LineLaserWorkflow`/`MonitorCameraWorkflow`/`MotionControlWorkflow`/`WeldParamControlWorkflow`）若不补 using 会直接编译失败。
+**事故实例**：迁移 `FaultRecoveryManager` 时首次 `Grep(pattern="FaultRecoveryManager|FaultRecordManager|FaultCategory|FaultRecord")` 只返回 2 个消费方（`SafetyWorkflow` 现为 `DeviceStatusWork`、`MainDeviceWorkflow` 现为 `DeviceControlWork`）。改用 `FaultRecord\b` 加词边界缩小命中范围后再次检索，实际是 **6 个**——遗漏的 4 个（`LineLaserWorkflow`/`MonitorCameraWorkflow`/`MotionControlWorkflow`/`WeldParamControlWorkflow`）若不补 using 会直接编译失败。
 
 **规避做法**：
 
@@ -570,7 +570,7 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
 
 #### 问题描述
 
-模拟模式下，`SimulationWorkflow.Enable()` 已调用 `CameraSelector.SelectVirtual()` 将 `CameraSelector.Active` 切到虚拟相机 `VirtualCameraRun`。但 `LineLaserWorkflow.InitializeWorker()` 中写死：
+模拟模式下，`DeviceControlWork.EnableSimulation()`（原 `SimulationWorkflow.Enable()`，ADR-048 归并）已调用 `CameraSelector.SelectVirtual()` 将 `CameraSelector.Active` 切到虚拟相机 `VirtualCameraRun`。但 `LineLaserWorkflow.InitializeWorker()` 中写死：
 
 ```csharp
 var camera = CameraRun.Instance;   // ❌ 直接取真实 SmartRay 单例
@@ -652,18 +652,20 @@ case SimSeamProfile.Flat:
 - 若 `State == Uninitialized`：订阅 `StateChanged`，置挂起标记 `_pendingSimStart = true`，再调 `Initialize()`；在事件回调中待 `e.NewState == Standby` 时**回到 UI 线程**（`InvokeRequired`/`BeginInvoke`）调 `Start()`，并取消订阅、清除标记；`e.NewState == ErrorAborted` 时清理挂起标记与订阅。
 - 若 `State == Standby`：可直接同步 `Start()`（二次开启场景）。
 - 停止分支须 `ClearPendingSimStart()` 取消可能挂起的初始化，避免后台初始化完成误触发 `Start()`。
-- `StartPendingLineLaser` 内加 `if (!SimulationWorkflow.Instance.IsEnabled) return;` 守卫：用户若在初始化期间点击停止（`sc.Disable()`），放弃启动，避免竞态误进入流程。
+- `StartPendingLineLaser` 内加 `if (!DeviceControlWork.Instance.IsSimulationEnabled) return;` 守卫（原 `SimulationWorkflow.Instance.IsEnabled`）：用户若在初始化期间点击停止（`DisableSimulation()`），放弃启动，避免竞态误进入流程。
 
 #### 错误写法（曾导致本 Bug）
 
 ```csharp
 // ❌ 错误：Initialize 异步，紧接同步判断 Standby 必失败
 var ll = LineLaserWorkflow.Instance;
-if (ll.State == LineLaserWorkflowState.Uninitialized)
-    ll.Initialize();           // 仅转 Initializing，后台线程异步转 Standby
-if (ll.State == LineLaserWorkflowState.Standby)
-    ll.Start();                // 此时仍是 Initializing → Start 被跳过/抛异常
+if (ll.WeldStatus == SubDeviceWeldStatus.Standby)
+    ll.Initialize();           // 仅转 Working，后台线程异步转回 Standby
+if (ll.WeldStatus == SubDeviceWeldStatus.Standby)
+    ll.Start();                // 此时仍是 Working → Start 被跳过/抛异常
 ```
+
+> **术语对照（2026-09-02 ADR-049）**：旧代码写作 `ll.State == LineLaserWorkflowState.Uninitialized/Standby`（阶段枚举直接对外）；现行对外只有 `SubDeviceWeldStatus` 七态，阶段枚举降为私有。连接就绪另看 `ll.State`（`SubDeviceState` 两态）。
 
 ### 4.4 模拟测试：行程到达 = 正常停止，不是异常终止
 
@@ -695,7 +697,7 @@ if (ll.State == LineLaserWorkflowState.Standby)
 
 #### 边界 / 注意
 
-- 行程到达是**整段作业的停止信号**，不是"某次采集失败"。模拟模式下 `GetCurrentRobotX()` 由 `SimulationWorkflow` 共享时钟驱动（`simStartX + simSpeed × elapsed`），
+- 行程到达是**整段作业的停止信号**，不是"某次采集失败"。模拟模式下 `GetCurrentRobotX()` 由 `DeviceControlWork`（原 `SimulationWorkflow`）共享时钟驱动（`simStartX + simSpeed × elapsed`），
   故行程会随时间自然到达——这是预期行为，不是 bug。
 - `WorkflowSignalCode.FailureDistanceExceeded` 已移除（2026-08-13 死代码清理时删除，行程到达不再作为失败信号）。
 - 虚拟相机产帧采用**每周期重触发**（单线程、无后台 Timer），规避并发 dispose `_currentMat` 的线程安全竞态；`AcquireImage` 已对 `CurrentMat` 做 `Clone()`，独立于相机内部缓冲。

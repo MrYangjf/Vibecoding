@@ -7,17 +7,11 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/ 模块源码
 
 # Safety 模块 — 安全检查流程（DeviceStatusWork）+ 故障恢复
 
-> **2026-08-31 更新（[[decisions/ADR-044-SafetyCheckConsolidation]]）**：安全检查的**三个文件已合并为一个安全检查流程** ——
-> `SafetyFlow.cs`（安全变量值与 PLC 检查地址）+ `SafetyInterlock.cs`（安全锁检查）+ `SafetyWorkflow.cs`（安全流程）
-> → 统一为 **`MainDeviceControl/DeviceWorkflow/SafetyWorkflow.cs`**。
-> `FaultCategory` / `FaultRecord` 迁入同目录 `FaultRecoveryManager.cs`。目录文件数 11 → 9。
-
-> **2026-09-02 更新（[[decisions/ADR-049-ThreeStateModelRefactor]]）**：安全检查流程整体**归并并重命名为 `DeviceStatusWork`**（取代 `SafetyWorkflow`）；
-> 状态模型由旧「设备四态 + 流程态」改为三态模型（`SubDeviceState`/`SubDeviceWeldStatus`/`MainDeviceStatus`），对外连接态/过程态经 `SetState`/`SetWeldStatus` 写入。本页据此重写。
-
-> **2026-09-01（[[decisions/ADR-046-ProductLifecycleRecordModule]] §3）**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）已**迁出**本模块，归口 `ProductFileManager/`，命名空间改 `AdaWeldSystem.ProductFileManager`。本模块的 `DeviceStatusWork.cs` 是它的消费方之一（补 `using` 即可，调用点不变）。故障恢复的完整说明移步 [[modules/ProductFileManager]]。
-> **2026-08-28（[[decisions/ADR-041-MainDeviceControlArchitecture]] 二次修订）**：`Safety/` 子目录解散平铺，`SafetyMonitorThread` 更名 `SafetyWorkflow`。
-> **2026-08-21（[[decisions/ADR-036-SafetyModuleConsolidation]]）**：原独立 `AdaWeldSystem/Safety/` 模块整合进工作流层，命名空间统一 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`。
+> **当前形态（ADR-044 三合一 + ADR-049 归并）**：安全/IO/状态管控由**单一文件** `MainDeviceControl/DeviceStatusWork.cs` 承载——互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（`IOWork`/`EMGWork`/`StatusWork`）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs`（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
+>
+> **状态模型**：安全类**不对外暴露**子设备三态，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费；主设备运行态经 `SetStatus` 单一入口变更。
+>
+> **故障恢复已迁出**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）2026-09-01 归口 `ProductFileManager/`（[[decisions/ADR-046-ProductLifecycleRecordModule]] §3），本模块仅作消费方。完整说明见 [[modules/ProductFileManager]]。
 
 ---
 
@@ -25,7 +19,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/ 模块源码
 
 | 文件 | 职责 |
 |---|---|
-| `MainDeviceControl/DeviceWorkflow/DeviceStatusWork.cs` | **安全/IO/状态管控（三合一，ADR-049 由 SafetyWorkflow 归并重命名，参考 MachineStatusWork.cs 三线程模型）**：互锁阈值与 PLC 地址（`SafetyFlow`）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程（IOWork/EMGWork/StatusWork）+ `SafetyInterlockResult` |
+| `MainDeviceControl/DeviceStatusWork.cs` | **安全/IO/状态管控（三合一，参考 MachineStatusWork.cs 三线程模型）**：互锁阈值与 PLC 地址（`SafetyFlow`）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程（IOWork/EMGWork/StatusWork）+ `SafetyInterlockResult` |
 
 > **已迁出**：`FaultRecoveryManager.cs` → `ProductFileManager/ProductFileManager/FaultRecoveryManager.cs`（2026-09-01，ADR-046 §3）。本模块不再持有故障恢复文件，仅作为消费方调用。
 
@@ -35,7 +29,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/ 模块源码
 
 `public class DeviceStatusWork`（单例，**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**），由三个常驻监控线程（各 20Hz）内聚而成——IO 轮询（`IOWork`，AboveNormal）、急停处置（`EMGWork`，Highest）、状态反射（`StatusWork`，Normal）。配置（`SafetyFlow`）+ 判定（`SafetyInterlockChecker`）由 `IOWork` 周期调用。设计参照 `PcomDeviceInterface/MachineStatusWork.cs`（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
 
-> **归并变更（ADR-049）**：原 `SafetyWorkflow.cs` 整体重命名为 `DeviceStatusWork.cs`；旧 `SafetyWorkflowState` 枚举、旧四态 `DeviceState` 映射均已删除。安全类不对外暴露子设备三态，仅以 `IsSafe` / `LastResult` 供主设备门控消费。报警处置：IOWork 调用 `ReportAlarm` + `RecordFault`，通知 `DeviceControlWork` 置 `Alarm`；急停处置：EMGWork 调用 `EStopMachine`，通知 `DeviceControlWork` 置 `EStop`；恢复处置：通知 `DeviceControlWork` 转 `NoReset`。
+> **报警与急停处置分工**：安全类不对外暴露子设备三态，仅以 `IsSafe` / `LastResult` 供主设备门控消费。报警处置：IOWork 调用 `ReportAlarm` + `RecordFault`，通知 `DeviceControlWork` 置 `Alarm`；急停处置：EMGWork 调用 `EStopMachine`，通知 `DeviceControlWork` 置 `EStop`；恢复处置：通知 `DeviceControlWork` 转 `NoReset`。
 
 ### 检查内容（两类互锁）
 
@@ -103,7 +97,7 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 - → [[modules/ProductFileManager]] — 故障恢复数据归口（`FaultRecoveryManager`，2026-09-01 自本模块迁出）
 - → [[modules/DeviceControl]] — 工作流基类（`DeviceWorkflowBase` / `DeviceStateBase` 提供 SetState/SetWeldStatus/EmergencyStop）
 - → [[modules/Comm]] — PLC(S7) 通讯（`S7PLCCommunication.ReadBit/Read<T>`）、机器人连接判定
-- → [[api/MainDeviceWorkflow]] — 消费 `IsSafe` 做 Pose 门控（现由 `DeviceControlWork` 承载）
+- → [[api/DeviceControlWork]] — 消费 `IsSafe` 做 Pose 门控（现由 `DeviceControlWork` 承载）
 - → [[decisions/ADR-044-SafetyCheckConsolidation]] — 本次三合一决策
 - → [[decisions/ADR-049-ThreeStateModelRefactor]] — 本次归并重命名决策
 - → [[lessons/FaultRecoveryDeviceKey]] — 故障恢复设备键名匹配陷阱

@@ -33,7 +33,7 @@ ProductFileManager/
 **依赖方向**：
 - → `PCLOperate.Models`（PointCloudData/Point3D）、`PCLOperate.DataIO`（点云读写）；`PCLOperate` 的 3DModel/DataIO/Render 仍留在原处——迁移只动了 RunFileRecord 子域。
 - → `SqlLiteDatabase`（`FaultRecordManager` 写库）。
-- → `MainDeviceControl.DeviceState`（`DeviceState` 四态枚举，`FaultRecord.State` 字段类型）。**这是刻意保留的枚举级反向依赖**：`MainDeviceControl/DeviceWorkflow/` 下 6 个工作流都要引用本模块记录故障，构成模块级双向引用；替代方案（State 改 string / 枚举下沉）会牺牲强类型或扩大改动面，已评估后放弃。
+- → `MainDeviceControl.DeviceState`（`SubDeviceWeldStatus` 焊接过程态七态枚举，`FaultRecord.State` 字段类型）。**这是刻意保留的枚举级反向依赖**：`MainDeviceControl/DeviceWorkflow/` 下 5 个子工作流 + 2 个管控类都要引用本模块记录故障，构成模块级双向引用；替代方案（State 改 string / 枚举下沉）会牺牲强类型或扩大改动面，已评估后放弃。
 - ⚠️ **分层红线**：`SqlLiteDatabase` 层**不得反向依赖**本模块的领域类型（`FaultRecord`），写入契约固定为 `string[]`（ADR-046 §2）。
 
 ## 对外契约（类名与公共 API 迁移前后不变）
@@ -45,7 +45,7 @@ ProductFileManager/
 
 **过程记录 `RunRecordManager`（8 处）**：WeldProcess（过程帧+调整记录）· CameraRun(SmartRay)（AddSmartRayFrame）· IntelligentLaserCameraRun（AddFrame）· AlgorithmManager(EmguALG) · DataReviewPage（ParsePDatRecords 回溯）· HelixRenderForm（GetAllFrames 3D 回放）· FileTraceForm · RecordConfigForm
 
-**故障恢复 `FaultRecoveryManager`（6 处，均在 `MainDeviceControl/DeviceWorkflow/`）**：`SafetyWorkflow`（`"Safety"`）· `MainDeviceWorkflow`（`"MainDevice"`）· `LineLaserWorkflow` · `MonitorCameraWorkflow` · `MotionControlWorkflow` · `WeldParamControlWorkflow`（后四处传 `_tag`/`Tag`）
+**故障恢复 `FaultRecoveryManager`（6 处，均在 `MainDeviceControl/DeviceWorkflow/`）**：`DeviceStatusWork`（`"Safety"`）· `DeviceControlWork`（`"MainDevice"`）· `LineLaserWorkflow` · `MonitorCameraWorkflow` · `MotionControlWorkflow` · `WeldParamControlWorkflow`（后四处传 `Tag`）
 
 > ⚠️ 6 个消费方全部需 `using AdaWeldSystem.ProductFileManager`。排查教训：初次 Grep 因结果截断只列出 2 处，差点漏改 4 个文件，详见 [[guides/Project-Tools]] §1.2。
 

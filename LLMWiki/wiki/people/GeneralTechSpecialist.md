@@ -13,7 +13,7 @@ source: raw/skills/AdaWeldsys_Skills/02-Development/GeneralTechSpecialist.md
 - 统一设备通讯（TCP/IP / S7 / Profinet，统一职责模型）
 - 设备错误码体系（DeviceErrorCode 固定编码）
 - 全局事件总线与消息/权限枚举定义（`MessageType`、`MessageLevel`、`OperateLevel`）
-- 线激光工作流状态枚举 `LineLaserWorkflowState` 定义（状态机实现由 [[modules/Workflow]] 负责）
+- 三态枚举 `SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` 与配套事件参数定义（文件 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`，状态写入唯一入口 `SetState`/`SetWeldStatus`/`SetStatus`，见 [[modules/DeviceControl]]）
 - 程序入口与全局配置
 
 ## 负责文件

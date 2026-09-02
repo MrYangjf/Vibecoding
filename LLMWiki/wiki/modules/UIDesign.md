@@ -99,7 +99,7 @@ UIDesign/
 
 三模式：机器人（KUKA RSI/EKI 二选一）、通用TCP（服务端+客户端）、PLC（S7/Profinet）。每个模式有独立的 `chkEnable*` 开关（`AntdUI.Checkbox`，INI 持久化 `CommunicationManager.IsPlcEnabled/IsRobotEnabled/IsGeneralEnabled`），启用后才能配置。Radio→Tabs 双向联动（`OnRadioModeChanged`→`tabsSettings.SelectedIndex`，`OnTabsSelectedChanged`→反写 Radio）。`DisposeComponents()` 释放 `KUKARobotManager` 和事件订阅。
 
-**机器人通讯模式（RSI/EKI 二选一）**：`CommunicationManager.RobotCommMode`（`RobotCommModeType` 枚举：RSI=0/EKI=1）INI 持久化；`MainDeviceThread.PowerOnInitialize()` 根据配置模式只启动对应通道，`MainLoop` 断线重连同理。未启用机器人通讯时完全跳过初始化。
+**机器人通讯模式（RSI/EKI 二选一）**：`CommunicationManager.RobotCommMode`（`RobotCommModeType` 枚举：RSI=0/EKI=1）INI 持久化；`DeviceControlWork.InitializeMachine()` 根据配置模式只启动对应通道，运行线程断线重连同理。未启用机器人通讯时完全跳过初始化。
 
 ### FileEditorPage（Sub2UI，UserControl，原 XMLEditor）
 文件编辑器页面（2026-08-07 由 XMLEditor 重命名）。编辑 Server/Client/Send/Recive 四种通讯 XML + KUKA RSI/EKI 配置。左侧 `AntdUI.Tree` 文件树 + 右侧 `AntdUI.Table` 属性编辑双面板（2026-08-12 由原生 WinForms PropertyGrid 改为 AntdUI.Table）。**2026-08-12 改造（两轮）**：① 配置入口由动态 MenuStrip 改为 `AntdUI.Select`（`_configSelector`，含服务器/客户端/发送/接收/RSI/EKI 六项，RSI/EKI 文件缺失时经 `KUKAXMLConfig.SaveRSIConfig/SaveEKIConfig` 生成默认配置）；② 右侧属性编辑由 `PropertyGrid` + `ICustomTypeDescriptor` 改为 **`AntdUI.Table` 单元格编辑**（`_xmlPropertyGrid`）：`InitPropertyGridTable()` 代码后置设 `EditMode=TEditMode.DoubleClick` + 双列（`Name`「属性」只读 / `Value`「值」可编辑）+ `Binding(AntList<XmlPropertyRow>)`；行模型 `XmlPropertyRow` 字段 `Name`/`Value`/`AttributeName`/`IsElementName`/`IsElementValue`/`IsReadOnly`；`LoadNodeToTable` 每行对应「元素名称/元素值/每个 XML 属性/统计（只读）」，`XmlTable_CellEndEdit` 校验后写回 XML（属性→`XAttribute.Value`、元素值→`_currentElement.Value`、元素名→非空且不以数字开头，改后经 `FindTreeNode` 刷新树节点显示文本）。**2026-08-12 二轮（本次）表格联动**：① Designer.cs 订阅 `_xmlTreeView.SelectChanged`（`AntdUI.TreeSelectEventHandler` → `XmlTreeView_SelectChanged`），点击左侧树节点即取 `_nodeToXml[e.Item]` 更新 `_currentElement` 并调 `LoadNodeToTable` 刷新右侧表格（表头=`Name` 属性、表格内=`Value` 值）；② 新增 `SelectFirstNode()`——`LoadDocument` 加载完成后自动选中根节点并加载属性，避免打开文档后表格空白；`InitPropertyGridTable` 已设 `AutoSizeColumnsMode=ColumnsMode.Fill` 使列宽填满区域。关键方法：`LoadDocument` / `LoadXdocument` / `AddNodesRecursively` / `InitConfigSelector` / `ConfigSelector_SelectedIndexChanged` / `LoadKUKARobotConfig` / `InitPropertyGridTable` / `SelectFirstNode` / `XmlTreeView_SelectChanged` / `LoadNodeToTable` / `XmlTable_CellEndEdit` / `FindTreeNode`。
@@ -169,11 +169,12 @@ UIDesign/
 
 | 整机状态 | 判定 | 弹窗 |
 |---------|------|------|
-| 未运行 | `MainDeviceThread.Instance.IsWelding == false` | 「确认关闭」`TType.Info` —— 仅询问是否确认关闭 |
-| 运行中 | `MainDeviceThread.Instance.IsWelding == true` | 「设备运行中」`TType.Error` —— 告警设备正在运行，确认强制关闭 |
+| 未运行 | `DeviceControlWork.Instance.IsWelding == false` | 「确认关闭」`TType.Info` —— 仅询问是否确认关闭 |
+| 运行中 | `DeviceControlWork.Instance.IsWelding == true` | 「设备运行中」`TType.Error` —— 告警设备正在运行，确认强制关闭 |
 
-- 用户取消（非 OK）→ `e.Cancel = true` 阻止关闭；确认 → 放行进入 `FormClosed` 释放链（退订 StateChanged + MainDeviceThread.Dispose + CameraRun.Dispose）
-- 运行状态单一真相源：`MainDeviceThread._isWelding`（机器人 Go/Done 指令驱动，整机级运行标志）
+- 用户取消（非 OK）→ `e.Cancel = true` 阻止关闭；确认 → 放行进入 `FormClosed` 释放链（退订 `StatusChanged`/`WeldStatusChanged` + `DeviceControlWork.Dispose()` + `CameraRun.Dispose()`）
+- 运行状态单一真相源：`DeviceControlWork.IsWelding`（机器人 Go/Done 指令驱动，整机级运行标志）
+- 子设备级状态另读 `Instance.WeldStatus`（焊接过程态）与 `Instance.State`（连接态），见 [[architecture/DeviceControlArchitecture]] §13
 - 弹窗范式：`AntdUI.Modal.open(new Modal.Config(this, title, message, type)) == DialogResult.OK`（owner 用 this，FormMain 为 AntdUI.Window）
 
 ## 已知问题 / 缺口

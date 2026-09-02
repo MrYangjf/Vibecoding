@@ -35,7 +35,7 @@ source: AdaWeldSystem/ProductFileManager/FaultRecoveryManager.cs
 |---|---|---|
 | `Time` | `DateTime` | `DateTime.Now` |
 | `Device` | `string` | `"未知设备"` |
-| `State` | `DeviceState`（四态） | `Disconnect` |
+| `State` | `SubDeviceWeldStatus`（焊接过程态七态） | `Standby` |
 | `Category` | `FaultCategory` | `Device` |
 | `ErrorCode` | `string` | `string.Empty` |
 | `ParamSnapshot` | `string` | `string.Empty` |
@@ -101,7 +101,7 @@ FaultRecoveryManager.Instance.RecordFault("Safety", new FaultRecord
 
 - [[modules/ProductFileManager]] — 本文件所属模块（故障恢复数据归口，2026-09-01 起）
 - [[modules/Safety]] — 安全检查与故障恢复链路
-- [[api/SafetyWorkflow]] — 安全检查流程，故障产生的上游
-- [[modules/DeviceControl]] — 工作流基类与设备四态
+- [[api/DeviceStatusWork]] — 安全检查流程，故障产生的上游
+- [[modules/DeviceControl]] — 三态模型与非泛型工作流基类
 - [[decisions/ADR-044-SafetyCheckConsolidation]] — 三文件合并决策
 - [[lessons/FaultRecoveryDeviceKey]] — 设备键名匹配陷阱

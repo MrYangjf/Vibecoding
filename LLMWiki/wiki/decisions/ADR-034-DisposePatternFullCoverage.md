@@ -87,5 +87,5 @@ status: accepted
 - [[decisions/ADR-001-DisposePattern]]
 - [[guides/WinForms-Designer]]
 - [[modules/Comm]]
-- [[modules/Workflow]]
+- [[modules/DeviceControl]]
 - [[modules/MotionControl]]

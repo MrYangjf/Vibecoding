@@ -7,7 +7,7 @@ source: AdaWeldSystem/MotionControl/ 模块源码
 
 # MotionControl 模块 — 运控调整
 
-> 独立运控调整模块（**不再挂载于 InteliWeld**），负责：① 线激光前装标定的水平移动距离计算与缓存（`MoveControlData`）；② **运动控制器架构（`IMotionController` + `MotionControllerBase` + `IAxis` + `IIO` + `MotionManager`）**；③ 正运动4轴硬件实现（`ZMotion/` 子目录）；④ 运控调整工作流（`MotionControlWorkflow` 状态机：水平移动后台线程；模拟 A/B/C 与共享 robotX 由 [[api/SimulationWorkflow]] 统一驱动）。
+> 独立运控调整模块（**不再挂载于 InteliWeld**），负责：① 线激光前装标定的水平移动距离计算与缓存（`MoveControlData`）；② **运动控制器架构（`IMotionController` + `MotionControllerBase` + `IAxis` + `IIO` + `MotionManager`）**；③ 正运动4轴硬件实现（`ZMotion/` 子目录）；④ 运控调整工作流（`MotionControlWorkflow` 状态机：水平移动后台线程；模拟 A/B/C 与共享 robotX 由 [[api/DeviceControlWork]] 统一驱动）。
 > 设计遵循 ADR-011 的「独立模块 + Run/Workflow 分离」范式与 ADR-014。
 
 ## 目录结构
@@ -36,7 +36,9 @@ MotionControl/
 
 > **2026-08-04 层级更新**：接口与基类文件统一归入 `API/` 子目录。
 >
-> **2026-08-04 命名空间规范化**：`API/` 子目录命名空间为 `AdaWeldSystem.MotionControl.API`，根目录为 `AdaWeldSystem.MotionControl`。`MotionControlStateMachine.cs` 已迁移至 `DeviceStateMachine/` 目录，命名空间 `AdaWeldSystem.DeviceStateMachine`。
+> **2026-08-04 命名空间规范化**：`API/` 子目录命名空间为 `AdaWeldSystem.MotionControl.API`，根目录为 `AdaWeldSystem.MotionControl`。
+>
+> **状态机已消失（2026-08-28 起）**：`MotionControlStateMachine.cs` 与 `DeviceStateMachine/` 目录**均已删除**；运控不再持有独立状态机实例，状态由 `MotionControlWorkflow` 经基类 `DeviceStateBase` 承载（三态模型，2026-09-02 ADR-049）。
 
 ## 核心文件
 
@@ -56,8 +58,8 @@ MotionControl/
 | **ZMotion/ZMotionGalvo.cs** | **振镜控制高级封装（2026-08-11 新增）**：面向业务的振镜/激光打标接口，集成于 ZMotionController.Initialize() |
 | **ZMotion/InterpolationEngine.cs** | **连续插补引擎（2026-08-11 迁入 ZMotion/）**：封装 ZAux 多轴连续插补（MERGE/拐角/MultiMoveAbs/直线缓冲区流控），强耦合正运动硬件 |
 
-> **工作流归属**：`MotionControlWorkflow` 现位于 `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`（2026-08-28 由 `Workflow/` 迁入，ADR-041），继承 `DeviceWorkflowBase<MotionControlWorkflowState>`，命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`。
-> **状态机演进**：曾于 2026-08-03 集成设备状态机字段；2026-08-28 起设备态统一由基类 `DeviceStateBase` 承载，`MotionControlWorkflow` 只实现 `MapToDeviceState(step)` 映射，不再持有独立状态机实例。
+> **工作流归属**：`MotionControlWorkflow` 现位于 `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`（2026-08-28 由 `Workflow/` 迁入），继承**非泛型** `DeviceWorkflowBase`，命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`。
+> **状态模型（2026-09-02 ADR-049 三态）**：连接态 `SubDeviceState` 与焊接过程态 `SubDeviceWeldStatus` 由基类 `DeviceStateBase` 承载，状态写入唯一入口为 `SetState`/`SetWeldStatus`，禁手工赋值。`MotionControlWorkflow` 只保留**私有**阶段枚举（`LaserCamBoxWorkflowState`）+ `MapWeldStatus(step)` 映射，不对外暴露，不再持有独立状态机实例（原 `DeviceStateMachine/` 目录已删除）。
 
 ## MoveControlData（标定 + 计算 + 缓存）
 
@@ -69,10 +71,10 @@ MotionControl/
 
 ## MotionControlWorkflow（位于 `MainDeviceControl/DeviceWorkflow/`）
 
-> ⚠️ **2026-07-20 架构纠正（[[decisions/ADR-017-SimulationModeThroughThreeWorkflows]]）**：`MotionControlWorkflow` **不再持有独立模拟线程**。模拟模式（共享 robotX / A·B·C 模式 / 参数）统一由 [[api/SimulationWorkflow]] 提供；本工作流仅：① 水平移动后台线程消费 `MoveControlData` 缓存；② 订阅 `PipelineManager.AlgorithmCompleted` 将线激光每帧焊缝特征缓存为水平移动距离。模拟开启时，运控按 `SimulationWorkflow.ShouldMoveAxis`（B 运动、A/C 仅记录）切换输出。
+> ⚠️ **2026-07-20 架构纠正（[[decisions/ADR-017-SimulationModeThroughThreeWorkflows]]）**：`MotionControlWorkflow` **不再持有独立模拟线程**。模拟模式（共享 robotX / A·B·C 模式 / 参数）统一由 [[api/DeviceControlWork]] 提供；本工作流仅：① 水平移动后台线程消费 `MoveControlData` 缓存；② 订阅 `PipelineManager.AlgorithmCompleted` 将线激光每帧焊缝特征缓存为水平移动距离。模拟开启时，运控按 `DeviceControlWork.ShouldMoveAxis`（B 运动、A/C 仅记录）切换输出。
 
-- 枚举（位于 `Comm/SystemComm.cs`）：`MotionControlWorkflowState { Idle, Initializing, Running, [Obsolete]Simulating, Completed, ErrorAborted, ManualStopped }`、`SimTestMode { None, ModeA, ModeB, ModeC }`（属模拟模式，现由 [[api/SimulationWorkflow]] 持有）、`MotionControlStateChangedEventArgs`。
-- 水平移动后台线程 `HorizontalMoveWorker()`：消费 `MoveControlData` 缓存，`GetEffectiveRobotX()` 读取机器人X（模拟时返共享模拟 robotX，否则返真实），`TryGetNearestHorizontalMove` 命中阈值且 `SimulationWorkflow.ShouldMoveAxis` 为真时 `MotionController.MoveHorizontal(move)` → `RemoveHorizontalMove(key)`；A/C 模式仅记录不运动。
+- **私有**阶段枚举（内联本文件，不对外）：`LaserCamBoxWorkflowState { Idle, Initializing, WaitingForMaster, Tracking, Paused, Stopping, Error }`，经 `MapWeldStatus(step)` 映射到对外 `SubDeviceWeldStatus`；映射表单一维护点见 [[architecture/DeviceControlArchitecture]] §6。模拟模式枚举 `SimTestMode { None, ModeA, ModeB, ModeC }` 由 [[api/DeviceControlWork]] 持有（ADR-048 归并）。
+- 水平移动后台线程 `HorizontalMoveWorker()`：消费 `MoveControlData` 缓存，`GetEffectiveRobotX()` 读取机器人X（模拟时返共享模拟 robotX，否则返真实），`TryGetNearestHorizontalMove` 命中阈值且 `DeviceControlWork.ShouldMoveAxis` 为真时 `MotionController.MoveHorizontal(move)` → `RemoveHorizontalMove(key)`；A/C 模式仅记录不运动。
 - 焊缝特征缓存：订阅 `PipelineManager.AlgorithmCompleted`，将线激光流程（模拟时即虚拟相机）每帧 `SeamFeatureResult` + 当前有效 robotX 经 `MoveControlData.ComputeAndCacheHorizontalMove` 落缓存。
 - 资源释放：~~`DisposeComponents()`~~（**2026-08-19 已废弃**——非 UI 类统一使用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-001-DisposePattern]]）
 
@@ -84,7 +86,7 @@ MotionControl/
 | B | 虚拟调试相机 | ✅ | ✅ | ✅（`MotionManager.GetAxis("水平轴").MoveTo`） |
 | C | 真实相机（`CameraRun`） | ✅ | ✅ | ❌ |
 
-> 水平移动后台线程由「开启模拟」按钮统一启动（见 [[api/SimulationWorkflow]]）；B 模式经 `MotionController.MoveHorizontal` 实际运动，A/C 仅记录（由 `SimulationWorkflow.ShouldMoveAxis` 控制）。模拟模式与参数统一归 [[api/SimulationWorkflow]]，不再内嵌于本工作流。
+> 水平移动后台线程由「开启模拟」按钮统一启动（见 [[api/DeviceControlWork]]）；B 模式经 `MotionController.MoveHorizontal` 实际运动，A/C 仅记录（由 `DeviceControlWork.ShouldMoveAxis` 控制）。模拟模式与参数统一归 [[api/DeviceControlWork]]，不再内嵌于本工作流。
 
 ## 运动控制器架构（2026-08-03 新增）
 
@@ -120,9 +122,9 @@ MotionControl/
 
 ### 默认初始化控制器（2026-08-21 起为正运动 ZMotion）
 
-> **2026-08-21 架构调整（[[decisions/ADR-037-DefaultInitZMotion]]）**：默认初始化不再使用空实现（`NullMotionController` 已删除）。`MotionManager.Initialize()` 现在直接初始化正运动（ZMotion）控制器——读 `MotionConfigManager.Config.IpAddress`（默认 `192.168.0.11`），以太网连接硬件，按配置创建 Y轴/振镜轴/送丝伸缩臂轴/Z轴自动对焦轴 与 IO。CAMBOX 跟踪工作流（`LaserCamBoxTrackingWorkflow`）依赖该句柄，因此随正运动初始化自动就绪。
+> **2026-08-21 架构调整（[[decisions/ADR-037-DefaultInitZMotion]]）**：默认初始化不再使用空实现（`NullMotionController` 已删除）。`MotionManager.Initialize()` 现在直接初始化正运动（ZMotion）控制器——读 `MotionConfigManager.Config.IpAddress`（默认 `192.168.0.11`），以太网连接硬件，按配置创建 Y轴/振镜轴/送丝伸缩臂轴/Z轴自动对焦轴 与 IO。CAMBOX 跟踪编排（`MotionControlWorkflow`）依赖该句柄，因此随正运动初始化自动就绪。
 >
-> 仿真测试子系统 `SimulationWorkflow`（`[[api/SimulationWorkflow]]`，虚拟相机/焊缝轮廓模拟）与运动控制器无关，予以保留。
+> 模拟模式（虚拟相机/焊缝轮廓模拟）由 `DeviceControlWork` 承载（[[api/DeviceControlWork]]），与运动控制器解耦。
 
 ### 使用模式
 
@@ -473,14 +475,14 @@ PC **不再驱动运动、不再滤波、不再参与实时链路**。仅做三�
 
 | 协作对象 | 数据接口 |
 |----------|----------|
-| [[modules/DeviceControl]] | `MotionControlWorkflow` 承载 CAMBOX 启停编排，通过 `MotionManager.Instance.GetAxis(...)` 取轴控制；设备态由 `MapToDeviceState` 映射为四态 |
+| [[modules/DeviceControl]] | `MotionControlWorkflow` 承载 CAMBOX 启停编排，通过 `MotionManager.Instance.GetAxis(...)` 取轴控制；私有阶段枚举经 `MapWeldStatus` 映射为焊接过程态 `SubDeviceWeldStatus` |
 | [[modules/WeldParamControl]] | `WeldProcess.ComputeAndCacheHorizontalMove` 委派至 `MoveControlData`；`WeldProcess.CurrentRobotX` 供真实机器人X读取 |
 | [[modules/VirtualCam]] | `MotionControlWorkflow` 取图（`CameraSelector.Active`）+ 模拟轮廓驱动 |
 | [[modules/SmartRayCam]] | 共享 `ICameraRun`（`CameraRun` 真实相机）；`Comm/SystemComm` 枚举 |
 | [[modules/EmguALG]] | `PipelineManager.AlgorithmCompleted` / `SeamFeatureResult` |
 | [[modules/Comm]] | `GlobalCommData` 日志 / `SimTestMode` 等枚举 |
 | [[modules/UIDesign]] | `MotionControlPage`（标定/模拟/运动轴参数写入，位于 Sub2UI，接入 NavPage（参数界面）工艺配置节点） |
-| [[modules/DeviceControl]] | 设备态由 `MotionControlWorkflow.MapToDeviceState` 映射为四态 |
+| [[modules/DeviceControl]] | 焊接过程态由 `MotionControlWorkflow.MapWeldStatus` 映射为 `SubDeviceWeldStatus`（七态） |
 
 ---
 

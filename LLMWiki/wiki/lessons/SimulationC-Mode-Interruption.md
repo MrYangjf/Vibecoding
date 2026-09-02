@@ -7,6 +7,8 @@ source: AdaWeldSystem/Workflow/Device/LineLaserWorkflow.cs, AdaWeldSystem/UIDesi
 
 # 模拟 C 模式进不到测试阶段（根因与修复）
 
+> **类名注记（2026-09-02，ADR-048/049）**：文中的 `SimulationWorkflow` **已删除**，全部成员归并整机主控 `DeviceControlWork`（`IsEnabled`→`IsSimulationEnabled`、`Enable`→`EnableSimulation`、`Disable`→`DisableSimulation`）；`LaserCamBoxTrackingWorkflow` 已删除，现由 `MotionControlWorkflow` 承载；工作流 `State` 对外改由 `WeldStatus`（`SubDeviceWeldStatus`）承载。三条根因的排查思路继续有效。
+
 ## 现象
 
 模拟测试选 C 模式（真实相机+计算+记录）后，`MotionControlPage` 的模拟按钮变红「清理异常」，工作流进入 ErrorAborted，**进不到 PreWork/Starting/Working 测试阶段**。
@@ -34,8 +36,8 @@ source: AdaWeldSystem/Workflow/Device/LineLaserWorkflow.cs, AdaWeldSystem/UIDesi
 
 ## 关联
 
-- 模拟驱动：[[api/SimulationWorkflow]] / [[decisions/ADR-017-SimulationModeThroughThreeWorkflows]]
-- 工作流分步：[[modules/Workflow]] / [[decisions/ADR-035-LineLaserWorkflowRefactor]]
+- 模拟驱动：[[api/DeviceControlWork]] / [[decisions/ADR-017-SimulationModeThroughThreeWorkflows]]
+- 工作流分步：[[modules/DeviceControl]] / [[decisions/ADR-035-LineLaserWorkflowRefactor]]
 - 相机选择：[[api/CameraSelector]]（`SelectReal()` 选 SmartRay 占位、`SelectIntelligentLaser()` 选英莱）
 - 主界面轮廓显示：[[modules/UIDesign]] MainPage（`AddContourLineChart()` 须在 FormMain 初始化时显式调用，订阅英莱相机 `ContourDataReady` 事件）
 
@@ -83,7 +85,7 @@ mainPage.AddNewDataLineChart();
 2. 启动异常路径（`BtnStartSim_Click` 末尾无条件 `SetSimButtonMode(Stop)`）使按钮停在「停止」而非红色「清理异常」，与 ErrorAborted 路径不一致。
 3. 原 `ShowSimErrorDialog` 用 `AntdUI.Message.error`（无需确认），与用户「需确认用 Modal」约定不符。
 
-### 修复（[[api/MotionControlPage]] / [[api/SimulationWorkflow]]）
+### 修复（[[api/MotionControlPage]] / [[api/DeviceControlWork]]）
 1. `Disable()` 幂等化：仅当 `_currentMode != None`（开启→关闭）才记录并停止 robotX，已关闭直接 return → 重复日志消除。
 2. 新增 `LogSimStopSummary(reason)`：汇总 `LineLaserWorkflow.State` / `LaserCamBoxTrackingWorkflow.State` / `MonitorCameraWorkflow.State` / `SimulationWorkflow` 模拟模式态，输出「人话」式停止原因，区别于底层「状态迁移」调试日志。
 3. 新增 `ShowSimStopMessage(reason)`：正常停止（用户停止指令/焊缝完成/异常清理恢复）用 `AntdUI.Message.info` 弹窗（无需确认）。

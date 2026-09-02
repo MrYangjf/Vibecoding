@@ -7,6 +7,8 @@ status: accepted
 
 # ADR-037：默认初始化切到正运动控制器 + 删除 Null 空控制器
 
+> **类名沿革注记（2026-09-02，ADR-049）**：本文中的 `MainDeviceThread` → `MainDeviceWorkflow` → **现为 `DeviceControlWork`**；`LaserCamBoxTrackingWorkflow` 已删除，现由 `MotionControlWorkflow` 承载 CAMBOX 启停编排；`SimulationWorkflow` 已删除，成员全部归并 `DeviceControlWork`。读取本页时请按现行类名理解，决策结论本身仍有效。
+
 ## 背景
 
 `MotionManager.Initialize()` 原默认创建 `NullMotionController`（空实现），仅建 `Y轴`/`水平轴` 两个 `NullAxis`，不连接任何硬件、所有操作只记日志。而真正能驱动硬件的正运动控制器 `ZMotionController` 仅存在于**未被正常流程调用的** `InitializeWithZMotion(ip)` 工厂方法中。
@@ -44,6 +46,6 @@ status: accepted
 ## 关联
 
 - [[modules/MotionControl]] — 运动控制器架构与默认初始化变更说明
-- [[modules/Workflow]] — `MainDeviceThread` 初始化入口、`LaserCamBoxTrackingWorkflow` CAMBOX 跟踪编排
+- [[modules/DeviceControl]] — `MainDeviceThread` 初始化入口、`LaserCamBoxTrackingWorkflow` CAMBOX 跟踪编排
 - [[decisions/ADR-030-RSICamBoxTrackingArchitecture]] — V3 CAMBOX 硬件级实时跟踪架构依据
 - [[decisions/ADR-029-ZMotionControllerIntegration]] — 正运动控制器对接

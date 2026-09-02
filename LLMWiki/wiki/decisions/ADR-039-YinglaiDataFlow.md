@@ -142,7 +142,7 @@ Uninitialized → Initializing → Standby → Starting → Running
 ## 参考
 
 - [[modules/IntelligentLaserCam]] — 英莱相机模块
-- [[modules/Workflow]] — 线激光工作流
+- [[modules/DeviceControl]] — 线激光工作流
 - [[modules/UIDesign]] — 主页面 ScottPlot
 - [[api/IntelligentLaserCameraRun]] — ContourDataReady 事件
 - [[api/LineLaserWorkflow]] — Running 单态工作流 API

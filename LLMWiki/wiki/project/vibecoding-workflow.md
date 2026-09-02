@@ -121,7 +121,7 @@ tags: [工作流, VibeCoding, 开发流程, 规范]
 【模块架构上下文】
 - 模块 [[modules/Comm]]：
   - 核心文件：SystemComm.cs, CommunicationManager.cs, Ethernet/TCPIPComm.cs, ...
-  - 协作关系：← [[modules/Workflow]], → [[modules/WeldParamControl]]
+  - 协作关系：← [[modules/DeviceControl]], → [[modules/WeldParamControl]]
   - 已知问题：与 WeldParamControl 存在循环依赖
 ```
 

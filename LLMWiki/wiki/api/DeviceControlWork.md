@@ -7,8 +7,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/DeviceControlWork.cs
 
 # DeviceControlWork API 参考
 
-> **⚠️ 本页现述 `DeviceControlWork`（单例）**——由 `MainDeviceWorkflow` 归并重命名（[[decisions/ADR-049-ThreeStateModelRefactor]]，取代 ADR-041/042/047/048）。
-> 旧 `MainDeviceFlowState` 整机流程态已删除，改为 **主设备运行态 `MainDeviceStatus`**（6 态）。文件名保留作历史入口，避免红链。
+> **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-049-ThreeStateModelRefactor]]。
+> 主设备对外状态为 **运行态 `MainDeviceStatus`**（6 态：Running/Alarm/EStop/Stop/NoReset/Reseting），由 `SetStatus(...)` 单一入口写入，禁手工赋值。
 >
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/DeviceControlWork.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
@@ -76,6 +76,10 @@ public class DeviceControlWork
 }
 ```
 
+> **日志出口（2026-09-03 统一）**：本类全部日志经私有 `Log(...)` → `DeviceLog.Write(_tag, ...)`；
+> 模拟模式相关另用 `_simTag` → `DeviceLog.Write(_simTag, ...)`。
+> **禁止**在 `MainDeviceControl/` 下直接调 `GlobalCommData.ShowLog`。见 [[api/DeviceLog]]。
+
 ---
 
 ## 主设备运行态 MainDeviceStatus（6 态）
@@ -90,6 +94,33 @@ public class DeviceControlWork
 | `Reseting`(5) | 复位中 |
 
 唯一写入入口：`private void SetStatus(MainDeviceStatus newStatus, string reason)`（触发 `StatusChanged` 并记日志）。
+
+### 状态读取红线（2026-09-03 修复，强制）
+
+`_status` 由 `_statusLock` 保护，**任何业务读取必须走 `Status` 属性**，禁止裸读 `_status`——
+加锁与不加锁的读混用，等于没加锁。
+
+```csharp
+if (Status != MainDeviceStatus.Stop) ...     // 正确
+if (_status != MainDeviceStatus.Stop) ...    // 错误：绕过锁
+```
+
+**合法裸读仅 5 处**（审计残留白名单）：字段声明、`_statusLock` 声明、`Status` getter 内、`SetStatus` 锁内写块、
+`ClearAlarm` 内的 check-and-set（必须与写入同处一把锁内，拆开会产生 TOCTOU）。
+
+### 步时间与超时不变量（2026-09-03 修复）
+
+本类**不继承 `DeviceWorkflowBase`**，自带私有步机制，须与基类保持同源不变量：
+
+| 不变量 | 实现 | 违反后果 |
+|---|---|---|
+| 步号与时间成对刷新 | `GoStep(n)`：`_workStep = n;` + `Interlocked.Exchange(ref _workStartTicks, ...)` | 超时判定基准错乱 |
+| 非运行态持续刷新时间戳 | `RunLoop()` 的 `else { ResetStepTime(); }` 分支 | **停机超 60s 后再开机，首拍即误判超时跳 900 失败收尾** |
+| 重启复位步 | `StartMachine()` 内 `GoStep(StepIdle)` | 沿用停机时刻的步号与时间戳，同样误判 |
+| 64 位字段原子读写 | `Interlocked.Exchange` / `Interlocked.Read` | 32 位平台读到撕裂值，`DateTime` 构造出荒谬时间 |
+
+> ⚠️ 本类曾因漏抄基类「非运行态刷新」分支而出现停机久后开机即报超时。
+> 详见 [[lessons/DeviceControlWorkInheritanceBypass]] 坑三/坑五，规范见 [[standards/StepDrivenWorkflow]] §2.2。
 
 ---
 
@@ -139,9 +170,9 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 
 ---
 
-## 模拟模式 API（原 SimulationWorkflow 归并）
+## 模拟模式 API（原 SimulationWorkflow 已删除归并）
 
-`SimulationWorkflow` 已删除（[[api/SimulationWorkflow]] 墓碑），全部成员并入本类，真相源=本类单例：
+原 `SimulationWorkflow.cs` 已删除（ADR-048），全部成员并入本类，**模拟模式真相源 = 本类单例**：
 
 | 成员 | 说明 |
 |---|---|
@@ -183,6 +214,8 @@ string status = "step:" + main.WorkStep + " " + main.WorkStepName;
 - [[modules/Comm]] — 机器人/PLC 连接归属地
 - [[modules/Safety]] — `DeviceStatusWork.IsSafe` 门控接入
 - [[decisions/ADR-049-ThreeStateModelRefactor]] — 本次归并重命名决策（现行有效）
-- [[decisions/ADR-041-MainDeviceControlArchitecture]] — 已被取代（历史参考）
+- ADR-041（已删除，见 ADR-049） — 已被取代（历史参考）
 - [[decisions/ADR-048-AutoManualDualWorkflow]] — 双流程模型 + 模拟归并决策
-- [[api/SimulationWorkflow]] — 墓碑（已删除，真相源=本页）
+- [[api/DeviceLog]] — 日志统一出口（本类 `_tag` / `_simTag` 的落地）
+- [[lessons/DeviceControlWorkInheritanceBypass]] — 状态直读 / 时间戳非原子 / 停机重启误判超时 三类 BUG 根因
+- [[api/DeviceControlWork]] — 墓碑（已删除，真相源=本页）

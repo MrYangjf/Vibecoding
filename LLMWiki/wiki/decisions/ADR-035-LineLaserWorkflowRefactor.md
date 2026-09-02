@@ -59,7 +59,7 @@ Start() → PreWork → Starting → Working → Stopping → Standby
 4. **等待数据稳定**：`WaitForLineLaserDataStable(timeout)` 轮询 `IsDataStable`
 5. **第三步**：`LineLaserWorkflow.Instance.BeginWorking()` → 进入 Working（焊接开始）
 
-详见 [[modules/Workflow]] 线激光工作流章节和 [[api/LineLaserWorkflow]]。
+详见 [[modules/DeviceControl]] 线激光工作流章节和 [[api/LineLaserWorkflow]]。
 
 ### 待机安全默认态
 

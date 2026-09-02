@@ -8,7 +8,7 @@ status: implemented
 
 # LaserWeldHead 模块 — 激光焊接头
 
-> **当前状态：已实现**。包含完整的接口定义、控制器实现、数据模型；设备态与流程态由 `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs` 承载（骨架）。
+> **当前状态：已实现**。包含完整的接口定义、控制器实现、数据模型；连接态与焊接过程态由 `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs` 承载（骨架，仅私有阶段 `Uninitialized`/`Standby`）。
 > 负责整枪激光头的本地信号监视与异常上报，是上电初始化级联的第 1 步（见 [[architecture/DeviceControlArchitecture]] §7.1）。
 > 数据模型（`LaserHeadTemperatureData` / `AutoFocusPositionData` / `SafetyIOStatus`）随 `DataModels/` 目录删除后迁入本模块 `LaserWeldHeadData.cs`。
 
@@ -107,7 +107,7 @@ flowchart LR
 - [[api/LaserWeldHeadController]] — 激光焊接头控制器 API
 - [[architecture/DeviceControlArchitecture]] — 设备控制架构（唯一规范页）
 - [[modules/DeviceControl]] — 设备控制模块
-- [[decisions/ADR-041-MainDeviceControlArchitecture]] — 架构重构决策
+- ADR-041（已删除，见 ADR-049） — 架构重构决策
 
 ## 待办
 

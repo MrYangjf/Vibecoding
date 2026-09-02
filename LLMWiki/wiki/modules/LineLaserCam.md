@@ -26,18 +26,18 @@ source: AdaWeldSystem/LineLaserCam/ 模块源码
 - **统一对外接口目录 `LineLaserCam/Api/`**：`ICameraRun.cs` 与 `CameraSelector.cs` 共同构成线激光相机族统一对外接口层。2026-07-21 将 `ICameraRun` 由 `SmartRayCam/Api/`、`CameraSelector` 由 `VirtualCam/` 上提至此目录，二者命名空间**统一为 `AdaWeldSystem.LineLaserCamApi`**（与 Api 目录对齐，不再遵循「命名空间与目录解耦」惯例）；`ICameraRun` 由 `CameraRun`（SmartRayCam，命名空间 `AdaWeldSystem.SmartRayCameraRun`）与 `VirtualCameraRun`（VirtualCam，命名空间 `AdaWeldSystem.VirtualCam`）实现。详见 [[decisions/ADR-019-CameraSelectorUnifiedToApi]]。
 - 与 [[modules/MonitorCam]]（监控 2D 相机）区分：MonitorCam 不参与线激光工作流，独立模块。
 
-## 线激光设备态与流程态（当前事实）
+## 线激光设备状态（当前事实：三态模型）
 
-> **2026-08-28 起（ADR-041）**：`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 基类、以及 `LineLaserCameraStateMachine` 均**已删除**，不再有独立的线激光相机状态机文件。设备态收敛为**四态**，流程态由工作流承载。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
+> 独立的线激光相机状态机文件**不存在**：`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 基类、`LineLaserCameraStateMachine` 均已删除。线激光的状态由工作流承载——对外只暴露**连接态 `SubDeviceState`** 与**焊接过程态 `SubDeviceWeldStatus`**，内部分支用**私有阶段枚举**（不对外）。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
 
 **职责分工**：
 
 | 关注点 | 承载者 | 位置 |
 |---|---|---|
 | 相机种类选择与连接态 | `CameraSelector` | `LineLaserCam/Api/CameraSelector.cs`（[[decisions/ADR-018-CameraConnectionStateDecoupled]]） |
-| 流程态（9 态）与设备态四态映射 | `LineLaserWorkflow`（继承 `DeviceWorkflowBase<LineLaserWorkflowState>`） | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` |
+| 连接态 + 焊接过程态 + 执行步 | `LineLaserWorkflow`（继承**非泛型** `DeviceWorkflowBase`） | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` |
 
-**流程态 `LineLaserWorkflowState`（9 态）**：
+**内部执行流（私有阶段枚举，不对外）**：
 
 ```
 Uninitialized → Initializing → Standby(待机，传感器/激光均关闭)
@@ -46,9 +46,9 @@ Working → Stopping(关激光+关传感器+清理) → Standby
 任意态 → ErrorAborted(异常终止) / ManualStopped(手动停止)
 ```
 
-**设备态映射（`MapToDeviceState`）**：`Uninitialized`→`Disconnect`；`Standby`/`ManualStopped`→`Connect`；`Initializing`/`PreWork`/`Starting`/`Working`/`Stopping`→`Work`；`ErrorAborted`→`Alarm`。
+> 私有阶段 → `SubDeviceWeldStatus` 的映射表见 [[architecture/DeviceControlArchitecture]] §6（**唯一维护点**，本页不复制，避免两处漂移）。
 
-> **易误判点**：`LineLaserWorkflow` 文件里 grep 不到 `ManualStart` / `ManualStop` / `State` / `SetStep` / `StateChanged` 是正常的，它们由基类提供。
+> **易误判点**：`LineLaserWorkflow` 文件里 grep 不到 `State` / `SetState` / `WeldStatus` / `SetWeldStatus` / `StateSwitched` / `WeldStatusChanged` 是正常的，它们由基类 `DeviceStateBase` 提供。
 
 ## 状态标签规范（2026-08-19，ADR-035）
 

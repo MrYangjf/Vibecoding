@@ -131,11 +131,13 @@ find . -name "*.cs" -not -path "./bin/*" -not -path "./obj/*" \
 
 **原因分析**
 
-新建 `.cs` 文件时，若类定义中引用了其他命名空间的类型（如 `GlobalCommData`、`IDeviceStateMachine`、`EventArgs`），但未在文件顶部添加相应的 `using` 指令，会导致编译错误。
+新建 `.cs` 文件时，若类定义中引用了其他命名空间的类型（如 `GlobalCommData`、`SubDeviceWeldStatus`、`EventArgs`），但未在文件顶部添加相应的 `using` 指令，会导致编译错误。
 
 > 在已有项目中新增文件时，**不能依赖"同项目自动解析"的错觉**，每个 `.cs` 文件都是独立的编译单元，必须显式 `using` 所有外部类型。
 
 **触发场景（真实故障）**
+
+> **注**：原故障案例中的 `DeviceStateMachineBase.cs` / `DeviceState` 四态枚举 / `IDeviceStateMachine` 接口均已于 2026-08-28 删除（旧 `DeviceStateMachine/` 目录整体移除），现由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 的**三态**枚举取代。案例机制（每个 `.cs` 是独立编译单元、须显式 using）不变。
 
 2026-07-31 新增 `DeviceStateMachineBase.cs` 时，类中使用了 `GlobalCommData.ShowLog()` 和 `DeviceState` 枚举，但忘记添加 `using AdaWeldSystem.Comm;`。编译报错：
 
@@ -150,7 +152,8 @@ CS0246: 找不到类型或命名空间名称"DeviceState"(是否缺少 using 指
 
 ```csharp
 using AdaWeldSystem.Comm;          // 用于 GlobalCommData
-using AdaWeldSystem.DeviceStateMachine; // 用于 DeviceState（同命名空间通常不需要，但跨命名空间时需要）
+// 现行三态枚举（替代旧 DeviceState）：
+using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus
 ```
 
 **常见易遗漏的 using 引用**
@@ -158,8 +161,10 @@ using AdaWeldSystem.DeviceStateMachine; // 用于 DeviceState（同命名空间�
 | 类型 | 所需 using | 说明 |
 |------|-----------|------|
 | `GlobalCommData` | `using AdaWeldSystem.Comm;` | 全局通讯/日志静态类 |
-| `DeviceState` | `using AdaWeldSystem.DeviceStateMachine;` | 通用设备状态枚举 |
-| `IDeviceStateMachine` | `using AdaWeldSystem.DeviceStateMachine;` | 设备状态机接口 |
+| `SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` | `using AdaWeldSystem.MainDeviceControl.DeviceState;` | 三态枚举（**注意**：物理目录是 `DeviceStateApiCore/`，命名空间仍是 `...DeviceState`） |
+| `WeldStatusChangedEventArgs` / `SubDeviceStateChangedEventArgs` | `using AdaWeldSystem.MainDeviceControl.DeviceState;` | 状态变更事件参数 |
+| `DeviceWorkflowBase` | `using AdaWeldSystem.MainDeviceControl.FlowState;` | 非泛型工作流基类（**注意**：物理目录是 `DeviceStateApiCore/`，命名空间仍是 `...FlowState`） |
+| `LineLaserWorkflow` 等 5 个子工作流 | `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;` | 子设备工作流 |
 | `MessageLevel` | `using AdaWeldSystem.Comm;` | 日志级别枚举（与 GlobalCommData 同命名空间） |
 | `KUKARobotManager` | `using AdaWeldSystem.Comm.KUKARobot;` | KUKA 机器人管理器 |
 | `S7PLCCommunication` | `using AdaWeldSystem.Comm.SiemensS7;` | S7 PLC 通讯 |
@@ -243,9 +248,11 @@ using AdaWeldSystem.DeviceStateMachine; // 用于 DeviceState（同命名空间�
 >     // 放在文件顶部（编译单元级）无效——向外走会先在 MainDeviceControl 层停下。
 > ```
 >
-> **实测清单（2026-09-01 校正为 8 个）**：`MainDeviceControl/DeviceWorkflow/` 下全部 **7 个**工作流 —— `{LineLaser, MainDevice, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead, Safety}Workflow.cs` —— 外加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
+> **实测清单（2026-09-02 ADR-049 后校正为 7 个）**：`MainDeviceControl/DeviceWorkflow/` 下 **5 个**子设备工作流 —— `{LineLaser, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead}Workflow.cs` —— 外加 `MainDeviceControl/DeviceControlWork.cs`、`MainDeviceControl/DeviceStatusWork.cs`（两个整机管控类），再加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
 >
-> （旧版记录为 7 个且写作 `SafetyInterlock.cs`：该文件已于 2026-08-31 安全检查三合一合并为 `SafetyWorkflow.cs`，且漏记 `LaserWeldHeadWorkflow.cs`，均已校正。）
+> （旧版记录 7 个工作流含 `MainDeviceWorkflow.cs` / `SafetyWorkflow.cs`：前者已于 2026-09-02 更名 `DeviceControlWork.cs` 并移出 `DeviceWorkflow/`，后者更名 `DeviceStatusWork.cs` 并移出；`SafetyFlow.cs` / `SafetyInterlock.cs` 于 2026-08-31 三合一合并。均已校正。）
+>
+> ⚠️ **目录 ≠ 命名空间**：`DeviceStateApiCore/` 只是物理目录，其中 `DeviceStateBase.cs` 仍属 `...MainDeviceControl.DeviceState`，`DeviceWorkflowBase.cs` 仍属 `...MainDeviceControl.FlowState`。
 >
 > 另：`ProductFileManager/FaultRecoveryManager.cs` 也在命名空间内用了同一别名——它虽在 `MainDeviceControl` 子树外，但写法同样合法，不必改。
 >

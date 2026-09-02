@@ -4,8 +4,13 @@ import os
 import re
 import glob
 
-WIKI = r"D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\Vicoding管理平台\LLMWiki\wiki"
-CODE = r"D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem"
+# 2026-09-03：原为硬编码旧机器绝对路径（D:\A-A-项目类\...），迁移后扫描恒为 0 文件（静默失效，比报错更危险）。
+# 改为按脚本自身位置推导：LLMWiki/ 与 AdaWeldSystem/ 同为工作区根下的兄弟目录。
+_WORKBUDDY_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # .../LLMWiki
+_WORKSPACE_ROOT = os.path.dirname(_WORKBUDDY_ROOT)                               # .../Vicoding管理平台
+WIKI = os.path.join(_WORKBUDDY_ROOT, "wiki")
+CODE = os.path.join(_WORKSPACE_ROOT, "..", "AdaWeldSystem")
+CODE = os.path.normpath(CODE)
 
 # 收集代码中所有 .cs 文件（相对路径，小写）
 code_files = set()

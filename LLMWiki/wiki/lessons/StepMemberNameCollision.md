@@ -9,6 +9,8 @@ tags: [教训, 步骤驱动, CSharp, 编译, ADR-038, ADR-047, DeviceWorkflowBas
 > 来源：2026-09-01 步骤驱动改造（[[decisions/ADR-047-StepDrivenWorkflow]]）**落地后的第二轮精简审查**。
 > 上一轮改造把 8 个 workflow 全部改成「常量步号 + 同名单步方法」的写法，本轮审查才发现这套写法**根本编译不过**。
 > 规范正文见 [[standards/StepDrivenWorkflow]] §5.1，本页只记踩坑与规避动作。
+>
+> **类名与规模注记（2026-09-02，ADR-049）**：文中「8 个 workflow」现为 **7 个**——5 个子设备工作流（`LineLaser`/`MonitorCamera`/`MotionControl`/`WeldParamControl`/`LaserWeldHead`）+ `DeviceControlWork` + `DeviceStatusWork`；`SafetyWorkflow` 现为 `DeviceStatusWork`（其 `StepAlarm = 900` 与 `DoAlarm()` 已随三线程模型移除）；`MainDeviceWorkflow` 现为 `DeviceControlWork`。**CS0102 同名冲突的规避动作继续有效**。
 
 ---
 

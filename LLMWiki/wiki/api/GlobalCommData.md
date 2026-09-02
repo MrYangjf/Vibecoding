@@ -11,7 +11,7 @@ source: raw/skills/02-Development/GeneralTechSpecialist.md
 > 物理文件：`Comm/SystemComm.cs`（由原 `GlobalCommData.cs` 与 `SystemStatus.cs` 合并而来）。
 > 职责按优先级分为 3 类：全局事件触发、全局日志管理、全局通讯配置管理。
 > **自动调整参数管理已迁出到 [[api/WeldDataManager]]。**
-> **全局状态机已迁出到 [[api/LineLaserWorkflow]] 的 `LineLaserWorkflowState`。**
+> **全局状态不再由本文件承载**：三态模型（ADR-049）的状态枚举与事件参数统一由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载，见 [[architecture/DeviceControlArchitecture]]。
 
 ## 核心类
 
@@ -52,30 +52,15 @@ static class GlobalCommData
 public enum MessageType { Summary, Run, Flow, Debug }
 public enum MessageLevel { Info, Warning, Error }
 public enum OperateLevel { Operator = 2, Engineer = 1, Admin = 0 }
-public enum LineLaserWorkflowState { Uninitialized, Initializing, Standby, Starting, Acquiring, Analyzing, Adjusting, Completed, ErrorAborted, ManualStopped }
-public enum WorkflowSignalCode { None, Completed, ConsecutiveFailureExceeded, ManualStopped }
 
 public class MessageArgs : EventArgs
 {
     public string strMessage;
     public Color MessageShowColor;
 }
-
-// 2026-08-31（ADR-042）：流程态事件参数已统一为泛型 WorkflowStepChangedEventArgs<TStep>，
-// 原 LineLaserWorkflowStateChangedEventArgs 等自有参数类已删除
-public class WorkflowStepChangedEventArgs<TStep> : EventArgs where TStep : struct
-{
-    public TStep OldState;
-    public TStep NewState;
-    public string Reason;
-    public DateTime Timestamp;
-}
-
-public class WorkflowCompletedEventArgs : EventArgs { ... }
-public class WorkflowErrorAbortedEventArgs : EventArgs { ... }
-public class WorkflowManualStoppedEventArgs : EventArgs { ... }
-public class AnalysisImageDisplayEventArgs : EventArgs { ... }
 ```
+
+> **2026-09-02（ADR-049）状态枚举与事件参数已全部迁出本文件**：`LineLaserWorkflowState` / `WorkflowSignalCode` / 泛型 `WorkflowStepChangedEventArgs<TStep>` 等**在 `SystemComm.cs` 中已不存在**。现行状态契约由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载——`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` 三枚举 + `WeldStatusChangedEventArgs` / `SubDeviceStateChangedEventArgs` / `MainDeviceStatusChangedEventArgs` 三事件参数。各工作流的阶段枚举降为**私有**、内联于各自工作流文件。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
 
 ## 自动调整参数管理（已迁出）
 
@@ -113,7 +98,7 @@ EventInfoHandler → MainPage.inputLog（AntdUI.Input，受 ShowCommLog 开关�
 
 - 所有模块通过 GlobalCommData 进行跨模块通信
 - 事件处理必须检查 InvokeRequired（UI 线程安全）
-- **系统状态统一由 [[api/LineLaserWorkflow]] 的 `LineLaserWorkflowState` 管理；UI 通过订阅 `LineLaserWorkflow.Instance.StateChanged` 刷新状态显示**
+- **系统状态统一由三态模型管理（[[architecture/DeviceControlArchitecture]]）**：子设备连接态 `Instance.State`（`SubDeviceState`）+ 焊接过程态 `Instance.WeldStatus`（`SubDeviceWeldStatus`）+ 整机运行态 `DeviceControlWork.Instance.Status`（`MainDeviceStatus`）；UI 通过订阅 `StateChanged` / `WeldStatusChanged` / `StatusChanged` 刷新状态显示
 - **日志统一接口：`ShowLog(TAG, message, msgLevel)` 是唯一对外日志接口，所有模块禁止直接调用 `MachineLog.Debug/Info/Error/Warn`**
 - **msgLevel 控制文件日志等级映射**：
 
@@ -141,7 +126,7 @@ EventInfoHandler → MainPage.inputLog（AntdUI.Input，受 ShowCommLog 开关�
 - 迁出 `CurrentAutoParamId`、`mAutoParam`、`mAutoParamManage`、`mConfigManager` 到 [[api/WeldDataManager]]
 - **合并 `GlobalCommData.cs` 与 `SystemStatus.cs` 为 `SystemComm.cs`**
 - **移除 `MachineStatus` 枚举、`MachineStatusMessageArgs`、`EventStatusHandler`、`CurrentStatus`、`LastStatus`**
-- **系统状态管理迁移到 [[api/LineLaserWorkflow]] 的 `LineLaserWorkflowState`**
+- **系统状态枚举与事件参数迁至 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`（2026-09-02 ADR-049 三态模型）**
 - **`TCPIPComm` 纳入 `CommunicationManager` 管理，访问路径改为 `mCommunicationManager.TcpIpComm`**
 - 删除 `EventTcpInfoHandler`、`EventTcpClientInfoHandler`、`EventLineLaserInfoHandler`、`EventRobotInfoHandler`
 - 删除 `ShowTcpMessage`、`ShowTcpClientMessage`、`ShowLaserData`

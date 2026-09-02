@@ -4,8 +4,10 @@ import os
 import re
 import datetime
 
-LOG = r"D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\Vicoding管理平台\LLMWiki\logs\log.md"
-BACKUP_DIR = r"D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\Vicoding管理平台\LLMWiki\logs\backup"
+# 2026-09-03：原为硬编码旧机器绝对路径，迁移后失效。改为按脚本自身位置推导（同 tools/wiki_audit.py）。
+_LLMWIKI_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LOG = os.path.join(_LLMWIKI_ROOT, "logs", "log.md")
+BACKUP_DIR = os.path.join(_LLMWIKI_ROOT, "logs", "backup")
 TODAY = datetime.date.today().isoformat()  # 2026-08-18
 BACKUP = os.path.join(BACKUP_DIR, f"log_{TODAY}.md")
 KEEP = 50

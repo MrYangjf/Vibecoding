@@ -438,7 +438,7 @@ Comm/
 ### 5.4 依赖关系
 
 - 依赖 [[modules/Comm]] 的全局通讯基础设施（`GlobalCommData.ShowLog`）
-- 可能被 [[modules/Workflow]] 调用（焊接工作流中的机器人控制步骤）
+- 可能被 [[modules/DeviceControl]] 调用（焊接工作流中的机器人控制步骤）
 - 可能被 [[modules/WeldParamControl]] 调用（焊缝跟踪修正数据传递）
 
 ---

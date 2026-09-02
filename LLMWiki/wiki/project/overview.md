@@ -8,7 +8,7 @@ tags: [项目, 概览, 架构]
 
 > 自适应焊接系统（Adaptive Welding System）是基于 .NET Framework 4.8 + WinForms + AntdUI（MIT，原 SunnyUI 已迁出，见 ADR-021）的工业控制软件。
 >
-> **定位**：**整个焊接激光头的全面控制软件**——13 个顶层模块，以 `MainDeviceControl` 为设备控制中枢（设备态四态 + 流程态 + 7 个工作流）。模块依赖见 [[architecture/DeviceControlArchitecture]]，设备控制架构见 [[architecture/DeviceControlArchitecture]]。**架构不做 V1/V2/V3 代际区分，只维护当前事实。**
+> **定位**：**整个焊接激光头的全面控制软件**——13 个顶层模块，以 `MainDeviceControl` 为设备控制中枢（三态模型 + 5 个子设备工作流 + 2 个整机管控类）。模块依赖见 [[architecture/DeviceControlArchitecture]]，设备控制架构见 [[architecture/DeviceControlArchitecture]]。**架构不做 V1/V2/V3 代际区分，只维护当前事实。**
 
 ## 技术栈
 
@@ -36,11 +36,14 @@ AdaWeldSystem/
 │   ├── CommunicationManager.cs
 │   └── SystemComm.cs
 ├── Config/INI/                          ← 配置文件（INI/XML）
-├── MainDeviceControl/                   ← 设备控制核心（2026-08-28 由 DataModels/DeviceStateMachine/Workflow.Device 合并而来，见 ADR-041）
-│   ├── DeviceStateApiCore/              (2026-09-01 由 DeviceState/ + FlowState/ 合并：
-│   │                                     设备态四态 Disconnect/Connect/Work/Alarm + 流程态基类 + 命令表 + 工作流基类)
-│   │                                    ※ 目录合并但命名空间不变，仍为 ...DeviceState / ...FlowState
-│   └── DeviceWorkflow/                  (8 个工作流，含 SafetyWorkflow 安全互锁与故障恢复)
+├── MainDeviceControl/                   ← 设备控制核心（三态模型 + 5 子工作流 + 2 管控类）
+│   ├── DeviceStateApiCore/              (基类层：DeviceStateBase 三态枚举 + DeviceWorkflowBase 非泛型
+│   │                                     工作流基类 + CommandTable 机器人握手协议表)
+│   │                                    ※ 命名空间不随目录名，仍为 ...DeviceState / ...FlowState
+│   ├── DeviceControlWork.cs             (整机运行编排：MainDeviceStatus 6 态 + 5 步上电初始化 + 机器人信号交互)
+│   ├── DeviceStatusWork.cs              (安全/IO/状态管控：IOWork / EMGWork / StatusWork 三线程)
+│   └── DeviceWorkflow/                  (5 个子设备工作流：LineLaser / MonitorCamera / MotionControl
+│                                         / WeldParamControl / LaserWeldHead)
 ├── EmguALG/                             ← 图像算法模块
 │   ├── Core/                            (AlgorithmBase, PreprocessConfig, ...)
 │   │   └── Attributes/                  (RangeAttribute, UnitAttribute)
@@ -96,15 +99,6 @@ AdaWeldSystem/
 ├── WeldParamControl/                    ← 焊接参数控制（原 InteliWeld）
 │   ├── WeldProcess.cs
 │   └── WeldDataManager.cs
-├── Workflow/                            ← 工作流总控
-│   ├── LineLaserWorkflow.cs
-│   ├── MainDeviceThread.cs
-│   ├── MonitorCameraWorkflow.cs
-│   ├── MotionControlWorkflow.cs
-│   ├── SimulationWorkflow.cs
-│   ├── WeldActionRecord.cs
-│   ├── WeldProcessAdjustmentWorkflow.cs
-│   └── WorkflowState.cs
 ├── Program.cs
 └── AdaWeldSystem.csproj
 ```
@@ -115,7 +109,7 @@ AdaWeldSystem/
 
 | 模块 | 文件数 | 职责简述 |
 |------|-------|---------|
-| [[modules/DeviceControl]] | 12 | **设备控制中枢 `MainDeviceControl/`**：设备态四态 + 流程态分离 + 7 个工作流 + 安全互锁（故障恢复 2026-09-01 归口迁出至 [[modules/ProductFileManager]]，ADR-046 §3）。架构见 [[architecture/DeviceControlArchitecture]] |
+| [[modules/DeviceControl]] | 12 | **设备控制中枢 `MainDeviceControl/`**：三态模型（`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus`）+ 5 个子设备工作流 + 2 个整机管控类（`DeviceControlWork` 运行编排 / `DeviceStatusWork` 安全·IO·状态）；故障恢复 2026-09-01 归口迁出至 [[modules/ProductFileManager]]（ADR-046 §3）。架构见 [[architecture/DeviceControlArchitecture]] |
 | [[modules/UIDesign]] | 22 | 全部 UI 界面（AntdUI），子命名空间 `Sub1UI` / `Sub2UI` / `Sub3UI` |
 | [[modules/LineLaserCam]] | 17 | 线激光相机族父目录 |
 | └ [[modules/SmartRayCam]] | 10 | SmartRay 3D 轮廓传感器 SDK 封装与运行控制 |
@@ -143,8 +137,8 @@ AdaWeldSystem/
 |------|------|
 | 顶层模块数 | **13 个**（实测顶层目录，排除 `Properties`/`Resources`/`3rdDepend`/`bin`/`obj`） |
 | C# 源文件数 | **127 个**（2026-09-01 实测，排除 `*.Designer.cs`） |
-| 设备工作流数 | 7 个（LineLaser / MonitorCamera / MotionControl / WeldParamControl / LaserWeldHead / Safety / Simulation）+ 主控 `MainDeviceWorkflow` |
-| 设备态 | 固定四态：`Disconnect` / `Connect` / `Work` / `Alarm` |
+| 子设备工作流数 | 5 个（LineLaser / MonitorCamera / MotionControl / WeldParamControl / LaserWeldHead）+ 2 个整机管控类（`DeviceControlWork` 主控 / `DeviceStatusWork` 安全·IO·状态） |
+| 设备状态模型 | **三态**：连接态 `SubDeviceState`(2 态) / 焊接过程态 `SubDeviceWeldStatus`(7 态) / 主设备运行态 `MainDeviceStatus`(6 态) |
 | 开发专员数 | 10 个 |
 
 ---

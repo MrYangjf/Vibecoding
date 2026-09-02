@@ -17,7 +17,7 @@ source: AdaWeldSystem/UIDesign/ControlPage/MainPage.cs + .Designer.cs
 | 基类 | `System.Windows.Forms.UserControl` |
 | 文件 | `UIDesign/ControlPage/MainPage.cs` + `.Designer.cs` |
 | 命名空间 | `AdaWeldSystem.Sub1UI` |
-| 依赖 | `AdaWeldSystem.Comm`、`WeldParamControl`、`LineLaserCamApi`、`LineLaserCam.IntelligentLaserCam`、`PCLOperate.Models`、`Workflow`(LineLaserWorkflow)、`DeviceStateMachine.API`(DeviceState)、`ScottPlot` |
+| 依赖 | `AdaWeldSystem.Comm`、`WeldParamControl`、`LineLaserCamApi`、`LineLaserCam.IntelligentLaserCam`、`PCLOperate.Models`、`MainDeviceControl.DeviceWorkflow`(LineLaserWorkflow)、`MainDeviceControl.DeviceState`(三态枚举)、`ScottPlot` |
 
 ## #region 结构（2026-08-27 精简后）
 

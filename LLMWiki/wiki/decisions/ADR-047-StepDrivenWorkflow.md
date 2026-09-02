@@ -45,8 +45,8 @@ status: accepted
 | ADR | 结论 |
 |---|---|
 | [[decisions/ADR-004-WorkflowStepEnum]] | **补充而非推翻**。ADR-004 反对的是「顺序直写流程」，确立的是「Step + switch-case 分派」；本 ADR 保留分派模型，只是把分派键从「8 个语义枚举」细化为「int 执行步」，并补上时间维度。ADR-004 的枚举仍作为阶段态层保留。 |
-| [[decisions/ADR-041-MainDeviceControlArchitecture]] | 维持。设备四态、禁手工 `State=` 赋值不变。 |
-| [[decisions/ADR-042-WorkflowStateBaseGeneric]] | 维持。`SetStep()` / `StateChanged` / `MapToDeviceState` 仍是阶段态唯一机制。 |
+| ADR-041（已删除，见 ADR-049） | 维持。设备四态、禁手工 `State=` 赋值不变。 |
+| ADR-042（已删除，见 ADR-049） | 维持。`SetStep()` / `StateChanged` / `MapToDeviceState` 仍是阶段态唯一机制。 |
 | [[decisions/ADR-043-WorkflowResponsibilityBoundary]] | 维持。R1~R5 在步骤驱动下同等有效（流程仍不得替设备发数据、不得转发子设备事件）。 |
 | [[decisions/ADR-044-SafetyCheckConsolidation]] | 不受影响。安全监控为独立周期线程，其 `Thread.Sleep(50)` 属周期节拍例外（[[standards/CodeSimplification]] 已标注），非本 ADR 所指"阻塞等待"。 |
 
@@ -101,7 +101,7 @@ status: accepted
 ## 状态
 
 `accepted` —— 2026-09-01 经用户确认全量范围（P0+P1+P2，8 个文件一次到位）后实施完毕，执行步写入方式选定为强制 `GoStep(n)`。
-标准页见 [[standards/StepDrivenWorkflow]]，各工作流 API 见 [[api/MainDeviceWorkflow]] / [[api/LineLaserWorkflow]] / [[api/MonitorCameraWorkflow]] / [[api/MotionControlWorkflow]] / [[api/WeldParamControlWorkflow]] / [[api/SafetyWorkflow]]。
+标准页见 [[standards/StepDrivenWorkflow]]，各工作流 API 见 [[api/DeviceControlWork]] / [[api/LineLaserWorkflow]] / [[api/MonitorCameraWorkflow]] / [[api/MotionControlWorkflow]] / [[api/WeldParamControlWorkflow]] / [[api/DeviceStatusWork]]。
 
 ---
 

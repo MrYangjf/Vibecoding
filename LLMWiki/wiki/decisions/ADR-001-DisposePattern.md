@@ -39,7 +39,7 @@ UI 类使用 `DisposeComponents()` 公共方法模式：
 
 - 需要手动确保父页面调用 DisposeComponents
 - 不如重写 Dispose 标准
-- 非 UI 类需自行确保 Dispose() 被调用（调用链由父容器/主窗体关闭时级联触发，见 [[modules/Workflow]]）
+- 非 UI 类需自行确保 Dispose() 被调用（调用链由父容器/主窗体关闭时级联触发，见 [[modules/DeviceControl]]）
 
 ## 相关页面
 

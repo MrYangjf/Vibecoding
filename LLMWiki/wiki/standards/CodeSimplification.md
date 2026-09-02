@@ -125,6 +125,35 @@ status: accepted
   2. **非命令通道**：`FailedItems.Add("...: ...")`、`throw new InvalidOperationException("...：...")`、图像叠加文本（`DrawTextOnImage`）、提示文案（`PathFallbackMessage`）等同样含符号，按同口径去符号。
   3. **模块整合/迁移后必须复跑**：SafetyInterlock.cs 因 ADR-036 整合迁入 Workflow 时未纳入清理，残留 7 处 FailedItems 符号 → 迁移/合并文件后复跑本检查。
 
+### ⑤ 日志出口统一：一个标签 + 一个出口（2026-09-03 确立，强制）
+
+> **背景**：`MainDeviceControl/` 曾出现 63 处 `GlobalCommData.ShowLog`、四类标签写法并存（私有 `_tag` / 遮蔽基类的 `const Tag` / `StateName` / `_simTag`），
+> 且子类 `private const string Tag` 遮蔽基类 `public object Tag` 触发 **CS0108** 与 `string`/`object` 类型对撞。详见 [[lessons/DeviceControlWorkInheritanceBypass]]。
+
+**强制规则**：
+
+| # | 规则 | 说明 |
+|---|---|---|
+| 1 | **设备日志唯一出口 = `DeviceLog`** | `MainDeviceControl/` 下禁止再直接调 `GlobalCommData.ShowLog`；`DeviceLog` 内部是全项目唯一调用点。见 [[api/DeviceLog]] |
+| 2 | **每个流程/管控类有且只有一个日志标签** | 子工作流用基类属性 `Tag`（构造函数首行赋值，禁止子类再声明同名成员）；独立管控类用私有 `_tag`；状态基座用 `StateName` |
+| 3 | **本类内走 `Log(...)` 辅助方法，不重复传标签** | 基类提供 `protected void Log(string message, MessageLevel level = MessageLevel.Info)`；独立管控类各自定义私有 `Log(...)` 转发到 `DeviceLog.Write(_tag, ...)` |
+| 4 | **设备日志与通讯日志不得混用** | 运行/状态/异常/连接 `open`·`close` → `DeviceLog`；监听建立后到停止前的**收发报文内容** → `GlobalCommData.ShowCommunicationLog`（全记录不摘要，见 ③） |
+| 5 | **跨线程共享的 `long`/`double`/`decimal` 字段禁止裸读写** | 时间戳、计数器、累计量一律 `Interlocked.Exchange` / `Interlocked.Read`；32 位平台上 64 位读写非原子 |
+
+**自检命令**：
+
+```bash
+# ① 出口收敛：命中应仅剩 DeviceLog.cs 内的封装点
+grep -rn "ShowLog" AdaWeldSystem/MainDeviceControl/
+
+# ② 标签收敛：Tag 只应在基类声明 1 次 + 各子工作流构造函数赋值 1 次
+grep -rn "string Tag\|Tag = \"" AdaWeldSystem/MainDeviceControl/
+```
+
+**判据补充（审计 0 消费成员时）**：`Tag` 曾因「全库 0 消费者」被误判为死成员。
+**0 消费 ≠ 死成员**——若它是横切关注点的载体（日志标签 / 序列化键 / 权限标识），或 `raw/` 原档将其列为契约成员，
+应先确认其设计意图再下结论。用户裁定：可观测性 API（`StepStatusText` / `WorkElapsedMs`）与安全钩子（`CheckDeviceIOSafe`）同样**不因 0 消费而删除**。
+
 ---
 
 ## 四、检查脚本 `scripts/csharp_review.py`
@@ -207,6 +236,8 @@ python3 scripts/csharp_review.py <目标文件.cs> --json     # JSON 输出（�
 - [ ] 复跑 `scripts/csharp_review.py` 至 warn/error 清零（designer.cs 跳过）
 
 ### 已覆盖模块（历史轮次，粗版阶段）
+
+> 下表为历史记录，模块名按当时口径保留。**`DeviceStateMachine` / `Workflow` / `SafetyInterlock` 三处现均已不存在**（`DeviceStateMachine/` 与 `Workflow/` 目录于 2026-08-28 删除，`SafetyInterlock.cs` 于 2026-08-31 三合一合并、2026-09-02 更名 `DeviceStatusWork.cs`）。
 
 | 轮次 | 日期 | 覆盖模块 | 重点 |
 |------|------|---------|------|

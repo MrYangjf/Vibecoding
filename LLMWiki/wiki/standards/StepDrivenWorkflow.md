@@ -109,6 +109,14 @@ void AssemblyWork()
 
 > **关键细节（易漏）**：非运行/暂停态必须持续调 `ResetWorkTime()`。否则暂停 10 分钟后恢复，`DateTime.Now - WorkStartTime` 直接超阈值，第一步就误报超时。
 
+> **⚠️ 本条对「独立管控类」同样强制（2026-09-03 修复）**：`DeviceControlWork` 不继承 `DeviceWorkflowBase`，
+> 早前自行复制了一套私有 `GoStep`/`IsStepTimeout`/`ResetStepTime`，**漏抄了非运行态刷新这一分支**，
+> 导致「停机超过 `PoseWaitTimeoutMs`（60s）后再开机，首拍立刻误判超时跳 900 失败收尾」。
+> 已补 `else { ResetStepTime(); }` 分支，并在 `StartMachine()` 内显式 `GoStep(StepIdle)` 复位步号与时间戳。
+>
+> 根因不是「不知道这条规则」，而是**规范围不住「抄代码的人」**——复制实现会游离在基类演进之外。
+> 判定与规避见 [[lessons/DeviceControlWorkInheritanceBypass]] 坑五。
+
 ### 2.3 执行步（WorkStep + WorkStartTime）
 
 ```csharp
@@ -129,7 +137,7 @@ WorkStartTime = DateTime.Now;
 
 ## 三、三层融合（关键：执行步不是阶段态的替代品）
 
-照搬参考实现会与 [[decisions/ADR-041-MainDeviceControlArchitecture]]、[[decisions/ADR-042-WorkflowStateBaseGeneric]] 冲突。正确做法是**三层并存、各司其职**：
+照搬参考实现会与 ADR-041（已删除，见 ADR-049）、ADR-042（已删除，见 ADR-049） 冲突。正确做法是**三层并存、各司其职**：
 
 | 层 | 载体 | 粒度 | 消费方 | 变更入口 | 状态 |
 |---|---|---|---|---|---|
@@ -355,13 +363,13 @@ lblStepName.Text = GetStepName(step);
 | 文件 | 改造项 | 优先级 | 状态 |
 |---|---|---|---|
 | `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs` | 新增 `WorkStep` / `WorkStartTime` / `StepElapsedMs` / `WorkStepName` / `StepStatusText`、`ResetStepTime()`、`IsStepTimeout()`、**`GoStep(n)` 唯一改步入口**、`GetStepName()` 与 `FlowProcess()` 抽象、监听线程 `RunLoop()` + `StartRunLoop`/`StopRunLoop`、`BeatMs`/`RunLoopPriority`、`Dispose()` 模板方法 + `DisposeManaged()` 钩子 | P0 | ✅ |
-| `MainDeviceControl/DeviceWorkflow/DeviceControlWork.cs` | 命令变量**三槽** `_pendingAbort` / `_pendingCommand` / `_pendingPose`（Pose 与 Command 编码区间重叠，必须分槽）；`ReceiveRobotPose`/`ReceiveRobotCommand` 只写变量；内部执行步随编排推进（详情见 [[api/MainDeviceWorkflow]]） | P0 | ✅ |
+| `MainDeviceControl/DeviceWorkflow/DeviceControlWork.cs` | 命令变量**三槽** `_pendingAbort` / `_pendingCommand` / `_pendingPose`（Pose 与 Command 编码区间重叠，必须分槽）；`ReceiveRobotPose`/`ReceiveRobotCommand` 只写变量；内部执行步随编排推进（详情见 [[api/DeviceControlWork]]） | P0 | ✅ |
 | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` | 删 `SpinWait` 与自建线程；执行步 0/10/11/20/30/31/100/700/800/900；失败计数改时长判据 | P1 | ✅ |
 | `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` | `WaitOne(5000)` → `WaitOne(0)` 非阻塞探测；执行步 0/10/20/30/800/900 | P1 | ✅ |
 | `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` | `MonitorLoop` 并入基类线程（`BeatMs=20`）；执行步 0/10/20/30/100/110/700/900；`Start()` 改「受理指令」语义 | P2 | ✅ |
 | `MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs` | `ComputeAndOutput()` 改命令变量模式；执行步 0/10/20/800/900 | P2 | ✅ |
 | `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs` | 骨架期补空 `FlowProcess()`/`GetStepName()`，`IsRunLoopActive = false`（不起空转线程） | P2 | ✅ |
-| `MainDeviceControl/DeviceWorkflow/DeviceStatusWork.cs` | 三线程 `IOWork`/`EMGWork`/`StatusWork`（非步骤驱动，随整机启动 `StartWork`）；互锁/急停/三色灯专责分离 | P2 | ✅ |
+| `MainDeviceControl/DeviceStatusWork.cs` | 三线程 `IOWork`/`EMGWork`/`StatusWork`（非步骤驱动，随整机启动 `StartWork`）；互锁/急停/三色灯专责分离 | P2 | ✅ |
 | `UIDesign/.../MainPage.cs` 等 | 状态标签加 `step:xx / x.xs` 显示 | P3 | ⬜ 未做（可选） |
 
 ### 10.1 落地后新增的三条约定（超出原规划，2026-09-01 确立）
@@ -387,6 +395,11 @@ lblStepName.Text = GetStepName(step);
 - [ ] **阶段态未退化**：`SetStep()` 是否仍在阶段切换点被调用？是否有人用 `WorkStep` 顶替 `Step`？
 - [ ] **状态映射**：是否出现手工 `State=`/`WeldStatus=`/`Status=` 赋值？（红线 2）
 - [ ] **步间传值**：是否有依赖局部变量跨步传递的写法？（红线 5）
+- [ ] **独立管控类同源（2026-09-03 新增）**：`DeviceControlWork` 等**不继承基类**的类若自带私有步机制，
+      是否与基类 `GoStep`/`IsStepTimeout`/`ResetStepTime`/`FailFlow` 逐成员比对过差异？差异处即为腐化点。
+      重点查：非运行态刷新分支、`Interlocked` 原子读写、重启时 `GoStep(StepIdle)` 复位。
+- [ ] **日志出口（2026-09-03 新增）**：新增/修改的日志是否走 `DeviceLog`（设备日志）或
+      `ShowCommunicationLog`（收发报文）？有无 `GlobalCommData.ShowLog` 直调回流？见 [[api/DeviceLog]]。
 
 ---
 
@@ -442,7 +455,7 @@ private void OnCommunicationCommand(object sender, string message)
 - 教训：[[lessons/StepDrivenWorkflowPitfalls]] — 落地五坑（执行步复位覆盖 / 步内阻塞 / 抽象成员级联编译 / 命令槽碰撞 / 失败计数爆表）
 - 架构：[[architecture/DeviceControlArchitecture]]
 - 模块：[[modules/DeviceControl]]
-- API：[[api/MainDeviceWorkflow]]、[[api/LineLaserWorkflow]]、[[api/MonitorCameraWorkflow]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]
+- API：[[api/DeviceControlWork]]、[[api/LineLaserWorkflow]]、[[api/MonitorCameraWorkflow]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]
 - 互补：[[standards/WorkflowResponsibilityBoundary]]（权责 R1~R5）、[[standards/CodeSimplification]]（五维度精简）、[[standards/UiStateSimplification]]（真相源唯一）
 - 教训：[[guides/WinForms-UI-Threading]]、[[lessons/CSharp-Language-Pitfalls]]
 - 参考实现（外部）：`HonorMachineTest/PcomDeviceInterface/Work/Process/StationProcess.cs`、`AssemblyProcess.cs`、`MachineControlWork.cs`

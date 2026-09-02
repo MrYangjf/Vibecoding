@@ -29,10 +29,11 @@ MotionControl/
 │                                 - 单轴参数管理
 │                                 - 轴状态监控
 │                                 - 软限位检查
-├── DeviceStateMachine.cs      ← 设备状态机
-│                                 - 设备运行状态管理
-│                                 - 状态转移合法性验证
-│                                 - 状态变更事件通知
+├── （设备状态已于 2026-08-28 上收）
+│                                 ← MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs
+│                                 - 连接态 SubDeviceState（2 态）
+│                                 - 焊接过程态 SubDeviceWeldStatus（7 态）
+│                                 - 状态写入唯一入口 SetState/SetWeldStatus（禁手工赋值）
 ├── MotionConfig.cs            ← 运动参数配置
 │                                 - 轴参数结构定义
 │                                 - INI文件持久化
@@ -58,7 +59,7 @@ MotionControl/
 对焦算法结果(Z偏移量)  ──▶ MotionController.AdjustFocus    ──▶ Z轴移动(自动对焦)
                                     │
                                     ▼
-                           DeviceStateMachine 状态管理
+                           DeviceStateBase 三态状态管理
 
 ## 协作关系
 
@@ -67,7 +68,7 @@ MotionControl/
 | 图像算法专员 | SeamFeatureResult.CenterX/CenterY |
 | 3D开发专员 | PointCloudData (Z轴高度数据) |
 | 焊接工艺专员 | WeldProcess.LaserWeldData |
-| UI开发专员 | MotionController.Instance, DeviceStateMachine |
+| UI开发专员 | MotionController.Instance, MotionControlWorkflow.WeldStatus / State |
 | 通用技术专员 | GlobalCommData, SystemStatus |
 
 ---

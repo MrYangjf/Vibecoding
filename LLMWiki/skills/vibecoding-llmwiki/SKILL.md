@@ -1,7 +1,7 @@
 ---
 name: "vibecoding-llmwiki"
 description: "AdaWeldSystem LLMWiki-native vibecoding workflow. When user inputs /vibeCoding or asks for code development/bug fix/feature implementation, this skill forces AI to execute Phase 0~4 workflow with LLMWiki as the single source of truth."
-version: "1.4.0"
+version: "1.5.0"
 agent_created: true
 ---
 
@@ -14,7 +14,7 @@ agent_created: true
 All paths in this skill are relative to the workspace root:
 
 ```
-WORKSPACE_ROOT = D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy
+WORKSPACE_ROOT = D:\焊接程序开发
 ```
 
 | Logical Name | Actual Path (relative to workspace) |
@@ -110,6 +110,8 @@ Upon receiving `/vibeCoding` or equivalent intent, **do not** start coding direc
 8. **New .csproj registration**: When creating new .cs files, **must** add `<Compile Include="..." />` entries to `AdaWeldSystem/AdaWeldSystem.csproj`.
 9. **Step-Level Display (Non-bypassable)**: Every Step within each Phase MUST be explicitly shown to the user with its number, name, and output. Skipping Step-level display is a violation. See Execution Priority section 5 for details.
 10. **Grep is the default code-location method**: Per ADR-025 deprecation (2026-08-19), code-review-graph is **retired**. Use Grep to locate symbols (Step 0.7), read exact line ranges (Step 0.7), and trace impact with manual multi-level Grep (Step 2.5). No code graph tool is required or allowed as a mandatory step.
+11. **0 consumers ≠ dead member (2026-09-03, learned the hard way)**: When an audit reports a symbol with zero consumers, **do not propose deleting it** until you have asked whether it is a **cross-cutting-concern carrier** — a log tag, serialization key, permission marker, or DI/registration hook. Also check whether `raw/` source documents list it as a **contract member**. The user's own project convention: observability APIs (`StepStatusText` / `WorkElapsedMs`) and safety hooks (`CheckDeviceIOSafe`) are **never** deleted for being unused. Propose "tighten the type / lower the visibility" instead of removal, and let the user decide.
+12. **No compiler in this sandbox — declare it, don't fake it (2026-09-03)**: `dotnet`, `msbuild` and the C# compiler are blocked by the security policy (Known Windows LOLBin), and this machine has no `C:\Program Files\Microsoft Visual Studio`. Never burn turns hunting for them. Use the Python static-consistency verifier (Step 2.6) instead, and **explicitly report "real compilation pending in Visual Studio" as a known residual item** in the final delivery. Do not describe static checks as "build passed".
 
 ## Critical ADR Constraints (Must Check Before Coding)
 
@@ -221,7 +223,7 @@ Upon receiving `/vibeCoding` or equivalent intent, **do not** start coding direc
 ### Step 2.1: Project Backup
 - Use Bash to create a zip backup of the project:
   ```bash
-  cd "D:/A-A-项目类/04_研发项目/MRDF-2608 自适应焊接系统/workbudddy"
+  cd "D:/焊接程序开发"
   # Get timestamp for backup filename
   TIMESTAMP=$(date +%Y%m%d_%H%M%S)
   # Create backup (exclude bin/obj)
@@ -255,6 +257,19 @@ Upon receiving `/vibeCoding` or equivalent intent, **do not** start coding direc
 - **Output**: Impact report (affected files, caller chain depth, any broken references)
 - **Note**: Manual multi-level Grep is the default method -- the code graph tool (ADR-025) has been retired.
 
+### Step 2.6: Correctness Verification (Forced -- substitutes for compilation)
+
+> **Why this step exists**: this sandbox has no C# compiler (Key Rule 12). Do not skip verification, and do not pretend a build ran.
+
+- **Action**: write a throwaway Python verifier that strips XML doc comments **first**, then asserts the invariants your change was supposed to establish. Typical checks that caught real bugs on 2026-09-03:
+  - member shadowing: a derived-class `Tag`/`_tag`/`StepXxx` redeclaring a base member (CS0108)
+  - residual old symbol after a rename (e.g. `_tag` left over after unifying on base `Tag`)
+  - back-flow: a banned call site reappearing (e.g. `ShowLog` after routing everything through `DeviceLog`)
+  - now-unused `using` directives left behind by the change
+- **Two-pass discipline**: expect the first version of the verifier to produce false positives (comment matches, namespace-only usages). Iterate to a precise version rather than eyeballing away the noise.
+- **Cleanup**: delete every `_tmp_*.py` script before finishing.
+- **Output**: static-check result table + explicit statement that real compilation is pending.
+
 ## Phase 3: Ingest -- Forced Knowledge Deposition (Detailed Steps)
 
 > **REMINDER**: Must display each Step (3.1 ~ 3.6) with its number, name, and output. Do NOT collapse into a single summary.
@@ -283,6 +298,8 @@ Upon receiving `/vibeCoding` or equivalent intent, **do not** start coding direc
 - Append to `Vicoding管理平台/LLMWiki/logs/log.md`
 - Format: `## [YYYY-MM-DD HH:mm:ss] coding | description`
 - **Timestamp must be obtained via Bash `date "+%Y-%m-%d %H:%M:%S"` or PowerShell `Get-Date -Format "yyyy-MM-dd HH:mm:ss"`, never guess**
+- **⚠️ Append with the Edit tool, not a heredoc (2026-09-03)**: `cat >> logs/log.md << 'EOF'` gets rejected by the security policy whenever the body trips a keyword filter (e.g. it mentions a C# compiler). Read the file's tail first, then `Edit` the last line to append.
+- **⚠️ Do not write page-link mappings as `[[old]]→[[new]]` inside `log.md`** — `wiki_audit.py` parses the brackets as real links and reports red links. Write them as plain text `api/old → api/new` (2026-09-02).
 
 ## Phase 4: Lint -- Health Check (Detailed Steps)
 
@@ -298,6 +315,17 @@ cd "Vicoding管理平台/LLMWiki" && python tools/wiki_audit.py
 10 automated checks: ① red links ② orphan pages ③ duplicate `index.md` rows ④ ADR number gaps & unregistered ADRs ⑤ page size distribution (pages >600 lines need a TOC) ⑥ duplicate content (3-gram similarity) ⑦ misplaced guide-type pages in `lessons/` ⑧ `standards/` inbound-link stats ⑨ second-level subdirectories under `wiki/` (must be 0 -- all categories are flat `.md` files) ⑩ **over-small categories (<=2 pages -- merge into a related category; only `index/` and `architecture/` are exempt)**.
 
 **Health criteria**: red links = 0, orphan pages = 0, duplicate index rows = 0, subdirectory count = 0, over-small categories = 0.
+
+Then run the two companion scanners (both were repaired on 2026-09-03 — they had a hardcoded path from a previous machine and were **silently** scanning 0 files, which is worse than crashing):
+
+```bash
+cd "Vicoding管理平台/LLMWiki" && python tools/lint_scan.py && python tools/drift_scan_precise.py
+```
+
+- `lint_scan.py` — dead links / orphan pages / ADR number conflicts / broken external file links. The 8 hits in `project/vibecoding-workflow.md` are template placeholders (`modules/XXX`, `decisions/ADR-XXX`) and are expected.
+- `drift_scan_precise.py` — wiki pages citing `.cs` files that no longer exist. **Known backlog: 25 real drift entries**, all pre-existing (deliberately-deleted files such as `SafetyFlow.cs` / `SafetyInterlock.cs` / `SafetyWorkflow.cs` / `SimulationWorkflow.cs` / `MainDeviceWorkflow.cs` / `WorkflowStateBase.cs`, external reference implementations `StationProcess.cs` / `AssemblyProcess.cs`, and case-sensitivity false positives on `designer.cs`). **Your change must introduce 0 new drift** — verify by grepping the output for the pages you touched.
+
+> **Tooling rule (2026-09-03)**: every script under `tools/` must derive its paths from `__file__` (see `wiki_audit.py`). Never hardcode an absolute path — after a machine migration a hardcoded path makes a scanner report "0 files" and look healthy.
 
 ### Step 4.2: Manual Checklist
 - [ ] **Contradiction detection**: Do new Ingested contents conflict with existing wiki pages?

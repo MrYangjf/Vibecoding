@@ -110,20 +110,23 @@ WeldParamOutput（功率/送丝/速度/摆幅）→ SendToRobot 下发机器人
 
 **关键点**：英莱回调本就含特征点与宽度，链路本就通。`WeldParamControlWorkflow` 补的是「计算后下发到机器人」这一环。
 
-### 流程态与设备态映射
+### 私有阶段 → 焊接过程态映射（ADR-049）
 
-`WeldParamControlWorkflowState`：`Uninitialized`(0) / `Initializing`(1) / `Standby`(2) / `Computing`(3) / `Outputting`(4) / `Holding`(5) / `ErrorAborted`(6)
+**私有阶段枚举** `WeldParamControlWorkflowState`（内联本文件，不对外）：`Uninitialized`(0) / `Initializing`(1) / `Standby`(2) / `Computing`(3) / `Outputting`(4) / `Holding`(5) / `ErrorAborted`(6)
 
-| 流程态 | 设备态 |
+经 `MapWeldStatus(step)` 映射为对外焊接过程态 `SubDeviceWeldStatus`：
+
+| 私有阶段 | 焊接过程态 `SubDeviceWeldStatus` |
 |---|---|
-| `Uninitialized` | `Disconnect`（工艺参数未就绪） |
-| `Standby` | `Connect`（工艺参数就绪） |
-| `Initializing`/`Computing`/`Outputting`/`Holding` | `Work` |
-| `ErrorAborted` | `Alarm` |
+| `Uninitialized` / `Standby` | `Standby` |
+| `Initializing` / `Computing` / `Outputting` / `Holding` | `Working` |
+| `ErrorAborted` | `ErrorAborted` |
+
+> 连接态 `SubDeviceState` 由 `ConnectOn()`/`ConnectOff()` 联动（此处 `Connect` 语义为「工艺参数就绪」）。完整映射表以 [[architecture/DeviceControlArchitecture]] §6 为单一维护点。
 
 ### 不入上电级联
 
-**不纳入** `MainDeviceWorkflow.PowerOnInitialize` 级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（[[decisions/ADR-013-WorkflowAsAdjustmentDriver]]）。
+**不纳入** `DeviceControlWork.InitializeMachine()` 级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（[[decisions/ADR-013-WorkflowAsAdjustmentDriver]]）。
 
 ---
 

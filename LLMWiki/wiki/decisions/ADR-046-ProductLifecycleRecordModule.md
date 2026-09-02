@@ -7,6 +7,8 @@ status: accepted
 
 # ADR-046 ProductFileManager 产品生命周期记录模块 + FaultRecord DB 实现下沉
 
+> **类名注记（2026-09-02，ADR-049）**：本文消费方清单中的 `SafetyWorkflow` **现为 `DeviceStatusWork`**、`MainDeviceWorkflow` **现为 `DeviceControlWork`**；`FaultRecord.State` 字段类型由旧四态 `DeviceState` 改为 `SubDeviceWeldStatus`（焊接过程态七态）。枚举级反向依赖的结论继续有效。
+
 ## 状态
 已采纳（2026-08-31）
 

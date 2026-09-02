@@ -65,7 +65,7 @@ tags: [模块, 图像算法, EmguCV, 焊缝识别, 实时监控]
 
 - [[modules/SmartRayCam]] 采集完成后调用 `ImageAlgorithm.DrawPointsDefaultRange`
 - [[modules/WeldParamControl]] 暂经 `PipelineManager.AlgorithmCompleted` 获取焊缝特征（待迁移到 `SeamRecognitionResult`）
-- [[modules/Workflow]] 暂经 `PipelineManager.Execute` / `ReportExternalResult`（待迁移到 `SeamRecognitionAlgorithm.Instance`）
+- [[modules/DeviceControl]] 暂经 `PipelineManager.Execute` / `ReportExternalResult`（待迁移到 `SeamRecognitionAlgorithm.Instance`）
 - [[modules/MonitorCam]] 调用 `DetectPreWeldAlignment` / `DetectWeldQuality`；自身算法由 `MonitorAlgorithmManager` 管理（与 EmguALG 的 `AlgorithmManager` 不是一回事）
 - [[api/AlgorithmEditForm]]（Sub3UI 弹窗）当前编辑 `PipelineConfig`（待 re-point 到 `SeamRecognitionConfig`）
 

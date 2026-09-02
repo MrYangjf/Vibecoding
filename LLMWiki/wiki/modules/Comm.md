@@ -83,7 +83,7 @@ Comm/
 | `S7PLCCommunication` | `IDisposable.Dispose()` | PLC 连接（Disconnect → _plc.Close） |
 | `ModbusTCPCommunication` | `IDisposable.Dispose()` | 关闭 NetworkStream + TcpClient |
 
-**释放调用链**：`FormMain_FormClosed` → `MainDeviceThread.Instance.Dispose()` → 停止子线程 + 关闭机器人连接 + Shutdown 焊接头 + `GlobalCommData.mCommunicationManager.Dispose()`（2026-08-19 级联补全）。
+**释放调用链**：`FormMain_FormClosed` → `DeviceControlWork.Instance.Dispose()` → 停止运行线程 + 关闭机器人连接 + Shutdown 焊接头 + `GlobalCommData.mCommunicationManager.Dispose()`（2026-08-19 级联补全；`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-049）。
 
 ### 2026-08-03 重构要点
 
@@ -98,7 +98,7 @@ Comm/
 | 规划项 | 原设想 | 现状 |
 |--------|--------|------|
 | `NetworkPort` 统一抽象层（`INetworkPort` / `NetworkPortBase`） | 统一 TCP/Profinet 通讯实现，提供 `Open/Close/Send/SendString` + 4 事件 + 接收线程模板 | **未实装且已取消**。实际以 `CommBase/` 为通讯实现基座，`KUKARobotManager` / `TCPIPComm` 为独立实现，不继承统一基类 |
-| `RobotConnectionStateMachine`（机器人连接状态机） | 独立于工作流管理机器人连接生命周期（Offline/Online/Working/Error） | **未实装且已取消**。机器人/PLC 连接属外部设备通讯，统一由 `CommunicationManager` 管控；设备连接态收敛为四态 `Disconnect`/`Connect`/`Work`/`Alarm`，由 `DeviceStateBase` 承载（[[architecture/DeviceControlArchitecture]]） |
+| `RobotConnectionStateMachine`（机器人连接状态机） | 独立于工作流管理机器人连接生命周期（Offline/Online/Working/Error） | **未实装且已取消**。机器人/PLC 连接属外部设备通讯，统一由 `CommunicationManager` 管控；设备连接态由 `DeviceStateBase` 承载，收敛为 `SubDeviceState` 两态（`Disconnected`/`Connected`），焊接过程另有 `SubDeviceWeldStatus` 七态（[[architecture/DeviceControlArchitecture]]） |
 
 ## 外部依赖
 
@@ -139,7 +139,7 @@ Comm/
 
 | 协作对象 | 说明 |
 |----------|------|
-| [[modules/Workflow]] | 工作流状态由 `LineLaserWorkflowState` 管理；通讯指令通过 `BroadcastCommunicationCommand` 广播到 Workflow |
+| [[modules/DeviceControl]] | 工作流状态由三态模型承载（`SubDeviceState`/`SubDeviceWeldStatus`/`MainDeviceStatus`）；通讯指令通过 `BroadcastCommunicationCommand` 广播到各工作流 |
 | [[modules/MotionControl]] | 急停信号、全局状态 |
 | [[modules/LaserWeldHead]] | 焊接头状态通过通讯通道上报 |
 | [[modules/DeviceControl]] | 机器人/PLC 连接由顶层 Comm 管控，设备状态三态模型（连接态/焊接过程态/整机状态）见 [[modules/DeviceControl]] |

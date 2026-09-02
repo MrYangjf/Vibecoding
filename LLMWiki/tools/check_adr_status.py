@@ -2,7 +2,8 @@
 """检查所有 ADR 的 frontmatter status/superseded_by 字段"""
 import os, re, glob
 
-DEC = r"D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\Vicoding管理平台\LLMWiki\wiki\decisions"
+# 2026-09-03：原为硬编码旧机器绝对路径，迁移后失效。改为按脚本自身位置推导（同 tools/wiki_audit.py）。
+DEC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki", "decisions")
 
 for f in sorted(glob.glob(os.path.join(DEC, "*.md"))):
     with open(f, encoding="utf-8-sig") as fh:

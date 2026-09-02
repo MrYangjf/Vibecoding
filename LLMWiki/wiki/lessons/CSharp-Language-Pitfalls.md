@@ -289,7 +289,7 @@ MSBuild ... /t:Build
 ### 3.3 接口与基类成员不同步导致 CS1061（接口类型上找不到成员）
 
 > 2026-08-19 实战：故障恢复新增 `FaultOccurred` 事件时只加在了状态机基类，漏加了对应接口，导致订阅处 `sm.FaultOccurred += ...` 编译报 CS1061。**泛型教训**：事件若声明在基类，接口契约必须同步声明，否则通过接口类型订阅会编译失败。
-> 注：当时的 `DeviceStateMachineBase` / `IDeviceStateMachine` / `MainDeviceThread` 已于 2026-08-28 架构整合中删除（ADR-041），此处保留事件-接口同步的通用教训。
+> 注：当时的 `DeviceStateMachineBase` / `IDeviceStateMachine` / `MainDeviceThread` 已于 2026-08-28 架构整合中删除（`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-049），此处保留事件-接口同步的通用教训。
 
 #### 问题描述
 

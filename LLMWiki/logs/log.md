@@ -6,6 +6,35 @@
 
 ---
 
+## [2026-09-02 22:41:12] cleanup | 旧架构清零：删 8 页旧架构文档 + 全库改链 + 现行页旧术语清理（ADR-049 三态模型为真源）
+- 来源：用户指令「先去检查知识库的代码架构要求，把指向旧架构内容删掉，只保留新架构设计」+「对于新架构我原先的要求是通过 raw 抽象出你理解的架构设计到知识库架构设计中。删掉旧架构，只保留新架构的理解」
+- **事实基线确认**（代码为准）：`MainDeviceControl/` 现为 10 个 `.cs`——`DeviceControlWork.cs` / `DeviceStatusWork.cs` / `DeviceStateApiCore/{CommandTable,DeviceStateBase,DeviceWorkflowBase}.cs` / `DeviceWorkflow/{LineLaser,MonitorCamera,MotionControl,WeldParamControl,LaserWeldHead}Workflow.cs`。旧符号（`WorkflowStateBase` / `MainDeviceWorkflow` / `SafetyWorkflow` / `SimulationWorkflow` / `DeviceStateMachine` / `SafetyFlow` / `SafetyInterlock` / `MotionControlStateMachine` / `LaserCamBoxTrackingWorkflow` / 泛型 `WorkflowStepChangedEventArgs<TStep>`）代码内 0 命中。架构页 §1/§3/§4 与 `raw/architecture/主控设计.xlsx` 已一致，**无架构内容改写，纯旧架构删除**
+- **删除 8 页**（移至 `LLMWiki/_trash_20260902/`，移出 `wiki/` 扫描树）：
+  1. 旧架构 ADR 6 条：027-WorkflowStateFileConsolidation / 032-UnifiedInitStateMachine / 033-V3SystemArchitecture / 036-SafetyModuleConsolidation / 041-MainDeviceControlArchitecture / 042-WorkflowStateBaseGeneric
+  2. 占位页 2 个：`api/SimulationWorkflow.md`（墓碑，入链 15）、`modules/Workflow.md`（重定向存根，入链 27）
+  - `index.md` §7.1/§7.3 同步删行，编号说明区标注 6 条空洞「编号不再回收，非缺失」，仍有效结论并入 ADR-049 + `architecture/DeviceControlArchitecture`
+- **重命名 2 个 API 页**：`api/MainDeviceWorkflow.md` → `api/DeviceControlWork.md`、`api/SafetyWorkflow.md` → `api/DeviceStatusWork.md`（内容本就述新类，仅文件名对齐）
+- **全库改链 52 处**（括号内为命中文件数）：api/MainDeviceWorkflow → api/DeviceControlWork（13）、api/SafetyWorkflow → api/DeviceStatusWork（7）、api/SimulationWorkflow → api/DeviceControlWork（8）、modules/Workflow → modules/DeviceControl（24）；已删 ADR 链接降级为纯文本（ADR-041 ×11 / 042 ×6 / 036 ×2）避免红链。**红链 0**
+- **现行页旧架构术语清理**（100+ 处，逐处人工判读，非盲替换）：
+  - `architecture/DeviceControlArchitecture.md`：删 `SafetyWorkflow` 更名叙事；`MainDeviceWorkflow`→`DeviceControlWork`；依赖环说明 `FaultRecord.State` 四态→`SubDeviceWeldStatus` 七态；模块表「设备态/流程态基类 + 7 个工作流」→「三态基类 + 5 子工作流 + 2 管控类」；UI 接入行→三态属性
+  - `api/FaultRecoveryManager.md` + `modules/ProductFileManager.md`：`DeviceState`（四态）→ `SubDeviceWeldStatus`（七态），默认值 `Disconnect`→`Standby`；消费方名单 `SafetyWorkflow`/`MainDeviceWorkflow` → `DeviceStatusWork`/`DeviceControlWork`
+  - `api/GlobalCommData.md`：**删代码块中已不存在的 `LineLaserWorkflowState` / `WorkflowSignalCode` / 泛型 `WorkflowStepChangedEventArgs<TStep>`**（实测 `Comm/SystemComm.cs` 现仅 `MessageType`/`MessageLevel`/`OperateLevel`/`MessageArgs`）；三处「系统状态由 LineLaserWorkflowState 管理」→ 三态模型
+  - `modules/MotionControl.md`：继承改**非泛型** `DeviceWorkflowBase`；`MapToDeviceState` 四态→`MapWeldStatus` 七态；删除 `MotionControlWorkflowState`/`MotionControlStateChangedEventArgs`（实测代码中不存在）；`SimulationWorkflow`→`DeviceControlWork`；`LaserCamBoxTrackingWorkflow`→`MotionControlWorkflow`
+  - `modules/MonitorCam.md` + `modules/WeldParamControl.md`：阶段枚举改「私有、内联本文件、经 MapWeldStatus 映射」，映射表指向 `architecture/DeviceControlArchitecture` §6 单一维护点；`MonitorCam` 删已删的 `Displaying` 态
+  - `modules/DeviceControl.md` / `modules/Safety.md` / `project/overview.md`：目录树与统计对齐三态模型
+  - `modules/UIDesign.md` + `modules/Comm.md` + `api/MainPage.md`：`MainDeviceThread`→`DeviceControlWork`；已删目录依赖（`Workflow`/`DeviceStateMachine.API`）→ `MainDeviceControl.DeviceWorkflow` / `.DeviceState`
+  - `standards/WorkflowResponsibilityBoundary.md`：**整页术语对齐 ADR-049**——白名单第 4 条改「推进私有阶段」；R3 重写为三态事件契约（`WeldStatusChanged`/`StateSwitched`/`StatusChanged` + 参数字段名 `OldStatus`/`NewStatus`）；R5 改「私有阶段枚举」；审查清单新增「禁手工 `WeldStatus=`/`State=`/`Status=` 赋值」；UI 范式示例改用 `WeldStatusChangedEventArgs`
+  - `people/MotionControlSpecialist.md` + `people/GeneralTechSpecialist.md`：目录树/职责中的 `DeviceStateMachine` → `DeviceStateBase` 三态
+  - `guides/Namespace-Compilation.md`：**更正 using 对照表**（旧 `DeviceState`→`AdaWeldSystem.DeviceStateMachine` 已失效，改为三态枚举 + 事件参数 + `DeviceWorkflowBase` 的现行命名空间，并显式标注「物理目录 `DeviceStateApiCore/` ≠ 命名空间」）；工作流实测清单 7→5 子工作流 + 2 管控类
+  - `guides/Project-Tools.md` / `guides/WinForms-UI-Threading.md`：`SimulationWorkflow`→`DeviceControlWork` 现行 API 名；`State == LineLaserWorkflowState.Standby` 示例→`WeldStatus == SubDeviceWeldStatus.Standby`；UI 订阅入口补三态契约
+- **历史页处理原则**：`decisions/` ADR 保留原文（决策史不可篡改），在页顶加「已被 ADR-049 取代 + 现行类名」注记——ADR-017 / 037 / 043 / 044 / 046 / 048；`lessons/` 同样加注记（StepDrivenWorkflowPitfalls / SimulationC-Mode-Interruption / StepMemberNameCollision / StateMachine-DoubleTransition / FaultRecoveryDeviceKey / CSharp-Language-Pitfalls），保留通用教训并说明在新模型下是否仍成立
+- **路径勘误**：`DeviceStatusWork.cs` 实际位于 `MainDeviceControl/` 根（**不在 `DeviceWorkflow/`**），5 个 wiki 页 + 1 个 log 行已批量修正；命名空间仍为 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`（目录 ≠ 命名空间）
+- **代码侧**：`AdaWeldSystem.csproj` 第 352-354 行注释更新（`MainDeviceControl\DeviceWorkflow\SafetyWorkflow.cs` → `MainDeviceControl\DeviceStatusWork.cs` 三线程 + `DeviceControlWork.cs` 整机主控），与 csproj 实际 Compile 条目（147-156 行）一致
+- 备份：`LLMWiki_backup_20260902_221241.tar.gz`（518,156 bytes，含 `wiki/` 全量 + `AGENTS.md`）
+- 验证：`tools/wiki_audit.py` 全绿（红链 0 / 孤儿页 0 / index 重复行 0）
+
+---
+
 ## [2026-09-02 20:43:06] ingest | 业务流向图原档沉淀（ADR-050 原档 2→3）+ 架构页业务状态流章节 + ResetMachine/StopMachine 级联代码修正
 - 来源：用户指令「沉淀焊接系统工作流程业务流向图.pdf 到知识库。全盘理解三份架构图模式。然后修正知识库：全量删除旧结构，新架构兼容并蓄的整合。然后对代码进行修正」
 - 原档：`raw/architecture/` 新增 `焊接系统工作流程业务流向图.pdf`（业务状态流：NoReset→Reseting→Reset OK→Running→PreWorking/WeldWorking→Stop/Alarm 主链 + 通讯/命令-IO-Pose/EMG-故障树三条横向通道）+ 渲染辅助 `业务流向图_overview.png`；清理临时 tile PNG；ADR-050 原档清单 2→3
@@ -183,7 +212,7 @@
 
 **验证**：静态自审全过——SimulationWorkflow 代码级零残留（仅注释）；`.IsEnabled/.Enable(/.Disable(` 零残留；ResetFlow 8 处（abstract 1 + override 7）；9 文件 region 配对平衡；基类 453 行回读完整。项目无法本机编译（.NET 4.8/MSBuild v4.0），以 Grep 交叉验证替代。
 
-**KB 同步（Phase 3）**：新建 [[decisions/ADR-048-AutoManualDualWorkflow]]；ADR-017 加「⚠️ 部分取代」横幅；[[api/SimulationWorkflow]] 改墓碑页（含新旧 API 对照表）；[[api/MainDeviceWorkflow]] 增补双流程生命周期 + 模拟 API 两节；[[modules/DeviceControl]] 新增「双流程层」小节 + 目录树/生命周期表更新（8→7 工作流文件）；[[standards/StepDrivenWorkflow]] 红线 3 补 ADR-048 边界注记；[[index/index]] 场景路由 + API 表 + ADR 表 + 编号说明（44 条）同步。
+**KB 同步（Phase 3）**：新建 [[decisions/ADR-048-AutoManualDualWorkflow]]；ADR-017 加「⚠️ 部分取代」横幅；[[api/DeviceControlWork]] 改墓碑页（含新旧 API 对照表）；[[api/DeviceControlWork]] 增补双流程生命周期 + 模拟 API 两节；[[modules/DeviceControl]] 新增「双流程层」小节 + 目录树/生命周期表更新（8→7 工作流文件）；[[standards/StepDrivenWorkflow]] 红线 3 补 ADR-048 边界注记；[[index/index]] 场景路由 + API 表 + ADR 表 + 编号说明（44 条）同步。
 
 **待办**：Phase 4 Lint（wiki_audit.py）；`ManualStop` Join(2000) 超时场景需人工验证自动脚本中止响应性；前置失败与流程中失败的收尾通道待统一。
 
@@ -681,7 +710,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   - 新增 `ShowSimStopMessage(reason)`：正常停止用 `AntdUI.Message.info`（无需确认）
   - `ShowSimErrorDialog` 由 `Message.error` 改为 `AntdUI.Modal.open(TType.Error)`（需确认）+ 按钮转红色「清理异常」；启动任一步骤异常均经其置红，后续步骤 `_simError` 短路
   - 停止分支先退订事件再 `StopSimulationFlows`，避免异步回调二次进入停止路径；`CleanupSimError`/`StopSimOnWeldComplete`/停止分支均补 `ShowSimStopMessage`+`LogSimStopSummary`
-- 知识沉淀：[[api/MotionControlPage]]、[[api/SimulationWorkflow]]（当次记录原名 `api/SimulationController`，2026-08-28 更名）、[[lessons/SimulationC-Mode-Interruption]]、[[guides/WinForms-UI-Threading]]、[[index/index]]
+- 知识沉淀：[[api/MotionControlPage]]、[[api/DeviceControlWork]]（当次记录原名 `api/SimulationController`，2026-08-28 更名）、[[lessons/SimulationC-Mode-Interruption]]、[[guides/WinForms-UI-Threading]]、[[index/index]]
 
 ## [2026-08-27 10:04:53] coding | 模拟按钮清理恢复 + 启动异常弹窗
 - 来源：用户需求（点击开启测试异常后点清理异常按钮无反应不恢复；启动模拟测试异常除 log 外需弹对话框）
@@ -1026,7 +1055,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   2. 删除 `MotionControl/NullMotionController.cs` 及 csproj 注册（含 NullAxis/NullIO）；保留 SimulationController 模拟子系统
   3. `InitializeWithZMotion(ip)` 失败分支改为清空并记告警，不再回退 Null
   4. CAMBOX 跟踪随正运动句柄自动初始化（Y轴=从轴axis0，主轴=虚拟编码器轴axis8 由 KUKA PDO 驱动）
-- 关联：[[decisions/ADR-037-DefaultInitZMotion]]、[[modules/MotionControl]]、[[modules/Workflow]]
+- 关联：[[decisions/ADR-037-DefaultInitZMotion]]、[[modules/MotionControl]]、[[modules/DeviceControl]]
 
 ## [2026-08-21 10:12:27] refactor | Safety 模块整合进 Workflow（ADR-036）
 - 来源：用户需求（safety 文件夹整合）
@@ -1698,3 +1727,27 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - 交叉验证：ClearAlarmFlow 7 子类全覆盖 + 基类 1 抽象声明；resetDevice 符号残留 = 0。
 - Wiki 同步：ADR-048（五度修订缘由 + 契约表 + §4 复位/清除报警收敛 + 后果 6→7）、modules/DeviceControl、architecture/DeviceControlArchitecture、api/LineLaserWorkflow、api/MainDeviceWorkflow、index。
 - wiki_audit.py 全绿。
+
+## [2026-09-03 00:54:37] feat+fix | 设备日志统一出口 DeviceLog + 独立管控类 5 类 BUG 修复
+
+- **用户裁定（本轮两个关键决策）**：
+  ① `Tag` 不是死成员——「每个流程应该还需要增加 log 的统一写法，**tag 是给 log 用的**；另外两个主设备 StartWork 也需要有统一的 log；log 写法是**将 comm 的 ShowLog 封装**」。故 `Tag` 保留并收紧（不删）。**判据沉淀：0 消费 ≠ 死成员**——若它是横切关注点的载体（日志标签/序列化键/权限标识），或 raw 原档将其列为契约成员，须先确认设计意图再下结论。
+  ② 其余 0 消费死成员（`CheckDeviceIOSafe()` / `IsStepTimeout()` 无参重载 / `StepStatusText` / `WorkElapsedMs`）**一律保留不删，只修 BUG**。
+- **新增** `AdaWeldSystem/MainDeviceControl/DeviceLog.cs`（静态类，命名空间 `AdaWeldSystem.MainDeviceControl`）：封装 `GlobalCommData.ShowLog`，提供 `Write/Info/Warn/Error`。已手工登记进 `AdaWeldSystem.csproj`（旧式 csproj 无通配，新文件必须显式加 `<Compile Include>`）。
+- **日志收敛（63 处 → 1 个出口）**：`MainDeviceControl/` 下 `ShowLog` 直调清零。标签约定=子工作流用基类 `Tag`（`object`→`string`，setter 降 `protected`）+ 基类 `protected Log(...)`；`DeviceControlWork`/`DeviceStatusWork` 用私有 `_tag` + 本类 `Log(...)`；`DeviceStateBase` 用 `StateName`；模拟模式用 `_simTag`。通讯收发报文仍走 `ShowCommunicationLog`，不混用。
+- **BUG 1（CS0108）**：`MotionControlWorkflow` 的 `private const string Tag` 遮蔽基类 `public object Tag`（`string`/`object` 类型对撞）→ 删遮蔽声明，5 个子工作流改在构造函数首行赋 `Tag`。
+- **BUG 2（非原子）**：`_workStartTicks`（long）裸读写 → `Interlocked.Exchange` / `Interlocked.Read`（32 位平台 64 位读写非原子，读到撕裂值会使 `IsStepTimeout` 误判）。
+- **BUG 3（绕过锁，8 处）**：`DeviceControlWork` 里 `DoIdle`/`OnPoseArrived`/`StartMachine` 等直接读 `_status`，绕过 `Status` 属性的 `_statusLock` → 全部改走 `Status`。保留白名单 5 处（字段声明 / 锁对象 / getter / `SetStatus` 锁内块 / `ClearAlarm` 的 check-and-set 必须同锁内，拆开即 TOCTOU）。
+- **BUG 4（停机重启误判超时，最严重）**：`DeviceControlWork` 不继承基类却自抄一套私有步机制，**漏抄基类「非运行态刷新时间戳」分支** → `RunLoop` 补 `else { ResetStepTime(); }`，`StartMachine()` 内补 `GoStep(StepIdle)`。原故障现象：**停机超 `PoseWaitTimeoutMs`（60s）后再开机，首拍即用停机时刻时间戳判超时，直接跳 900 失败收尾**。
+- **BUG 5（失效 using）**：移除 `LaserWeldHeadWorkflow.cs` 中因改造而失效的 `using AdaWeldSystem.Comm;`。
+- **编译验证受阻**：沙箱安全策略拒绝 `dotnet` / `msbuild` / C# 编译器（Known Windows LOLBin），且本机无 `C:\Program Files\Microsoft Visual Studio`。改用 Python 精确静态校验脚本替代（去注释后判 `Tag` 遮蔽 / `_tag` 残留 / `ShowLog` 回流 / 失效 using），**全部通过**。临时脚本 4 个已删除。**遗留：真编译验证待用户在 VS 内完成。**
+- **工具修复（顺手，重要）**：`tools/` 下 5 个脚本硬编码旧机器绝对路径 `D:\A-A-项目类\04_研发项目\...`，迁移后 **静默失效**（`drift_scan` 恒扫 0 文件、`lint_scan` 直接 FileNotFoundError）。已全部改为按 `__file__` 推导（与 `wiki_audit.py` 同款）：`lint_scan.py` / `drift_scan.py` / `drift_scan_precise.py` / `check_adr_status.py` / `truncate_log.py`。修后 `drift_scan_precise` 报 **25 处真实漂移**（历史遗留：已删文件 `SafetyFlow.cs`/`SafetyInterlock.cs`/`SafetyWorkflow.cs`/`SimulationWorkflow.cs`/`MainDeviceWorkflow.cs`/`WorkflowStateBase.cs`、外部参考实现 `StationProcess.cs`/`AssemblyProcess.cs`、`designer.cs` 大小写误报）——本次改动引入 **0 漂移**。**该 25 处构成新的清理待办。**
+- **Wiki 同步（+2 页 / 改 6 页）**：新增 `[[api/DeviceLog]]`、`[[lessons/DeviceControlWorkInheritanceBypass]]`（一句话根因=**不继承基类、另起炉灶抄一份私有实现，基类后补的正确性保障永远传导不过去**）；改 `standards/CodeSimplification`（§三新增 ⑤ 日志出口统一）、`standards/StepDrivenWorkflow`（§2.2 明确对独立管控类强制 + 审查清单加 2 条）、`architecture/DeviceControlArchitecture`（§2 目录加 `DeviceLog.cs` + 两个新小节）、`api/DeviceControlWork`（状态读取红线 + 步时间不变量表）、`api/DeviceStatusWork`、`index/index`（+2 行 + 3 条摘要修订 + 速查路由新增「写日志」条目）。
+- 校验：`tools/wiki_audit.py` **10 项全绿**——红链 0 / 孤儿页 0 / index 重复行 0 / 内容重复 0 / 二级子目录 0 / 小分类 0。147 页 22718 行（+2 页）。`lint_scan.py` 147 页、死链 8 处全为 `project/vibecoding-workflow.md` 里的模板占位符（`modules/XXX` 等，已白名单）、孤儿页 0、ADR 冲突 0。
+
+## [2026-09-03 01:00:53] backup | 推送 GitHub 云端备份（commit 4ac3f76）
+- 走 `ada_backup.sh push`，一次性提交 11 项工作区改动（10 改 + 1 新增 `MainDeviceControl/DeviceLog.cs`），推送到 `origin/main`。
+- 提交信息：`refactor(MainDeviceControl): ADR-049 三态模型落地，新增 DeviceLog 设备日志模块`。
+- 推送前 `status`：本地 HEAD `f51ce43` = 远端 HEAD，ahead 0 / behind 0，工作区未提交 11 项，`3rdDepend` 误跟踪 0。
+- 推送后 `status`：本地 HEAD `4ac3f76` = 远端 HEAD，ahead 0 / behind 0，工作区未提交 0，`3rdDepend` 误跟踪 0 —— 本地与远端完全一致，工作区干净。
+- 无 rebase、无冲突，未使用 `--force`。

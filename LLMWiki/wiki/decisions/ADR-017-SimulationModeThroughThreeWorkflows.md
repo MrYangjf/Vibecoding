@@ -7,7 +7,9 @@ status: accepted
 
 # ADR-017：模拟模式贯穿三大流程（取代独立模拟线程）
 
-> **⚠️ 部分取代（2026-09-01，ADR-048）**：本文的**核心理念「模拟是 MODE 不是线程」继续有效**；但「独立 `SimulationWorkflow` 文件承载」的形态已被取代——`SimulationWorkflow.cs` 已删除，全部成员归并 `MainDeviceWorkflow`（API 更名 `*Simulation`），对外直接挂主设备单例。现行真相源见 [[decisions/ADR-048-AutoManualDualWorkflow]] §4 与 [[api/MainDeviceWorkflow]]。
+> **⚠️ 部分取代（2026-09-01，ADR-048；2026-09-02，ADR-049）**：本文的**核心理念「模拟是 MODE 不是线程」继续有效**；但「独立 `SimulationWorkflow` 文件承载」的形态已被取代——`SimulationWorkflow.cs` 已删除，全部成员归并**整机主控 `DeviceControlWork`**（API 更名 `*Simulation`），对外直接挂主设备单例。现行真相源见 [[decisions/ADR-048-AutoManualDualWorkflow]] §4 与 [[api/DeviceControlWork]]。
+>
+> **类名注记**：文中 `MainDeviceWorkflow` 现为 `DeviceControlWork`；`Workflow/` 目录、`DeviceStateMachine/` 目录均已删除。
 
 ## 背景
 
@@ -48,6 +50,6 @@ status: accepted
 ## 相关页面
 
 - [[modules/DeviceControl]] / [[modules/MotionControl]] / [[modules/MonitorCam]]
-- [[api/SimulationWorkflow]] / [[architecture/DeviceControlArchitecture]]
+- [[api/DeviceControlWork]] / [[architecture/DeviceControlArchitecture]]
 - [[decisions/ADR-015-WorkflowAsHub]]（Workflow 作为流程管理中枢）
 - [[decisions/ADR-011-MonitorCameraModule]]

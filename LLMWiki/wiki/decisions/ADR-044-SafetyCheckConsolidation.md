@@ -7,6 +7,8 @@ status: accepted
 
 # ADR-044 — 安全检查三文件合并为单一安全检查流程
 
+> **后续更名（2026-09-02，ADR-049）**：本文决策的「合并产物 `DeviceWorkflow/SafetyWorkflow.cs`」已**整体更名为 `DeviceStatusWork.cs`**，并由「继承 `DeviceWorkflowBase<SafetyWorkflowState>` 的工作流」改为「**独立管控类 + IOWork/EMGWork/StatusWork 三线程**」（旧 `SafetyWorkflowState` 枚举已删除）。"三文件合一、单一入口"的核心结论继续有效，现行形态见 [[api/DeviceStatusWork]] 与 [[modules/Safety]]。
+
 ## 背景
 
 用户审查 `MainDeviceControl/DeviceWorkflow/` 时指出：
@@ -24,7 +26,7 @@ status: accepted
 核心矛盾：**配置、判定、执行三者人为割裂**。判定器没有执行载体（零调用方），执行循环没有判定内容（空桩），配置既不被注入也不被标定。结果是安全子系统整体为零消费方的骨架。
 
 同时发现两项既有缺陷：
-1. `SafetyWorkflow` **未继承** `DeviceWorkflowBase<TStep>`，自建 `_thread`/`_running`/`_shouldStop`，而基类已提供 `Step`/`SetStep`/`State`/`EmergencyStop`/`StateChanged` —— 违反 [[decisions/ADR-042-WorkflowStateBaseGeneric]]「共通能力继承、独有内容自建」。
+1. `SafetyWorkflow` **未继承** `DeviceWorkflowBase<TStep>`，自建 `_thread`/`_running`/`_shouldStop`，而基类已提供 `Step`/`SetStep`/`State`/`EmergencyStop`/`StateChanged` —— 违反 ADR-042（已删除，见 ADR-049）「共通能力继承、独有内容自建」。
 2. `MainDeviceWorkflow.IsRobotPoseSafe()` 恒 `return true`，注释写着「后续接 SafetyFlow 互锁检查」—— 门控长期悬空。
 
 ## 决策
@@ -110,9 +112,9 @@ MonitorOnce() → Checker.Check()
 
 ## 关联
 
-- 前置：[[decisions/ADR-041-MainDeviceControlArchitecture]]（四态 + 流程态分离）、[[decisions/ADR-042-WorkflowStateBaseGeneric]]、[[decisions/ADR-043-WorkflowResponsibilityBoundary]]（R3/R4）
-- 取代：[[decisions/ADR-036-SafetyModuleConsolidation]] 中「三文件并存」的结论（该 ADR 的"迁 Workflow 不建子文件夹"部分仍有效）
+- 前置：ADR-041（已删除，见 ADR-049）（四态 + 流程态分离）、ADR-042（已删除，见 ADR-049）、[[decisions/ADR-043-WorkflowResponsibilityBoundary]]（R3/R4）
+- 取代：ADR-036（已删除，见 ADR-049） 中「三文件并存」的结论（该 ADR 的"迁 Workflow 不建子文件夹"部分仍有效）
 - 模块：[[modules/Safety]]、[[modules/DeviceControl]]
-- API：[[api/SafetyWorkflow]]、[[api/MainDeviceWorkflow]]
+- API：[[api/DeviceStatusWork]]、[[api/DeviceControlWork]]
 - 教训：[[lessons/FaultRecoveryDeviceKey]]、[[lessons/CSharp-Language-Pitfalls]]
 - 规范：[[standards/CodeSimplification]]

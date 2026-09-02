@@ -9,7 +9,7 @@ source: 用户需求 + AdaWeldSystem/LineLaserCam/Api/CameraSelector.cs、AdaWel
 # ADR-018 相机连接状态与工作流程状态解耦
 
 > 状态：已采纳（2026-07-21）
-> 关联：[[api/CameraSelector]]、[[api/LineLaserWorkflow]]、[[modules/LineLaserCam]]、[[modules/Workflow]]、[[modules/UIDesign]]
+> 关联：[[api/CameraSelector]]、[[api/LineLaserWorkflow]]、[[modules/LineLaserCam]]、[[modules/DeviceControl]]、[[modules/UIDesign]]
 
 ## 背景与问题
 

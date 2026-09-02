@@ -33,7 +33,7 @@ status: accepted
 - 序列化：`.pDat` 采用 version=2（二进制 + 文本回退），`.tmp` 用于崩溃恢复。
 
 ## 相关
-- [[modules/Workflow]]（WeldActionRecord 归属）
+- [[modules/DeviceControl]]（WeldActionRecord 归属）
 - [[modules/WeldParamControl]]（WeldProcess 调用入口）
 - [[modules/PointCloudData]]（RunRecordManager 落盘）
 - [[modules/UIDesign]]（DataReview 回溯）

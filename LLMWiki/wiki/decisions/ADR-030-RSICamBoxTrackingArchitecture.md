@@ -181,7 +181,7 @@ Y 伺服从轴实时纠偏运动
 - [[decisions/ADR-029-ZMotionControllerIntegration]] — 正运动控制器接入架构（V2）
 - [[architecture/DeviceControlArchitecture]] — 设备控制架构规范页（第 10 章 运动控制）
 - [[modules/MotionControl]] — MotionControl 模块文档
-- [[modules/Workflow]] — Workflow 模块文档（V3 跟踪工作流）
+- [[modules/DeviceControl]] — Workflow 模块文档（V3 跟踪工作流）
 - [[modules/KUKARobot]] — KUKA 机器人模块（RSI FastIPO）
 - [[api/CamBoxTracker]] — CAMBOX 跟踪引擎 API
 - [[api/EncoderAxis]] — 通讯编码器轴 API

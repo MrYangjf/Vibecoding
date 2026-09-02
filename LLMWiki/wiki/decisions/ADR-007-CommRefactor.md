@@ -16,7 +16,7 @@ status: accepted
 ## 决策
 
 1. **合并文件**：将 `GlobalCommData.cs` 与 `SystemStatus.cs` 合并为单一文件 `Comm/SystemComm.cs`，统一存放全局通讯类、消息/权限/工作流枚举、事件参数类。
-2. **移除废弃状态管理**：删除 `MachineStatus` 枚举、`MachineStatusMessageArgs`、`EventStatusHandler`、`CurrentStatus`、`LastStatus`。系统状态统一由 [[modules/Workflow]] 的 `LineLaserWorkflowState` 管理。
+2. **移除废弃状态管理**：删除 `MachineStatus` 枚举、`MachineStatusMessageArgs`、`EventStatusHandler`、`CurrentStatus`、`LastStatus`。系统状态统一由 [[modules/DeviceControl]] 的 `LineLaserWorkflowState` 管理。
 3. **TCPIPComm 纳入 CommunicationManager**：`TcpIpComm` 实例由 `CommunicationManager` 在构造函数中创建并持有，访问路径统一为 `GlobalCommData.mCommunicationManager.TcpIpComm`。
 4. **避免循环依赖**：`TcpIpComm` 构造函数接收 `CommunicationManager` 引用，直接使用该引用读取 XML 配置，不再依赖 `GlobalCommData.mCommunicationManager` 静态字段。
 
@@ -38,4 +38,4 @@ status: accepted
 - [[modules/Comm]]
 - [[api/GlobalCommData]]
 - [[api/LineLaserWorkflow]]
-- [[modules/Workflow]]
+- [[modules/DeviceControl]]

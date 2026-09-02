@@ -1,14 +1,16 @@
 ---
 title: 流程与子设备对象权责边界标准
-date: 2026-08-31
-tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-043]
+date: 2026-09-02
+tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-043, ADR-049]
 ---
 
 # 流程与子设备对象权责边界标准（WorkflowResponsibilityBoundary）
 
 > **触发**：用户提出「流程与xx设备权责不清 / 流程里怎么这么多事件 / 这个事件该不该放流程」等权责类问题时，AI **直接读取本页执行**，无需用户重复输入权责要求。决策见 [[decisions/ADR-043-WorkflowResponsibilityBoundary]]。
 >
-> **适用范围**：`MainDeviceControl/DeviceWorkflow/` 下全部工作流，以及所有被流程调用的子设备对象（相机 Run、运动控制器、跟踪引擎、焊接头等）。
+> **适用范围**：`MainDeviceControl/DeviceWorkflow/` 下全部子设备工作流 + `DeviceControlWork` / `DeviceStatusWork` 两个整机管控类，以及所有被流程调用的子设备对象（相机 Run、运动控制器、跟踪引擎、焊接头等）。
+>
+> **2026-09-02（ADR-049 三态模型）术语对齐**：本页原有「流程态对外枚举 + `MapToDeviceState` 四态映射」表述已废止。现行形态为——各工作流持**私有阶段枚举**（`_phase`/`_flowState`，不对外），经 `MapWeldStatus(phase)` 映射为对外**焊接过程态** `SubDeviceWeldStatus`；连接态另有 `SubDeviceState`；整机运行态为 `MainDeviceStatus`。本页「流程态」一词一律指**私有阶段枚举**。
 
 ---
 
@@ -25,7 +27,7 @@ tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-043]
 1. **触发** —— 调用子设备的动作方法（如 `SensorRunContinue()`、`StartAcquisition()`）
 2. **调用** —— 调用算法/服务（如 `ImageAlgorithm.DetectWeldQuality(...)`）
 3. **读取结果** —— 拿到返回值后暂存为只读属性
-4. **推进流程态** —— 经 `SetStep()` 推进，由基类映射到设备四态
+4. **推进私有阶段** —— 经私有 `SetStep(phase, reason)` 推进，由 `MapWeldStatus(phase)` 映射为对外焊接过程态 `SubDeviceWeldStatus`
 5. **执行动作** —— 把结果用出去（如把工艺参数下发给机器人）
 
 ## 三、五条硬规则
@@ -41,7 +43,7 @@ tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-043]
 
 **禁止**：流程内出现 `event EventHandler<...Mat...>`、`event EventHandler<...Result...>`、`event EventHandler<...SupervisionStatus...>`。
 
-**替代范式**：结果放只读属性，UI 在 `StateChanged` 转 Completed 后拉取。
+**替代范式**：结果放只读属性，UI 在 `WeldStatusChanged` 转 `Working`/`Standby` 后拉取。
 
 ```csharp
 // 正例：流程持有结果，只读暴露
@@ -69,31 +71,40 @@ public CamBoxTracker Tracker { get { return _tracker; } }
 // 调用方：MotionControlWorkflow.Instance.Tracker.PointAdded += ...
 ```
 
-**例外**：子设备事件需驱动流程态变化时可以订阅，但用途是「推进流程态 / 记日志」，不是「换个名字再抛」。
+**例外**：子设备事件需驱动私有阶段变化时可以订阅，但用途是「推进私有阶段 / 记日志」，不是「换个名字再抛」。
 
-### R3 流程态通知统一
+### R3 状态通知统一
 
-启动 / 停止 / 终止 / 完成，一律由基类承载：
+启动 / 停止 / 终止 / 完成，一律由基类承载（ADR-049 三态）：
 
 ```csharp
-// 基类 WorkflowStateBase<TStep> 已提供
-public event EventHandler<WorkflowStepChangedEventArgs<TStep>> StateChanged;
-// 参数：OldState / NewState / Reason / Timestamp
+// 基类 DeviceStateBase 提供（非泛型 DeviceWorkflowBase 继承而来）
+public event EventHandler<WeldStatusChangedEventArgs> WeldStatusChanged;  // 焊接过程态
+//   参数：OldStatus / NewStatus / Reason / Timestamp
+public event EventHandler<SubDeviceStateChangedEventArgs> StateSwitched;  // 连接态
+public SubDeviceWeldStatus WeldStatus { get; }   // 只读，写入唯一入口 SetWeldStatus(...)
+public SubDeviceState State { get; }             // 只读，写入唯一入口 SetState(...)
+
+// 整机另由 DeviceControlWork 提供
+public event EventHandler<MainDeviceStatusChangedEventArgs> StatusChanged;  // 主设备运行态
 ```
 
 **禁止**自造 `XxxCompleted` / `ErrorAborted` / `ManualStopped` / `FlowStateSwitched` 事件及配套 `EventArgs` 类。
 
-**禁止**重写 `OnStepChanged` 把基类事件转发为工作流专属事件。
+**禁止**在私有 `SetStep(phase, reason)` 里把基类 `WeldStatusChanged` 再转发为工作流专属事件。
 
 ```csharp
-// 反例
-protected override void OnStepChanged(WorkflowStepChangedEventArgs<MainDeviceFlowState> e)
+// 反例：私有阶段刷新后，另抛一个同义事件
+private void SetStep(MonitorWorkflowState step, string reason)
 {
-    FlowStateSwitched?.Invoke(this, e);   // 违反 R3
+    _flowState = step;
+    SetWeldStatus(MapWeldStatus(step), reason);
+    PhaseSwitched?.Invoke(this, step);   // 违反 R3
 }
 
-// 正例：UI 直接订阅基类
-MainDeviceWorkflow.Instance.StateChanged += OnMainDeviceStepChanged;
+// 正例：只映射、不转发；订阅方按需订阅对应层级
+MonitorCameraWorkflow.Instance.WeldStatusChanged += OnMonitorWeldStatusChanged;   // 子设备
+DeviceControlWork.Instance.StatusChanged         += OnMainDeviceStatusChanged;    // 整机
 ```
 
 ### R4 流程做动作，而非抛事件等订阅
@@ -113,19 +124,21 @@ _output.Success = sent;
 
 > **零订阅事件 = 死代码**：新加事件前先确认有真实订阅方。加之前问一句"这件事是该流程做的动作，还是该等别人订阅？"
 
-### R5 流程态只描述流程
+### R5 私有阶段枚举只描述流程
 
-流程态枚举**只描述流程进度**，不得包含 UI/显示等外部职责态。
+私有阶段枚举**只描述流程进度**，不得包含 UI/显示等外部职责态。
 
 ```csharp
 // 反例
 public enum MonitorWorkflowState { ..., Analyzing, Displaying, Completed, ... }
 //                                              ^^^^^^^^^^ 显示是 UI 职责
 
-// 正例：7 态，全是流程进度
+// 正例：7 态，全是流程进度（内联于 MonitorCameraWorkflow.cs，不对外暴露）
 public enum MonitorWorkflowState
 { Uninitialized, Standby, Acquiring, Analyzing, Completed, ErrorAborted, ManualStopped }
 ```
+
+> 阶段枚举可 `public` 声明（便于 `MapWeldStatus` 与日志可读），但**不随 `WeldStatus` 对外暴露**——对外真相源只有 `SubDeviceWeldStatus` 七态。
 
 ### 附：依赖方向（R1 的推论）
 
@@ -147,9 +160,10 @@ public enum MonitorCameraPhase { Unknown, PreWeldAlignment, WeldQuality }
 
 - [ ] **R1**：本流程是否抛出了携带 Mat / 算法结果 / 设备健康状态的事件？
 - [ ] **R2**：本流程是否把子设备事件换个名字再抛一遍？（搜 `?.Invoke(this, e)` 转发）
-- [ ] **R3**：本流程是否自造了 Completed / ErrorAborted / ManualStopped 事件？`OnStepChanged` 里是否在转发？
+- [ ] **R3**：本流程是否自造了 Completed / ErrorAborted / ManualStopped 事件？私有 `SetStep` 里是否在转发基类 `WeldStatusChanged`？
 - [ ] **R4**：本流程是否有零订阅事件？该动作能否由流程直接执行、结果放只读属性？
-- [ ] **R5**：流程态枚举里是否有 Displaying / Saving / Uploading 等外部职责态？
+- [ ] **R5**：私有阶段枚举里是否有 Displaying / Saving / Uploading 等外部职责态？
+- [ ] **ADR-049**：是否有手工 `WeldStatus = ...` / `State = ...` / `Status = ...` 赋值？（必须走 `SetWeldStatus` / `SetState` / `SetStatus`）
 - [ ] **依赖**：子设备文件是否 `using` 了 `...MainDeviceControl.DeviceWorkflow`？
 - [ ] **死代码**：删事件时，配套 `EventArgs` 类、`private readonly XxxArgs _xxxArgs` 字段、Dispose 里的 `= null` 是否一并清理？
 - [ ] **region**：删除事件 region 后 `#region`/`#endregion` 是否仍配对？（易踩坑：连带删除 `#region` 行导致失衡）
@@ -158,12 +172,12 @@ public enum MonitorCameraPhase { Unknown, PreWeldAlignment, WeldQuality }
 
 | 流程 | 状态 | 说明 |
 |---|---|---|
-| `LineLaserWorkflow` | ✅ 合规范式 | 零自定义事件，全部走基类 `StateChanged` |
+| `LineLaserWorkflow` | ✅ 合规范式 | 零自定义事件，全部走基类 `WeldStatusChanged` / `StateSwitched` |
 | `LaserWeldHeadWorkflow` | ✅ 合规范式 | 同上 |
 | `MonitorCameraWorkflow` | ✅ 已治理（2026-08-31） | 删 5 事件 + 健康巡检下沉 + 删 `Displaying` 态 |
 | `MotionControlWorkflow` | ✅ 已治理（2026-08-31） | 删 2 个转发事件；`Tracker` 属性直供订阅 |
 | `WeldParamControlWorkflow` | ✅ 已治理（2026-08-31） | 删 `ParamOutputReady`，结果走 `LastOutput` |
-| `MainDeviceWorkflow` | ✅ 已治理（2026-08-31） | 删 `FlowStateSwitched` / `PowerOnInitializeCompleted` |
+| `DeviceControlWork` | ✅ 已治理（2026-09-02） | 删 `FlowStateSwitched` / `PowerOnInitializeCompleted`；对外仅 `StatusChanged`（`MainDeviceStatus`） |
 
 ## 六、UI 侧配套范式
 
@@ -173,17 +187,21 @@ public enum MonitorCameraPhase { Unknown, PreWeldAlignment, WeldQuality }
 // 1) 图像：订阅设备对象（R1）
 MonitorCameraRun.FrameCompletedEvent += OnFrameCompleted;
 
-// 2) 流程进度：订阅基类统一事件（R3）
-MonitorCameraWorkflow.Instance.StateChanged += OnWorkflowStepChanged;
+// 2) 流程进度：订阅基类统一事件（R3，ADR-049 三态）
+MonitorCameraWorkflow.Instance.WeldStatusChanged += OnWeldStatusChanged;   // 焊接过程态
+MonitorCameraWorkflow.Instance.StateSwitched     += OnConnStateSwitched;   // 连接态
+DeviceControlWork.Instance.StatusChanged         += OnMainStatusChanged;   // 整机运行态
 
-// 3) 结果：状态转 Completed 后拉取只读属性（R4）
-private void OnWorkflowStepChanged(object sender, WorkflowStepChangedEventArgs<MonitorWorkflowState> e)
+// 3) 结果：进入 Working 后拉取只读属性（R4）
+private void OnWeldStatusChanged(object sender, WeldStatusChangedEventArgs e)
 {
     if (InvokeRequired) { Invoke(...); return; }
-    lblStatus.Text = GetStateText(e.NewState);
-    if (e.NewState == MonitorWorkflowState.Completed) ShowResult();   // 拉取
+    lblStatus.Text = GetStatusText(e.NewStatus);
+    if (e.NewStatus == SubDeviceWeldStatus.Working) ShowResult();   // 拉取
 }
 ```
+
+> 私有阶段枚举（如 `MonitorWorkflowState`）**不出现在 UI 代码中**——UI 只认 `SubDeviceWeldStatus` 七态。需要更细进度时读 `WorkStep` / `WorkStartTime`（ADR-047 步骤驱动）。
 
 配套：[[standards/UiStateSimplification]]（真相源唯一、刷新入口统一）、[[guides/WinForms-UI-Threading]]（`InvokeRequired` 封送）。
 
@@ -194,5 +212,5 @@ private void OnWorkflowStepChanged(object sender, WorkflowStepChangedEventArgs<M
 - 决策：[[decisions/ADR-043-WorkflowResponsibilityBoundary]]
 - 架构：[[architecture/DeviceControlArchitecture]]
 - 模块：[[modules/DeviceControl]]、[[modules/MonitorCam]]
-- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCameraRun]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/MainDeviceWorkflow]]
+- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCameraRun]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]
 - 互补：[[standards/CodeSimplification]]、[[standards/UiStateSimplification]]

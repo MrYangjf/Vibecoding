@@ -4,7 +4,9 @@ import os
 import re
 import sys
 
-WIKI_ROOT = r"D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\Vicoding管理平台\LLMWiki\wiki"
+# 2026-09-03：原为硬编码旧机器绝对路径（D:\A-A-项目类\...），迁移后必然 FileNotFoundError。
+# 改为与 tools/wiki_audit.py 同款写法，按脚本自身位置推导，保证任意机器上可直接运行。
+WIKI_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "wiki")
 INDEX_FILE = os.path.join(WIKI_ROOT, "index", "index.md")
 
 def walk_md(root):

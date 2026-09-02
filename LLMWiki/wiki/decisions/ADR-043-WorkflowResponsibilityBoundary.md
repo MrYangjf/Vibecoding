@@ -8,6 +8,8 @@ tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-043]
 # ADR-043 — 流程与子设备对象权责边界
 
 > **唯一可执行细则见 [[standards/WorkflowResponsibilityBoundary]]**（由 `index.md` 路由，触发即读，免用户重复输入）。本 ADR 只记录"为什么这样决策"。
+>
+> **术语已更新（2026-09-02，ADR-049 三态模型）**：本 ADR 成文时的「流程态对外枚举 + `MapToDeviceState` 四态映射」已废止——各工作流的阶段枚举降为**私有**，对外只暴露 `SubDeviceState`（连接态）/ `SubDeviceWeldStatus`（焊接过程态）/ `MainDeviceStatus`（整机运行态）。文中 `MainDeviceWorkflow` 现为 `DeviceControlWork`、`SafetyWorkflow` 现为 `DeviceStatusWork`、泛型 `WorkflowStateBase<TStep>` 已删除（现为非泛型 `DeviceWorkflowBase`）。**R1~R5 五条规则本身继续有效**，仅承载者改名。
 
 ## 背景
 
@@ -101,7 +103,7 @@ tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-043]
 ## 关联
 
 - 标准页（执行细则）：[[standards/WorkflowResponsibilityBoundary]]
-- 架构：[[architecture/DeviceControlArchitecture]]、[[decisions/ADR-041-MainDeviceControlArchitecture]]
+- 架构：[[architecture/DeviceControlArchitecture]]、ADR-041（已删除，见 ADR-049）
 - 模块：[[modules/DeviceControl]]、[[modules/MonitorCam]]
-- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCameraRun]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/MainDeviceWorkflow]]
+- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCameraRun]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]
 - 互补规范：[[standards/CodeSimplification]]（死代码/过度属性）、[[standards/UiStateSimplification]]（UI 真相源唯一）

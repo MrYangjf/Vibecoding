@@ -8,6 +8,8 @@ tags: [教训, 步骤驱动, 执行步, ADR-047, DeviceWorkflowBase, 并发, 编
 
 > 来源：2026-09-01 全量步骤驱动改造（[[decisions/ADR-047-StepDrivenWorkflow]] accepted），8 个文件一次到位的实战总结。
 > 规范正文见 [[standards/StepDrivenWorkflow]]，本页只记**踩过的坑**与规避动作。
+>
+> **类名与机制注记（2026-09-02，ADR-049）**：文中的 `SafetyWorkflow` **现为 `DeviceStatusWork`**（`DoAlarm()` 已不存在，报警/急停改由 `DeviceStatusWork` 三线程经 `DeviceControlWork` 单一控制源处置）；`MainDeviceWorkflow` **现为 `DeviceControlWork`**；`MapToDeviceState(_step)` 四态映射已删除，改为 `SetWeldStatus(MapWeldStatus(_phase))`。**六坑的规避动作本身继续有效**。
 
 ---
 
@@ -193,5 +195,5 @@ State = MapToDeviceState(_step),   // ErrorAborted/Error → Alarm，语义正�
 - [[standards/StepDrivenWorkflow]] — 规范正文（段位 / 红线 / 落地清单）
 - [[decisions/ADR-047-StepDrivenWorkflow]] — 决策记录（含已知待办 3 条）
 - [[modules/DeviceControl]] — 三层状态模型与基类成员表
-- [[api/MainDeviceWorkflow]] — 三槽命令变量实现
+- [[api/DeviceControlWork]] — 三槽命令变量实现
 - [[lessons/StateMachine-DoubleTransition]] — 另一次"状态被后续代码覆盖"的同类教训
