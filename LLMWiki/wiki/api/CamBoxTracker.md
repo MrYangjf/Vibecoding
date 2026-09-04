@@ -9,7 +9,7 @@ source: MotionControl/ZMotion/CamBoxTracker.cs
 
 > **所属模块**：[[modules/MotionControl]]
 > **链路定位**：硬件级实时跟踪（PC 只写轨迹点，运动由硬件完成）
-> **决策依据**：[[decisions/ADR-030-RSICamBoxTrackingArchitecture]]
+> **决策依据**：[[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
 > **架构设计**：[[architecture/DeviceControlArchitecture]]
 > **核心职责**：管理 CAMBOX 电子凸轮的焊缝轨迹跟踪生命周期，包括轨迹点追加、前置补偿、启停控制、异常保护。
 > **设计哲学**：PC 只写轨迹点，实时运动完全由硬件完成
@@ -288,7 +288,7 @@ public event EventHandler<CamBoxPointEventArgs> PointAdded
 ## 相关页面
 
 - [[architecture/DeviceControlArchitecture]] — 设备控制架构规范页（第 10 章 运动控制）
-- [[decisions/ADR-030-RSICamBoxTrackingArchitecture]] — RSI-CAMBOX 运动控制决策
+- [[decisions/ADR-023-RSICamBoxTrackingArchitecture]] — RSI-CAMBOX 运动控制决策
 - [[api/EncoderAxis]] — 通讯编码器轴（CAMBOX 主轴）
 - [[api/ZMotionController]] — 正运动控制器
 - [[api/RSIPositionBuffer]] — RSI 位置时间戳缓冲

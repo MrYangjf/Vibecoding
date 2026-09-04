@@ -6,13 +6,13 @@ tags: [API, 故障恢复, SQLite, 单例, 数据库]
 
 # FaultRecordManager API — 故障记录数据库管理器
 
-> **位置**：`SqlLiteDatabase/FaultRecordManager.cs`，命名空间 `AdaWeldSystem.SqlLiteDatabase`（2026-08-31 新增，ADR-046）。
+> **位置**：`SqlLiteDatabase/FaultRecordManager.cs`，命名空间 `AdaWeldSystem.SqlLiteDatabase`（2026-08-31 新增，ADR-033）。
 > FaultRecord 表的建表、插入与查询；继承 `DatabaseManagerBase`，数据库文件 `DataBase\FaultRecord.db`（首启自动建目录建表）。
 
 ## 定位
 
 - **只负责持久化**，故障恢复闭环逻辑（记录→重试→复位）见 [[api/FaultRecoveryManager]]。
-- **不依赖领域类型**：`FaultRecord`/`FaultCategory` 定义于 `ProductFileManager/FaultRecoveryManager.cs`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-046 §3），本类以字符串值数组为写入契约，保持 SqlLiteDatabase 层不反向依赖业务层。
+- **不依赖领域类型**：`FaultRecord`/`FaultCategory` 定义于 `ProductFileManager/FaultRecoveryManager.cs`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-033 §3），本类以字符串值数组为写入契约，保持 SqlLiteDatabase 层不反向依赖业务层。
 
 ## 公共接口
 
@@ -34,4 +34,4 @@ tags: [API, 故障恢复, SQLite, 单例, 数据库]
 
 ## 相关
 
-- [[api/FaultRecoveryManager]] · [[modules/SqlLiteDatabase]] · [[decisions/ADR-046-ProductLifecycleRecordModule]] · [[decisions/ADR-044-SafetyCheckConsolidation]]
+- [[api/FaultRecoveryManager]] · [[modules/SqlLiteDatabase]] · [[decisions/ADR-033-ProductLifecycleRecordModule]] · [[decisions/ADR-031-SafetyCheckConsolidation]]

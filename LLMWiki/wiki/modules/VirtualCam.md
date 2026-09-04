@@ -17,7 +17,7 @@ source: AdaWeldSystem/LineLaserCam/VirtualCam/ 模块源码
 |------|------|
 | LineLaserCam/VirtualCam/VirtualCameraRun.cs | 虚拟调试相机：自生成轮廓点云，`class VirtualCameraRun : ICameraRun` |
 
-> ⚠️ **[2026-07-21 上提]** 相机选择器 `CameraSelector` 已迁至 `LineLaserCam/Api/CameraSelector.cs`（与 `ICameraRun` 同处线激光相机族统一对外接口层，命名空间 `AdaWeldSystem.LineLaserCamApi`），详见 [[api/CameraSelector]] 与 [[decisions/ADR-019-CameraSelectorUnifiedToApi]]。`VirtualCam` 现仅保留 `VirtualCameraRun` 实现（命名空间 `AdaWeldSystem.VirtualCam`）。
+> ⚠️ **[2026-07-21 上提]** 相机选择器 `CameraSelector` 已迁至 `LineLaserCam/Api/CameraSelector.cs`（与 `ICameraRun` 同处线激光相机族统一对外接口层，命名空间 `AdaWeldSystem.LineLaserCamApi`），详见 [[api/CameraSelector]] 与 [[decisions/ADR-016-CameraSelectorUnifiedToApi]]。`VirtualCam` 现仅保留 `VirtualCameraRun` 实现（命名空间 `AdaWeldSystem.VirtualCam`）。
 
 ## VirtualCameraRun 自生成轮廓
 
@@ -43,9 +43,9 @@ source: AdaWeldSystem/LineLaserCam/VirtualCam/ 模块源码
 
 ## 设计决策
 
-- 虚拟相机**不挂载**于 SmartRayCam，而是与之平级的 `VirtualCam` 模块（遵循 ADR-011 的「独立模块」范式，用户明确要求虚拟相机层级与 SmartRay 同级）。
+- 虚拟相机**不挂载**于 SmartRayCam，而是与之平级的 `VirtualCam` 模块（遵循 ADR-009 的「独立模块」范式，用户明确要求虚拟相机层级与 SmartRay 同级）。
 - 相机运行契约 `ICameraRun` 放在 `LineLaserCam/Api/`（线激光相机族统一对外接口目录），三套相机模块共享同一接口。
-- 详见 [[decisions/ADR-014-MotionControlModule]]、[[api/VirtualCameraRun]]、[[api/CameraSelector]]、[[api/ICameraRun]]。
+- 详见 [[decisions/ADR-012-MotionControlModule]]、[[api/VirtualCameraRun]]、[[api/CameraSelector]]、[[api/ICameraRun]]。
 
 ## 协作关系
 

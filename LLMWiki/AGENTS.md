@@ -128,7 +128,7 @@ Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 ### 布局容器自由化（2026-08-12）
 
-> 见 [[decisions/ADR-031-LayoutContainerFreedom]]。
+> 见 [[decisions/ADR-024-LayoutContainerFreedom]]。
 
 - **GridPanel/FlowPanel 不再强制使用**——它们会强制排序子控件。
 - 布局容器按需自由选择（GridPanel / FlowPanel / Panel 绝对定位 / Dock / Anchor / WinForms 原生容器等）。

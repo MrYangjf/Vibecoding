@@ -1,4 +1,4 @@
-﻿---
+---
 title: 项目工具、规范与常见问题汇总
 date: 2026-08-18
 tags: [指导, 工具, 规范, 模拟, 汇总]
@@ -35,11 +35,11 @@ tags: [指导, 工具, 规范, 模拟, 汇总]
 
 > ## ⚠️ 废弃声明（2026-08-19）
 >
-> 本节内容随 [[decisions/ADR-025-CodeGraphForCodeReview]] 一并**废弃**。用户反馈 code-review-graph 执行失败频繁、耗时久、经常误判，已从 vibecoding-llmwiki 工作流中移除（Phase 0 Step 0.7/0.8、Phase 2 Step 2.5、Phase 4 漂移检测全部回归 **Grep 默认方式**）。
+> 本节内容随「代码图谱工具」决策一并**废弃**。用户反馈 code-review-graph 执行失败频繁、耗时久、经常误判，已从 vibecoding-llmwiki 工作流中移除（Phase 0 Step 0.7/0.8、Phase 2 Step 2.5、Phase 4 漂移检测全部回归 **Grep 默认方式**）。
 >
 > 本节仅作**历史参考**保留，新工作流**不再使用** code-review-graph。raw/tools/crg_build.py 包装脚本亦不再使用。
 
-> 本节是 [[decisions/ADR-025-CodeGraphForCodeReview]] 的操作参考，指导在 vibecoding-llmwiki 工作流中如何**固定使用 code-review-graph** 执行代码图谱查询。
+> 本节是「代码图谱工具」决策的操作参考，指导在 vibecoding-llmwiki 工作流中如何**固定使用 code-review-graph** 执行代码图谱查询。
 >
 > **重要**：本项目仅使用 code-review-graph 作为唯一代码图谱工具，不启用 CodeGraph（colbymchenry/codegraph）降级方案。
 >
@@ -223,7 +223,7 @@ $env:CRG_PARSE_EXECUTOR = "thread"
 | `status --repo $repoPath` | 图谱统计 | 2049 节点 / 9672 边 / 152 文件（2026-08-11） |
 | `search "MainDeviceThread" --repo $repoPath` | 符号搜索 | 返回 Class + 11 Function + File（13 节点） |
 | `query callers_of "PowerOnInitialize" --repo $repoPath` | 调用链追溯 | 2 个调用者：Start、FormMain 构造函数 |
-| `impact --repo $repoPath --files "Workflow/MainDeviceThread.cs"` | 影响半径 | ~318 个受影响节点 |
+| `impact --repo $repoPath --files "Workflow/MainDeviceThread.cs"`（现役 `MainDeviceControl/DeviceStatusWork.cs`） | 影响半径 | ~318 个受影响节点 |
 | `dead-code --limit 3 --repo $repoPath` | 死代码检测 | 约 663 个死符号（含早期版本残留） |
 | `large-functions --limit 3 --repo $repoPath` | 大函数识别 | Sensor.cs 1466 行、LineLaserWorkflow.cs 1403 行 |
 
@@ -280,7 +280,7 @@ $pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
 
 ## 1.2 Grep 符号定位：结果截断导致的消费方漏统计（2026-09-01）
 
-> 图谱退役后（ADR-025），Grep 是 Phase 0 Step 0.7 与 Phase 2 Step 2.5 的**唯一**代码定位手段。它有一个必须防范的行为：**单次 Grep 的匹配结果会被截断**，返回条数远少于真实命中数时**不会有任何提示**。
+> 图谱退役后，Grep 是 Phase 0 Step 0.7 与 Phase 2 Step 2.5 的**唯一**代码定位手段。它有一个必须防范的行为：**单次 Grep 的匹配结果会被截断**，返回条数远少于真实命中数时**不会有任何提示**。
 
 **事故实例**：迁移 `FaultRecoveryManager` 时首次 `Grep(pattern="FaultRecoveryManager|FaultRecordManager|FaultCategory|FaultRecord")` 只返回 2 个消费方（`SafetyWorkflow` 现为 `DeviceStatusWork`、`MainDeviceWorkflow` 现为 `DeviceControlWork`）。改用 `FaultRecord\b` 加词边界缩小命中范围后再次检索，实际是 **6 个**——遗漏的 4 个（`LineLaserWorkflow`/`MonitorCameraWorkflow`/`MotionControlWorkflow`/`WeldParamControlWorkflow`）若不补 using 会直接编译失败。
 
@@ -369,7 +369,7 @@ for ($i = 1; $i -lt $dates.Count; $i++) {
 
 1. **先查后改**：替换前先 Grep 出全部命中点，人工确认哪些是"完整标识符"、哪些是"长名字的子串"。
 2. **带边界替换**：用更长的上下文限定，例如 `" DeviceFlowState"`、`"(DeviceFlowState"`、`"SetFlowState(DeviceFlowState"`；或先做旧名→新名的**一次性定向替换**（连同方法名一起改），再做剩余裸类型名替换。
-3. **两步走**：先替换"已含有新名"的组合（如 `SetFlowState(DeviceFlowState` → `SetStep(MainDeviceFlowState`），再替换裸类型名，最后 Grep 反向校验：
+3. **两步走**：先替换"已含有新名"的组合（如 ~~`SetFlowState(DeviceFlowState` → `SetStep(MainDeviceFlowState`~~，2026-09-03 注：两者均已是历史名，此处仅作**替换手法示例**），再替换裸类型名，最后 Grep 反向校验：
    ```bash
    grep -rn "MainMain\|ChangedChanged\|<WorkflowStepChangedEventArgs<WorkflowStep" --include="*.cs" .
    ```
@@ -563,14 +563,16 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
 
 ## 4. 虚拟相机与模拟模式
 
-> 本节汇总模拟模式（ADR-017）下所有已知坑点，涵盖虚拟相机选择、轮廓合成、初始化异步、行程停止、Live 模式排除等常见问题。
-> 关联决策：[[decisions/ADR-017-SimulationModeThroughThreeWorkflows]]
+> 本节汇总模拟模式下所有已知坑点，涵盖虚拟相机选择、轮廓合成、初始化异步、行程停止、Live 模式排除等常见问题。
+> 关联决策：模拟模式相关决策已并入 [[api/DeviceControlWork]]
+>
+> ⚠️ **2026-09-03 决策沿革**：原「模拟模式贯穿三大流程」与「自动运行/手动连接模型」两份决策均已**废弃**（承载者 `SimulationWorkflow.cs` 已删除、成员归并 `DeviceControlWork`）。本节**坑点本身继续有效**，但文中 `SimulationWorkflow.*` 一律读作 `DeviceControlWork.*`（`Enable`→`EnableSimulation`、`Disable`→`DisableSimulation`、`IsEnabled`→`IsSimulationEnabled`）；现行架构以 [[architecture/DeviceControlArchitecture]] 为唯一指导。
 
 ### 4.1 工作流初始化必须用 CameraSelector.Active
 
 #### 问题描述
 
-模拟模式下，`DeviceControlWork.EnableSimulation()`（原 `SimulationWorkflow.Enable()`，ADR-048 归并）已调用 `CameraSelector.SelectVirtual()` 将 `CameraSelector.Active` 切到虚拟相机 `VirtualCameraRun`。但 `LineLaserWorkflow.InitializeWorker()` 中写死：
+模拟模式下，`DeviceControlWork.EnableSimulation()`（原 `SimulationWorkflow.Enable()`，2026-09-03 归并）已调用 `CameraSelector.SelectVirtual()` 将 `CameraSelector.Active` 切到虚拟相机 `VirtualCameraRun`。但 `LineLaserWorkflow.InitializeWorker()` 中写死：
 
 ```csharp
 var camera = CameraRun.Instance;   // ❌ 直接取真实 SmartRay 单例
@@ -665,7 +667,7 @@ if (ll.WeldStatus == SubDeviceWeldStatus.Standby)
     ll.Start();                // 此时仍是 Working → Start 被跳过/抛异常
 ```
 
-> **术语对照（2026-09-02 ADR-049）**：旧代码写作 `ll.State == LineLaserWorkflowState.Uninitialized/Standby`（阶段枚举直接对外）；现行对外只有 `SubDeviceWeldStatus` 七态，阶段枚举降为私有。连接就绪另看 `ll.State`（`SubDeviceState` 两态）。
+> **术语对照（2026-09-02 ADR-034）**：旧代码写作 `ll.State == LineLaserWorkflowState.Uninitialized/Standby`（阶段枚举直接对外）；现行对外只有 `SubDeviceWeldStatus` 七态，阶段枚举降为私有。连接就绪另看 `ll.State`（`SubDeviceState` 两态）。
 
 ### 4.4 模拟测试：行程到达 = 正常停止，不是异常终止
 
@@ -754,7 +756,7 @@ private void OnCompletedAcqEvent(object sender, AcquisitionEventArgs e)
    CameraSelector.Load();              // 从 Config/INI/CameraSelector.ini 恢复相机选择
    ```
 2. 单例若只暴露 `Save()`/`Load()`，必须由启动入口负责调用——不要指望「某个页面第一次访问时自动加载」，UI 页面构造顺序不可控且可能晚于首次读取。
-3. INI 持久化文件位置遵循 [[decisions/ADR-008-ConfigLayout]]：作业类归 `Config/Jobs/`，通用设置归 `Config/INI/`。
+3. INI 持久化文件位置遵循 [[decisions/ADR-007-ConfigLayout]]：作业类归 `Config/Jobs/`，通用设置归 `Config/INI/`。
 
 ### 5.3 自检清单
 
@@ -860,7 +862,7 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 ### 8.1 NuGet 卫星资源程序集清理
 
-> **已被 [[decisions/ADR-028-NuGetLocalization]] 替代**：项目已完全移除 NuGet PackageReference，改为本地 DLL 引用。卫星程序集清理 Target 不再需要。本小节保留作为历史参考。
+> **已被 [[decisions/ADR-021-NuGetLocalization]] 替代**：项目已完全移除 NuGet PackageReference，改为本地 DLL 引用。卫星程序集清理 Target 不再需要。本小节保留作为历史参考。
 
 #### 现象
 
@@ -914,7 +916,7 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 ### 8.3 UILight 控件属性误用
 
-> **UILight 已被 [[decisions/ADR-021-UIFrameworkMigration]] 取代**：UI 框架迁移至 AntdUI 后，状态指示灯改用 **`AntdUI.Signal`**（而非 SunnyUI `UILight`）。本小节的 UILight 三要素用法仅作**历史参考**；新代码请使用 `AntdUI.Signal` 的对应属性。
+> **UILight 已被 [[decisions/ADR-018-UIFrameworkMigration]] 取代**：UI 框架迁移至 AntdUI 后，状态指示灯改用 **`AntdUI.Signal`**（而非 SunnyUI `UILight`）。本小节的 UILight 三要素用法仅作**历史参考**；新代码请使用 `AntdUI.Signal` 的对应属性。
 
 #### 问题描述
 
@@ -946,7 +948,7 @@ uiLight.State = UILightState.Blink;  // 闪烁（绿色闪烁）
 
 本文档由以下 15 篇独立 lesson 合并整理而成：
 
-1. `CodeGraphIntegrationGuide.md` — 代码图谱集成使用指南（**2026-08-19 随 ADR-025 废弃，本节历史参考**）
+1. `CodeGraphIntegrationGuide.md` — 代码图谱集成使用指南（**2026-08-19 已废弃，本节历史参考**）
 2. `Log-Append-Position.md` — 日志追加位置规则
 3. `NuGet-Satellite-Assemblies.md` — NuGet 卫星资源程序集清理（历史参考）
 4. `RunRecordManager-RecordIni-StaleAbsolutePath.md` — Record.ini 绝对路径迁移失效（历史参考）

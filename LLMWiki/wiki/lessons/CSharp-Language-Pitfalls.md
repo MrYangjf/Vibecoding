@@ -153,7 +153,7 @@ static class GlobalCommData
 
 - 新增枚举时，先搜索整个项目确认是否已有同名定义
 - 枚举统一定义在最上层使用它的命名空间中
-- 参见 [[decisions/ADR-026-EnumDeduplication]]
+- 参见 [[decisions/ADR-020-EnumDeduplication]]
 
 ---
 
@@ -289,7 +289,7 @@ MSBuild ... /t:Build
 ### 3.3 接口与基类成员不同步导致 CS1061（接口类型上找不到成员）
 
 > 2026-08-19 实战：故障恢复新增 `FaultOccurred` 事件时只加在了状态机基类，漏加了对应接口，导致订阅处 `sm.FaultOccurred += ...` 编译报 CS1061。**泛型教训**：事件若声明在基类，接口契约必须同步声明，否则通过接口类型订阅会编译失败。
-> 注：当时的 `DeviceStateMachineBase` / `IDeviceStateMachine` / `MainDeviceThread` 已于 2026-08-28 架构整合中删除（`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-049），此处保留事件-接口同步的通用教训。
+> 注：当时的 `DeviceStateMachineBase` / `IDeviceStateMachine` / `MainDeviceThread` 已于 2026-08-28 架构整合中删除（`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-034），此处保留事件-接口同步的通用教训。
 
 #### 问题描述
 
@@ -317,7 +317,7 @@ MSBuild ... /t:Build
 
 ### 3.4 基类事件在派生类中不可赋值（只能 `+=` / `-=`）
 
-> 2026-08-31 实战：ADR-042 把 `StateChanged` 事件上提到泛型基类 `WorkflowStateBase<TStep>` 后，`MotionControlWorkflow.Dispose()` / `WeldParamControlWorkflow.Dispose()` 里的 `StateChanged = null;`（清空订阅）不可编译。
+> 2026-08-31 实战：把 `StateChanged` 事件上提到泛型基类 `WorkflowStateBase<TStep>` 后，`MotionControlWorkflow.Dispose()` / `WeldParamControlWorkflow.Dispose()` 里的 `StateChanged = null;`（清空订阅）不可编译。
 
 #### 根本原因
 

@@ -8,7 +8,7 @@ tags: [专员, UI, WinForms, AntdUI]
 
 ## 职责边界
 
-- 所有用户界面的设计与实现（WinForms + AntdUI，原 SunnyUI 已迁出，见 [[decisions/ADR-021-UIFrameworkMigration]]）
+- 所有用户界面的设计与实现（WinForms + AntdUI，原 SunnyUI 已迁出，见 [[decisions/ADR-018-UIFrameworkMigration]]）
 - 页面导航结构搭建（ParentUI → Sub1UI → Sub2UI → Sub3UI）
 - 为算法/3D/相机/运动控制等模块提供可视化交互界面
 - 控件布局、事件绑定、数据绑定
@@ -18,32 +18,43 @@ tags: [专员, UI, WinForms, AntdUI]
 ## 负责文件
 
 ```
-UIDesign/
-├── ParentUI/
-│   ├── FormMain.cs
-│   ├── FormMain.Designer.cs
-│   └── FormMain.resx
+UIDesign/                          ← 现役 4 个子目录：MainWindow / ControlPage / TabPage / SubView
+├── MainWindow/
+│   ├── FormMain.cs                ← 主窗体（原 ParentUI/FormMain.cs）
+│   └── FormMain.Designer.cs
 ├── ControlPage/
 │   ├── MainPage.cs
 │   ├── NavPage.cs
-│   ├── DataReviewPage.cs
-│   └── FormLogin.cs
-├── Sub2UI/
-│   ├── LLCamWorkJob.cs
-│   ├── Helix3Drender.cs
+│   └── DataReviewPage.cs
+├── TabPage/                       ← 原 Sub2UI/（2026-08-05 重命名）
+│   ├── ILCamPage.cs               ← 现役名（原 LLCamWorkJob.cs）
 │   ├── ParamConfigPage.cs
-│   ├── XMLEditor.cs
-│   ├── TCPServer.cs
-│   ├── TCPClinet.cs
-│   └── UserEdit.cs
-└── Sub3UI/
-    ├── LLCameraSetting.cs
+│   ├── FileEditorPage.cs          ← 现役名（原 XMLEditor.cs）
+│   ├── CommPage.cs
+│   ├── MonitorCamPage.cs
+│   └── MotionControlPage.cs
+└── SubView/                       ← 对话窗 + 算法子页（原 ViewPage/；原 Sub3UI/ 已并入）
+    ├── AlgorithmEditForm.cs
+    ├── ILAlgoPage.cs              ← 英莱算法参数编辑（原 EmguAlgoPage.cs 已移除，职责并入此页）
+    ├── ILParamPage.cs             ← 现役名（原 LLCameraSetting.cs）
+    ├── ILScanDialog.cs
     ├── ConfigForm.cs
     ├── AutoParamForm.cs
     ├── FileTraceForm.cs
     ├── RecordConfigForm.cs
-    └── RenderParamForm.cs
+    ├── RenderParamForm.cs
+    ├── HelixRenderForm.cs         ← 现役名（原 Helix3Drender.cs）
+    ├── FormLogin.cs
+    └── UserEdit.cs
 ```
+
+> ⚠️ 历史名称提示：上表为现役结构；下列旧名均已不存在于代码库，保留以备对照——
+> `Sub2UI/` → `UIDesign/TabPage/`（2026-08-05 重命名）；`Sub3UI/` → 并入 `UIDesign/SubView/`；
+> `LLCamWorkJob.cs` → `UIDesign/TabPage/ILCamPage.cs`；`LLCameraSetting.cs` → `UIDesign/SubView/ILParamPage.cs`；
+> `XMLEditor.cs` → `UIDesign/TabPage/FileEditorPage.cs`；`Helix3Drender.cs` → `UIDesign/SubView/HelixRenderForm.cs`；
+> `EmguAlgoPage.cs` → 已移除（职责并入 `UIDesign/SubView/ILAlgoPage.cs`）；
+> `TCPServer.cs` → 未落地（现役仅 `Comm/CommBase/Ethernet/TCPIPComm.cs` 客户端侧）；
+> `TCPClinet.cs` → 历史拼写错误名，现役 `Comm/CommBase/Ethernet/TCPIPComm.cs`
 
 ## 技术要点
 

@@ -1,14 +1,21 @@
 ---
 title: 教训 — 独立管控类绕过/复制基类机制的 5 类 BUG（Tag 遮蔽 · 日志出口发散 · 时间戳非原子 · 字段直读 · 停机重启误判超时）
 date: 2026-09-03
-tags: [教训, 继承, 并发, 日志, 步骤驱动, DeviceControlWork, CS0108, Interlocked, ADR-047, ADR-049]
+tags: [教训, 继承, 并发, 日志, 步骤驱动, DeviceControlWork, CS0108, Interlocked, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/**（2026-09-03 修复）
 ---
 
 # 独立管控类绕过/复制基类机制的 5 类 BUG
 
 > **来源**：2026-09-03 对 `MainDeviceControl/` 的一次完整性审计 + 修复，共 5 个 BUG、8 个文件、约 63 处日志调用改造。
-> 规范正文见 [[standards/StepDrivenWorkflow]]、[[standards/CodeSimplification]] §三。本页只记**踩过的坑**与规避动作。
+> 规范正文见 [[architecture/DeviceControlArchitecture]] 与 [[standards/CodeSimplification]] §三（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已于 2026-09-03 整页废弃）。本页只记**踩过的坑**与规避动作。
+>
+> **⚠️ 2026-09-03 机制变更（ADR-036，用户裁定「完全重构」）**：本页记录的 5 类 BUG 与「独立管控类另起炉灶会腐化」的**根因继续有效**，
+> 但正文中的成员名已随旧框架清除（裁定 C1/C6）：`GoStep` → **`RunStep` 由 `case` 内 bool 推进**；`IsStepTimeout` → **`TimeOutSeconds`（秒）**；
+> `FailFlow` → 超时后 Alarm + RecordFault + 跳 9xx 段；`ResetStepTime` → **`ResetWorkTime()`**。
+> 另：`DeviceControlWork` **仍不继承** `DeviceWorkflowBase`（新架构下它是 7 线程编排层，与基类职责本就不同），
+> 因此**本页「抄一份会腐化」的警示完全适用**，改码时须让它的步机制与基类保持同步演进。
+> 现行规范见 [[architecture/DeviceControlArchitecture]] §4 · §5 · §7.2 · §16。
 
 ## 一句话根因
 
@@ -184,7 +191,7 @@ grep -n "_status" AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 
 ### 根因
 
-[[standards/StepDrivenWorkflow]] §2.2 早已把「非运行态必须持续 `ResetStepTime()`」写为**关键细节（易漏）**，
+旧标准（已废弃，现行 [[architecture/DeviceControlArchitecture]] §5）早已把「非运行态必须持续 `ResetStepTime()`」写为**关键细节（易漏）**，
 §七「暂停/非运行态」、§十一审查清单也都列了这一条。
 
 ——**但那条规范只对继承基类的工作流生效。** `DeviceControlWork` 是独立管控类，
@@ -204,8 +211,8 @@ grep -n "_status" AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
    逐成员比对两者实现差异，**差异处即为腐化点**，不得默认「抄的时候是一样的」。
 4. 长期方向：把这套机制抽成可组合的组件（而非只能靠继承获得），让独立管控类也能复用同一份实现。
 
-> 同源红线见 [[standards/StepDrivenWorkflow]] §九红线 3（单步内禁止无界阻塞等待）与
-> [[decisions/ADR-047-StepDrivenWorkflow]]。本坑说明：**规范围不住「抄代码的人」**。
+> 同源红线见 [[architecture/DeviceControlArchitecture]] §5（单步内禁止无界阻塞等待）与
+> 原步骤驱动决策。本坑说明：**规范围不住「抄代码的人」**。
 
 ---
 
@@ -229,11 +236,10 @@ grep -n "_status" AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 
 - [[api/DeviceLog]] — 本次新建的统一日志出口（标签约定在本页）
 - [[standards/CodeSimplification]] §三 — 设备日志规范（内容无符号、记录时机、通讯全记录）
-- [[standards/StepDrivenWorkflow]] — §2.2 非运行态刷新时间戳、§七 超时判据、§十一 审查清单
+- [[architecture/DeviceControlArchitecture]] — §5 步骤驱动与超时、§15 落地清单、§16 代码模板
 - [[api/DeviceControlWork]] — 主设备运行管控（坑三/四/五 的现场）
 - [[lessons/StepMemberNameCollision]] — CS0108 的另一形态（常量下沉后子类残留）
 - [[lessons/CSharp-Language-Pitfalls]] — C# 语言层陷阱合集
 - [[lessons/DeviceWorkflowDualFlowCallerGate]] — 另一条关于「调用方入口」的红线
-- [[decisions/ADR-047-StepDrivenWorkflow]] — 步骤驱动模型
-- [[decisions/ADR-049-ThreeStateModelRefactor]] — 三态模型与独立管控类定位
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型与独立管控类定位
 - [[architecture/DeviceControlArchitecture]] §2 — 独立管控类为何不在继承链上

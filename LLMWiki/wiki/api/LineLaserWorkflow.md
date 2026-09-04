@@ -2,11 +2,16 @@
 title: LineLaserWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
 updated: 2026-09-02
-tags: [API, 工作流, 状态机, 英莱, 线激光, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-049]
+tags: [API, 工作流, 状态机, 英莱, 线激光, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 ---
 
 # LineLaserWorkflow API 参考
+
+> **⚠️ 2026-09-03 架构重构（ADR-036 已裁定，用户定性「完全重构」）**：本页描述的是**改造前**的 API 现状，改码尚未开工。
+> 下列机制**已裁定清除，不得据本页改码**：`GoStep`/`SetStep` 改步 · `WorkStep`/`WorkStartTime` · 基类常驻监听线程（`StartRunLoop`/`BeatMs`） · `ManualOn`/`ManualOff` · 命令三槽与机器人 pose 监控 · const int 指令表。
+> **现行规范唯一出处**：[[architecture/DeviceControlArchitecture]]（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7 7 线程编排 · §16 代码模板）。
+> 本页将在 [[architecture/DeviceControlArchitecture]] §15 的改码批次完成后同步重写。
 
 > 英莱线激光焊缝跟踪工作流（单例）。
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs`
@@ -14,8 +19,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 > **继承**：`DeviceWorkflowBase`（非泛型，→ `DeviceStateBase`），`IDisposable` 由基类实现
 > 架构背景见 [[modules/DeviceControl]]、[[architecture/DeviceControlArchitecture]]
 >
-> **✅ 2026-09-02 三态模型重构（ADR-049，accepted）**：旧「设备四态 `DeviceState` + 流程态 `LineLaserWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`LineLaserWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus`(`SubDeviceWeldStatus`) 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
-> 步骤驱动规范见 [[standards/StepDrivenWorkflow]]。
+> **✅ 2026-09-02 三态模型重构（ADR-034，accepted）**：旧「设备四态 `DeviceState` + 流程态 `LineLaserWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`LineLaserWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus`(`SubDeviceWeldStatus`) 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
+> 步骤驱动规范见 **[[architecture/DeviceControlArchitecture]] §5 · §16**（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已于 2026-09-03 整页废弃）。
 
 ---
 
@@ -29,7 +34,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 
 - 由 `DeviceControlWork` 上电初始化（`InitializeMachine`）经 `ConnectOn()` 连接
 - 连续成功帧达到阈值时触发 `WeldParamControlWorkflow.ComputeAndOutput()`（焊接工艺计算与下发）
-- 数据流见 [[decisions/ADR-039-YinglaiDataFlow]]
+- 数据流见 [[decisions/ADR-029-YinglaiDataFlow]]
 
 ---
 
@@ -97,7 +102,7 @@ public class LineLaserWorkflow : DeviceWorkflowBase
 
 ### 行为变化（重要）
 
-- **等待主设备通知的超时语义**：改造前 PreWork / 数据稳定后为「30 秒超时后继续无限等待」，改造后为「30 秒超时 → 失败收尾 → `ErrorAborted`」（符合 ADR-047「不得留在原步死等」）。
+- **等待主设备通知的超时语义**：改造前 PreWork / 数据稳定后为「30 秒超时后继续无限等待」，改造后为「30 秒超时 → 失败收尾 → `ErrorAborted`」（符合「不得留在原步死等」约定）。
   **⚠️ `BeginStarting()` / `BeginWorking()` 目前无主设备调用方**，UI 单独调试（`MotionControlPage` 直接 `Start()`）时 30 秒后会报警；调试请启用模拟模式自驱动或由主设备补齐分步驱动。
 - **相机绑定/解绑时机**：`Start()` 内 `BindCamera()`；离开运行态时在 `OnWeldStatusChanged` 内 `ReleaseCameraBinding()`。
 - **失败计数不再每拍累加**：改造前每 5ms 调一次 `HandleFailure` 会瞬间打满；改造后需持续 5s 无有效结果才计一次。
@@ -181,6 +186,6 @@ var state  = wf.State;        // 连接态：判断能否操作、销毁前是�
 - [[modules/DeviceControl]] — 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页
 - [[modules/WeldParamControl]] — 焊接工艺计算链路
-- [[decisions/ADR-039-YinglaiDataFlow]] — 英莱数据流
-- [[decisions/ADR-035-LineLaserWorkflowRefactor]] — 分步重构
-- [[decisions/ADR-049-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）
+- [[decisions/ADR-029-YinglaiDataFlow]] — 英莱数据流
+- [[decisions/ADR-026-LineLaserWorkflowRefactor]] — 分步重构
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）

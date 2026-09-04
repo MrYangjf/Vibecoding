@@ -2,19 +2,24 @@
 title: MotionControlWorkflow API 参考（CAMBOX 硬件实时焊缝跟踪 · 三态模型）
 date: 2026-09-02
 updated: 2026-09-02
-tags: [API, 工作流, 运控, CAMBOX, 正运动, RSI, EtherCAT, 实时跟踪, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-049]
+tags: [API, 工作流, 运控, CAMBOX, 正运动, RSI, EtherCAT, 实时跟踪, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 ---
 
 # MotionControlWorkflow API 参考
 
+> **⚠️ 2026-09-03 架构重构（ADR-036 已裁定，用户定性「完全重构」）**：本页描述的是**改造前**的 API 现状，改码尚未开工。
+> 下列机制**已裁定清除，不得据本页改码**：`GoStep`/`SetStep` 改步 · `WorkStep`/`WorkStartTime` · 基类常驻监听线程（`StartRunLoop`/`BeatMs`） · `ManualOn`/`ManualOff` · 命令三槽与机器人 pose 监控 · const int 指令表。
+> **现行规范唯一出处**：[[architecture/DeviceControlArchitecture]]（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7 7 线程编排 · §16 代码模板）。
+> 本页将在 [[architecture/DeviceControlArchitecture]] §15 的改码批次完成后同步重写。
+
 > 运控工作流（单例），承载 **CAMBOX 硬件级实时焊缝跟踪**。
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
 > **继承**：`DeviceWorkflowBase`（非泛型，→ `DeviceStateBase`），`IDisposable` 由基类实现
-> 设计依据见 [[decisions/ADR-030-RSICamBoxTrackingArchitecture]]
+> 设计依据见 [[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
 >
-> **✅ 2026-09-02 三态模型重构（ADR-049，accepted）**：旧「设备四态 `DeviceState` + 流程态 `LaserCamBoxWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`LaserCamBoxWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus` 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
+> **✅ 2026-09-02 三态模型重构（ADR-034，accepted）**：旧「设备四态 `DeviceState` + 流程态 `LaserCamBoxWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`LaserCamBoxWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus` 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
 
 ---
 
@@ -50,7 +55,7 @@ public class MotionControlWorkflow : DeviceWorkflowBase
     // 事件（基类统一提供）
     public event EventHandler<SubDeviceStateChangedEventArgs> StateSwitched;
     public event EventHandler<WeldStatusChangedEventArgs> WeldStatusChanged;
-    // 注：TrackingError / PointAdded 已于 2026-08-31 移除（违反 ADR-043 R2）
+    // 注：TrackingError / PointAdded 已于 2026-08-31 移除（违反 ADR-030 R2）
 
     // 连接契约 + 生命周期
     public override bool ConnectOn();    // 手动连接（自起后台线程）
@@ -160,5 +165,5 @@ wf.Stop();
 - [[api/EncoderAxis]] — ATYPE=25 通讯编码器轴
 - [[api/RSIPositionBuffer]] — RSI 位置时间戳环形缓冲
 - [[modules/MotionControl]] — 运控硬件层
-- [[decisions/ADR-030-RSICamBoxTrackingArchitecture]] — CAMBOX 架构决策
-- [[decisions/ADR-049-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）
+- [[decisions/ADR-023-RSICamBoxTrackingArchitecture]] — CAMBOX 架构决策
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）

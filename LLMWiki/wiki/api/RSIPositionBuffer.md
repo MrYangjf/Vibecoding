@@ -9,7 +9,7 @@ source: MotionControl/ZMotion/RSIPositionBuffer.cs
 
 > **所属模块**：[[modules/MotionControl]]
 > **链路定位**：硬件级实时跟踪的时序对齐组件
-> **决策依据**：[[decisions/ADR-030-RSICamBoxTrackingArchitecture]]
+> **决策依据**：[[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
 > **架构设计**：[[architecture/DeviceControlArchitecture]]
 > **核心用途**：缓存 KUKA RSI 推送的位置+时间戳序列，为激光帧提供时间戳插值对齐
 > **设计哲学**：解决"激光采集时刻、机器人 PDO 时刻、网络接收时刻全部不对齐"的根本问题
@@ -278,7 +278,7 @@ CamBoxTracker.AddTrajectoryPointWithTimestamp()
 ## 相关页面
 
 - [[architecture/DeviceControlArchitecture]] — 设备控制架构规范页（第 10 章 运动控制）
-- [[decisions/ADR-030-RSICamBoxTrackingArchitecture]] — RSI-CAMBOX 运动控制决策
+- [[decisions/ADR-023-RSICamBoxTrackingArchitecture]] — RSI-CAMBOX 运动控制决策
 - [[api/CamBoxTracker]] — CAMBOX 跟踪引擎（使用本缓冲进行插值对齐）
 - [[api/EncoderAxis]] — 通讯编码器轴（CAMBOX 主轴）
 - [[api/KUKARobot]] — KUKA 机器人管理器（RSI 数据源）

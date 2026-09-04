@@ -53,7 +53,7 @@ public interface IMotionController
 | 类 | 说明 |
 |----|------|
 | `MotionControllerBase` | 抽象基类，实现轴/IO列表管理、线程安全锁、Add/Remove/Get逻辑 |
-| `ZMotionController` | 正运动（ZMotion）控制器实现（以太网连接硬件，4轴+IO），2026-08-21 起为默认初始化控制器（见 [[decisions/ADR-037-DefaultInitZMotion]]）；原 `NullMotionController` 空实现已删除 |
+| `ZMotionController` | 正运动（ZMotion）控制器实现（以太网连接硬件，4轴+IO），2026-08-21 起为默认初始化控制器（见 [[decisions/ADR-027-DefaultInitZMotion]]）；原 `NullMotionController` 空实现已删除 |
 
 ## 使用方式
 

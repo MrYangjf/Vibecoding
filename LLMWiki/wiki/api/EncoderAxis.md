@@ -9,7 +9,7 @@ source: MotionControl/ZMotion/EncoderAxis.cs
 
 > **所属模块**：[[modules/MotionControl]]
 > **链路定位**：硬件级实时跟踪主轴（CAMBOX 电子凸轮主轴源）
-> **决策依据**：[[decisions/ADR-030-RSICamBoxTrackingArchitecture]]
+> **决策依据**：[[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
 > **架构设计**：[[architecture/DeviceControlArchitecture]]
 > **核心用途**：作为 CAMBOX 电子凸轮的主轴，接收 KUKA 机器人 EtherCAT PDO 推送的 ToolRelX 位置
 > **本质**：不跑电机、不输出脉冲，完全由 EtherCAT 总线硬件周期刷新 MPOS 的虚拟编码器轴
@@ -244,7 +244,7 @@ CamBoxTracker 初始化时：
 ## 相关页面
 
 - [[architecture/DeviceControlArchitecture]] — 设备控制架构规范页（第 10 章 运动控制）
-- [[decisions/ADR-030-RSICamBoxTrackingArchitecture]] — RSI-CAMBOX 运动控制决策
+- [[decisions/ADR-023-RSICamBoxTrackingArchitecture]] — RSI-CAMBOX 运动控制决策
 - [[api/CamBoxTracker]] — CAMBOX 跟踪引擎（使用编码器轴作为主轴）
 - [[api/ZMotionController]] — 正运动控制器
 - [[api/KUKARobot]] — KUKA 机器人管理器（RSI FastIPO）

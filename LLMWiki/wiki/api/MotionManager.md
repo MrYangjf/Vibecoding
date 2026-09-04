@@ -29,7 +29,7 @@ public static MotionManager Instance { get; }
 
 | 方法 | 说明 |
 |------|------|
-| `Initialize()` | 初始化默认控制器（默认初始化正运动 ZMotion 控制器，按配置创建 Y轴/振镜轴/送丝伸缩臂轴/Z轴自动对焦轴 与 IO，见 [[decisions/ADR-037-DefaultInitZMotion]]） |
+| `Initialize()` | 初始化默认控制器（默认初始化正运动 ZMotion 控制器，按配置创建 Y轴/振镜轴/送丝伸缩臂轴/Z轴自动对焦轴 与 IO，见 [[decisions/ADR-027-DefaultInitZMotion]]） |
 | `RegisterController(IMotionController)` | 注册控制器到管理器 |
 | `GetController(string name)` | 按名称获取控制器 |
 | `GetAxis(string axisName)` | 按名称获取轴（遍历所有控制器） |
@@ -43,7 +43,7 @@ public static MotionManager Instance { get; }
 
 ```csharp
 // 初始化
-MotionManager.Instance.Initialize();  // 默认初始化正运动 ZMotion 控制器（见 ADR-037）
+MotionManager.Instance.Initialize();  // 默认初始化正运动 ZMotion 控制器（见 ADR-027）
 
 // 工作流中控制轴
 IAxis yAxis = MotionManager.Instance.GetAxis("Y轴");

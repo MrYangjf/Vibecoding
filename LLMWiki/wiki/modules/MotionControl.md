@@ -8,7 +8,7 @@ source: AdaWeldSystem/MotionControl/ 模块源码
 # MotionControl 模块 — 运控调整
 
 > 独立运控调整模块（**不再挂载于 InteliWeld**），负责：① 线激光前装标定的水平移动距离计算与缓存（`MoveControlData`）；② **运动控制器架构（`IMotionController` + `MotionControllerBase` + `IAxis` + `IIO` + `MotionManager`）**；③ 正运动4轴硬件实现（`ZMotion/` 子目录）；④ 运控调整工作流（`MotionControlWorkflow` 状态机：水平移动后台线程；模拟 A/B/C 与共享 robotX 由 [[api/DeviceControlWork]] 统一驱动）。
-> 设计遵循 ADR-011 的「独立模块 + Run/Workflow 分离」范式与 ADR-014。
+> 设计遵循 ADR-009 的「独立模块 + Run/Workflow 分离」范式与 ADR-012。
 
 ## 目录结构
 
@@ -38,7 +38,7 @@ MotionControl/
 >
 > **2026-08-04 命名空间规范化**：`API/` 子目录命名空间为 `AdaWeldSystem.MotionControl.API`，根目录为 `AdaWeldSystem.MotionControl`。
 >
-> **状态机已消失（2026-08-28 起）**：`MotionControlStateMachine.cs` 与 `DeviceStateMachine/` 目录**均已删除**；运控不再持有独立状态机实例，状态由 `MotionControlWorkflow` 经基类 `DeviceStateBase` 承载（三态模型，2026-09-02 ADR-049）。
+> **状态机已消失（2026-08-28 起）**：`MotionControlStateMachine.cs`（现役 `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`） 与 `DeviceStateMachine/` 目录**均已删除**；运控不再持有独立状态机实例，状态由 `MotionControlWorkflow` 经基类 `DeviceStateBase` 承载（三态模型，2026-09-02 ADR-034）。
 
 ## 核心文件
 
@@ -48,7 +48,7 @@ MotionControl/
 | `API/MotionControllerBase.cs` | **运动控制器抽象基类（2026-08-03 新增）**：实现轴列表/IO列表管理，子类实现硬件连接/断开/急停 |
 | `API/IAxis.cs` | **运动轴接口（2026-08-03 新增）**：定义单轴运动控制操作（MoveTo/MoveRelative/Stop/ServoOn/Home/Jog） |
 | `API/IIO.cs` | **IO接口（2026-08-03 新增）**：`IIO`/`IInputIO`/`IOutputIO` 输入输出IO泛化接口 |
-| MotionManager.cs | **运动控制器管理器（2026-08-03 新增）**：单例，统筹所有控制器/轴/IO的创建与管理；`Initialize()` 默认初始化正运动(ZMotion)控制器（2026-08-21 起，见 [[decisions/ADR-037-DefaultInitZMotion]]） |
+| MotionManager.cs | **运动控制器管理器（2026-08-03 新增）**：单例，统筹所有控制器/轴/IO的创建与管理；`Initialize()` 默认初始化正运动(ZMotion)控制器（2026-08-21 起，见 [[decisions/ADR-027-DefaultInitZMotion]]） |
 | MoveControlData.cs | 运控标定数据 + 水平移动计算 + 水平移动缓存（单例） |
 | **ZMotion/ZMotionController.cs** | **正运动控制器实现（2026-08-10 新增）**：继承 MotionControllerBase，以太网连接正运动控制器，管理4轴+8IO |
 | **ZMotion/ZMotionAxis.cs** | **正运动轴实现（2026-08-10 新增）**：实现 IAxis 接口，封装单轴运动/回零/点动/速度参数设置 |
@@ -59,7 +59,7 @@ MotionControl/
 | **ZMotion/InterpolationEngine.cs** | **连续插补引擎（2026-08-11 迁入 ZMotion/）**：封装 ZAux 多轴连续插补（MERGE/拐角/MultiMoveAbs/直线缓冲区流控），强耦合正运动硬件 |
 
 > **工作流归属**：`MotionControlWorkflow` 现位于 `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`（2026-08-28 由 `Workflow/` 迁入），继承**非泛型** `DeviceWorkflowBase`，命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`。
-> **状态模型（2026-09-02 ADR-049 三态）**：连接态 `SubDeviceState` 与焊接过程态 `SubDeviceWeldStatus` 由基类 `DeviceStateBase` 承载，状态写入唯一入口为 `SetState`/`SetWeldStatus`，禁手工赋值。`MotionControlWorkflow` 只保留**私有**阶段枚举（`LaserCamBoxWorkflowState`）+ `MapWeldStatus(step)` 映射，不对外暴露，不再持有独立状态机实例（原 `DeviceStateMachine/` 目录已删除）。
+> **状态模型（2026-09-02 ADR-034 三态）**：连接态 `SubDeviceState` 与焊接过程态 `SubDeviceWeldStatus` 由基类 `DeviceStateBase` 承载，状态写入唯一入口为 `SetState`/`SetWeldStatus`，禁手工赋值。`MotionControlWorkflow` 只保留**私有**阶段枚举（`LaserCamBoxWorkflowState`）+ `MapWeldStatus(step)` 映射，不对外暴露，不再持有独立状态机实例（原 `DeviceStateMachine/` 目录已删除）。
 
 ## MoveControlData（标定 + 计算 + 缓存）
 
@@ -71,9 +71,9 @@ MotionControl/
 
 ## MotionControlWorkflow（位于 `MainDeviceControl/DeviceWorkflow/`）
 
-> ⚠️ **2026-07-20 架构纠正（[[decisions/ADR-017-SimulationModeThroughThreeWorkflows]]）**：`MotionControlWorkflow` **不再持有独立模拟线程**。模拟模式（共享 robotX / A·B·C 模式 / 参数）统一由 [[api/DeviceControlWork]] 提供；本工作流仅：① 水平移动后台线程消费 `MoveControlData` 缓存；② 订阅 `PipelineManager.AlgorithmCompleted` 将线激光每帧焊缝特征缓存为水平移动距离。模拟开启时，运控按 `DeviceControlWork.ShouldMoveAxis`（B 运动、A/C 仅记录）切换输出。
+> ⚠️ **2026-07-20 架构纠正**：`MotionControlWorkflow` **不再持有独立模拟线程**。模拟模式（共享 robotX / A·B·C 模式 / 参数）统一由 [[api/DeviceControlWork]] 提供；本工作流仅：① 水平移动后台线程消费 `MoveControlData` 缓存；② 订阅 `PipelineManager.AlgorithmCompleted` 将线激光每帧焊缝特征缓存为水平移动距离。模拟开启时，运控按 `DeviceControlWork.ShouldMoveAxis`（B 运动、A/C 仅记录）切换输出。
 
-- **私有**阶段枚举（内联本文件，不对外）：`LaserCamBoxWorkflowState { Idle, Initializing, WaitingForMaster, Tracking, Paused, Stopping, Error }`，经 `MapWeldStatus(step)` 映射到对外 `SubDeviceWeldStatus`；映射表单一维护点见 [[architecture/DeviceControlArchitecture]] §6。模拟模式枚举 `SimTestMode { None, ModeA, ModeB, ModeC }` 由 [[api/DeviceControlWork]] 持有（ADR-048 归并）。
+- **私有**阶段枚举（内联本文件，不对外）：`LaserCamBoxWorkflowState { Idle, Initializing, WaitingForMaster, Tracking, Paused, Stopping, Error }`，经 `MapWeldStatus(step)` 映射到对外 `SubDeviceWeldStatus`；映射表单一维护点见 [[architecture/DeviceControlArchitecture]] §6。模拟模式枚举 `SimTestMode { None, ModeA, ModeB, ModeC }` 由 [[api/DeviceControlWork]] 持有（归并自原 SimulationWorkflow）。
 - 水平移动后台线程 `HorizontalMoveWorker()`：消费 `MoveControlData` 缓存，`GetEffectiveRobotX()` 读取机器人X（模拟时返共享模拟 robotX，否则返真实），`TryGetNearestHorizontalMove` 命中阈值且 `DeviceControlWork.ShouldMoveAxis` 为真时 `MotionController.MoveHorizontal(move)` → `RemoveHorizontalMove(key)`；A/C 模式仅记录不运动。
 - 焊缝特征缓存：订阅 `PipelineManager.AlgorithmCompleted`，将线激光流程（模拟时即虚拟相机）每帧 `SeamFeatureResult` + 当前有效 robotX 经 `MoveControlData.ComputeAndCacheHorizontalMove` 落缓存。
 - 资源释放：~~`DisposeComponents()`~~（**2026-08-19 已废弃**——非 UI 类统一使用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-001-DisposePattern]]）
@@ -122,7 +122,7 @@ MotionControl/
 
 ### 默认初始化控制器（2026-08-21 起为正运动 ZMotion）
 
-> **2026-08-21 架构调整（[[decisions/ADR-037-DefaultInitZMotion]]）**：默认初始化不再使用空实现（`NullMotionController` 已删除）。`MotionManager.Initialize()` 现在直接初始化正运动（ZMotion）控制器——读 `MotionConfigManager.Config.IpAddress`（默认 `192.168.0.11`），以太网连接硬件，按配置创建 Y轴/振镜轴/送丝伸缩臂轴/Z轴自动对焦轴 与 IO。CAMBOX 跟踪编排（`MotionControlWorkflow`）依赖该句柄，因此随正运动初始化自动就绪。
+> **2026-08-21 架构调整（[[decisions/ADR-027-DefaultInitZMotion]]）**：默认初始化不再使用空实现（`NullMotionController` 已删除）。`MotionManager.Initialize()` 现在直接初始化正运动（ZMotion）控制器——读 `MotionConfigManager.Config.IpAddress`（默认 `192.168.0.11`），以太网连接硬件，按配置创建 Y轴/振镜轴/送丝伸缩臂轴/Z轴自动对焦轴 与 IO。CAMBOX 跟踪编排（`MotionControlWorkflow`）依赖该句柄，因此随正运动初始化自动就绪。
 >
 > 模拟模式（虚拟相机/焊缝轮廓模拟）由 `DeviceControlWork` 承载（[[api/DeviceControlWork]]），与运动控制器解耦。
 
@@ -148,7 +148,7 @@ weldStart.SetON();
 ## 正运动控制器实现（ZMotion）
 
 > **2026-08-10 新增**：基于正运动（ZMotion）技术的运动控制器硬件对接实现，位于 `MotionControl/ZMotion/` 子目录。
-> 设计遵循 [[decisions/ADR-029-ZMotionControllerIntegration]]。
+> 设计遵循 [[decisions/ADR-022-ZMotionControllerIntegration]]。
 
 ### 4轴定义
 
@@ -354,7 +354,7 @@ PTPVT 工作流程
 ## CAMBOX 硬件级实时跟踪架构
 
 > **核心理念**：运动实时链路 100% 硬件总线化，PC 退化为非实时轨迹规划器
-> **决策依据**：[[decisions/ADR-030-RSICamBoxTrackingArchitecture]]
+> **决策依据**：[[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
 > **详细设计（全链路技术规范）**：[[architecture/DeviceControlArchitecture]] 第 10 章
 
 ### 架构要点
@@ -452,10 +452,10 @@ PC **不再驱动运动、不再滤波、不再参与实时链路**。仅做三�
 
 - 运控数据/工作流**从 InteliWeld / Workflow 迁出**，归独立 `MotionControl` 模块（用户明确要求「控制流程的 UI 和数据需要遵循流程开发」、虚拟相机与 SmartRay 同级）。
 - 运动轴控制采用三层架构：`IMotionController`(控制器级) + `IAxis`(轴级) + `IIO`(IO级)，通过 `MotionManager` 统一管理。
-- 运动轴控制经 `IMotionController` 接口插拔；默认初始化直接使用正运动（ZMotion）控制器（2026-08-21 起，`NullMotionController` 空实现已删除，见 [[decisions/ADR-037-DefaultInitZMotion]]）。
+- 运动轴控制经 `IMotionController` 接口插拔；默认初始化直接使用正运动（ZMotion）控制器（2026-08-21 起，`NullMotionController` 空实现已删除，见 [[decisions/ADR-027-DefaultInitZMotion]]）。
 - **正运动控制器对接（2026-08-10 新增）**：新增 `ZMotion/` 子目录实现正运动硬件对接，4轴（Y轴/振镜/送丝臂/Z对焦）+ 8IO；`MotionManager.Initialize()` 默认初始化正运动控制器（IP 取自 `MotionConfig`），`InitializeWithZMotion(ip)` 提供显式 IP 覆盖入口，连接失败不再回退到空控制器、仅记录告警。
 - CAMBOX 硬件级实时跟踪（主轴 `ATYPE=25` 通讯编码器轴 AXIS8、从轴 Y 轴 AXIS0、时序插值对齐、异常保护）见 [[architecture/DeviceControlArchitecture]] 第 10 章；启停编排由 `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` 承载。
-- 详见 [[decisions/ADR-014-MotionControlModule]]、[[decisions/ADR-029-ZMotionControllerIntegration]]、[[decisions/ADR-030-RSICamBoxTrackingArchitecture]]、[[api/IMotionController]]、[[api/MotionManager]]、[[api/ZMotionController]]、[[api/MoveControlData]]、[[api/CamBoxTracker]]、[[api/EncoderAxis]]、[[api/RSIPositionBuffer]]。
+- 详见 [[decisions/ADR-012-MotionControlModule]]、[[decisions/ADR-022-ZMotionControllerIntegration]]、[[decisions/ADR-023-RSICamBoxTrackingArchitecture]]、[[api/IMotionController]]、[[api/MotionManager]]、[[api/ZMotionController]]、[[api/MoveControlData]]、[[api/CamBoxTracker]]、[[api/EncoderAxis]]、[[api/RSIPositionBuffer]]。
 
 ## 资源释放入口（2026-08-19，ADR-001 非 UI 类标准）
 

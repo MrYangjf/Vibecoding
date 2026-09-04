@@ -1,25 +1,28 @@
 ---
 title: API — DeviceStatusWork 安全/IO/状态管控（+ SafetyFlow / SafetyInterlockChecker）
 date: 2026-09-02
-tags: [API, 安全检查, 安全互锁, 工作流, PLC, 日志, DeviceStatusWork, ADR-049]
+tags: [API, 安全检查, 安全互锁, 工作流, PLC, 日志, DeviceStatusWork, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 ---
 
 # API — DeviceStatusWork 安全/IO/状态管控
 
-> **本页述 `DeviceStatusWork`（单例，安全/IO/状态管控）**，见 [[decisions/ADR-049-ThreeStateModelRefactor]]。
+> **本页述 `DeviceStatusWork`（单例，安全/IO/状态管控）**，见 [[decisions/ADR-034-ThreeStateModelRefactor]]。
 > 安全类**不对外暴露子设备状态**，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费。
 >
 > **位置**：`MainDeviceControl/DeviceStatusWork.cs`（命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`）
 > **继承**：**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**；由三个常驻监控线程驱动（IOWork/EMGWork/StatusWork，各 20Hz；EMGWork 置 Highest）。
 > **设计来源**：参考 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
-> **单文件承载**：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（[[decisions/ADR-044-SafetyCheckConsolidation]]）；`FaultCategory` / `FaultRecord` 已迁至 [[api/FaultRecoveryManager]] 同文件（2026-09-01，ADR-046 §3）。
+> **单文件承载**：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（[[decisions/ADR-031-SafetyCheckConsolidation]]）；`FaultCategory` / `FaultRecord` 已迁至 [[api/FaultRecoveryManager]] 同文件（2026-09-01，ADR-033 §3）。
+>
+> **2026-09-03 原档细化已裁定（ADR-036 accepted，C1）**：本类线程与入口**以原档命名为准统一**：三线程 `thIOWork`（Running IO + Alarm IO）/ `thEMGWork`（Safe IO）/ **`thLightStatusWork`（status IO，三色灯）**，循环标志位 `IsIOWorking` / `IsEMGWorking` / `IsLightStatusWorking`，公共入口 **`MachineIOWorkOpen()`**（取代现行 `StartWork()`）；线程方法体统一为 `IOWork()` / `EMGWork()` / `LightStatusWork()`，防空转 `Thread.Sleep(10)`。
+> 原档未定义停止方法，现行 `CloseWork()` 为补充并保留。见 [[architecture/DeviceControlArchitecture]] §9；落地归批次 3（§15.2）。
 
 ---
 
 ## `class DeviceStatusWork`
 
-单例，由**三个常驻监控线程**按 50ms（20Hz）轮询驱动。报警/急停处置统一经 `DeviceControlWork` 单一控制源变更主设备运行态（Alarm/EStop/NoReset），不自行维护子设备状态（ADR-043）。
+单例，由**三个常驻监控线程**按 50ms（20Hz）轮询驱动。报警/急停处置统一经 `DeviceControlWork` 单一控制源变更主设备运行态（Alarm/EStop/NoReset），不自行维护子设备状态（ADR-030）。
 
 > **日志出口（2026-09-03 统一）**：本类全部日志经私有 `Log(...)` → `DeviceLog.Write(_tag, ...)`，共 8 处（IOWork 异常 / 急停按钮按下 / 急停轮询异常 / 状态反射 / 状态反射异常 / 三色灯输出异常 / `StartWork` / `CloseWork`）。**禁止**直接调 `GlobalCommData.ShowLog`。见 [[api/DeviceLog]]。
 
@@ -144,8 +147,8 @@ cfg.StatusLampDb = 10;
 - [[lessons/DeviceControlWorkInheritanceBypass]] — 日志出口发散与 CS0108 遮蔽的根因
 - [[modules/Safety]] — 模块职责与闭环说明
 - [[modules/DeviceControl]] — 工作流基类与三态模型
-- [[api/DeviceControlWork]] — `DeviceControlWork.IsRobotPoseSafe` 消费 `IsSafe`
+- [[api/DeviceControlWork]] — 消费方：`DeviceControlWork` 焊前门控**直接读** `IsSafe`（⛔ 旧包装方法 ~~`DeviceControlWork.IsRobotPoseSafe`~~ 已于 2026-09-03 移除，裁定 C3）
 - [[api/FaultRecoveryManager]] — 故障记录归口
-- [[decisions/ADR-044-SafetyCheckConsolidation]] — 三文件合并决策
-- [[decisions/ADR-049-ThreeStateModelRefactor]] — 归并重命名决策（现行有效）
+- [[decisions/ADR-031-SafetyCheckConsolidation]] — 三文件合并决策
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 归并重命名决策（现行有效）
 - [[lessons/FaultRecoveryDeviceKey]] — 故障记录设备键名陷阱

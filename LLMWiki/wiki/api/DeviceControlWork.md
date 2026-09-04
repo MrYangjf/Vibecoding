@@ -1,19 +1,23 @@
 ﻿---
 title: DeviceControlWork API 参考（整机主控 · 主设备运行态 MainDeviceStatus）
 date: 2026-09-02
-tags: [API, 工作流, 主控, 上电初始化, 机器人交互, 主设备运行态, 模拟, DeviceControlWork, ADR-049]
-source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/DeviceControlWork.cs
+tags: [API, 工作流, 主控, 上电初始化, 机器人交互, 主设备运行态, 模拟, DeviceControlWork, ADR-034]
+source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 ---
 
 # DeviceControlWork API 参考
 
-> **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-049-ThreeStateModelRefactor]]。
+> **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-034-ThreeStateModelRefactor]]。
 > 主设备对外状态为 **运行态 `MainDeviceStatus`**（6 态：Running/Alarm/EStop/Stop/NoReset/Reseting），由 `SetStatus(...)` 单一入口写入，禁手工赋值。
 >
-> **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/DeviceControlWork.cs`
+> **位置**：`AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs`（**直接挂在 `MainDeviceControl/` 下，不在 `DeviceWorkflow/` 子目录**）
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
-> **继承**：**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**；自带运行线程（节拍 `BeatMs=10`）与内部执行步（`_workStep` + `GetStepName`）。
+> **继承**：**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**（原档明确）。
 > 架构背景见 [[architecture/DeviceControlArchitecture]] 第 7 章。
+>
+> **⚠️ 2026-09-03 原档细化已裁定（ADR-036 accepted）**：原档 `主控设计.xlsx` 为 `DeviceControlWork` 定义了 **7 条常驻线程**——5 条子设备工作线程（`thLaserHeadWork` / `thLineLaserWork` / `thMonitorCamWork` / `thMotionControlWork` / `thWeldParamControlWork`）+ 2 条机器人通讯线程（`thHeartInspectWork` 心跳 / `thCommCommandWork` 指令），以及 `MachineFlowWorkOpen` / `MachineCommandWorkOpen` / `InitializeMachine` / `ClearMachine` / `ResetMachine` / `StartMachine` / `ClearAlarm` / `EstopMachine` / `EstopCancel` 共 9 个公共方法，`CommWork` / `OnCommRecived` / `CommCommandWork` / `MachineStatusTrans` / `WeldStatusTrans` + 5 个 `XxxWork()` 循环体共 11 个私有方法。
+> **已裁定的清除项**：基类常驻监听线程（`BeatMs` 等）已废，子流程改由本类线程驱动（C1）；`_workStep` + `GetStepName` 的内部执行步机制由子类 `RunStep` 取代（C6）；命令三槽（`_pendingPose` / `_pendingCommand` / `_pendingAbort`）**拆除，不再监控机器人 pose**（C3）。
+> 落地批次见 [[architecture/DeviceControlArchitecture]] §15.2。
 
 ---
 
@@ -50,7 +54,7 @@ public class DeviceControlWork
     public void ReportAlarm(string reason);
     public void ReportAlarmCleared();
 
-    // 模拟模式（原 SimulationWorkflow 归并，ADR-048/049）
+    // 模拟模式（原 SimulationWorkflow 归并，见 ADR-034）
     public void EnableSimulation(SimTestMode mode);
     public void DisableSimulation();
     public void LoadSimulation();
@@ -120,7 +124,7 @@ if (_status != MainDeviceStatus.Stop) ...    // 错误：绕过锁
 | 64 位字段原子读写 | `Interlocked.Exchange` / `Interlocked.Read` | 32 位平台读到撕裂值，`DateTime` 构造出荒谬时间 |
 
 > ⚠️ 本类曾因漏抄基类「非运行态刷新」分支而出现停机久后开机即报超时。
-> 详见 [[lessons/DeviceControlWorkInheritanceBypass]] 坑三/坑五，规范见 [[standards/StepDrivenWorkflow]] §2.2。
+> 详见 [[lessons/DeviceControlWorkInheritanceBypass]] 坑三/坑五，规范见 [[architecture/DeviceControlArchitecture]] §5 · §7.2（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已废弃）。
 
 ---
 
@@ -166,13 +170,13 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 
 自动初始化（`InitializeMachine`）级联的子设备：**焊接头、运控、线激光、监控相机、机器人通讯**（5 项），经各子设备 `ConnectOn()` 受理式连接。
 
-> **不含 `WeldParamControlWorkflow`**——焊接工艺控制流程由 `LineLaserWorkflow` 在连续成功帧达阈值时触发，保持单一驱动源（[[decisions/ADR-013-WorkflowAsAdjustmentDriver]]）。
+> **不含 `WeldParamControlWorkflow`**——焊接工艺控制流程由 `LineLaserWorkflow` 在连续成功帧达阈值时触发，保持单一驱动源（[[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
 
 ---
 
 ## 模拟模式 API（原 SimulationWorkflow 已删除归并）
 
-原 `SimulationWorkflow.cs` 已删除（ADR-048），全部成员并入本类，**模拟模式真相源 = 本类单例**：
+原 `SimulationWorkflow.cs` 已删除，全部成员并入本类，**模拟模式真相源 = 本类单例**：
 
 | 成员 | 说明 |
 |---|---|
@@ -184,7 +188,7 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 | `void StartSimulationLineLaser()` / `void StopSimulationLineLaser()` / `void ResetSimulationLineLaser()` | 线激光模拟生命周期编排入口（UI 只经这些方法触发） |
 | `SimTestMode CurrentMode` / `SelectedMode`、`ShouldUseVirtualCamera`、`ShouldMoveAxis`、`SimStartX`、`SimSpeed`、`SimTargetDistance`、`SeamProfile`、`RandomMode` | 9 个属性原样并入；`SimTestMode` 枚举定义于本文件尾 |
 
-消费方：`MotionControlPage`（开启模拟一键联动）、`FormMain`（启动加载）。「模拟是 MODE 不是线程」理念承袭 ADR-017（部分取代），见 [[decisions/ADR-048-AutoManualDualWorkflow]] §4。
+消费方：`MotionControlPage`（开启模拟一键联动）、`FormMain`（启动加载）。「模拟是 MODE 不是线程」理念沿用至今，现行设计见 [[architecture/DeviceControlArchitecture]]。
 
 ---
 
@@ -213,9 +217,7 @@ string status = "step:" + main.WorkStep + " " + main.WorkStepName;
 - [[architecture/DeviceControlArchitecture]] — 架构规范页
 - [[modules/Comm]] — 机器人/PLC 连接归属地
 - [[modules/Safety]] — `DeviceStatusWork.IsSafe` 门控接入
-- [[decisions/ADR-049-ThreeStateModelRefactor]] — 本次归并重命名决策（现行有效）
-- ADR-041（已删除，见 ADR-049） — 已被取代（历史参考）
-- [[decisions/ADR-048-AutoManualDualWorkflow]] — 双流程模型 + 模拟归并决策
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 本次归并重命名决策（现行有效）
 - [[api/DeviceLog]] — 日志统一出口（本类 `_tag` / `_simTag` 的落地）
 - [[lessons/DeviceControlWorkInheritanceBypass]] — 状态直读 / 时间戳非原子 / 停机重启误判超时 三类 BUG 根因
 - [[api/DeviceControlWork]] — 墓碑（已删除，真相源=本页）

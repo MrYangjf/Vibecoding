@@ -7,7 +7,11 @@ source: AdaWeldSystem/Workflow/Device/LineLaserWorkflow.cs, AdaWeldSystem/UIDesi
 
 # 模拟 C 模式进不到测试阶段（根因与修复）
 
-> **类名注记（2026-09-02，ADR-048/049）**：文中的 `SimulationWorkflow` **已删除**，全部成员归并整机主控 `DeviceControlWork`（`IsEnabled`→`IsSimulationEnabled`、`Enable`→`EnableSimulation`、`Disable`→`DisableSimulation`）；`LaserCamBoxTrackingWorkflow` 已删除，现由 `MotionControlWorkflow` 承载；工作流 `State` 对外改由 `WeldStatus`（`SubDeviceWeldStatus`）承载。三条根因的排查思路继续有效。
+> **类名注记（2026-09-02）**：文中的 `SimulationWorkflow` **已删除**，全部成员归并整机主控 `DeviceControlWork`（`IsEnabled`→`IsSimulationEnabled`、`Enable`→`EnableSimulation`、`Disable`→`DisableSimulation`）；`LaserCamBoxTrackingWorkflow` 已删除，现由 `MotionControlWorkflow` 承载；工作流 `State` 对外改由 `WeldStatus`（`SubDeviceWeldStatus`）承载。三条根因的排查思路继续有效。
+>
+> **枚举沿革注记（2026-09-03，ADR-036 裁定 C2）**：正文中的阶段名 `PreWork` / `Starting` / `Working` 属**旧取值**。`Starting` 已**删除**（不再作为独立阶段），并新增 `NoReset`(0) 置于 `Standby`(1) 之前。读取本页时请按新枚举理解；本页真正有效的是**三条根因的排查思路**（无人驱动状态机 / 虚拟相机空引用 / 清理时序错误），与具体枚举取值无关。
+>
+> ⛔ **原双流程决策已整页废弃并删除**（2026-09-03），本页 `SimulationWorkflow` 相关表述仅作历史记录，现行架构以 [[architecture/DeviceControlArchitecture]] 为唯一指导。
 
 ## 现象
 
@@ -36,8 +40,8 @@ source: AdaWeldSystem/Workflow/Device/LineLaserWorkflow.cs, AdaWeldSystem/UIDesi
 
 ## 关联
 
-- 模拟驱动：[[api/DeviceControlWork]] / [[decisions/ADR-017-SimulationModeThroughThreeWorkflows]]
-- 工作流分步：[[modules/DeviceControl]] / [[decisions/ADR-035-LineLaserWorkflowRefactor]]
+- 模拟驱动：[[api/DeviceControlWork]]
+- 工作流分步：[[modules/DeviceControl]] / [[decisions/ADR-026-LineLaserWorkflowRefactor]]
 - 相机选择：[[api/CameraSelector]]（`SelectReal()` 选 SmartRay 占位、`SelectIntelligentLaser()` 选英莱）
 - 主界面轮廓显示：[[modules/UIDesign]] MainPage（`AddContourLineChart()` 须在 FormMain 初始化时显式调用，订阅英莱相机 `ContourDataReady` 事件）
 

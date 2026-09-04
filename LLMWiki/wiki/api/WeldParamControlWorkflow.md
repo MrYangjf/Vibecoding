@@ -2,14 +2,19 @@
 title: WeldParamControlWorkflow API 参考（焊接工艺控制流程 · 三态模型）
 date: 2026-09-02
 updated: 2026-09-02
-tags: [API, 工作流, 焊接, 工艺, 功率, 送丝, 振镜, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-049]
+tags: [API, 工作流, 焊接, 工艺, 功率, 送丝, 振镜, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs
 ---
 
 # WeldParamControlWorkflow API 参考
 
-> **✅ 2026-09-02 三态模型重构（ADR-049，accepted）**：旧「设备四态 `DeviceState` + 流程态 `WeldParamControlWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`WeldParamControlWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus` 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`（此处 `Connect` 表示「工艺参数就绪」）；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
-> 步骤驱动规范见 [[standards/StepDrivenWorkflow]]。
+> **⚠️ 2026-09-03 架构重构（ADR-036 已裁定，用户定性「完全重构」）**：本页描述的是**改造前**的 API 现状，改码尚未开工。
+> 下列机制**已裁定清除，不得据本页改码**：`GoStep`/`SetStep` 改步 · `WorkStep`/`WorkStartTime` · 基类常驻监听线程（`StartRunLoop`/`BeatMs`） · `ManualOn`/`ManualOff` · 命令三槽与机器人 pose 监控 · const int 指令表。
+> **现行规范唯一出处**：[[architecture/DeviceControlArchitecture]]（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7 7 线程编排 · §16 代码模板）。
+> 本页将在 [[architecture/DeviceControlArchitecture]] §15 的改码批次完成后同步重写。
+
+> **✅ 2026-09-02 三态模型重构（ADR-034，accepted）**：旧「设备四态 `DeviceState` + 流程态 `WeldParamControlWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`WeldParamControlWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus` 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`（此处 `Connect` 表示「工艺参数就绪」）；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
+> 步骤驱动规范见 **[[architecture/DeviceControlArchitecture]] §5 · §16**（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已于 2026-09-03 整页废弃）。
 
 > 焊接工艺控制流程（单例）。
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs`
@@ -58,7 +63,7 @@ public class WeldParamControlWorkflow : DeviceWorkflowBase
     // 核心方法：只置命令变量 + 唤起监听线程，不再同步计算
     public bool ComputeAndOutput();
 
-    // 结果（只读属性，ADR-043 R4）
+    // 结果（只读属性，ADR-030 R4）
     public WeldParamOutput LastOutput { get; }
 
     // 连接契约（Connect = 工艺参数就绪）
@@ -71,7 +76,7 @@ public class WeldParamControlWorkflow : DeviceWorkflowBase
 }
 ```
 
-### 执行步表（内部游标，段位遵循 [[standards/StepDrivenWorkflow]]）
+### 执行步表（内部游标，段位遵循 [[architecture/DeviceControlArchitecture]] §5）
 
 | 步号 | 常量 | 单步方法 | 中文名 | 行为 | 出口 |
 |---|---|---|---|---|---|
@@ -124,7 +129,7 @@ public bool ComputeAndOutput()
 }
 ```
 
-**⚠️ 返回值语义已变（重要）**：改造后因为计算被挪到监听线程，**返回的是上一轮 `_output.Success`**。调用方若需本轮结果，请在 `WeldStatusChanged` 收到 `Standby`/`ErrorAborted` 后读 `LastOutput.Success`（ADR-043 R4 的「推状态 + 拉数据」范式）。当前唯一调用方 `LineLaserWorkflow` 不使用返回值，无兼容问题。
+**⚠️ 返回值语义已变（重要）**：改造后因为计算被挪到监听线程，**返回的是上一轮 `_output.Success`**。调用方若需本轮结果，请在 `WeldStatusChanged` 收到 `Standby`/`ErrorAborted` 后读 `LastOutput.Success`（ADR-030 R4 的「推状态 + 拉数据」范式）。当前唯一调用方 `LineLaserWorkflow` 不使用返回值，无兼容问题。
 
 **关键**：`WeldProcess.TriggerAdjustment()` 是**无参**方法，内部用 `OnAlgorithmCompleted` 暂存的 `_lastSeamFeature` / `_lastRobotX`。**不要给它加参数**。
 
@@ -167,7 +172,7 @@ DoOutput()(20): SendToRobot → 机器人 → GoStep(800)
 
 ## 触发时机
 
-由 `LineLaserWorkflow` 在 Working 态、连续成功帧达到阈值时调用。**不入上电级联**，保持单一驱动源（[[decisions/ADR-013-WorkflowAsAdjustmentDriver]]）。
+由 `LineLaserWorkflow` 在 Working 态、连续成功帧达到阈值时调用。**不入上电级联**，保持单一驱动源（[[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
 
 ---
 
@@ -183,8 +188,8 @@ DoOutput()(20): SendToRobot → 机器人 → GoStep(800)
 
 - [[modules/WeldParamControl]] — 模块说明（含完整数据链路）
 - [[modules/DeviceControl]] — 所属架构（执行步层说明）
-- [[standards/StepDrivenWorkflow]] — 步骤驱动规范（段位/超时/红线）
+- [[standards/StepDrivenWorkflow]] — ⛔ 已整页废弃，现行 [[architecture/DeviceControlArchitecture]] §5 · §16
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（第 8 章）
 - [[api/WeldDataManager]] — 焊接数据管理器
-- [[decisions/ADR-013-WorkflowAsAdjustmentDriver]] — 单一驱动源决策
-- [[decisions/ADR-049-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）
+- [[decisions/ADR-011-WorkflowAsAdjustmentDriver]] — 单一驱动源决策
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）

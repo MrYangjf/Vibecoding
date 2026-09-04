@@ -2,21 +2,26 @@
 title: MonitorCameraWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
 updated: 2026-09-02
-tags: [API, 工作流, 监控, 状态机, 权责边界, 执行步, 步骤驱动, SubDeviceWeldStatus, ADR-049]
+tags: [API, 工作流, 监控, 状态机, 权责边界, 执行步, 步骤驱动, SubDeviceWeldStatus, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 ---
 
 # MonitorCameraWorkflow API 参考
+
+> **⚠️ 2026-09-03 架构重构（ADR-036 已裁定，用户定性「完全重构」）**：本页描述的是**改造前**的 API 现状，改码尚未开工。
+> 下列机制**已裁定清除，不得据本页改码**：`GoStep`/`SetStep` 改步 · `WorkStep`/`WorkStartTime` · 基类常驻监听线程（`StartRunLoop`/`BeatMs`） · `ManualOn`/`ManualOff` · 命令三槽与机器人 pose 监控 · const int 指令表。
+> **现行规范唯一出处**：[[architecture/DeviceControlArchitecture]]（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7 7 线程编排 · §16 代码模板）。
+> 本页将在 [[architecture/DeviceControlArchitecture]] §15 的改码批次完成后同步重写。
 
 > 监控相机工作流（单例）。**只负责编排**：触发采集 → 调用算法 → 读取结果 → 推进焊接过程态。
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
 > **继承**：`DeviceWorkflowBase`（非泛型，→ `DeviceStateBase`），`IDisposable` 由基类实现
 >
-> **✅ 2026-09-02 三态模型重构（ADR-049，accepted）**：旧「设备四态 + 流程态 `MonitorWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_flowState`(`MonitorWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus` 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
-> 步骤驱动规范见 [[standards/StepDrivenWorkflow]]。
+> **✅ 2026-09-02 三态模型重构（ADR-034，accepted）**：旧「设备四态 + 流程态 `MonitorWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_flowState`(`MonitorWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus` 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
+> 步骤驱动规范见 **[[architecture/DeviceControlArchitecture]] §5 · §16**（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已于 2026-09-03 整页废弃）。
 
-## 权责边界（ADR-043）
+## 权责边界（ADR-030）
 
 **本流程不再产出任何数据事件**。职责划分：
 
@@ -75,11 +80,11 @@ public class MonitorCameraWorkflow : DeviceWorkflowBase
 
 > **命名**：步号常量（私有）`StepAcquireTrigger=10` / `StepAcquireWait=20` / `StepAnalyze=30`；单步方法统一 `DoXxx()`（`DoAcquireTrigger` / `DoAcquireWait` / `DoAnalyze` / `DoFinishOk` / `DoFinishFail`）。
 
-> **`Initialize()` 已回归基类模板（2026-09-01 修正）**：原 `public new bool Initialize()` 隐藏基类生命周期（ADR-042 反模式）已删除——连接检测体移入 `ConnectOn()`。调用方 `DeviceControlWork` 自动初始化与 `MonitorCamPage` 均无需改动（现调 `ConnectOn()`）。
+> **`Initialize()` 已回归基类模板（2026-09-01 修正）**：原 `public new bool Initialize()` 隐藏基类生命周期（基类生命周期隐藏反模式）已删除——连接检测体移入 `ConnectOn()`。调用方 `DeviceControlWork` 自动初始化与 `MonitorCamPage` 均无需改动（现调 `ConnectOn()`）。
 
 ### 事件
 
-**仅基类事件**，无自定义事件（ADR-043 R1~R4）：
+**仅基类事件**，无自定义事件（ADR-030 R1~R4）：
 
 | 事件 | 来源 | 参数 |
 |---|---|---|
@@ -107,7 +112,7 @@ public class MonitorCameraWorkflow : DeviceWorkflowBase
 `Uninitialized → Standby → Acquiring → Analyzing → Completed → Standby/Acquiring`
 任何状态均可经 `Stop()` 转 `ManualStopped`，经异常路径转 `ErrorAborted`。
 
-> `Displaying` 态已于 2026-08-31 移除——**显示是 UI 职责，不属流程态**（ADR-043 R5）。
+> `Displaying` 态已于 2026-08-31 移除——**显示是 UI 职责，不属流程态**（ADR-030 R5）。
 
 ---
 
@@ -220,9 +225,9 @@ private void ShowResult()
 ## 关联
 
 - [[standards/WorkflowResponsibilityBoundary]] — 权责执行细则
-- [[decisions/ADR-043-WorkflowResponsibilityBoundary]] — 本次治理决策
+- [[decisions/ADR-030-WorkflowResponsibilityBoundary]] — 本次治理决策
 - [[modules/DeviceControl]] — 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页
 - [[api/MonitorCameraRun]] — 采集运行控制与健康巡检
 - [[api/MonitorAlgorithmManager]] — 算法配置管理器
-- [[decisions/ADR-011-MonitorCameraModule]]、[[decisions/ADR-049-ThreeStateModelRefactor]]（现行有效）
+- [[decisions/ADR-009-MonitorCameraModule]]、[[decisions/ADR-034-ThreeStateModelRefactor]]（现行有效）

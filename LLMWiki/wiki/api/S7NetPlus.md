@@ -12,7 +12,7 @@ module: Comm
 
 ## 1. 安装
 
-引用方式：本地 DLL 引用（ADR-028 NuGet 本地化）
+引用方式：本地 DLL 引用（ADR-021 NuGet 本地化）
 
 ```xml
 <Reference Include="S7.Net">

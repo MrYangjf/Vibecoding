@@ -87,7 +87,7 @@ module: Comm
 
 ## 6. 项目实现
 
-- `Comm/Profinet/GSDMLGenerator.cs` — 生成 GSDML 文件到 `Config/GSDML/` 目录（ADR-008）。
+- `Comm/Profinet/GSDMLGenerator.cs` — 生成 GSDML 文件到 `Config/GSDML/` 目录（ADR-007）。
 - 生成后导入 TIA Portal 配置现场设备，配合专用硬件实现 IO 数据交换。
 
 ## 7. 注意事项

@@ -9,7 +9,7 @@ source: AdaWeldSystem/LineLaserCam/Api/ICameraRun.cs
 
 > 相机运行抽象接口（LineLaserCam 线激光相机族的**统一对外接口**），位于 `LineLaserCam/Api/ICameraRun.cs`，命名空间 `AdaWeldSystem.LineLaserCamApi`。
 > 使真实相机 `SmartRayCam.CameraRun` 与虚拟相机 `VirtualCam.VirtualCameraRun` 可互换；工作流（`LineLaserWorkflow` / `MotionControlWorkflow` 取图）与界面（`LLCamWorkJob` / `MotionControlPage`）仅依赖此接口。
-> **[2026-07-21]** 同一文件还定义了线激光相机连接态相关枚举 `LineLaserCameraConnectionState`（连接/断开/工作中）与 `CameraKind`（None/SmartRay/Hik/Virtual/IntelligentLaser），由 [[api/CameraSelector]] 聚合派生相机连接态（详见 [[decisions/ADR-018-CameraConnectionStateDecoupled]]）。
+> **[2026-07-21]** 同一文件还定义了线激光相机连接态相关枚举 `LineLaserCameraConnectionState`（连接/断开/工作中）与 `CameraKind`（None/SmartRay/Hik/Virtual/IntelligentLaser），由 [[api/CameraSelector]] 聚合派生相机连接态（详见 [[decisions/ADR-015-CameraConnectionStateDecoupled]]）。
 
 ## 接口定义
 

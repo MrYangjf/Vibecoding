@@ -190,7 +190,7 @@ source: AdaWeldSystem/MotionControl/ZMotion/ZMotionController.cs
 bool success = MotionManager.Instance.InitializeWithZMotion("192.168.0.11");
 if (!success)
 {
-    // 连接失败：不再回退到空控制器，仅记录告警（见 [[decisions/ADR-037-DefaultInitZMotion]]）
+    // 连接失败：不再回退到空控制器，仅记录告警（见 [[decisions/ADR-027-DefaultInitZMotion]]）
 }
 ```
 
@@ -622,4 +622,4 @@ config.SaveConfig(string configPath);
 - [[api/IAxis]] — 运动轴接口
 - [[api/IIO]] — IO 接口
 - [[modules/MotionControl]] — 模块文档
-- [[decisions/ADR-029-ZMotionControllerIntegration]] — 架构决策
+- [[decisions/ADR-022-ZMotionControllerIntegration]] — 架构决策

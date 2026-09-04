@@ -1,4 +1,4 @@
-﻿---
+---
 title: Comm 模块 — 通讯与全局状态
 date: 2026-08-03
 updated: 2026-08-07
@@ -39,7 +39,7 @@ Comm/
 └── SystemComm.cs                      ← 全局通讯/状态/事件定义
 ```
 
-> **2026-08-07 目录结构修正**：实际代码使用 `CommBase/` 作为通讯实现基座（统一承载 TCP/Modbus/S7/Profinet），而非 Wiki 原描述的 `NetworkPort/` 四层结构。`INetworkPort.cs` 和 `NetworkPortBase.cs` 两个抽象接口/基类文件当前不存在于代码中（该规划已取消，见下文）。英莱 Modbus 的协议实现在 `CommBase/Modbus/`，数据模型在 `IntelligentLaserModbus/`。KUKA 机器人通讯位于 `Robot/KUKARobot/`（无 NetworkPort 前缀）。
+> **2026-08-07 目录结构修正**：实际代码使用 `CommBase/` 作为通讯实现基座（统一承载 TCP/Modbus/S7/Profinet），而非 Wiki 原描述的 `NetworkPort/` 四层结构。`INetworkPort.cs`（已移除） 和 `NetworkPortBase.cs`（已移除） 两个抽象接口/基类文件当前不存在于代码中（该规划已取消，见下文）。英莱 Modbus 的协议实现在 `CommBase/Modbus/`，数据模型在 `IntelligentLaserModbus/`。KUKA 机器人通讯位于 `Robot/KUKARobot/`（无 NetworkPort 前缀）。
 
 | 子目录 | 命名空间 |
 |--------|---------|
@@ -83,12 +83,12 @@ Comm/
 | `S7PLCCommunication` | `IDisposable.Dispose()` | PLC 连接（Disconnect → _plc.Close） |
 | `ModbusTCPCommunication` | `IDisposable.Dispose()` | 关闭 NetworkStream + TcpClient |
 
-**释放调用链**：`FormMain_FormClosed` → `DeviceControlWork.Instance.Dispose()` → 停止运行线程 + 关闭机器人连接 + Shutdown 焊接头 + `GlobalCommData.mCommunicationManager.Dispose()`（2026-08-19 级联补全；`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-049）。
+**释放调用链**：`FormMain_FormClosed` → `DeviceControlWork.Instance.Dispose()` → 停止运行线程 + 关闭机器人连接 + Shutdown 焊接头 + `GlobalCommData.mCommunicationManager.Dispose()`（2026-08-19 级联补全；`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-034）。
 
 ### 2026-08-03 重构要点
 
-- **删除 `RobotCommunicationManager.cs`**：每个机器人通讯实现不同，无法统一管理。KUKA 机器人通讯直接由 `KUKARobotManager` 管理，`CommunicationManager.RobotManager` 直接暴露。
-- **删除 `PLCCommunicationManager.cs`**：同理，PLC 各家不同。西门子 S7 直接由 `S7PLCCommunication` 实现，`CommunicationManager.PlcManager` 直接暴露。
+- **删除 `RobotCommunicationManager.cs`（职责现由 `Comm/Robot/KUKARobot/KUKARobotManager.cs` 承接）**：每个机器人通讯实现不同，无法统一管理。KUKA 机器人通讯直接由 `KUKARobotManager` 管理，`CommunicationManager.RobotManager` 直接暴露。
+- **删除 `PLCCommunicationManager.cs`（职责现由 `Comm/PLC/Siemens/S7PLCCommunication.cs` 承接）**：同理，PLC 各家不同。西门子 S7 直接由 `S7PLCCommunication` 实现，`CommunicationManager.PlcManager` 直接暴露。
 - **目录调整**：`KUKARobot/` → `Robot/KUKARobot/`；`SiemensS7/` → `PLC/Siemens/`；`Profinet/` → `CommBase/Profinet/`。
 
 ## 已取消的规划（勿再当作待办）

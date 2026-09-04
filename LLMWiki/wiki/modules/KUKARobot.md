@@ -457,7 +457,7 @@ Comm/
 
 ## 7. RSI FastIPO + EtherCAT 从站
 
-> **决策依据**：[[decisions/ADR-030-RSICamBoxTrackingArchitecture]]
+> **决策依据**：[[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
 > **详细设计**：[[architecture/DeviceControlArchitecture]]
 > **核心用途**：为正运动 CAMBOX 电子凸轮提供硬件级同步的主轴位置数据
 
@@ -567,7 +567,7 @@ PC 获取机器人位置的两种方式：
 - [[modules/WeldParamControl]] —— 焊接工艺模块
 - [[modules/MotionControl]] —— 运动控制模块（CAMBOX 硬件级实时跟踪）
 - [[architecture/DeviceControlArchitecture]] —— 设备控制架构规范页（第 10 章 运动控制）
-- [[decisions/ADR-030-RSICamBoxTrackingArchitecture]] —— RSI-CAMBOX 运动控制决策
+- [[decisions/ADR-023-RSICamBoxTrackingArchitecture]] —— RSI-CAMBOX 运动控制决策
 - [[people/MotionControlSpecialist]] —— 运动控制专员
 - [[people/GeneralTechSpecialist]] —— 通用技术专员
 

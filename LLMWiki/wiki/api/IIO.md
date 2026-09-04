@@ -45,8 +45,8 @@ public enum IOType { Input, Output }
 
 | 类 | 说明 |
 |----|------|
-| `ZMotionInputIO` | 正运动输入IO实现（`IInputIO`），由 `ZMotionController` 初始化时按配置创建；`NullInputIO` 已随 [[decisions/ADR-037-DefaultInitZMotion]] 删除 |
-| `ZMotionOutputIO` | 正运动输出IO实现（`IOutputIO`），支持 SetON/SetOFF；`NullOutputIO` 已随 [[decisions/ADR-037-DefaultInitZMotion]] 删除 |
+| `ZMotionInputIO` | 正运动输入IO实现（`IInputIO`），由 `ZMotionController` 初始化时按配置创建；`NullInputIO` 已随 [[decisions/ADR-027-DefaultInitZMotion]] 删除 |
+| `ZMotionOutputIO` | 正运动输出IO实现（`IOutputIO`），支持 SetON/SetOFF；`NullOutputIO` 已随 [[decisions/ADR-027-DefaultInitZMotion]] 删除 |
 
 ## 相关页面
 

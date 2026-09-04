@@ -67,7 +67,7 @@ tags: [指导, UI, AntdUI, 参考手册, 汇总]
 
 ### 1.4 FlowPanel 表单布局范式（TableLayoutPanel 替代，可选）
 
-> **注意（ADR-031）**：本范式由"强制迁移"降级为**可选范式**。`FlowPanel`/`GridPanel` 会强制排序子控件，不再强制使用。表单布局可选用 `FlowPanel`、`Panel` 绝对定位、`Dock`/`Anchor` 或 WinForms 原生容器等任一方式按需实现。以下为**若选用 FlowPanel 时的**规范。
+> **注意（ADR-024）**：本范式由"强制迁移"降级为**可选范式**。`FlowPanel`/`GridPanel` 会强制排序子控件，不再强制使用。表单布局可选用 `FlowPanel`、`Panel` 绝对定位、`Dock`/`Anchor` 或 WinForms 原生容器等任一方式按需实现。以下为**若选用 FlowPanel 时的**规范。
 
 **适用场景**：参数配置页中的 label+input 表单区域，替代 WinForms 原生 `TableLayoutPanel`，实现自动流式排列。
 
@@ -107,7 +107,7 @@ tags: [指导, UI, AntdUI, 参考手册, 汇总]
 
 ## 2. 布局系统
 
-### 2.1 ADR-031：布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+### 2.1 ADR-024：布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 
 #### 背景
 
@@ -680,7 +680,7 @@ private class FileTraceRow : AntdUI.NotifyProperty
 
 #### 背景
 
-AntdUI **不**推荐为每个对话窗新开 `AntdUI.Window`，而是把对话内容做成 `UserControl`，用 `AntdUI.Modal.open` 承载。本范式由 ADR-022 采纳，取代旧的 `Window+PageHeader` 范式。
+AntdUI **不**推荐为每个对话窗新开 `AntdUI.Window`，而是把对话内容做成 `UserControl`，用 `AntdUI.Modal.open` 承载。本范式由 ADR-019 采纳，取代旧的 `Window+PageHeader` 范式。
 
 #### 调用点标准写法
 
@@ -848,7 +848,7 @@ AntdUI.Message.warn(this.FindForm(), "提示");
 
 ### 5.3 Window-PageHeader 旧范式（历史参考，已废弃）
 
-> ⚠️ **本文已废弃**：2026-07-30 经 ADR-022 采纳 AntdUI 官方 Demo 范式——对话窗改为 **Modal 承载的 `UserControl`**（取消 PageHeader），本「Window + PageHeader」方案被取代。保留作历史参考。
+> ⚠️ **本文已废弃**：2026-07-30 经 ADR-019 采纳 AntdUI 官方 Demo 范式——对话窗改为 **Modal 承载的 `UserControl`**（取消 PageHeader），本「Window + PageHeader」方案被取代。保留作历史参考。
 
 #### 旧范式要点
 
@@ -882,7 +882,7 @@ AntdUI.Message.warn(this.FindForm(), "提示");
 |--------|--------|--------|----------|
 | `FolderBrowserDialog` | `AntdUI.FolderBrowserDialog`（`.DirectoryPath`） | `System.Windows.Forms.FolderBrowserDialog`（`.SelectedPath`） | RecordConfigForm.cs |
 | `Message` | `AntdUI.Message`（静态类） | —（与 Windows 消息 API 易混，且 `Message.*` 自身含 `Target`/`Form` 双重载） | 见 Message/Modal owner 章节 |
-| `MenuItem` | `AntdUI.MenuItem`（`.Text`/`.Tag`，用于 `Menu.Add`） | `System.Windows.Forms.MenuItem`（旧 WinForms 菜单项） | ImagePage.cs、ParamPage.cs |
+| `MenuItem` | `AntdUI.MenuItem`（`.Text`/`.Tag`，用于 `Menu.Add`） | `System.Windows.Forms.MenuItem`（旧 WinForms 菜单项） | ImagePage.cs（现役 `UIDesign/TabPage/MonitorCamPage.cs`）、ParamPage.cs（现役 `UIDesign/TabPage/ParamConfigPage.cs`） |
 
 ### 6.2 为什么发生
 
@@ -1066,7 +1066,7 @@ tabsAlgo.AddTabSelect(ilTab);
 1. `AntdUI-DesignParadigm.md` — 设计范式枢纽页（第 1 节）
 2. `AntdUI-GridPanel-Span-Syntax.md` — GridPanel.Span 语法（第 2.2 节）
 3. `AntdUI-SplitterToGridPanel-FixedRegion.md` — Splitter→GridPanel 改造（第 2.4 节）
-4. `decisions/ADR-031-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
+4. `decisions/ADR-024-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
 5. `AntdUI-Menu-Tabs-Navigation.md` — Menu + Tabs 导航（第 3.1 节）
 6. `AntdUI-Tabs-ControlsAndPages.md` — Tabs Controls.Add + Pages.Add（第 3.3 节）
 7. `AntdUI-TableColumns-DesignerSerialization.md` — Table 列与数据绑定（第 4.1 节）

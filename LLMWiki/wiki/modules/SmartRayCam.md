@@ -25,7 +25,7 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md
 | CameraRun.cs | 相机运行控制（连续采集循环、回调管理），**2026-07-15 起实现 `ICameraRun`** |
 | CameraPresetManager.cs | 相机参数预设管理（曝光/增益/激光功率） |
 | Api/ICameraRun.cs | **[2026-07-21 已上提]** 相机运行抽象接口现已上提到 `LineLaserCam/Api/ICameraRun.cs`（线激光相机族统一对外接口），本模块不再保留该文件，详见 [[api/ICameraRun]] |
-| VirtualCameraRun.cs / CameraSelector.cs | **[2026-07-16 迁移至 [[modules/VirtualCam]]]** 虚拟调试相机与相机选择器已迁出本模块，作为与 SmartRayCam **平级**的独立 `VirtualCam` 模块（遵循 [[decisions/ADR-014-MotionControlModule]]） |
+| VirtualCameraRun.cs / CameraSelector.cs | **[2026-07-16 迁移至 [[modules/VirtualCam]]]** 虚拟调试相机与相机选择器已迁出本模块，作为与 SmartRayCam **平级**的独立 `VirtualCam` 模块（遵循 [[decisions/ADR-012-MotionControlModule]]） |
 
 ## 回调等待取图机制
 
@@ -49,7 +49,7 @@ CameraRun.OnCompletedAcqEvent (SmartRay SDK 连续采集回调)
 ## 相机运行抽象层（ICameraRun，2026-07-21 上提至 LineLaserCam/Api/）
 
 > 为支持模拟测试（A/B 模式）与真实相机（C 模式）无缝切换，`ICameraRun` 接口抽象位于 `LineLaserCam/Api/`（线激光相机族统一对外接口），使 `CameraRun`（真实 SmartRay）与 `VirtualCam.VirtualCameraRun`（虚拟）可互换。
-> ⚠️ 虚拟调试相机 `VirtualCameraRun` 与相机选择器 `CameraSelector` 已迁出本模块，归与 SmartRayCam 平级的 [[modules/VirtualCam]] 模块（详见 [[decisions/ADR-014-MotionControlModule]]）。
+> ⚠️ 虚拟调试相机 `VirtualCameraRun` 与相机选择器 `CameraSelector` 已迁出本模块，归与 SmartRayCam 平级的 [[modules/VirtualCam]] 模块（详见 [[decisions/ADR-012-MotionControlModule]]）。
 
 ### ICameraRun 接口
 
@@ -65,7 +65,7 @@ interface ICameraRun : IDisposable {
 ```
 
 - `CameraRun` 改造：原 `public readonly AutoResetEvent` 字段改为后备字段 `_acquisitionCompletedSignal` + 属性包装；新增 `IsRunning`（映射 `isRun` 字段）以符合接口。
-- `LLCameraSetting.cs:183` / `LLCamWorkJob.cs:149` 状态显示仍直接读 `CameraRun.Instance.isRun`（显示用途，保留兼容）。
+- 状态显示仍直接读 `CameraRun.Instance.isRun`（显示用途，保留兼容）。⚠️ 此处原引 `LLCameraSetting.cs:183` / `LLCamWorkJob.cs:149`，两文件均已改名迁出，现役为 `UIDesign/SubView/ILParamPage.cs` / `UIDesign/TabPage/ILCamPage.cs`，行号已失效。
 
 ### CameraSelector 选择逻辑（实现已迁移至 [[modules/VirtualCam]]）
 
@@ -75,7 +75,7 @@ interface ICameraRun : IDisposable {
 | `CameraSelector.SelectReal()` | `IsVirtual=false`，`Active` 回退为 `CameraRun.Instance` |
 | `CameraSelector.Active` | 取当前选中相机（虚拟/真实自动回退） |
 
-> `CameraSelector` 现位于 `LineLaserCam/Api/CameraSelector.cs`（命名空间 `AdaWeldSystem.LineLaserCamApi`，与 `ICameraRun` 同处统一对外接口层），详见 [[api/CameraSelector]]、[[decisions/ADR-019-CameraSelectorUnifiedToApi]]。本模块 `CameraRun` / `CameraPresetManager` 位于命名空间 `AdaWeldSystem.LineLaserCam.SmartRayCam`（与目录 `LineLaserCam/SmartRayCam/` 一致）。
+> `CameraSelector` 现位于 `LineLaserCam/Api/CameraSelector.cs`（命名空间 `AdaWeldSystem.LineLaserCamApi`，与 `ICameraRun` 同处统一对外接口层），详见 [[api/CameraSelector]]、[[decisions/ADR-016-CameraSelectorUnifiedToApi]]。本模块 `CameraRun` / `CameraPresetManager` 位于命名空间 `AdaWeldSystem.LineLaserCam.SmartRayCam`（与目录 `LineLaserCam/SmartRayCam/` 一致）。
 `LLCamWorkJob` 右侧面板 `cmbCameraSelect` 下拉框（真实相机(SmartRay) / 虚拟调试相机），`SelectedIndexChanged` 切换 `CameraSelector`。
 
 ### VirtualCameraRun 自生成轮廓（实现已迁移至 [[modules/VirtualCam]]）

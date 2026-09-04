@@ -33,6 +33,22 @@ def is_placeholder(raw):
     return False
 
 
+_FENCE_RE = re.compile(r"```.*?```", re.S)
+_INLINE_RE = re.compile(r"`[^`\n]*`")
+
+
+def mask_code(txt):
+    """把围栏代码块与行内代码体替换为等长空白。
+
+    2026-09-03 修复：规范条目里写「不要写 `[[old]]→[[new]]`」时，方括号位于行内代码体
+    内，本脚本仍按真链接解析，导致规则文本自指产生红链误报（logs/log.md 与
+    skills/vibecoding-llmwiki/SKILL.md 各 2 条）。示例代码同理。
+    用等长空白替换而非删除，可保持字符偏移与行号不变。
+    """
+    blank = lambda m: re.sub(r"[^\n]", " ", m.group(0))
+    return _INLINE_RE.sub(blank, _FENCE_RE.sub(blank, txt))
+
+
 def walk_md(base):
     out = []
     for dp, dn, fn in os.walk(base):
@@ -63,7 +79,7 @@ for f in all_files:
         txt = open(f, encoding="utf-8-sig").read()
     except Exception:
         continue
-    for m in link_re.finditer(txt):
+    for m in link_re.finditer(mask_code(txt)):
         raw = m.group(1).strip()
         if is_placeholder(raw):
             placeholder[src].append(raw)

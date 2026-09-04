@@ -23,7 +23,7 @@ source: AdaWeldSystem/LineLaserCam/ 模块源码
 
 - 命名空间：**Api 层统一对外接口**（`ICameraRun.cs` 与 `CameraSelector.cs`）命名空间为 `AdaWeldSystem.LineLaserCamApi`（与目录对齐）；其余子模块保留原命名空间：`AdaWeldSystem.SmartRayCameraRun`（CameraRun/CameraPresetManager，位于 SmartRayCam）、`AdaWeldSystem.VirtualCam`（VirtualCameraRun，位于 VirtualCam）、`AdaWeldSystem.HikRobotCam` / `Smartray.Sample`（ApiCore）。
 - `CameraSelector`（`LineLaserCam/Api/CameraSelector.cs`，与 `ICameraRun` 同处统一对外接口层）在真实(SmartRay)/虚拟/Hik 三套相机间切换并聚合连接态模型；`ICameraRun` 使三者可互换。
-- **统一对外接口目录 `LineLaserCam/Api/`**：`ICameraRun.cs` 与 `CameraSelector.cs` 共同构成线激光相机族统一对外接口层。2026-07-21 将 `ICameraRun` 由 `SmartRayCam/Api/`、`CameraSelector` 由 `VirtualCam/` 上提至此目录，二者命名空间**统一为 `AdaWeldSystem.LineLaserCamApi`**（与 Api 目录对齐，不再遵循「命名空间与目录解耦」惯例）；`ICameraRun` 由 `CameraRun`（SmartRayCam，命名空间 `AdaWeldSystem.SmartRayCameraRun`）与 `VirtualCameraRun`（VirtualCam，命名空间 `AdaWeldSystem.VirtualCam`）实现。详见 [[decisions/ADR-019-CameraSelectorUnifiedToApi]]。
+- **统一对外接口目录 `LineLaserCam/Api/`**：`ICameraRun.cs` 与 `CameraSelector.cs` 共同构成线激光相机族统一对外接口层。2026-07-21 将 `ICameraRun` 由 `SmartRayCam/Api/`、`CameraSelector` 由 `VirtualCam/` 上提至此目录，二者命名空间**统一为 `AdaWeldSystem.LineLaserCamApi`**（与 Api 目录对齐，不再遵循「命名空间与目录解耦」惯例）；`ICameraRun` 由 `CameraRun`（SmartRayCam，命名空间 `AdaWeldSystem.SmartRayCameraRun`）与 `VirtualCameraRun`（VirtualCam，命名空间 `AdaWeldSystem.VirtualCam`）实现。详见 [[decisions/ADR-016-CameraSelectorUnifiedToApi]]。
 - 与 [[modules/MonitorCam]]（监控 2D 相机）区分：MonitorCam 不参与线激光工作流，独立模块。
 
 ## 线激光设备状态（当前事实：三态模型）
@@ -34,7 +34,7 @@ source: AdaWeldSystem/LineLaserCam/ 模块源码
 
 | 关注点 | 承载者 | 位置 |
 |---|---|---|
-| 相机种类选择与连接态 | `CameraSelector` | `LineLaserCam/Api/CameraSelector.cs`（[[decisions/ADR-018-CameraConnectionStateDecoupled]]） |
+| 相机种类选择与连接态 | `CameraSelector` | `LineLaserCam/Api/CameraSelector.cs`（[[decisions/ADR-015-CameraConnectionStateDecoupled]]） |
 | 连接态 + 焊接过程态 + 执行步 | `LineLaserWorkflow`（继承**非泛型** `DeviceWorkflowBase`） | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` |
 
 **内部执行流（私有阶段枚举，不对外）**：
@@ -50,7 +50,7 @@ Working → Stopping(关激光+关传感器+清理) → Standby
 
 > **易误判点**：`LineLaserWorkflow` 文件里 grep 不到 `State` / `SetState` / `WeldStatus` / `SetWeldStatus` / `StateSwitched` / `WeldStatusChanged` 是正常的，它们由基类 `DeviceStateBase` 提供。
 
-## 状态标签规范（2026-08-19，ADR-035）
+## 状态标签规范（2026-08-19，ADR-026）
 
 > 设备状态标签统一规范：**子设备（线激光）是状态主体，厂商硬件（英莱/SmartRay 等）是实例化实现**。详见 [[modules/DeviceControl]]。
 
@@ -61,7 +61,7 @@ Working → Stopping(关激光+关传感器+清理) → Standby
 
 ## 相机连接状态模型（2026-07-21 新增）
 
-> 线激光相机自身状态（连接 / 断开 / 工作中）**与工作流程状态相互独立**，由 `CameraSelector` 聚合派生。详见 [[decisions/ADR-018-CameraConnectionStateDecoupled]]。
+> 线激光相机自身状态（连接 / 断开 / 工作中）**与工作流程状态相互独立**，由 `CameraSelector` 聚合派生。详见 [[decisions/ADR-015-CameraConnectionStateDecoupled]]。
 
 - 枚举定义于统一对外接口文件 `LineLaserCam/Api/ICameraRun.cs`（与 `ICameraRun` 同文件）：
   - `LineLaserCameraConnectionState { Disconnected, Connected, Working }` — 相机自身三态。
@@ -74,7 +74,7 @@ Working → Stopping(关激光+关传感器+清理) → Standby
 
 ## 迁移背景
 
-- 初版将 `VirtualCameraRun`/`CameraSelector` 误挂 `SmartRayCam/` 下，2026-07-16 抽出为平级 `VirtualCam`（见 [[decisions/ADR-014-MotionControlModule]]）。
+- 初版将 `VirtualCameraRun`/`CameraSelector` 误挂 `SmartRayCam/` 下，2026-07-16 抽出为平级 `VirtualCam`（见 [[decisions/ADR-012-MotionControlModule]]）。
 - 2026-07-21 将 SmartRayCam / VirtualCam / HikRobotCam 三者统一迁入 `LineLaserCam/` 父目录（仅移动物理目录，命名空间与 `.csproj` Compile 路径同步更新，无语义改动）。
 
 ---

@@ -52,12 +52,12 @@ FileOperate/
 
 - 自研实现，不依赖 Windows API
 - 支持 Section/Key/Value 三级结构
-- INI 文件统一存放于 `Config/INI/`（ADR-008）
+- INI 文件统一存放于 `Config/INI/`（ADR-007）
 - 被几乎所有模块使用（配置持久化）
 
 ## XMLfile 特点
 
-- XML 文件统一存放于 `Config/XML/`（ADR-008）
+- XML 文件统一存放于 `Config/XML/`（ADR-007）
 - `_configDirectory` 硬编码为 `AppDomain.CurrentDomain.BaseDirectory + @"\Config\XML\"`
 - `CheckFile()` 方法会自动创建目录
 - `XdocumentReaderWriter` 非 UI 类（非 `Control`）：`SaveXdocument`/`SaveToFilePath` 内原 `UIMessageBox.ShowError`（SunnyUI，已移除）现改用 `AntdUI.Modal.open(new AntdUI.Modal.Config(System.Windows.Forms.Form.ActiveForm, "错误", msg) { Icon = AntdUI.TType.Error, Draggable = true })`；`Modal.Config` 的 owner 须为 `Control`/`IWin32Window`，非 UI 类用 `System.Windows.Forms.Form.ActiveForm`，**不可传 `this`**；详见 [[project/SunnyUI-Legacy]]

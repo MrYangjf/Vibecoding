@@ -2,7 +2,7 @@
 title: MonitorCameraRun API 参考
 date: 2026-07-13
 updated: 2026-08-31
-tags: [API, 相机, 监控, 运行控制, 健康巡检, ADR-042]
+tags: [API, 相机, 监控, 运行控制, 健康巡检]
 source: AdaWeldSystem/MonitorCam/MonitorCameraRun.cs
 ---
 
@@ -11,8 +11,8 @@ source: AdaWeldSystem/MonitorCam/MonitorCameraRun.cs
 > 监控相机运行控制单例。底层 SDK 通过 `IMonitorCameraApi` 抽象，当前实现为 `HikvisionCameraApi`（海康面阵相机，MvCameraControl.Net SDK）。
 > 参考 SmartRay `CameraRun` 的 Live/PIL 模式与采集完成信号机制（[[decisions/ADR-005-CallbackAcquisition]]）。
 >
-> **权责（ADR-043 R1）**：本类是监控相机的**唯一数据产出方**——图像、连接态、健康巡检全部归属本类。
-> 2026-08-31 由 `MonitorCameraWorkflow` 下沉健康巡检至此（此前流程越权持有，见 [[decisions/ADR-043-WorkflowResponsibilityBoundary]]）。
+> **权责（ADR-030 R1）**：本类是监控相机的**唯一数据产出方**——图像、连接态、健康巡检全部归属本类。
+> 2026-08-31 由 `MonitorCameraWorkflow` 下沉健康巡检至此（此前流程越权持有，见 [[decisions/ADR-030-WorkflowResponsibilityBoundary]]）。
 
 ## 核心类
 
@@ -64,7 +64,7 @@ public class MonitorCameraRun : IDisposable
 ```csharp
 // 以下三者均定义于 MonitorCam/Api/IMonitorCameraApi.cs
 //   MonitorCameraPhase 于 2026-08-31 由 MonitorCameraWorkflow.cs 下沉至子设备 Api 层
-//   （此前子设备反向依赖流程命名空间，见 ADR-042「依赖方向」）
+//   （此前子设备反向依赖流程命名空间，违反依赖方向约定）
 public enum MonitorCameraPhase { Unknown, PreWeldAlignment, WeldQuality }
 public enum MonitorCameraConnectionState { Disconnected, Connecting, Connected, Error }
 public enum MonitorSupervisionState { Idle, Checking, Healthy, Degraded, Error }
@@ -110,7 +110,7 @@ HikvisionCameraApi 实时采集回调 → FrameReceived → FrameCompletedEvent 
 - PIL 模式下 Workflow 使用 `AcquisitionCompletedSignal.WaitOne(5000)` 等待回调；Live 模式不参与
 - 健康巡检由工作流在 `Start()`/`Stop()` 时调用 `StartSupervision()`/`StopSupervision()` 启停，也可由 UI 直接调用
 - 释放资源调用 `Dispose()`（IDisposable），**禁止重写 `Dispose(bool)`**，遵循 [[decisions/ADR-001-DisposePattern]]
-- 配置落盘路径：`Config/INI/MonitorCamera.ini`，遵循 [[decisions/ADR-008-ConfigLayout]]
+- 配置落盘路径：`Config/INI/MonitorCamera.ini`，遵循 [[decisions/ADR-007-ConfigLayout]]
 - 权责边界见 [[standards/WorkflowResponsibilityBoundary]]：本类产出数据，[[api/MonitorCameraWorkflow]] 只做编排
 
 ---
@@ -120,7 +120,7 @@ HikvisionCameraApi 实时采集回调 → FrameReceived → FrameCompletedEvent 
 - [[api/MonitorCameraWorkflow]] — 消费本类的编排方（只读调用 + 拉结果）
 - [[api/MonitorAlgorithmManager]] — 算法配置（对中容差 / 质量合格分）
 - [[standards/WorkflowResponsibilityBoundary]] — 权责执行细则（R1 数据产出归属）
-- [[decisions/ADR-043-WorkflowResponsibilityBoundary]] — 健康巡检下沉决策
+- [[decisions/ADR-030-WorkflowResponsibilityBoundary]] — 健康巡检下沉决策
 - [[modules/MonitorCam]] — 所属模块
 
 *来源：AdaWeldSystem/MonitorCam/MonitorCameraRun.cs + IMonitorCameraApi.cs*

@@ -1,17 +1,22 @@
 ---
 title: LaserWeldHeadWorkflow API 参考（焊接头工作流 · SubDeviceWeldStatus）
 date: 2026-09-02
-tags: [API, 工作流, 焊接头, 步骤驱动, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-049]
+tags: [API, 工作流, 焊接头, 步骤驱动, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs
 ---
 
 # LaserWeldHeadWorkflow API 参考
 
+> **⚠️ 2026-09-03 架构重构（ADR-036 已裁定，用户定性「完全重构」）**：本页描述的是**改造前**的 API 现状，改码尚未开工。
+> 下列机制**已裁定清除，不得据本页改码**：`GoStep`/`SetStep` 改步 · `WorkStep`/`WorkStartTime` · 基类常驻监听线程（`StartRunLoop`/`BeatMs`） · `ManualOn`/`ManualOff` · 命令三槽与机器人 pose 监控 · const int 指令表。
+> **现行规范唯一出处**：[[architecture/DeviceControlArchitecture]]（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7 7 线程编排 · §16 代码模板）。
+> 本页将在 [[architecture/DeviceControlArchitecture]] §15 的改码批次完成后同步重写。
+
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
-> **继承**：非泛型 `DeviceWorkflowBase`（ADR-049）；单例 `Instance`（`Lazy<T>`）。
-> **步骤驱动（ADR-047）**：骨架期私有逻辑未落地，无执行步，故 `FlowProcess` 空转、`IsRunLoopActive = false`（不起空转线程，避免空转）。私有逻辑落地时按段位规范新增执行步并登记 `GetStepName`。
-> **三态模型（ADR-049）**：对外焊接过程态统一经 `SetWeldStatus(SubDeviceWeldStatus)` 承载；连接态经 `ConnectOn`/`ConnectOff` 联动 `State`（`SubDeviceState`）。
+> **继承**：非泛型 `DeviceWorkflowBase`（ADR-034）；单例 `Instance`（`Lazy<T>`）。
+> **步骤驱动**：骨架期私有逻辑未落地，无执行步，故 `FlowProcess` 空转、`IsRunLoopActive = false`（不起空转线程，避免空转）。私有逻辑落地时按段位规范新增执行步并登记 `GetStepName`。
+> **三态模型（ADR-034）**：对外焊接过程态统一经 `SetWeldStatus(SubDeviceWeldStatus)` 承载；连接态经 `ConnectOn`/`ConnectOff` 联动 `State`（`SubDeviceState`）。
 
 ---
 
@@ -73,7 +78,7 @@ public class LaserWeldHeadWorkflow : DeviceWorkflowBase
 | `GetStepName(int)` | 按 `_phase` 返回中文名（待机/工作中/异常终止/未初始化） |
 | `GoStep(n)` | 基类唯一改步入口可用，骨架期未推进 |
 
-> 私有逻辑落地时：在 `FlowProcess()` 的 `switch(_phase)` 内新增执行步（段位规范见 [[standards/StepDrivenWorkflow]] 第五章），`case` 内禁止 `Thread.Sleep`/`while` 轮询；新阶段切换走私有 `SetStep`→`SetWeldStatus`，并 `GoStep` 落执行步（见 [[lessons/StepDrivenWorkflowPitfalls]] 坑①：`SetStep` 后必须立即 return）。
+> 私有逻辑落地时：在 `FlowProcess()` 的 `switch(_phase)` 内新增执行步（段位规范见 [[architecture/DeviceControlArchitecture]] §5），`case` 内禁止 `Thread.Sleep`/`while` 轮询；新阶段切换走 `SetWeldStatus`（⛔ 旧写法 `SetStep`/`GoStep` 已于 2026-09-03 裁定清除）；执行步由 `RunStep` 在 `case` 内 bool 判定后推进并立即 `break`（见 [[architecture/DeviceControlArchitecture]] §5、[[lessons/StepDrivenWorkflowPitfalls]] 坑一保留思想）。
 
 ---
 
@@ -108,6 +113,5 @@ string status = head.StateName + " / " + head.WorkStepName;
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§目录树 / 各工作流表）
 - [[modules/LaserWeldHead]] — 焊接头模块（ILaserWeldHeadController 等）
 - [[api/LaserWeldHeadController]] — 控制器 API
-- [[standards/StepDrivenWorkflow]] — 步骤驱动标准（段位/命名/红线）
-- [[decisions/ADR-049-ThreeStateModelRefactor]] — 三态模型（现行有效，取代 ADR-041/042）
-- [[decisions/ADR-047-StepDrivenWorkflow]] — 步骤驱动标准（accepted）
+- [[standards/StepDrivenWorkflow]] — ⛔ 已整页废弃，现行 [[architecture/DeviceControlArchitecture]] §5 · §16
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型（现行有效）

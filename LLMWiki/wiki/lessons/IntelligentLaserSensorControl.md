@@ -48,4 +48,4 @@ private void UpdateLaserSensorUi()
 - [[api/IntelligentLaserCameraRun]] — `SetSensor`/`SetCaptureCamera`/`IsCameraOn`/`IsLaserOn`/`DetectHardwareStatus` 契约
 - [[lessons/IntelligentLaser-Pitfalls]] — 三层控制解耦（SetSensorEnable 触发回调、SetLaser 仅物理激光、SetCaptureCamera 仅预览）
 - [[lessons/UiRefreshUnifiedEntry]] — UI 状态刷新统一入口 `RefreshUi(RefreshUiScope)`
-- [[decisions/ADR-038-CodeSimplificationStandard]] — 代码精简规范（去冗余副本、合并重复逻辑）
+- [[decisions/ADR-028-CodeSimplificationStandard]] — 代码精简规范（去冗余副本、合并重复逻辑）

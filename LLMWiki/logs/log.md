@@ -6,6 +6,130 @@
 
 ---
 
+> ⚠️ **2026-09-03 ADR 连续重编号 —— 本日志中的旧编号一律保留原貌**
+> 即日起 ADR 已重排为 **001~036 连续编号**（原 41 条中 5 条决策页按用户裁定删除：旧 017 / 025 / 040 / 047 / 048）。
+> **本日志是追加式历史流水，不改号** —— 改号会破坏可追溯性。文中旧编号按下列规则解读：
+> - **旧→新（31 条）**：007→006、008→007、010→008、011→009、012→010、013→011、014→012、015→013、016→014、018→015、019→016、020→017、021→018、022→019、026→020、028→021、029→022、030→023、031→024、034→025、035→026、037→027、038→028、039→029、043→030、044→031、045→032、046→033、049→034、050→035、051→036；001~005 不变。
+> - **已删除、编号不再存在（15 条）**：旧 006、009、017、023、024、025、027、032、033、036、040、041、042、047、048。
+>   ⚠️ 其中 006 / 017 / 025 / 033 / 036 等编号**已被新决策复用** —— **同名并非同一决策，切勿混淆**。
+> 检索一律以 [[index/index]] §7 的现行有效表为唯一准绳。
+
+## [2026-09-03 18:59:16] ingest | 废弃 ADR 页删除 + 全库 ADR 连续重编号 001~036
+
+- **触发**：用户指令「检查知识库，确认废弃的知识库体系文件是删除的，不会再影响我现行的设计。ADR 文件需要重新整理排序数字，不要跳过隔断再编排序号」。三条用户裁定：① 幽灵 ADR → **彻底清除引用，不留墓碑**；② 废弃 ADR 占位 → **移出并删除**；③ 代码注释 → **同步改号**。
+- **Phase 0 侦察结论**：41 个 ADR（accepted 36 / deprecated 4 / rejected 1），断号 7 处共 10 个空洞。发现**致命冲突源「幽灵 ADR」**——6 个编号（006/009/033/036/041/042）页早已删除，但全库仍引用 56 处；若直接重排，原 ADR-051→新 041 会与幽灵 041 撞号，产生错误指向。据此锁定**强制执行顺序：清幽灵 → 删废弃页 → 重编号**（顺序不可颠倒）。
+- **批次 A+B（wiki 引用清理，110 处）**：6 个幽灵编号 + 5 个待删编号在 wiki 内的全部引用改语义文字，不留可点击墓碑。含 `index/index.md` 14 行超长表格行与 `guides/Project-Tools.md` 3 行；对描述已废机制的片段同步补注「2026-09-03 已清除」，避免误导现行设计。
+- **批次 C（删除 5 个废弃 ADR 页）**：`ADR-017 模拟模式贯穿三大流程`、`ADR-025 代码知识图谱辅助代码审查`、`ADR-040 渐进式启动与子页懒加载`、`ADR-047 步骤驱动工作流模型`、`ADR-048 自动运行/手动连接模型`。删页前逐页抢救有效结论：
+  - ADR-017 核心理念「模拟是 MODE 不是线程」→ 已由 `guides/Project-Tools.md` 沿革横幅承接；
+  - ADR-025「禁用 code-review-graph、回归 Grep」→ 已由 `project/vibecoding-workflow.md` 与 `guides/Project-Tools.md` §1 承接；
+  - **ADR-040 新发现**：其声称「保留」的 CameraSelector 简化**确已落地**（代码事实：`CameraSelector.cs` 仅剩 `SelectVirtual()` / `SelectIntelligentLaser()`），但 `api/CameraSelector.md`（date 2026-07-16，早于该决策）**仍记录着 4 个已删方法**，属既有 drift。已在该页顶部加过期横幅承接结论并标注待重写章节；
+  - ADR-047/048 机制整体已废，迁移对照保留于 `standards/StepDrivenWorkflow.md`（66 行，11 条对照表）。
+- **批次 B3（代码注释，28 处）**：AdaWeldSystem 12 个 .cs 文件的注释引用清理。ADR-042 的 R1~R4 条款统一改称「权责边界」（结论已由现 ADR-030 承接），ADR-041/047/048 编号按语义改写或删除，全部位于注释、不影响逻辑。
+- **批次 D（连续重编号）**：36 个 ADR 重排为 **001~036 无断号**。实现要点——① 文件重命名按 old **升序**执行（因 new ≤ old 且映射单调，目标位必定空闲，无需临时名）；② 全库文本替换用 `re.sub` + 函数**一次遍历**（不回溯，杜绝新旧号冲突）。共替换 785 处 / 146 文件；用户级 `~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md` 同步 35 处。
+- **批次 B4（补救，关键）**：重编号后校验发现 `skills/SKILL.md` 中**旧幽灵号被"洗白"成合法新号**——旧 006/017/025 的引用（原本指向已删页）经映射后错误指向新的 ADR-006/017/025（实为原 ADR-007/020/034）。已逐条改为语义文字，并删除两条描述已废机制的速查表行（ADR-006 UILight、ADR-047 步骤驱动）；`tools/drift_scan_precise.py` 同步 1 处。两份 SKILL.md 副本均同步。
+- **批次 H（index 重排）**：§7 编号说明重写为「001~036 连续」并列出 15 个已失效旧编号（⚠️ 注明 006/017/025/033/036 等编号已被新决策复用，同名不同决策）；§7.1 现行有效表 34 行**按新编号升序重排**（010/013 在 §7.3 部分失效表，符合既有分类）。
+- **历史豁免决策**：`logs/log.md`（174 处）与 `raw/`（原档）**不改号** —— 改号破坏可追溯性。改为在 log.md 顶部加「旧→新」对照横幅，并把两处 17 条指向已删页的 `[[链接]]` 转为反引号代码体（保信息、消红链）。
+- **Phase 4 Lint（全绿）**：`wiki_audit.py` 红链 0 / 孤儿 0 / 重复 0 / ADR 连续 1~36 无空洞 / 全部已登记 index / 二级子目录 0 / 超大页均带 TOC；`lint_scan.py` 死链 0 / 孤儿 0 / ADR 编号冲突 0 / 外部链接失效 0；`drift_scan_precise.py` 待修正 0 处（16 处 informational 已标注）。
+- **⚠️ 本轮重大事故与恢复（须记取）**：执行 `git rm` 删除 5 个 ADR 页时，因 **git 仓库根位于上级目录 `Vicoding管理平台/`，而传入的是相对路径 `wiki/decisions/...`，路径被误解析，导致 `LLMWiki/wiki/` 下 149 个文件被整体删除**。且 `git checkout HEAD` 只能恢复到「最后一次提交」状态，会丢失此前所有**未提交**改动（架构页 1551 行重写、StepDrivenWorkflow 整页废弃、本轮 110 处清理等）。最终用 18:22 创建的 `ADR_renum_backup_20260903_182224.tar.gz`（Python `tarfile` 解压，绕开 Git Bash `tar` 把 `D:` 判为远程主机的陷阱）精确覆盖恢复，核验 ADR 41 / 架构页 1551 行 / StepDrivenWorkflow 66 行全部一致。**教训：本仓库一律不用 git rm 删文件，改用脚本按绝对路径 `os.remove()`；Git Bash 下含盘符的 tar 路径必须换 Python `tarfile`。**
+
+---
+
+## [2026-09-03 17:53:47] ingest | D1/D2 裁定 + 旧指导完完全全清除、ADR 与教训重排（未改码）
+- 触发：用户一句三指令——「D1.使用本项目的 XML 文档的写法。子设备 workflow 中增加路径。D2.暂不保留-这部分需要结合 ProductFile 来写，暂时为空，先不实现。你把总结的新架构文档最为唯一架构指导，旧指导请完完全全清除，并重新排知识库的 ADR 和教训、决定。」
+- **D1 裁定落地**：勘察源码确认本项目落点是 `AdaWeldSystem/FileOperate/XMLfile.cs` 的 `XdocumentReaderWriter`（`XDocument` / LINQ to XML，默认目录 `BaseDirectory + "Config\XML\"`，`CheckFile` 自动建目录建文件，API 有 `NewXdocument` / `SaveXdocument` / `GetElementValue(name, default)` / `SetElementValue`）；与参考项目 `StationProcess.cs` 的 `XmlReader`/`XmlWriter` 流式 API 是**两套体系**。据此：`LoadConfig`/`SaveConfig` 一律**无参**，**配置路径下沉到各子设备 workflow**（基类只声明契约不持有路径）。架构页新增 **§4.6 子设备配置路径约定** 与 **§16.8 D1 落地模板**（含 `ConfigFileName` 虚属性 + `Config` 惰性属性 + 四条铁律：`SaveConfig()` 末尾必须 `SaveXdocument()`、路径只在子设备内定义、读值走带默认值重载、`XdocumentReaderWriter` 非线程安全故运行期禁止在 `FlowProcess()` 内读写配置）；§4.2 契约表改无参；§16.2 剔除带参重载；§16.7 差异表两项由「待裁定」转「✅ 已裁定」。
+- **D2 裁定落地**：`ClearProduct()` **不入基类契约**，5 个子类均不新增该成员，避免空实现污染；待 `ProductFile` 方案确定后另立 ADR。ADR-051 新增 **§6 D1/D2 裁定**章节。
+- **旧指导清除（规模）**：脚本扫描 22 个旧设计符号（`GoStep`/`SetStep`/`StartRunLoop`/`BeatMs`/`RunLoopPriority`/`CommandTable`/`_pendingPose`/`_pendingCommand`/`_pendingAbort`/`WorkStep`/`WorkStartTime`/`_timeoutMs`/`ManualOn`/`ManualOff`/`FailFlow`/`FailReason`/`FailStep`/`SimulationWorkflow`/`MapToDeviceState`/`IsRobotPoseSafe` 等），命中 33~34 页，逐页处置：
+  - **ADR 转 deprecated（3 个）**：ADR-017（`SimulationWorkflow.cs` 已删，结论失去载体）、ADR-047（`GoStep` 步骤驱动机制整页废止）、ADR-048（`ManualOn/Off` 废止、唯一执行器表述错误、阻塞/非阻塞未区分、`SimulationWorkflow` 前提消失）。三页均加 ⛔ 整页废弃横幅 + 「旧机制 → 处置 → 现行做法」对照表。
+  - **ADR 加术语横幅（3 个）**：ADR-044（`IsRobotPoseSafe` 已移除 C3、改态废止 C6）、ADR-049、ADR-005（旧标准引用改指架构页）。
+  - **ADR 结论校订（1 个）**：ADR-037 第 3 条「保留 `SimulationWorkflow`」与「后果·负面」末条**已失效**——该类后续已删除，加 ⛔ 注记；其余三条继续有效。
+  - **规范页整页废弃（1 页）**：`standards/StepDrivenWorkflow.md` 461 行 → 66 行重写为废弃页，`status: deprecated`，含 11 条「本页旧规定 → 现行做法」对照表 + 「仍然有效的部分」索引指向架构页章节。
+  - **规范页加机制横幅（1 页）**：`standards/WorkflowResponsibilityBoundary.md`——R1~R5 与「数据是设备的，进度是流程的」判据继续有效，仅 4 项术语改判（`WorkStep`/`WorkStartTime`/`_timeoutMs`→`RunStep`/`StepWorkTime`/`TimeOutSeconds`(秒)；`GoStep` 删除；子流程不自带线程；私有 `SetStep` 剥离改执行步职责）。
+  - **教训页逐坑判定（4 页）**：`StepDrivenWorkflowPitfalls.md` 六坑逐一标注（坑一 ⛔ 机制删除但保留「改步后立即退出本步」思想、坑二 ✅、坑三 ✅ 且风险更高因契约扩到 17 项、坑四 ⛔ 但保留「指令取值全局唯一」思想、坑五 ✅、坑六 ⚠️ 需重新表述）；`StepMemberNameCollision.md` 新增 🔥 实战案例（`LineLaserWorkflow.cs` 已有 `private bool RunStep(Func<bool>, string, string)`，新增 `RunStep` 属性直接触发 **CS0102**，批次 1 第一步必须先改名）；`DeviceControlWorkInheritanceBypass.md`、`DeviceWorkflowDualFlowCallerGate.md` 加机制变更横幅（红线本身继续有效）。
+  - **模块/API 页标注（9 页）**：`modules/DeviceControl.md` 执行步层整节改「⛔ 代码现状 vs 新（改码目标）」6 行对照表、`CommandTable.cs` 与 `DeviceWorkflowBase.cs` 节加旧机制横幅、`IsRobotPoseSafe` 门控改删除线；`modules/Safety.md` 门控接入改「直接读 `DeviceStatusWork.Instance.IsSafe`」；`modules/LaserWeldHead.md` `SetStep` 映射更正为 `MapWeldStatus(phase)`；`api/` 5 个子工作流页注入「改造前现状」横幅；`api/DeviceLog.md` 示例 `FailReason` 改 `Alarm(ex)`；`api/DeviceStatusWork.md` 消费方描述更正；`project/overview.md` 目录树标注 `CommandTable.cs → CommandCore.cs`（C3）。
+  - **零散历史引用（4 页）**：`guides/Project-Tools.md`（模拟模式章节加 ADR-017/048 已 deprecated 注记）、`guides/Namespace-Compilation.md`（`MapToDeviceState`/`SetStep` 案例加符号沿革注记，根因与检测方法有效）、`lessons/SimulationC-Mode-Interruption.md`（加 `Starting` 已删 + `NoReset`(0) 新增的枚举沿革注记）、`decisions/ADR-015`/`ADR-019`（`SimulationWorkflow` 加删除线注记）。
+  - **全库链接清理**：`[[standards/StepDrivenWorkflow]]` 引用统一改为「删除线 + 指向架构页」，共 24 处替换；因两轮替换产生**嵌套删除线自引用**（`~~~~`...`~~ → `...`~~`）23 处，写 `_fix_nested.py` 用 21 条精确子串 PAIRS 定点还原，并顺带纠正失效的旧章节号（§2.2/§五/§七/§九/§十一/第五章/红线 6 → 架构页 §5/§7.2/§15/§16）；余 1 处 MISS（`api/DeviceControlWork.md:127`）用定点 replace 补完并 assert 校验。
+- **index 重排**：速查路由「流程怎么推进」改指架构页 §5 + §16.3 并删 `GoStep` 提法；「新增或修改一个工作流」整体重写为指架构页 §4 + §16（列出 17 项契约要点、双流程、阻塞/非阻塞两组、各子流程重写 `SubDeviceLog()`、配置读写无参走 `XdocumentReaderWriter`）；§四规范表 `StepDrivenWorkflow` 标 ⛔ 已整页废弃；§7.1 现行有效表**删 3 行**（ADR-017/047/048）→ §7.3 已废弃表**插 3 行**；修正 ADR-044/049/051 三条摘要。
+- **踩坑 2 条**：① Edit 工具报 "File has been modified since read" —— 前一步脚本写入后需重新 Read 再 Edit；② 验证 markdown 引用块时用 `grep -n "^> \*\*..."` 得 0 命中，因 `\>` 在 BRE 中是词尾锚点不是字面量，须改 `grep -nF` 固定串匹配。
+- **行尾/BOM 保护（Key Rule 13）**：批量脚本一律按字节读写并保留原 BOM/行尾；Edit 工具实测**能正确保持 CRLF**（核验 6 个文件 CRLF/LF 计数无污染：DeviceLog 91/0、SimulationC 98/0、StepDrivenWorkflowPitfalls 227/0 BOM、Safety 119/0 BOM、WorkflowResponsibilityBoundary 227/0、StepDrivenWorkflow 0/66）。
+- **Phase 4 三脚本全绿**：`drift_scan_precise.py` 待修正 0（已标注 16 informational）；`lint_scan.py` 死链 0 / 孤儿 0 / ADR 编号冲突 0 / 外部失效 0（149 页）；`wiki_audit.py` 红链 0 / 孤儿 0 / 重复条目 0 / 二级子目录 0 / 5 个超大页全部带 TOC ✅（架构页 1551 行）。
+- 已清理全部临时脚本（`_scan_*.py` / `_patch_*.py` / `_fix_nested.py`）。**未改任何产品代码**（D1/D2 虽已裁定，改码批次未启动；启动前须按 ADR-050 打 `tar.gz` 备份）。
+
+---
+
+## [2026-09-03 17:17:19] ingest | 原档参考实现提取：架构页新增 §16「参考实现与代码模板」（未改码）
+- 触发：用户要求「实现代码时须以我给你的代码参考为模板，按其设计重构方案」，并指出**参考文件路径写在 xlsx 里**。
+- **我此前的疏漏**：上一轮 dump xlsx 时被 `head -80` 截断，且未注意 R007~R014「主要内容描述」列首行的 `E:\SoftwareGit\...` 路径，**完全没发现原档逐类标注了参考实现**。教训：原档 dump 不可截断，须全量读后再判。
+- **原档参考映射（8 个目标类 / 5 个参考文件，全在 `E:\SoftwareGit\HonorMachineTest\PcomDeviceInterface\Work\`）**：`DeviceWorkflowBase.cs`←`Process/StationProcess.cs`（12KB）；`LineLaser`/`LaserWeldHead`/`MonitorCamera`/`WeldParamControl` Workflow ← `Process/RollPressProcess.cs`（103KB）；`MotionControlWorkflow`←`Process/AssemblyProcess.cs`（227KB）；`DeviceControlWork.cs`←`Work/MachineControlWork.cs`（18KB）；`DeviceStatusWork.cs`←`Work/MachineStatusWork.cs`（29KB）。
+- 架构页 1035 → **1489 行**，新增 **§16 参考实现与代码模板（改码前必读）**：§16.1 映射表 · §16.2 基类模板 · §16.3 子流程模板 · §16.4 编排层模板 · §16.5 状态层模板 · §16.6 `CommenData`→本项目对应物 · §16.7 参考 vs 原档差异。并在 §4/§5/§7/§9 章首与 §15.2 前加交叉引用。
+- **提炼的强制范式**：子流程 **S1~S8**（启用门控 → `switch(RunStep)` → 每 case bool 推进 → **改步必同步刷新步骤计时** → 原语 false 停本步重试 → `ResetProcess()` 为线性阻塞链非步控）；编排 **M1~M9**（线程体五段式 `while(!IsClose)`→非 Running 分支 `Sleep(100)`+`ResetWorkTime()`+`continue`→`FlowProcess()`→`Sleep(10)`；复位走一次性 `Task`+两步机；`StartMachine()` 只切状态）；状态 **T1~T6**（线程进出成对维护标志位、急停边沿触发、三色灯 `switch(CurrentStatus)`）。
+- **关键印证**：参考 `CommenData.CurrentStatus` 的 setter 自动把旧值存入 `LastStatus` —— 正好是原档「私用的 Current 和 Last 的 `MainDeviceStatus`」的代码模板；参考超时用全局 `CommenData.CylinderMoveTimeOut`(ms)，原档提升为基类属性 `TimeOutSeconds`(**秒**)，存在单位换算风险。
+- **新增待裁定 D1/D2**：D1 `LoadConfig`/`SaveConfig` 是否带 `XmlReader`/`XmlWriter`（参考带参、原档无参）；D2 是否保留 `ClearProduct()` 清料抽象成员（参考有、原档未列，保留则 5 子类各多一实现）。
+- 同步：ADR-051 新增**决策条目 5**（参考实现模板）+ D1/D2 登记；index 架构页摘要加 §16（行数 1035→约 1490）。
+- Phase 4 三脚本全绿：drift 待修正 0（已标注 16 informational）/ lint_scan 四项 0 / wiki_audit 架构页 1488 行已带 TOC。行尾 LF 未污染。**反查**：新增约 25 个参考文件名全部包在反引号内，裸漏 .cs 引用 0，未掩盖真实漂移。
+- 未改任何代码。
+
+---
+
+## [2026-09-03 16:47:39] ingest | ADR-051 裁定落地：架构页按「完全重构」整体重写（未改码）
+- 触发：用户对 C1~C7 逐条裁定，并确立**元原则**——「新结构文档为全新设计和细化，不要带入老旧文档的设计思维，不是对旧文档的补充，是完全的重构」。
+- C4 纠错：我此前把 `InitializeOn/InitializeOff` 与 `ConnectOn/ConnectOff` 判为「4 个入口语义重叠」是**读档不透**。原档 R007 明确分两组——**全阻塞流程**（`InitializeOn` 同步等待 / `InitializeOff` 异步等待）与**非阻塞流程**（`ConnectOn`/`ConnectOff` 非常驻后台线程、动作即退出释放）。二者**并存不重叠**：前者用于初始化/停机要确认成败，后者用于运行期重连不阻塞编排线程。
+- 架构页整体重写（990 → 1035 行）：页首新增「已清除的旧设计 → 取代它的新设计」索引表；§1 三态枚举按原档真值（`MainDeviceStatus` 值由原档显式给定，非隐式推导）；§2 目录 + 继承链 + **每个子流程各自重写 `SubDeviceLog()`**；§3.1 `CommandCore` const string + **不再监控 pose**；§4 基类契约由「6 项」改为 **17 项**（5 属性 + 10 阻塞 + 2 非阻塞）+ **§4.4 阻塞/非阻塞职责边界**；§5 由 ADR-047 的 `GoStep` 改为 **`RunStep` bool 推进 + `ResetWorkTime` 超时**；§6.2 五子工作流差异化职责；§7.2 **7 条常驻线程**（5 子设备 + 2 通讯，含 `Sleep(10)`/`Sleep(100)` 防空转）；§7.4 Comm 与 ControlWork 职责边界；§7.5 九个公共方法；§15 由「冲突裁定表」改为**落地清单（五批次改码 Plan）**。
+- 连带修正 §8~§14 中三处与新裁定冲突的残留：`IsRobotPoseSafe()` 移除（改直接读 `DeviceStatusWork.Instance.IsSafe`，`IsSafe` 是本机安全 IO 与 pose 无关）、`EvaluateInitializationResult()` 初始化链改为原档三步、§12 Comm 行改为「提供方法和管理 / ControlWork 是使用方」、`DeviceStatusWork` 命名对照由「待统一」改为「已裁定」、§14 删除「代码与本页冲突时以代码为准」（违反 ADR-050 原档优先）。
+- ADR-051 由 proposed 转 **accepted**，写入七条裁定 + 元原则 + 受影响 ADR 处置（ADR-047 部分再被取代 / ADR-048 表述修正 / ADR-049 枚举更新）。
+- 三个 ADR 加取代横幅；`modules/DeviceControl.md`、`api/DeviceControlWork.md`、`api/DeviceStatusWork.md` 横幅改「已裁定」并补成员清单；`index/index.md` ADR-051 由 §7.2 待决移入 §7.1 现行有效，§7.2 复位为「当前无待决 ADR」。
+- 未改任何产品代码。改码需按 §15.2 五批次推进，批次 1 与批次 2 必须同批（删基类线程与加编排线程不能留中间态）。
+
+## [2026-09-03 16:06:14] lint | Phase 4 收尾：修复 drift_scan_precise.py 双重缺陷，三脚本全绿（待修正 9 → 0）
+- 触发：Phase 0 沉淀后在架构页 §15 冲突表写入原档命名，Phase 4 扫描报出「待修正 9 处」。
+- 诊断一（掩码缺失）：坑五修的 `mask_code()` 只加进了 `wiki_audit.py` / `lint_scan.py`，
+  `drift_scan_precise.py` **从未实现**。三个脚本各自实现链接解析，修的时候漏了一个。
+  → 移植同一份 `mask_code()`，扫描改为 `cs_ref_re.finditer(mask_code(line))`。
+- 诊断二（前缀只匹配一级目录）：`any(p + fname in line for p in EXTERNAL_PREFIXES)`
+  对 `PcomDeviceInterface/Work/Process/RollPressProcess.cs` 失效（中间还有两级目录）。
+  → 新增 `is_external_ref()`，先取紧邻文件名的完整路径前缀再判 `startswith`。
+- 诊断三（原档命名无归属）：新增第四类分诊 `RAW_SPEC_NAMES`
+  （`CommandCore.cs` / `RollPressProcess.cs` / `AssemblyProcess.cs` / `DeviceStateMachineBase.cs`），
+  作为正文裸写原档名时的兜底豁免。脚本 docstring 同步补第 4 类口径说明。
+- **安全网验证**（防「待修正 0 处」只是把问题藏起来）：已标注数 119 → 16，
+  反查被掩码的名字——反引号内引用 .cs 名去重 181 个，代码库不存在的 62 个，
+  逐个人工分类确认全部属于「历史名（已登记且页面已加注）/ 占位名（`X.cs`、`XxxWorkflow.cs`、
+  `Designer.cs`）/ 外部 SDK（`Zmcaux.cs`、`MVCamera.cs`、`Form1.cs`）/ 原档命名」四类，
+  **无真实漂移被掩盖**。
+- 沉淀：`lessons/WikiDriftCorrectionPitfalls.md` 新增「坑六」，含双重修复代码、
+  外部前缀 bug 修法，以及「掩码是安全网不是免检证」的反向抽查要求。
+- 三脚本终态：`wiki_audit.py` 红链 0 / 孤儿页 0 / 重复 0 / 无二级子目录 / 5 个超大页均已加 TOC；
+  `lint_scan.py` 四项全 0；`drift_scan_precise.py` 待修正 0 处 -> 通过。
+- 未改任何产品代码（ADR-050 §3：冲突未裁定前 AI 不得单方改码）。
+
+## [2026-09-03 15:58:57] ingest | 原档 9-03 细化沉淀：架构原档 3→2、基类 13 契约、Preworking/Working 检查清单，产出 7 冲突 + 15 待实现（ADR-051 proposed）
+- 来源：用户指令「在知识库 Raw 的构架文件夹下，我放入今天新细化的构架方案，你查看这两份文件，沉淀到知识生成新架构文档然后做代码修改 Plan」（VibeCoding Phase 0 + Phase 3 前置 + Phase 1）
+- **原档变更事实核对**（`git status` + 与 HEAD 版逐单元格 diff）：
+  1. `主控设计.xlsx` **修改**（15:37）：Sheet 由 `Sheet1` 改名 `主控程序文件层级设计`，列「内容/备注」→「主要内容描述/实现」，行数 13→14
+  2. `激光焊接系统业务流程图.pdf` **新增**（15:32，226 KB，**含文本层**，单页 928 字）
+  3. 删除：`焊接设备工作流程图.pdf`、`焊接系统工作流程业务流向图.pdf`、`page_0.png`、`业务流向图_overview.png`、`业务流向图_page0.png`
+  4. **原档集合收敛 3 → 2**（ADR-050 §1 同步更新）
+- **原档一 `主控设计.xlsx` 提取结论**：
+  - 新增 `CommandCore`（`ReciveCommand` 接受指令 / `SendCommand` 发送指令，**const string** 固定，不允许自定义赋值）
+  - `SubDeviceWeldStatus` **删 `Starting`、新增 `NoReset`**（值 0，余值顺延）；原档拼写 `Stanby` 按正确英文落地
+  - `DeviceWorkflowBase` 由 6 抽象契约**扩为 13 项**：属性 `Tag`/`IsEnable`/`RunStep`/`StepWorkTime`/`TimeOutSeconds` + 新增 `InitializeOn`(同步)/`InitializeOff`(异步)/`SubDeviceLog`/`LoadConfig`/`SaveConfig`/`WledStatusTrans`；`ConnectOff` 返回值 void→bool
+  - 5 子工作流**差异化职责**：焊接头=温度阈值 / 监控=轴控制 / 运控=送丝位置+焊接质量阈值 / 工艺=无实体设备、连接断开走 bool 变量
+  - `DeviceControlWork` **5 子设备线程 + 2 通讯线程（心跳/指令）** + `MachineFlowWorkOpen`/`MachineCommandWorkOpen`/`ClearMachine`/`MachineStatusTrans`/`WeldStatusTrans`/`CommWork`/`OnCommRecived`/`CommCommandWork`
+  - `DeviceStatusWork` 三线程 `thIOWork`/`thEMGWork`/`thLightStatusWork` + `MachineIOWorkOpen` + 三循环标志位
+- **原档二 `激光焊接系统业务流程图.pdf` 提取结论**（pypdf 全文提取，无需渲染）：业务主链 = 上电（5×Connect On + 通讯 Open + Running/Alarm IO Work + 机器人服务器 Command）→ 三失败分支（Initialize/Reset/Pre-Working Fail，均→Alarm）→ ResetMachine → Preworking 五项运行检查 → Working 四路焊接子流程 → 三终止分支（手动终止→Stop / 异常终止→Robot Alarm / 焊接完成→StopMachine:Complete）→ 报警判断（故障树和代码）；旁路 EMG STOP → 子设备停机锁止
+- **更新 Wiki 页面**：
+  1. `architecture/DeviceControlArchitecture.md`（约 950 行）：页头原档 3→2 与分工表；§1.2 枚举 `Starting`→`NoReset`；**新增 §3.1 机器人指令表**；§4.1 改为「现行 6 项 / 原档 13 项」落地对照表；**新增 §6.1 五子工作流差异化职责**；**新增 §7.3.1 原档 5+2 线程模型（含与 ADR-047 冲突说明）**；§7.6 按新原档重写业务主链；**新增 §7.7 Preworking 五项运行检查**、**§7.8 Working 四路焊接子流程**；§9 补 `DeviceStatusWork` 原档命名对照；**新增 §15 待落地项与冲突裁定（C1~C7 + P1~P15）**；§14 补原档驱动流程
+  2. `decisions/ADR-050-ArchitectureRawSource.md`：原档 3→2、判读方式改为 pypdf 文本提取、同步流程加入「冲突交用户裁定」环节
+  3. **新增 `decisions/ADR-051-RawDesignRefinement20260903.md`**（status: proposed）
+  4. `modules/DeviceControl.md`、`api/DeviceControlWork.md`、`api/DeviceStatusWork.md`：补原档细化指引
+  5. `index/index.md`：页头原档说明、§十来源索引（3 行→2 行）、§七 ADR 表新增 7.2 待决条目、目录计数 40→41、架构页摘要、新增速查路由行
+  6. **勘误**：`api/DeviceControlWork.md` 位置由 `MainDeviceControl/DeviceWorkflow/DeviceControlWork.cs` 更正为 `MainDeviceControl/DeviceControlWork.cs`
+- **7 项冲突待用户裁定（未裁定不得改码）**：C1 子设备 `FlowProcess` 驱动线程归属（原档主控 5 线程 vs ADR-047 基类监听线程）· C2 `Starting`→`NoReset`（10 处引用）· C3 `CommandCore` const string vs `CommandTable` const int · C4 `InitializeOn/Off` 与 `Initialize/ConnectOn/Off` 职责重叠 · C5 通讯连接是否纳入 `InitializeMachine` · C6 `RunStep` 命名（与 `LineLaserWorkflow.RunStep()` 私有方法 CS0102 冲突）· C7 `private abstract void SubDeviceLog()` 语法不可实现
+- **15 项无冲突待实现**（P1~P15，架构页 §15.2）：`ClearMachine`/`WeldStatusTrans`/`MachineStatusTrans`/`MachineFlowWorkOpen`/`MachineCommandWorkOpen`/心跳线程/状态快照/`LoadConfig`+`SaveConfig`/`ConnectOff` 改 bool/焊接头温度阈值/监控轴控制/运控送丝位置+焊接质量阈值/工艺流 bool 简化/**Preworking 五项检查**/**Working 四路子流程补全**
+- **未改任何代码**：按 ADR-050 §3 原档与代码冲突须用户裁定，AI 不单方改码；代码修改 Plan 已产出待确认
+- 矛盾检测：无新增矛盾（原档变更均登记为「待落地」而非「已生效」，架构页 §15 为唯一登记处）
+
+---
+
 ## [2026-09-02 22:41:12] cleanup | 旧架构清零：删 8 页旧架构文档 + 全库改链 + 现行页旧术语清理（ADR-049 三态模型为真源）
 - 来源：用户指令「先去检查知识库的代码架构要求，把指向旧架构内容删掉，只保留新架构设计」+「对于新架构我原先的要求是通过 raw 抽象出你理解的架构设计到知识库架构设计中。删掉旧架构，只保留新架构的理解」
 - **事实基线确认**（代码为准）：`MainDeviceControl/` 现为 10 个 `.cs`——`DeviceControlWork.cs` / `DeviceStatusWork.cs` / `DeviceStateApiCore/{CommandTable,DeviceStateBase,DeviceWorkflowBase}.cs` / `DeviceWorkflow/{LineLaser,MonitorCamera,MotionControl,WeldParamControl,LaserWeldHead}Workflow.cs`。旧符号（`WorkflowStateBase` / `MainDeviceWorkflow` / `SafetyWorkflow` / `SimulationWorkflow` / `DeviceStateMachine` / `SafetyFlow` / `SafetyInterlock` / `MotionControlStateMachine` / `LaserCamBoxTrackingWorkflow` / 泛型 `WorkflowStepChangedEventArgs<TStep>`）代码内 0 命中。架构页 §1/§3/§4 与 `raw/architecture/主控设计.xlsx` 已一致，**无架构内容改写，纯旧架构删除**
@@ -212,7 +336,7 @@
 
 **验证**：静态自审全过——SimulationWorkflow 代码级零残留（仅注释）；`.IsEnabled/.Enable(/.Disable(` 零残留；ResetFlow 8 处（abstract 1 + override 7）；9 文件 region 配对平衡；基类 453 行回读完整。项目无法本机编译（.NET 4.8/MSBuild v4.0），以 Grep 交叉验证替代。
 
-**KB 同步（Phase 3）**：新建 [[decisions/ADR-048-AutoManualDualWorkflow]]；ADR-017 加「⚠️ 部分取代」横幅；[[api/DeviceControlWork]] 改墓碑页（含新旧 API 对照表）；[[api/DeviceControlWork]] 增补双流程生命周期 + 模拟 API 两节；[[modules/DeviceControl]] 新增「双流程层」小节 + 目录树/生命周期表更新（8→7 工作流文件）；[[standards/StepDrivenWorkflow]] 红线 3 补 ADR-048 边界注记；[[index/index]] 场景路由 + API 表 + ADR 表 + 编号说明（44 条）同步。
+**KB 同步（Phase 3）**：新建 `decisions/ADR-048-AutoManualDualWorkflow`；ADR-017 加「⚠️ 部分取代」横幅；[[api/DeviceControlWork]] 改墓碑页（含新旧 API 对照表）；[[api/DeviceControlWork]] 增补双流程生命周期 + 模拟 API 两节；[[modules/DeviceControl]] 新增「双流程层」小节 + 目录树/生命周期表更新（8→7 工作流文件）；[[standards/StepDrivenWorkflow]] 红线 3 补 ADR-048 边界注记；[[index/index]] 场景路由 + API 表 + ADR 表 + 编号说明（44 条）同步。
 
 **待办**：Phase 4 Lint（wiki_audit.py）；`ManualStop` Join(2000) 超时场景需人工验证自动脚本中止响应性；前置失败与流程中失败的收尾通道待统一。
 
@@ -401,7 +525,7 @@
 **触发**：用户要求「对知识库进行检查，消除冲突，合并重复，调整不合理的指导文件位置，提升检索速度和准度」。备份：`LLMWiki_backup_20260901_102925.tar.gz`（工作区根）。
 
 **一、新增体检脚本 `tools/wiki_audit.py`（只读扫描）**
-输出 8 项：红链 / 孤儿页 / index 重复行与结构 / ADR 编号空洞与登记缺失 / 页面体积分布（含 TOC 检测）/ 内容重复度（12-gram 相似度）/ lessons 错放检测 / standards 入链统计。含**示例占位符白名单**（`[[XXX]]`、`[[引用页面]]`、`[[lessons/...]]` 等不算红链）。运行方式：在 `LLMWiki/` 下 `python tools/wiki_audit.py`。
+输出 8 项：红链 / 孤儿页 / index 重复行与结构 / ADR 编号空洞与登记缺失 / 页面体积分布（含 TOC 检测）/ 内容重复度（12-gram 相似度）/ lessons 错放检测 / standards 入链统计。含**示例占位符白名单**（``XXX``、``引用页面``、``lessons/...`` 等不算红链）。运行方式：在 `LLMWiki/` 下 `python tools/wiki_audit.py`。
 
 **二、新建 `wiki/guides/` 分类（本次最大结构调整）**
 - **判据确立**：`standards/` = 必须遵守的强制规范（由路由触发）；`lessons/` = 踩过什么坑（门禁）；**`guides/` = 怎么做（操作手册/参考手册/工具用法）**。已写入 `AGENTS.md` 目录结构与 index 顶部。
@@ -750,7 +874,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   1. MainPage.IlCamera_ContourDataReady：确认 `_contourSignalData[i]=points[i].Z`（Z→Y 轴）、`SampleRate/OffsetX` 由 `points[i].Y` 推导（Y→X 轴）、特征点 `FeatureY→X`、`FeatureZ→Y`，映射正确
   2. 将 `OffsetX/SampleRate` 由「全局 Y 极值」改为锚定「首末点真实 Y」：英莱点默认按 Y 由小到大排列（首末=min/max，零回归），且若点序变化（大→小）也不会把 X 轴左右镜像（避免与 imageBox 朝向相反、轮廓显示不对）
 - 影响模块：UIDesign/MainPage
-- 相关 Wiki：[[lessons/IntelligentLaser-Pitfalls]] §5.12、[[decisions/ADR-039-YinglaiDataFlow]]
+- 相关 Wiki：[[lessons/IntelligentLaser-Pitfalls]] §5.12、`decisions/ADR-039-YinglaiDataFlow`
 
 ## [2026-08-27 09:28:00] coding | imageBox/ScottPlot 坐标系区分澄清 + 英莱点 Y 排序确认
 - 来源：用户澄清（imageBox 因像素只取正值需 center+y*rate 平移；ScottPlot 直接绘原始坐标、负值如实显示，两者不必一致；英莱轮廓点默认按 Y 由小到大排列）
@@ -758,7 +882,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   1. MainPage 注释补充：ScottPlot 绘原始坐标（负值如实显示）、不做 imageBox 式平移；两者仅朝向一致、视图不重合属预期
   2. 确认英莱轮廓点默认按 Y 由小到大排列，首末锚定 = min/max
 - 影响模块：UIDesign/MainPage（注释）、LLMWiki 知识库
-- 相关 Wiki：[[lessons/IntelligentLaser-Pitfalls]] §5.12、[[modules/IntelligentLaserCam]]、[[decisions/ADR-039-YinglaiDataFlow]]
+- 相关 Wiki：[[lessons/IntelligentLaser-Pitfalls]] §5.12、[[modules/IntelligentLaserCam]]、`decisions/ADR-039-YinglaiDataFlow`
 
 ## [2026-08-26 17:25:48] coding | 主界面轮廓图修复：X轴mm映射 + 固定轴范围 + 锁定缩放平移
 - 来源：用户需求（相机连接后回调反馈范围适用于主页面 ScottPlot，显示不全/横纵轴数据错误；固定轴范围不允许缩放）
@@ -906,7 +1030,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **第一部分 - 知识库全量自检**：
   1. 矛盾检测：发现 1 处 ADR 编号冲突（ADR-032 重复）—— `ADR-032-V3-Yinglai-DataFlow.md` 与 `ADR-032-UnifiedInitStateMachine.md` 编号冲突；已将前者重编号为 ADR-039（YinglaiDataFlow）并更新全部 6 处引用
   2. 孤儿页面检测：发现 1 个孤儿页面（`decisions/ADR-032-V3-Yinglai-DataFlow.md`）—— 重编号为 ADR-039 后已补入 index.md 索引
-  3. 红链检测：发现 1 处红链（`lessons/IntelligentLaserSensorControl.md` 中 `decisions/ADR-038-CodeSimplification` 缺少 Standard 后缀）—— 已修复为 `decisions/ADR-038-CodeSimplificationStandard`（本行原写作 [[...]] 会被审计脚本误判为红链，2026-09-01 改为代码体）
+  3. 红链检测：发现 1 处红链（`lessons/IntelligentLaserSensorControl.md` 中 `decisions/ADR-038-CodeSimplification` 缺少 Standard 后缀）—— 已修复为 `decisions/ADR-038-CodeSimplificationStandard`（本行原写作 `...` 会被审计脚本误判为红链，2026-09-01 改为代码体）
   4. 外链完整性：扫描发现约 119 处路径引用过时/缺失（Comm S7 路径、Workflow 二级子目录、UI ViewPage→SubView、命名空间漂移等）
 - **第二部分 - 代码漂移检测（Grep 方式）**：
   1. 检测到 14 项漂移（8 项文件路径/目录结构、4 项命名空间、2 项类名）
@@ -937,7 +1061,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 ## [2026-08-24 10:39:22] refactor | ILCamPage UI 状态刷新统一入口
 
 - 来源：用户需求（在线激光页面三个状态变更函数疑似迭代重复写，统一为一个接口）
-- 依据：[[decisions/ADR-035-LineLaserWorkflowRefactor]]（状态标签唯一刷新）、[[decisions/ADR-038-CodeSimplificationStandard]]（代码精简）、[[guides/WinForms-UI-Threading]]（InvokeRequired 封送）
+- 依据：`decisions/ADR-035-LineLaserWorkflowRefactor`（状态标签唯一刷新）、`decisions/ADR-038-CodeSimplificationStandard`（代码精简）、[[guides/WinForms-UI-Threading]]（InvokeRequired 封送）
 - 操作：
   1. 在 `AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs` 新增 `[Flags] enum RefreshUiScope { Connection=1, Mode=2, Hardware=4 }` 与单入口 `RefreshUi(RefreshUiScope scope)`（内置 InvokeRequired 封送）
   2. 原 `UpdateConnectionUi` / `UpdateModeUi` / `SyncFromHardwareAfterConnect` 重命名为 private `UpdateConnectionUiCore` / `UpdateModeUiCore` / `SyncFromHardwareCore`，仅由 `RefreshUi` 调用；删除 `UpdateModeUi` 内联 `UpdateConnectionUi` 的嵌套
@@ -1055,7 +1179,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   2. 删除 `MotionControl/NullMotionController.cs` 及 csproj 注册（含 NullAxis/NullIO）；保留 SimulationController 模拟子系统
   3. `InitializeWithZMotion(ip)` 失败分支改为清空并记告警，不再回退 Null
   4. CAMBOX 跟踪随正运动句柄自动初始化（Y轴=从轴axis0，主轴=虚拟编码器轴axis8 由 KUKA PDO 驱动）
-- 关联：[[decisions/ADR-037-DefaultInitZMotion]]、[[modules/MotionControl]]、[[modules/DeviceControl]]
+- 关联：`decisions/ADR-037-DefaultInitZMotion`、[[modules/MotionControl]]、[[modules/DeviceControl]]
 
 ## [2026-08-21 10:12:27] refactor | Safety 模块整合进 Workflow（ADR-036）
 - 来源：用户需求（safety 文件夹整合）
@@ -1098,7 +1222,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - Starting 阶段连续有效帧达标（默认 5 帧）后置数据稳定标志
 - MainDeviceThread 线激光启动改为三步协同（PreWork等待 → Starting → Working等待）
 - UI 层状态显示同步更新（ILCamPage / FormMain / LLCamWorkJob / MotionControlPage）
-- 新增 [[decisions/ADR-035-LineLaserWorkflowRefactor]] 记录线激光工作流重构决策
+- 新增 `decisions/ADR-035-LineLaserWorkflowRefactor` 记录线激光工作流重构决策
 
 - **回调重构**：`MillionOutlineCallback` 重构为「第一步拿数据 → 第二步模式分支」的两步结构
   - 第一步（所有模式共用）：原生数据读取、轮廓点计数、实测 FPS 计算、传感器 FPS 刷新（500ms 节流）、PointCloudData 构建、InspectResult 捕获
@@ -1289,7 +1413,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 ## [2026-08-19 14:17:12] coding | UI 类 DisposeComponents() 按需使用落地（还原 Designer.cs / 移除 finalizer / 补齐释放链）
 
 - **来源**：用户澄清（`DisposeComponents()` 仅当 UI 设计器类持有「外部嵌套控件/资源」时才需要；无嵌套/无独立资源则不需要；禁止改 Designer.cs 的 Dispose(bool)；finalizer 退订事件无效）
-- **决策**：[[decisions/ADR-034-DisposePatternFullCoverage]] 补充「UI 类按需使用判定规则」；[[decisions/ADR-001-DisposePattern]] 补充 UI 按需语义
+- **决策**：`decisions/ADR-034-DisposePatternFullCoverage` 补充「UI 类按需使用判定规则」；[[decisions/ADR-001-DisposePattern]] 补充 UI 按需语义
 - **操作**：
   1. `HelixRenderForm`：还原被手动修改的 `Designer.cs`（移除 `_viewer?.Dispose()`/`elementHost1.Dispose()`/`CurrentData?.Clear()` 注入），新增 `DisposeComponents()`（释放外部 `_viewer` PointCloudViewer）+ `HandleDestroyed` 触发
   2. `MainPage`：移除无效 `~MainPage()` finalizer（事件源持引用时永不执行），新增 `DisposeComponents()`（退订 `GlobalCommData.EventInfoHandler` + `_contourCamera.ContourDataReady`）+ `HandleDestroyed` 触发
@@ -1307,7 +1431,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 ## [2026-08-19 14:03:21] coding | Dispose 模式全覆盖：非 UI 类统一标准 IDisposable.Dispose()，DisposeComponents() 仅限 UI 设计器类
 
 - **来源**：用户反馈（ADR-001 的 DisposeComponents() 被误用于非 UI 类，导致按 IDisposable 释放时资源不释放）
-- **决策**：新增 [[decisions/ADR-034-DisposePatternFullCoverage]]；修订 [[decisions/ADR-001-DisposePattern]]（澄清适用 UI 设计器类）
+- **决策**：新增 `decisions/ADR-034-DisposePatternFullCoverage`；修订 [[decisions/ADR-001-DisposePattern]]（澄清适用 UI 设计器类）
 - **操作**：
   1. **非 UI 类 `DisposeComponents()` → 标准 `IDisposable.Dispose()` 迁移**：`Workflow/MainDeviceThread`（+级联释放通讯管理器）、`Workflow/LineLaserWorkflow`（+释放 `_ilCamera`）、`Workflow/MonitorCameraWorkflow`（+释放 Mat）、`Workflow/LaserCamBoxTrackingWorkflow`（子组件改 `.Dispose()`）；`MotionControl/ZMotion/CamBoxTracker`、`EncoderAxis`、`RSIPositionBuffer`（合并为单一 Dispose）；`MotionControl/ZMotion/ZMotionController`（新增 Dispose：停心跳/周期/上报线程 + 释放 GCHandle + Close）
   2. **补释放入口**：`Comm/CommunicationManager`（新增 IDisposable + Dispose 释放 TcpIpComm/RobotManager/PlcManager/ModbusManager）；`Comm/CommBase/Ethernet/TcpIpComm`、`SstTcpServer`、`SstTcpClient`（新增 IDisposable + Dispose）
@@ -1338,7 +1462,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 ## [2026-08-19 11:47:41] revert | 废弃 code-review-graph 代码图谱工具链（ADR-025 deprecated），回归 Grep 默认方式
 
 - **来源**：用户反馈（code review 不好用——执行失败频繁、耗时久、经常误判）
-- **决策**：[[decisions/ADR-025-CodeGraphForCodeReview]] 状态改为 `deprecated`。工作流中 Phase 0（Step 0.7/0.8）、Phase 2（Step 2.5）、Phase 4（代码漂移）的图谱强制集成全部移除，回归图谱引入前的默认方式：**Grep 定位符号 + 按行号精确读取（Read offset/limit）+ 人工多级调用追溯**。
+- **决策**：`decisions/ADR-025-CodeGraphForCodeReview` 状态改为 `deprecated`。工作流中 Phase 0（Step 0.7/0.8）、Phase 2（Step 2.5）、Phase 4（代码漂移）的图谱强制集成全部移除，回归图谱引入前的默认方式：**Grep 定位符号 + 按行号精确读取（Read offset/limit）+ 人工多级调用追溯**。
 - **操作**：
   1. `~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md` 与 `LLMWiki/skills/vibecoding-llmwiki/SKILL.md`（两副本同步）：移除 Code Graph mandatory 规则，Step 0.7/0.8 改 Grep 符号定位与 Grep 引导读取，Step 2.5 改 Grep 多级追溯，Phase 4 漂移检测改 Grep 抽查，Prohibited Behaviors 第 10 条改为禁止重新引入图谱工具。
   2. `wiki/project/vibecoding-workflow.md`：Step 0.7/0.8/2.5 与 Phase 4 同步改为 Grep 默认方式，移除 Python/conda/crg_build 执行须知。
@@ -1652,13 +1776,13 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 ## [2026-08-26 10:57:43] standards | 升级代码精简规范为详尽版并沉淀检查脚本
 - 将用户新建的 C# 代码审查规范（文件书写整理 / 逻辑精简 9 类 / 函数精简 + `csharp_review.py` 单文件扫描器）并入 [[standards/CodeSimplification]]，原四维度扩展为五维度，保留项目特有设备日志规范（去符号/始末/通讯全记录）。
 - 归档 `scripts/csharp_review.py`（已 py_compile 校验通过）与 `wiki/standards/references/` 下 3 个规则文件 + 工作流说明（csharp-vibecoding-review-workflow.md）。
-- 更新 index「代码精简规范」分类摘要、[[decisions/ADR-038-CodeSimplificationStandard]] 加注升级记录。
+- 更新 index「代码精简规范」分类摘要、`decisions/ADR-038-CodeSimplificationStandard` 加注升级记录。
 - 触发约定不变：用户说"代码精简/注释精简/日志规范"即读取本页执行，无需重复输入。
 
 ---
 
 ## [2026-08-27 13:32:26] simplify | FormMain/MainPage 注释与代码精简（五维度）
-- 来源：用户需求——`@skill:vibecoding-llmwiki 对formmain mainpage 做一下注释和代码精简`；范围裁定：用户明确"强制排除的是 Designer.cs"——`*.Designer.cs` 才跳过，`UIDesign/` 下非设计器 `.cs`（FormMain.cs/MainPage.cs）同样适用五维度（纠正 [[standards/CodeSimplification]]/[[decisions/ADR-038-CodeSimplificationStandard]] 原"UIDesign 除外"误读）。
+- 来源：用户需求——`@skill:vibecoding-llmwiki 对formmain mainpage 做一下注释和代码精简`；范围裁定：用户明确"强制排除的是 Designer.cs"——`*.Designer.cs` 才跳过，`UIDesign/` 下非设计器 `.cs`（FormMain.cs/MainPage.cs）同样适用五维度（纠正 [[standards/CodeSimplification]]/`decisions/ADR-038-CodeSimplificationStandard` 原"UIDesign 除外"误读）。
 - 操作（FormMain.cs）：① 新增 3 个 #region 配对（私有变量/构造函数/私有函数），成员顺序规范；② 删除死函数 `HideTreeNode()`（仅被已注释掉的 `//HideTreeNode();` 调用，Grep 全量确认零引用），并删除该注释调用；③ 7 个私有方法 XML 注释精简为 ≤20 字 summary + `<param>`：FormMain_FormClosing/InitializeSystemStatusLabel/OnMainDeviceStateChanged/UpdateSystemStatusLabel/OnWorkflowStateChanged/UpdateStatusLabel/UpdateDeviceStatus。
 - 操作（MainPage.cs）：① 删除 4 个未使用字段（robotDataRefresh/laserDataRefresh/ClinkTimes/StartTest，Grep 零引用）；② 删除死函数 `ResetChartLineData()`（零调用者）；③ 内联 `LoadComponent()`（仅订阅 `GlobalCommData.EventInfoHandler`）到构造函数并删除该方法；④ 新增 5 个 #region 配对（公共变量/私有变量/构造函数/私有函数/公共函数），将 4 个 public 方法（DisposeComponents/AddContourLineChart/AddNewDataLineChart/LogAppend）归集到末尾 `公共函数` region；⑤ public + private 方法 XML 注释补全（summary + param）。
 - 约束合规：未引入/重写 `Dispose(bool)`（ADR-001）；FormMain 关闭链 `FormMain_FormClosed` 显式退订单例事件 + MainDeviceThread.Dispose + LineLaserWorkflow.Dispose；MainPage 用 `DisposeComponents()` + HandleDestroyed 触发（UI 类按需，ADR-001/034）；C# 7.3 语法不变（ADR-002）。
@@ -1675,7 +1799,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 [2026-08-31 09:11:08] fix+ingest — LineLaserWorkflow 语法错误修复（用户 VS 编译反馈）：根因=8/28 二次收敛时契约块提取器缺陷——括号深度从声明行起算，声明行无大括号致提前终止，16 个类型全部截断成无体声明（波及 LineLaser/MonitorCamera/MotionControl/SimulationWorkflow 四文件，括号平衡检查无法发现此类损伤）。修复=修正提取器（跳过声明行、首个大括号起计数加块内成员断言）后从备份 174104 整体重建四文件，恢复 UTF-8 BOM。终检：类型唯一定义零重复、枚举成员 9/8/7/4 全数核对、region 与锚点全通过、死类型零残留。教训页补录提取器两陷阱与 BOM 约定。现场备份 AdaWeldSystem_broken_20260831_090705.tar.gz。
 [2026-08-31 09:35:38] fix+ingest — DeviceState 命名空间遮蔽修复（用户 VS 编译反馈 CS0118）：MainDeviceControl 子树内 7 文件（6 工作流 + FlowState/DeviceWorkflowBase）的裸 DeviceState 被同名子命名空间遮蔽，8/28 补 using 的修法对子树内文件无效（C# 解析向外走在父层先命中子命名空间即停，using 轮不到）。修复=各文件命名空间声明内部注入 using DeviceState 别名（本级优先于向外走）。子树外 UI 文件普通 using 有效不受影响。全项目冲突扫描确认 DeviceState 为唯一类型名/命名空间段名碰撞。教训页 8/28 案例已修订（子树内别名 vs 子树外 using 的区分），ADR-041 增 0831 补充。备份 AdaWeldSystem_backup_20260831_093314.tar.gz。
 [2026-08-31 17:46:43] refactor+ingest — 产品生命周期记录归口（ADR-046）：①`PCLOperate/RunFileRecord/` 4 文件（RunRecordManager/RecordFrame/WeldActionRecord/SmartRayConverter）迁入用户新建的 `ProductFileManager/`，namespace→AdaWeldSystem.ProductFileManager，类名与公共 API 不变，8 消费方（WeldProcess/CameraRun/IntelligentLaserCameraRun/AlgorithmManager/DataReviewPage/FileTraceForm/HelixRenderForm/RecordConfigForm）仅改 using；PCLOperate 仅余 3DModel/DataIO/Render；csproj 4 条改路径 + 删 VS 孤儿 Folder 条目。②新建 `SqlLiteDatabase/FaultRecordManager.cs`（继承 DatabaseManagerBase，DB 迁 DataBase\FaultRecord.db，string[] 写入契约不依赖领域类型，管理器内不做 try/catch 日志对齐 ProductDatabaseManager 范式）；FaultRecoveryManager 278→231 行：删 #region SQLite 持久化（EnsureDb/_db/_dbLock/_tableReady），Persist 保留为领域侧映射+截断+失败日志，FaultCategory/FaultRecord 数据载体留原文件（ADR-044 维持）。注意：用户在 AI 实施间隙已手动在 VS 完成目录移动（mv 报 cannot stat 暴露），按「重读文件、保留用户改动」惯例接手收尾。wiki：新建 ADR-046/modules/ProductFileManager/api/FaultRecordManager，更新 modules/Safety、SqlLiteDatabase（补 SqliteCore/ 子目录实况）、PointCloudData（RunFileRecord 迁出）、api/FaultRecoveryManager、index。备份 AdaWeldSystem_backup_20260831_173658.tar.gz。
-[2026-09-01 10:21:10] ingest+standards — 步骤驱动工作流标准沉淀（ADR-047，status: proposed，仅知识库，未改代码）：用户提供外部参考实现 `HonorMachineTest/PcomDeviceInterface/Work/Process/`（`StationProcess.cs` 抽象基类 + `AssemblyProcess.cs` 实现约 3000 行 100+ 步 + `MachineControlWork.cs` 常驻线程），要求研究其写法并沉淀为标准 workflow 知识库。①新建 [[standards/StepDrivenWorkflow]]：三件套（命令变量 Slot / 常驻监听线程 `while`+节拍调 `FlowProcess()` / int 执行步 `WorkStep`+`WorkStartTime`）、**三层融合表**（设备四态 ADR-041 / 阶段态枚举 `SetStep` ADR-042 / 执行步 int 新增，**阶段态是对外名片、执行步是内部游标**）、基类 6+1 契约映射到本地命名、步骤号段位规范（0/10-99/100-199/700-799/800-899/900-999）+ 步号中文映射表强制登记、单步三范式（瞬时动作/等待完成/分支派发）、失败重试零代码（`if(!…) break;` 步号不变下拍重入）、超时三步走（Alarm+记故障+跳 9xx）、可观测性排故判据表、8 条红线。②新建 [[decisions/ADR-047-StepDrivenWorkflow]]：背景=现主流程事件驱动无线程、只能看"在哪一态"看不到"卡在哪一步/卡了多久"；与既有 ADR 关系表（**补充而非推翻 ADR-004**——ADR-004 反对顺序直写、确立 switch 分派，本 ADR 仅细化分派键并补时间维度；ADR-041/042/043/044 维持）；备选方案 4 项取舍。③两处对参考实现的**明确偏离**已写入红线：单步内禁阻塞等待（`CylinderStretch` 内 while 轮询、`case 17` 的 `Thread.Sleep(500)` 本地不引入，阻塞会同时冻结超时判据与指令响应）、不引入 `LoadConfig(XmlReader)/SaveConfig(XmlWriter)`（沿用项目既有 INI 持久化）。④更新 index（「代码精简与权责规范」分类新增触发说明 + 标准页行、决策表新增 ADR-047 行）、modules/DeviceControl（「核心语义」章新增「第三层：执行步」三层表）、api/MainDeviceWorkflow（顶部加 2026-09-01 规划变更横幅，标注接收 RobotPose 链路将由「回调→直接处理」改为「回调→写命令变量→线程→执行步推进」）。⑤用户核心收益已落标准页第八章：主程序加载流程后仅凭 `WorkStep` + `(DateTime.Now - WorkStartTime)` 两个变量即可完全监控流程状态。矛盾检测：ADR-004 已在 ADR-047「与既有 ADR 的关系」显式裁定为补充关系，非冲突。孤儿页检测：新标准页由 index + ADR-047 + modules/DeviceControl + api/MainDeviceWorkflow 4 处 inbound，ADR-047 由 index + 标准页 2 处 inbound。红链：全部 `[[...]]` 指向已存在页面（standards/WorkflowResponsibilityBoundary、standards/CodeSimplification、standards/UiStateSimplification、architecture/DeviceControlArchitecture、modules/DeviceControl、api/*、lessons/*、decisions/ADR-004/041/042/043/044）。代码漂移：本次未改代码，落地清单（标准页第十章）待评审确认后实施，P0=DeviceWorkflowBase + MainDeviceWorkflow。
+[2026-09-01 10:21:10] ingest+standards — 步骤驱动工作流标准沉淀（ADR-047，status: proposed，仅知识库，未改代码）：用户提供外部参考实现 `HonorMachineTest/PcomDeviceInterface/Work/Process/`（`StationProcess.cs` 抽象基类 + `AssemblyProcess.cs` 实现约 3000 行 100+ 步 + `MachineControlWork.cs` 常驻线程），要求研究其写法并沉淀为标准 workflow 知识库。①新建 [[standards/StepDrivenWorkflow]]：三件套（命令变量 Slot / 常驻监听线程 `while`+节拍调 `FlowProcess()` / int 执行步 `WorkStep`+`WorkStartTime`）、**三层融合表**（设备四态 ADR-041 / 阶段态枚举 `SetStep` ADR-042 / 执行步 int 新增，**阶段态是对外名片、执行步是内部游标**）、基类 6+1 契约映射到本地命名、步骤号段位规范（0/10-99/100-199/700-799/800-899/900-999）+ 步号中文映射表强制登记、单步三范式（瞬时动作/等待完成/分支派发）、失败重试零代码（`if(!…) break;` 步号不变下拍重入）、超时三步走（Alarm+记故障+跳 9xx）、可观测性排故判据表、8 条红线。②新建 `decisions/ADR-047-StepDrivenWorkflow`：背景=现主流程事件驱动无线程、只能看"在哪一态"看不到"卡在哪一步/卡了多久"；与既有 ADR 关系表（**补充而非推翻 ADR-004**——ADR-004 反对顺序直写、确立 switch 分派，本 ADR 仅细化分派键并补时间维度；ADR-041/042/043/044 维持）；备选方案 4 项取舍。③两处对参考实现的**明确偏离**已写入红线：单步内禁阻塞等待（`CylinderStretch` 内 while 轮询、`case 17` 的 `Thread.Sleep(500)` 本地不引入，阻塞会同时冻结超时判据与指令响应）、不引入 `LoadConfig(XmlReader)/SaveConfig(XmlWriter)`（沿用项目既有 INI 持久化）。④更新 index（「代码精简与权责规范」分类新增触发说明 + 标准页行、决策表新增 ADR-047 行）、modules/DeviceControl（「核心语义」章新增「第三层：执行步」三层表）、api/MainDeviceWorkflow（顶部加 2026-09-01 规划变更横幅，标注接收 RobotPose 链路将由「回调→直接处理」改为「回调→写命令变量→线程→执行步推进」）。⑤用户核心收益已落标准页第八章：主程序加载流程后仅凭 `WorkStep` + `(DateTime.Now - WorkStartTime)` 两个变量即可完全监控流程状态。矛盾检测：ADR-004 已在 ADR-047「与既有 ADR 的关系」显式裁定为补充关系，非冲突。孤儿页检测：新标准页由 index + ADR-047 + modules/DeviceControl + api/MainDeviceWorkflow 4 处 inbound，ADR-047 由 index + 标准页 2 处 inbound。红链：全部 ``...`` 指向已存在页面（standards/WorkflowResponsibilityBoundary、standards/CodeSimplification、standards/UiStateSimplification、architecture/DeviceControlArchitecture、modules/DeviceControl、api/*、lessons/*、decisions/ADR-004/041/042/043/044）。代码漂移：本次未改代码，落地清单（标准页第十章）待评审确认后实施，P0=DeviceWorkflowBase + MainDeviceWorkflow。
 
 [2026-09-01 11:27:44] refactor+ingest — 历史架构清除与 V1/V2/V3 表述去代际化（用户要求「去掉历史架构，只保留最新架构需求，不再区分 V1 V2 V3 这样的迭代需求」）：
 - 范围（经 AskUserQuestion 确认）：删 7 个历史架构/模块归档页 + 现行页残留 V2/V3 表述一并改写为最新事实。
@@ -1751,3 +1875,28 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - 推送前 `status`：本地 HEAD `f51ce43` = 远端 HEAD，ahead 0 / behind 0，工作区未提交 11 项，`3rdDepend` 误跟踪 0。
 - 推送后 `status`：本地 HEAD `4ac3f76` = 远端 HEAD，ahead 0 / behind 0，工作区未提交 0，`3rdDepend` 误跟踪 0 —— 本地与远端完全一致，工作区干净。
 - 无 rebase、无冲突，未使用 `--force`。
+
+## [2026-09-03 10:40:32] sync | 从 GitHub 同步本地（双仓库 fast-forward）
+- 背景：用户反馈本地（代码 + 知识库）落后于 GitHub。两仓库此前本地 HEAD 均落后远端 1 个提交、本地无未推送提交、工作区干净，具备 fast-forward 条件。
+- **前置备份**（tar.gz，排除 bin/obj）：`AdaWeldSystem_backup_20260903_103519.tar.gz`（92M）、`LLMWiki_backup_20260903_103519.tar.gz`（22M）。
+- **代码仓 `AdaWeldSystem/`**（`MrYangjf/AdaWeldSys.git`）：`f51ce43` → `4ac3f76`（ADR-049 三态模型落地 + 新增 `MainDeviceControl/DeviceLog.cs`），11 文件 +197/-124。已确认 `DeviceLog.cs` 登记进 `AdaWeldSystem.csproj` 第 148 行，且被 5 个文件引用（DeviceControlWork / DeviceStatusWork / DeviceStateBase / DeviceWorkflowBase）。
+- **知识库仓 `Vicoding管理平台/`**（`MrYangjf/Vibecoding.git`）：`16caa5d` → `5eed14d`，75 文件 +1236/-873。要点：api 页 `MainDeviceWorkflow` 改名 `api/DeviceControlWork`、`SafetyWorkflow` 改名 `api/DeviceStatusWork`、新增 `api/DeviceLog`、删除 `api/SimulationWorkflow` 与 `modules/Workflow`；删除 ADR-027 / 032 / 033 / 036 / 041 / 042 共 6 页（引用处统一改写为「（已删除，见 ADR-049）」，无红链）；新增 `lessons/DeviceControlWorkInheritanceBypass`；`standards/WorkflowResponsibilityBoundary` 重写。
+- **SKILL 双副本同步**：仓库 `LLMWiki/skills/vibecoding-llmwiki/SKILL.md` 已升 v1.5.0（27619 B），用户级 `~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md` 仍为 v1.4.0（23204 B）。已覆盖同步，旧版另存 `SKILL.v1.4.0.bak.md`。v1.5.0 新增要点：Step 3.6 追加日志**必须用 Edit 而非 heredoc**（heredoc 正文触发关键字过滤会被安全策略拒绝）。
+- **校验**：`tools/wiki_audit.py` 10 项——孤儿页 0 / index 重复行 0 / 内容重复 0 / 二级子目录 0 / 小分类 0；147 页 22718 行。
+- **遗留待办（需用户裁定）**：体检第 1 项报 4 条红链 ``old``、``new``，全部来自 `skills/vibecoding-llmwiki/SKILL.md` 第 302 行——该行本身是**警告「不要写 ``old`→`new``」的规范条目**，示例文本自指被脚本误判为真链接（同文件名快照 `SKILL-v1.5.0-20260903-0112.md` 同理）。属远端已提交内容的自指缺陷，修复需改仓库文件并回推，本次**未擅自改动**。
+  - ✅ **已解决（2026-09-03 12:08）**：`tools/wiki_audit.py` 新增 `mask_code()`，链接解析前先用等长空白替换围栏代码块与行内代码体，自指示例不再判为红链。当前体检第 1 项报「无（健康）」。
+
+## [2026-09-03 12:08:58] docs | 修正 skill 与代码的漂移（从 GitHub 导入后全量对齐）
+- 背景：项目刚从 GitHub 导入本机，SKILL.md 与 wiki 双方相对代码库均出现系统性漂移。用户确认执行**全量四包**，且**保持未提交**（不执行任何 git 写操作，叠加改动留用户自审）。
+- **Step 2.1 备份**：`LLMWiki_backup_20260903_112307.tar.gz`（11 MB，排除 bin/obj）。
+- **包 C（工具脚本）**：
+  - `tools/drift_scan_precise.py` **完全重写**。修 4 类缺陷：① 硬编码旧机器绝对路径 → 改 `__file__` 推导（迁移后原版静默扫到 0 个文件却报「健康」）② 正则无边界断言 → `FormMain.Designer.cs` 被截成 `Designer.cs`（144 处误报）、`AdaWeldSystem.csproj` 截成 `.cs`（14 处），加双侧断言后误报归零 ③ 宽泛白名单掩盖真实漂移 → 改 `RENAMED`/`REMOVED`/`EXTERNAL`/`SPECULATIVE` 四点分诊，仅前两类计入待修正 ④ 新增 `> ⚠️ 历史名称提示` 横幅块豁免，避免映射表自伤。
+  - `tools/wiki_audit.py` 新增 `mask_code()`（等长空白替换围栏块与行内代码体），消掉规范文本自指造成的 4 条红链。
+- **包 B（wiki 漂移修正）**：144 处失效 `.cs` 引用全部处理完毕，`drift_scan_precise.py` **待修正 0 处 / 已标注 116 处**。策略：14 个历史 ADR 页插页首「历史名称提示」横幅（纯新增 93 行、零删除，保留决策当时旧名）；其余页保留旧名原文 + 追加「（现役 `X.cs`）」/「（已移除（原因））」注记；4 页（`modules/SmartRayCam`、`modules/UIDesign`、`people/UISpecialist`、`project/overview`）含目录树 / 行号引用 / 外部参考，机器标注不安全，改人工精确改写。
+  - ⚠️ **中途返工两次，均已回退**：v1 机器直接替换产生 4 类语义破损（路径拼贴 `Sub2UI/UIDesign/TabPage/ILCamPage.cs`、外部项目 `PcomDeviceInterface/MachineStatusWork.cs` 被改、自指「ILCamPage 已完全替代原 ILCamPage.cs」、目录树塞全路径），16 页 `git checkout --` 回退后改标注式；行尾方向一度修反（误把 LF 写成 CRLF 又反向固化），最终以「与 HEAD 比对」为唯一判据纠正回 LF。
+- **包 A（SKILL.md，v1.5.0 → v1.6.0，27619 → 34073 B，两副本已同步）**：修 7 项漂移 —— ① `WORKSPACE_ROOT` 从已不存在的 `D:\焊接程序开发` 改为现役工作区根，并加「会话开始先 `pwd` 校验、字面值过期就地修正」的自检规则 ② 关键 ADR 表由 6 条扩到 19 条（021/022/025/026/031/034/038/043/044/047/048/049/050）③ Lessons 表 8 个页名**全部已不存在**，逐条补「Now at」映射 + 列出现役 17 个 lesson 页 ④ 路径映射表补 `standards/`、`guides/`、`architecture/`、`tools/` 四项 ⑤ 漂移基线由「已知 25 处」改为「待修正 0 / 已标注 116」并写明四点分诊口径 ⑥ Step 2.1 备份脚本的硬编码旧根改为占位符 ⑦ 新增 Key Rule 13（LF 入库红线）、14（行区间替换 joiner 不得为空），并标注「本 Skill 领先 wiki 工作流页」。
+- **包 D（wiki 回灌）**：`wiki/project/vibecoding-workflow.md` 补「核心规则（强制，不可绕过）」14 条 + **Step 2.6 正确性验证**（无 C# 编译器 → Python 静态校验 + 两轮迭代纪律 + `_tmp_*.py` 清理 + 显式声明「真编译待 Visual Studio」），补 `章节导航` TOC，目录重编号。
+- **Phase 3 Ingest**：新增 `lessons/WikiDriftCorrectionPitfalls`（五坑：行尾污染 / 换行符被吃 / 机器替换语义破损 / 横幅自伤 / 正则无边界断言，含可复制收尾判据清单）；`index/index.md` 登记该教训页、更新 vibecoding-workflow 摘要、§维护说明扩为三脚本对照表 + drift 口径 + 两条脚本红线 + 链接解析豁免。
+- **Phase 4 Lint**：`wiki_audit.py` 10 项全绿（红链 0 / 孤儿页 0 / 索引重复行 0 / 二级子目录 0 / 过小分类 0 / 内容重复 0）；`drift_scan_precise.py` 待修正 0。
+- **未改动**：`AdaWeldSystem/` 代码仓**零改动**（本次纯文档与工具修正）。Vibecoding 仓全部改动**保持未提交**。
+- **遗留**：① 本次未涉及 C# 代码，无编译验证需求 ② `project/vibecoding-workflow.md` 已达约 600 行逼近 TOC 阈值，后续扩充建议先拆分 ③ SKILL.md 两副本（`~/.workbuddy/skills/` 与 `LLMWiki/skills/`）已同步，但后者位于用户此前删除的 SKILL 快照同目录，最终保留与否请用户裁定。

@@ -39,7 +39,7 @@ public static MonitorAlgorithmManager Instance { get; }   // Lazy<T>
 ## 设计约束
 
 - 单一可配置算法 Profile，**无 JOB 切换**（针对仅是焊缝检查、无多种类，符合用户需求）
-- 持久化文件归 `Config/INI/`，遵循 [[decisions/ADR-008-ConfigLayout]]
+- 持久化文件归 `Config/INI/`，遵循 [[decisions/ADR-007-ConfigLayout]]
 - 启动加载遵循 [[guides/Project-Tools]]（否则仅写不读，每次打开需重新配置）
 - C# 7.3（`using` 顶部声明、构造函数初始化），遵循 [[decisions/ADR-002-CS73-Constraint]]
 

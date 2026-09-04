@@ -40,7 +40,7 @@ public interface IAxis
 
 | 类 | 说明 |
 |----|------|
-| `ZMotionAxis` | 正运动轴实现（`IAxis`），由 `ZMotionController` 初始化时按 `MotionConfig` 轴字典创建；`NullAxis` 空实现已随 [[decisions/ADR-037-DefaultInitZMotion]] 删除 |
+| `ZMotionAxis` | 正运动轴实现（`IAxis`），由 `ZMotionController` 初始化时按 `MotionConfig` 轴字典创建；`NullAxis` 空实现已随 [[decisions/ADR-027-DefaultInitZMotion]] 删除 |
 
 ## 相关页面
 

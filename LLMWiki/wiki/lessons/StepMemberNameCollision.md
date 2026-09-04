@@ -1,16 +1,22 @@
 ---
 title: 步号常量与单步方法同名导致 CS0102（含跨文件样板下沉与脚本误报两则）
 date: 2026-09-01
-tags: [教训, 步骤驱动, CSharp, 编译, ADR-038, ADR-047, DeviceWorkflowBase, 命名]
+tags: [教训, 步骤驱动, CSharp, 编译, ADR-028, DeviceWorkflowBase, 命名]
 ---
 
 # 步号常量与单步方法同名 → CS0102
 
-> 来源：2026-09-01 步骤驱动改造（[[decisions/ADR-047-StepDrivenWorkflow]]）**落地后的第二轮精简审查**。
+> 来源：2026-09-01 步骤驱动改造**落地后的第二轮精简审查**。
 > 上一轮改造把 8 个 workflow 全部改成「常量步号 + 同名单步方法」的写法，本轮审查才发现这套写法**根本编译不过**。
-> 规范正文见 [[standards/StepDrivenWorkflow]] §5.1，本页只记踩坑与规避动作。
+> 规范正文见 [[architecture/DeviceControlArchitecture]] §5（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已废弃），本页只记踩坑与规避动作。
 >
-> **类名与规模注记（2026-09-02，ADR-049）**：文中「8 个 workflow」现为 **7 个**——5 个子设备工作流（`LineLaser`/`MonitorCamera`/`MotionControl`/`WeldParamControl`/`LaserWeldHead`）+ `DeviceControlWork` + `DeviceStatusWork`；`SafetyWorkflow` 现为 `DeviceStatusWork`（其 `StepAlarm = 900` 与 `DoAlarm()` 已随三线程模型移除）；`MainDeviceWorkflow` 现为 `DeviceControlWork`。**CS0102 同名冲突的规避动作继续有效**。
+> **类名与规模注记（2026-09-02，ADR-034）**：文中「8 个 workflow」现为 **7 个**——5 个子设备工作流（`LineLaser`/`MonitorCamera`/`MotionControl`/`WeldParamControl`/`LaserWeldHead`）+ `DeviceControlWork` + `DeviceStatusWork`；`SafetyWorkflow` 现为 `DeviceStatusWork`（其 `StepAlarm = 900` 与 `DoAlarm()` 已随三线程模型移除）；`MainDeviceWorkflow` 现为 `DeviceControlWork`。**CS0102 同名冲突的规避动作继续有效**。
+>
+> **🔥 2026-09-03 新增实战案例（裁定 C6，改码前必看）**：按新原档把 `WorkStep` 改名为基类属性 **`RunStep`** 时，
+> `LineLaserWorkflow.cs` 中**已存在** `private bool RunStep(Func<bool>, string, string)` 方法 → 新增属性 `RunStep` 直接触发
+> **CS0102（同类成员重名）**。这是本页坑一的同型案例，**批次 1 改码第一步必须先给该方法改名**（建议 `RunStepGuard` / `ExecuteStep`），
+> 否则全项目编译失败。同理 `StepWorkTime` / `TimeOutSeconds` 落地前也要先在 5 个子类里 grep 同名成员。
+> 现行规范见 [[architecture/DeviceControlArchitecture]] §4.1、§16.3。
 
 ---
 
@@ -155,8 +161,8 @@ grep -rn "StepFinishFail\s*=\|StepFinishOk\s*=\|StepIdle\s*=" AdaWeldSystem/Main
 
 ## 关联
 
-- 规范：[[standards/StepDrivenWorkflow]] §5.1 成员命名约定
+- 规范：[[architecture/DeviceControlArchitecture]] §5 · [[lessons/StepMemberNameCollision]]
 - 教训：[[lessons/StepDrivenWorkflowPitfalls]]（上一轮改造五坑）
 - 精简：[[standards/CodeSimplification]]
 - 模块：[[modules/DeviceControl]]
-- 决策：[[decisions/ADR-047-StepDrivenWorkflow]]
+- 决策：见 [[architecture/DeviceControlArchitecture]]

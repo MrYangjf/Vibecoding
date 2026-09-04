@@ -8,10 +8,10 @@ source: raw/skills/02-Development/GeneralTechSpecialist.md
 # GlobalCommData API 参考
 
 > 全局数据通讯中心（事件总线模式）。
-> 物理文件：`Comm/SystemComm.cs`（由原 `GlobalCommData.cs` 与 `SystemStatus.cs` 合并而来）。
+> 物理文件：`Comm/SystemComm.cs`（由原 `GlobalCommData.cs` 与 `SystemStatus.cs`（已移除） 合并而来）。
 > 职责按优先级分为 3 类：全局事件触发、全局日志管理、全局通讯配置管理。
 > **自动调整参数管理已迁出到 [[api/WeldDataManager]]。**
-> **全局状态不再由本文件承载**：三态模型（ADR-049）的状态枚举与事件参数统一由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载，见 [[architecture/DeviceControlArchitecture]]。
+> **全局状态不再由本文件承载**：三态模型（ADR-034）的状态枚举与事件参数统一由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载，见 [[architecture/DeviceControlArchitecture]]。
 
 ## 核心类
 
@@ -60,7 +60,7 @@ public class MessageArgs : EventArgs
 }
 ```
 
-> **2026-09-02（ADR-049）状态枚举与事件参数已全部迁出本文件**：`LineLaserWorkflowState` / `WorkflowSignalCode` / 泛型 `WorkflowStepChangedEventArgs<TStep>` 等**在 `SystemComm.cs` 中已不存在**。现行状态契约由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载——`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` 三枚举 + `WeldStatusChangedEventArgs` / `SubDeviceStateChangedEventArgs` / `MainDeviceStatusChangedEventArgs` 三事件参数。各工作流的阶段枚举降为**私有**、内联于各自工作流文件。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
+> **2026-09-02（ADR-034）状态枚举与事件参数已全部迁出本文件**：`LineLaserWorkflowState` / `WorkflowSignalCode` / 泛型 `WorkflowStepChangedEventArgs<TStep>` 等**在 `SystemComm.cs` 中已不存在**。现行状态契约由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载——`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` 三枚举 + `WeldStatusChangedEventArgs` / `SubDeviceStateChangedEventArgs` / `MainDeviceStatusChangedEventArgs` 三事件参数。各工作流的阶段枚举降为**私有**、内联于各自工作流文件。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
 
 ## 自动调整参数管理（已迁出）
 
@@ -109,7 +109,7 @@ EventInfoHandler → MainPage.inputLog（AntdUI.Input，受 ShowCommLog 开关�
 | `MessageLevel.Error` | `MachineLog.Error` | 红色 |
 - 高频事件参数已类级复用，避免每次调用 `new MessageArgs` 产生 GC 压力
 - 所有 static 字段在 static 构造函数中集中初始化（ADR-002）
-- 通讯 XML 结构已扩展为 7 个，按设备类型分离：Server/Client/Send/Recive（通用 TCP）+ RobotServer/RobotClient（机器人）+ PLC（PLC 通讯），详见 [[decisions/ADR-010-CommXmlSeparation]]
+- 通讯 XML 结构已扩展为 7 个，按设备类型分离：Server/Client/Send/Recive（通用 TCP）+ RobotServer/RobotClient（机器人）+ PLC（PLC 通讯），详见 [[decisions/ADR-008-CommXmlSeparation]]
 - 通用 TCP 通讯实例 `TcpIpComm` 由 `mCommunicationManager` 持有和管理，访问路径为 `GlobalCommData.mCommunicationManager.TcpIpComm`
 - 通讯日志显示开关已扩展为 3 个：`ShowCommLog` / `ShowRobotCommLog` / `ShowPlcCommLog`，各通讯页面独立控制
 - 三个通讯页面均订阅 `EventInfoHandler` 事件，在 `chkShowCommLog` 勾选时将通讯日志显示到页面 `txtLog`
@@ -118,15 +118,15 @@ EventInfoHandler → MainPage.inputLog（AntdUI.Input，受 ShowCommLog 开关�
 ## 新增/变更
 
 - **新增 `UIConfigSetting()`（2026-08-13）**：集中管理 AntdUI.Config 全局 UI 配置，一次性加载（`_uiConfigLoaded` 守卫）。将原先分散在 `Program.Main`（`TextRenderingHint`/`TextRenderingHighQuality`）与 `FormMain` 构造函数（`IsLight` + `Theme().Dark().Light().FormBorderColor()`）的 AntdUI 配置统一迁入，`FormMain` 构造改调 `GlobalCommData.UIConfigSetting()`
-- **通讯 XML 配置按设备类型分离（ADR-010）**：新增 `RobotServerXdoc` / `RobotClientXdoc` / `PlcXdoc`，新增 `ShowRobotCommLog` / `ShowPlcCommLog` INI 持久化开关
+- **通讯 XML 配置按设备类型分离（ADR-008）**：新增 `RobotServerXdoc` / `RobotClientXdoc` / `PlcXdoc`，新增 `ShowRobotCommLog` / `ShowPlcCommLog` INI 持久化开关
 - **三个通讯页面完善**：CommGeneralPage 新增保存配置按钮和事件订阅；CommRobotPage 改用 `RobotServerXdoc`，新增保存配置按钮和 `chkShowCommLog`；CommPLCPage 改用 `PlcXdoc`，新增保存配置按钮和 `chkShowCommLog`
 - 新增 `mCommunicationManager`：通讯对象持久化配置管理，内部持有 Server/Client/Send/Receive XML
 - 新增 `CommunicationCommandReceived` + `BroadcastCommunicationCommand`：统一通讯指令广播
 - 新增 `ShowCommunicationLog(source, message)`：受 `mCommunicationManager.ShowCommLog` 控制的通讯日志
 - 迁出 `CurrentAutoParamId`、`mAutoParam`、`mAutoParamManage`、`mConfigManager` 到 [[api/WeldDataManager]]
-- **合并 `GlobalCommData.cs` 与 `SystemStatus.cs` 为 `SystemComm.cs`**
+- **合并 `GlobalCommData.cs` 与 `SystemStatus.cs`（已移除） 为 `SystemComm.cs`**
 - **移除 `MachineStatus` 枚举、`MachineStatusMessageArgs`、`EventStatusHandler`、`CurrentStatus`、`LastStatus`**
-- **系统状态枚举与事件参数迁至 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`（2026-09-02 ADR-049 三态模型）**
+- **系统状态枚举与事件参数迁至 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`（2026-09-02 ADR-034 三态模型）**
 - **`TCPIPComm` 纳入 `CommunicationManager` 管理，访问路径改为 `mCommunicationManager.TcpIpComm`**
 - 删除 `EventTcpInfoHandler`、`EventTcpClientInfoHandler`、`EventLineLaserInfoHandler`、`EventRobotInfoHandler`
 - 删除 `ShowTcpMessage`、`ShowTcpClientMessage`、`ShowLaserData`

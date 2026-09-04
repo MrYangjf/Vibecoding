@@ -59,8 +59,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceLog.cs
 
 ```csharp
 // ① 子工作流内（继承基类 Log，无需传标签）
-Log("监听线程已启动", MessageLevel.Info);
-Log(string.Format("运控流程异常终止 原因 {0}", FailReason), MessageLevel.Error);
+Log("流程已启动", MessageLevel.Info);
+Alarm("运控流程异常终止", ex);   // ⛔ 旧写法 string.Format(..., FailReason) 已废止
 
 // ② 独立管控类内（私有 Log 辅助方法固定带 _tag）
 private void Log(string message, MessageLevel level = MessageLevel.Info)

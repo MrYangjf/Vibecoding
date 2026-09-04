@@ -1,19 +1,36 @@
 ﻿---
 title: 步骤驱动改造六坑（执行步复位覆盖 / 步内阻塞 / 抽象类级联编译 / 命令槽碰撞 / 失败计数爆表 / 故障快照类型错配）
 date: 2026-09-01
-tags: [教训, 步骤驱动, 执行步, ADR-047, DeviceWorkflowBase, 并发, 编译]
+tags: [教训, 步骤驱动, 执行步, DeviceWorkflowBase, 并发, 编译]
 ---
 
 # 步骤驱动改造六坑
 
-> 来源：2026-09-01 全量步骤驱动改造（[[decisions/ADR-047-StepDrivenWorkflow]] accepted），8 个文件一次到位的实战总结。
-> 规范正文见 [[standards/StepDrivenWorkflow]]，本页只记**踩过的坑**与规避动作。
+> 来源：2026-09-01 全量步骤驱动改造（当时已 accepted，该决策现已删除），8 个文件一次到位的实战总结。
+> 规范正文见 [[architecture/DeviceControlArchitecture]]（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已废弃），本页只记**踩过的坑**与规避动作。
 >
-> **类名与机制注记（2026-09-02，ADR-049）**：文中的 `SafetyWorkflow` **现为 `DeviceStatusWork`**（`DoAlarm()` 已不存在，报警/急停改由 `DeviceStatusWork` 三线程经 `DeviceControlWork` 单一控制源处置）；`MainDeviceWorkflow` **现为 `DeviceControlWork`**；`MapToDeviceState(_step)` 四态映射已删除，改为 `SetWeldStatus(MapWeldStatus(_phase))`。**六坑的规避动作本身继续有效**。
+> **类名与机制注记（2026-09-02，ADR-034）**：文中的 `SafetyWorkflow` **现为 `DeviceStatusWork`**（`DoAlarm()` 已不存在，报警/急停改由 `DeviceStatusWork` 三线程经 `DeviceControlWork` 单一控制源处置）；`MainDeviceWorkflow` **现为 `DeviceControlWork`**；`MapToDeviceState(_step)` 四态映射已删除，改为 `SetWeldStatus(MapWeldStatus(_phase))`。~~六坑的规避动作本身继续有效~~ → **2026-09-03 起逐坑重新判定，见下方横幅与各坑标注**。
+>
+> ## ⛔ 2026-09-03 重大前提变更（ADR-036，用户裁定「完全重构」）
+>
+> 本页六坑建立于 **2026-09-01 旧框架**（`GoStep`/`SetStep` 改步 + 基类常驻监听线程 + 命令变量三槽）。
+> 该框架已由架构原档**整体重构取代**（见 [[decisions/ADR-036-RawDesignRefinement20260903]]）：
+>
+> | 旧机制 | 处置 | 现行 |
+> |---|---|---|
+> | 基类常驻监听线程（`StartRunLoop`/`BeatMs`） | ⛔ 清除（C1） | 由 `DeviceControlWork` 的 7 条常驻线程驱动 `FlowProcess()` |
+> | `GoStep(n)` / `SetStep()` 改步 | ⛔ 清除（C6） | `RunStep` 由每个 `case` 内的 bool 判断推进 |
+> | 命令变量三槽 + Pose 监控 | ⛔ 清除（C3） | `CommandCore` 的 `const string` 解析，**不监控 pose** |
+>
+> **逐坑有效性已在各坑标题下标注**：✅ 仍有效 / ⚠️ 需按新机制重新表述 / ⛔ 机制已删除（仅留思想）。
+> 现行规范唯一出处：**[[architecture/DeviceControlArchitecture]] §5 · §7 · §16**。
 
 ---
 
 ## 坑一：`OnStepChanged` 复位执行步 → `FlowProcess` 内 `SetStep` 后必须立即 `return`
+
+> **⛔ 机制已删除（2026-09-03）**：`OnStepChanged` 与 `SetStep()` 已随旧框架清除（裁定 C6），本坑的**具体写法不再适用**。
+> **保留的思想**：改步后必须**立即退出本步**（新范式为 `RunStep = M; break;`），否则同一拍内会连推多步、跳过中间判定。见架构页 §5。
 
 ### 现象
 
@@ -51,6 +68,8 @@ return;   // 不写 return 也可，但绝不能再出现 GoStep / 写 WorkStep
 
 ## 坑二：单步内阻塞等待会**同时**冻结超时判据与指令响应
 
+> **✅ 仍有效**：新架构下 `FlowProcess()` 同样由外部线程**反复调用**，单步内阻塞等待会同时冻结步骤计时与指令响应。规避动作不变。
+
 ### 现象
 
 `LineLaserWorkflow` 原有 `SpinWait(Func<bool>, timeout, name)`：内部 `while (!cond) { Thread.Sleep(10); }`。
@@ -86,6 +105,8 @@ while (!closed) { ConsumeCommand(); FlowProcess(); Thread.Sleep(BeatMs); }
 
 ## 坑三：基类新增抽象成员 → N 个子类**同时**编译失败
 
+> **✅ 仍有效，且风险更高**：批次 1 要把基类契约从 6 项扩到 **17 项**，每新增 1 个抽象成员，**5 个子类必须同时实现**，`LaserWeldHeadWorkflow` 等骨架类也要补（空实现 + `IsRunLoopActive=false`）。见架构页 §15.2 批次 1。
+
 ### 现象
 
 给 `DeviceWorkflowBase<TStep>` 加 `protected abstract void FlowProcess();` 与 `protected abstract string GetStepName(int step);` 后，
@@ -110,9 +131,12 @@ CS0534: "XxxWorkflow" 不实现继承的抽象成员 "DeviceWorkflowBase<...>.Fl
 
 ## 坑四：Pose 与 Command 编码区间重叠 → 单槽命令变量会**丢指令**
 
+> **⛔ 机制已删除（2026-09-03）**：命令三槽（`_pendingAbort`/`_pendingCommand`/`_pendingPose`）与 `RobotPose` 枚举已清除（裁定 C3），改为 `CommandCore` 的 `const string` 指令。
+> **保留的思想**：**指令取值必须全局唯一**。字符串指令同样要保证「同一取值不会被两个语义复用」，否则解析歧义。
+
 ### 现象
 
-`DeviceControlWork`（原 `MainDeviceWorkflow`，ADR-049）若把机器人上报的两类信号塞进同一个 `int` 命令槽：
+`DeviceControlWork`（原 `MainDeviceWorkflow`，ADR-034）若把机器人上报的两类信号塞进同一个 `int` 命令槽：
 
 ```csharp
 private volatile int _pendingSignal = -1;   // ❌ Pose 和 Command 共用
@@ -144,6 +168,8 @@ _pendingAbort (bool)  >  _pendingCommand (int)  >  _pendingPose (int)
 
 ## 坑五：失败计数在每拍累加 → 阈值瞬间打满
 
+> **✅ 仍有效**：新范式下原语返回 `false` 即停在本步、下一拍重试，同样是**每拍计数**。阈值换算成时长后再定（节拍 `Sleep(10)`，`N=5` 只有 50ms）。
+
 ### 现象
 
 `LineLaserWorkflow.ExecuteWorking()` 原逻辑每拍（5ms）调用一次 `HandleFailure()`，连续失败 5 次即报警——
@@ -169,10 +195,12 @@ ResetStepTime();                                    // 计一次后重新计时
 
 ## 坑六：失败收尾步写故障快照 `State = _step.ToString()` → CS0029
 
+> **⚠️ 需按新机制重新表述**：`State` 现为 `SubDeviceState`（2 态）枚举，焊接进度由 `SubDeviceWeldStatus` + `SetWeldStatus` 承载（三态模型）。故障快照里写步号应落到**故障记录字段**而非状态枚举，类型错配（CS0029）的规避原则不变。
+
 ### 现象
 
 `DoFinishFail()` 的 `FaultRecord` 初始化器里写 `State = _step.ToString()`。
-`FaultRecord.State` 是**强类型 `DeviceState`**（ADR-046），string 无法隐式转换 → **CS0029 编译错误**，4 个 workflow（LineLaser / Monitor / Motion / WeldParam）同时报错。
+`FaultRecord.State` 是**强类型 `DeviceState`**（ADR-033），string 无法隐式转换 → **CS0029 编译错误**，4 个 workflow（LineLaser / Monitor / Motion / WeldParam）同时报错。
 
 ### 根因
 
@@ -180,7 +208,7 @@ ResetStepTime();                                    // 计一次后重新计时
 
 ### 规避
 
-写 `FaultRecord.State` 一律走设备态映射，与 ADR-041「禁手工 `State=` 赋值」同一口径：
+写 `FaultRecord.State` 一律走设备态映射，与「禁手工 `State=` 赋值」同一口径：
 
 ```csharp
 State = MapToDeviceState(_step),   // ErrorAborted/Error → Alarm，语义正确
@@ -192,8 +220,7 @@ State = MapToDeviceState(_step),   // ErrorAborted/Error → Alarm，语义正�
 
 ## 关联
 
-- [[standards/StepDrivenWorkflow]] — 规范正文（段位 / 红线 / 落地清单）
-- [[decisions/ADR-047-StepDrivenWorkflow]] — 决策记录（含已知待办 3 条）
+- [[architecture/DeviceControlArchitecture]] — 现行规范（§5 段位与推进 / §15 落地清单 / §16 代码模板）
 - [[modules/DeviceControl]] — 三层状态模型与基类成员表
 - [[api/DeviceControlWork]] — 三槽命令变量实现
 - [[lessons/StateMachine-DoubleTransition]] — 另一次"状态被后续代码覆盖"的同类教训

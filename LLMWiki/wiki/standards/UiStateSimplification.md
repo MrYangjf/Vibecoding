@@ -7,7 +7,7 @@ status: accepted
 
 # UI 状态判断与控制精简规范
 
-> **用途**：本页是「UI 状态判断与控制精简」需求的**唯一标准源**，与 [[standards/CodeSimplification]]（ADR-038，覆盖除 `*.Designer.cs` 外的全部业务源码、含 `UIDesign/` 非设计器 `.cs` 五维度）互补——ADR-038 已覆盖 `UIDesign/` 非设计器 `.cs` 的 ①②⑤ 维度（成员排序/变量/辅助函数）与 ③④（枚举事件/逻辑），本页专门补上 `UIDesign/` 的**状态判断与控制细则**（禁本地 bool 缓存设备态/单一控制函数/统一刷新入口/集中状态标签）。触发此类需求时，AI 直接读取本页执行。
+> **用途**：本页是「UI 状态判断与控制精简」需求的**唯一标准源**，与 [[standards/CodeSimplification]]（ADR-028，覆盖除 `*.Designer.cs` 外的全部业务源码、含 `UIDesign/` 非设计器 `.cs` 五维度）互补——ADR-028 已覆盖 `UIDesign/` 非设计器 `.cs` 的 ①②⑤ 维度（成员排序/变量/辅助函数）与 ③④（枚举事件/逻辑），本页专门补上 `UIDesign/` 的**状态判断与控制细则**（禁本地 bool 缓存设备态/单一控制函数/统一刷新入口/集中状态标签）。触发此类需求时，AI 直接读取本页执行。
 > **适用范围**：`UIDesign/` 全部 WinForms/AntdUI 代码。
 
 ---
@@ -53,9 +53,9 @@ status: accepted
 
 | 已有约束 | 关系 |
 |---|---|
-| [[standards/CodeSimplification]] / [[decisions/ADR-038-CodeSimplificationStandard]] | 互补：ADR-038 覆盖除 `*.Designer.cs` 外的全部业务源码（含 `UIDesign/` 非设计器 `.cs` 五维度），本页专补 `UIDesign/` 状态判断与控制细则 |
+| [[standards/CodeSimplification]] / [[decisions/ADR-028-CodeSimplificationStandard]] | 互补：ADR-028 覆盖除 `*.Designer.cs` 外的全部业务源码（含 `UIDesign/` 非设计器 `.cs` 五维度），本页专补 `UIDesign/` 状态判断与控制细则 |
 | [[decisions/ADR-002-CS73-Constraint]] | 精简后仍须 C# 7.3 语法 |
-| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-034-DisposePatternFullCoverage]] | 精简**不得**新增/重写 `Dispose(bool)` |
+| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-025-DisposePatternFullCoverage]] | 精简**不得**新增/重写 `Dispose(bool)` |
 | 公共接口契约 | 精简**不得**改变公共类型/方法签名 |
 
 ---

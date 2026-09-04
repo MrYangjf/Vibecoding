@@ -27,9 +27,24 @@ for p in walk_md(WIKI_ROOT):
 
 # 解析 [[...]] 链接
 link_re = re.compile(r"\[\[([^\]]+)\]\]")
+
+# 2026-09-03：与 tools/wiki_audit.py 的 mask_code 同款。规范文档里举反面例子时
+# 常写「不要写 `[[old]]→[[new]]`」，方括号落在行内代码体里仍会被当真链接解析，
+# 产生 4 条假红链。链接解析前先屏蔽代码块与行内代码体；用等长空白替换而非删除，
+# 可保持字符偏移与行号不变。
+_FENCE_RE = re.compile(r"```.*?```", re.S)
+_INLINE_RE = re.compile(r"`[^`\n]*`")
+
+
+def mask_code(txt):
+    """把围栏代码块与行内代码体替换为等长空白，保持偏移与行号不变。"""
+    blank = lambda m: re.sub(r"[^\n]", " ", m.group(0))
+    return _INLINE_RE.sub(blank, _FENCE_RE.sub(blank, txt))
+
+
 def parse_links(text):
     links = []
-    for m in link_re.finditer(text):
+    for m in link_re.finditer(mask_code(text)):
         target = m.group(1).strip()
         # 去掉锚点 #xxx
         target = target.split("#")[0].strip()

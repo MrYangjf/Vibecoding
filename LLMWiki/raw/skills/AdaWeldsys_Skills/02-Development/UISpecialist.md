@@ -123,7 +123,7 @@ UIDesign/
 - 设计器模式保护: 构造函数访问单例/硬件前先判 `LicenseManager.UsageMode == LicenseUsageMode.Designtime`
 
 > **完整 AntdUI 开发范式**参见 LLMWiki `wiki/lessons/AntdUI-DesignParadigm.md`（布局/事件/Table/Designer.cs 铁律）。
-> **迁移细节**参见 [[decisions/ADR-021-UIFrameworkMigration]] 和 `wiki/lessons/AntdUI-MigrationTracker.md`。
+> **迁移细节**参见 `decisions/ADR-021-UIFrameworkMigration` 和 `wiki/lessons/AntdUI-MigrationTracker.md`。
 
 ### 页面职责规范（LLCamWorkJob / LLCameraSetting）
 

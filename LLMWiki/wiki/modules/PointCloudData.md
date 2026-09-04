@@ -25,11 +25,11 @@ PCLOperate/
 │   ├── PointCloudViewer.cs             ← 3D 渲染引擎核心
 │   ├── RenderConfig.cs                 ← 渲染配置
 │   └── SurfaceTriangulator.cs          ← 点云表面三角化
-└── （RunFileRecord/ 已迁出 → [[modules/ProductFileManager]]，2026-08-31 ADR-046）
+└── （RunFileRecord/ 已迁出 → [[modules/ProductFileManager]]，2026-08-31 ADR-033）
 ```
 
 > **2026-08-07 目录名修正**：实际代码目录名为 `PCLOperate/`（而非 `PointCloudData/`），内部子结构完全一致。模块名仍沿用 `PointCloudData`。
-> **2026-08-31 RunFileRecord 迁出（ADR-046）**：过程记录 4 文件（RunRecordManager/RecordFrame/WeldActionRecord/SmartRayConverter）迁入 `ProductFileManager/`，命名空间改 `AdaWeldSystem.ProductFileManager`；本模块仅余点云本域（3DModel/DataIO/Render），RunRecordManager 仍引用本模块 Models/DataIO。
+> **2026-08-31 RunFileRecord 迁出（ADR-033）**：过程记录 4 文件（RunRecordManager/RecordFrame/WeldActionRecord/SmartRayConverter）迁入 `ProductFileManager/`，命名空间改 `AdaWeldSystem.ProductFileManager`；本模块仅余点云本域（3DModel/DataIO/Render），RunRecordManager 仍引用本模块 Models/DataIO。
 
 ## 核心文件
 

@@ -8,7 +8,7 @@ source: AdaWeldSystem/MotionControl/MoveControlData.cs
 # MoveControlData API 参考
 
 > 运控标定数据 + 水平移动计算 + 缓存（单例），位于 `MotionControl/MoveControlData.cs`，命名空间 `AdaWeldSystem.MotionControl`。
-> 原挂载于 InteliWeld，现归独立 MotionControl 模块（见 [[decisions/ADR-014-MotionControlModule]]）。
+> 原挂载于 InteliWeld，现归独立 MotionControl 模块（见 [[decisions/ADR-012-MotionControlModule]]）。
 
 ## 单例
 

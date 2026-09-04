@@ -29,7 +29,7 @@ LaserWeldHead/
 └── LaserWeldHeadData.cs               ← 配置类 + 枚举 + 事件参数
 ```
 
-> **2026-08-04 层级更新**：接口文件归入 `API/` 子目录。`LaserWeldHeadStateMachine.cs` 已移除（状态机逻辑已内嵌于 `LaserWeldHeadController.cs`，由控制器委派管理）。
+> **2026-08-04 层级更新**：接口文件归入 `API/` 子目录。`LaserWeldHeadStateMachine.cs`（现役 `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs`） 已移除（状态机逻辑已内嵌于 `LaserWeldHeadController.cs`，由控制器委派管理）。
 
 ## 核心文件
 
@@ -41,7 +41,7 @@ LaserWeldHead/
 
 ## 状态机
 
-> **2026-08-04 更新**：原独立文件 `LaserWeldHeadStateMachine.cs` 已移除，状态机逻辑内嵌于 `LaserWeldHeadController.cs` 中委派管理。状态转换规则保持不变：
+> **2026-08-04 更新**：原独立文件 `LaserWeldHeadStateMachine.cs`（现役 `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs`） 已移除，状态机逻辑内嵌于 `LaserWeldHeadController.cs` 中委派管理。状态转换规则保持不变：
 
 复用 `IsValidTransition` 校验范式（见 [[modules/DeviceControl]]）。
 
@@ -98,16 +98,16 @@ flowchart LR
 ## 对外协作
 
 - → [[modules/Comm]]（异常/状态上报）
-- 被 `DeviceControlWork.InitializeMachine()` 上电初始化级联调用 `LaserWeldHeadController.Instance.Initialize()`（第 1 步，见 [[architecture/DeviceControlArchitecture]] §7.1，ADR-049）
+- 被 `DeviceControlWork.InitializeMachine()` 上电初始化级联调用 `LaserWeldHeadController.Instance.Initialize()`（第 1 步，见 [[architecture/DeviceControlArchitecture]] §7.1，ADR-034）
 - 输出进入追溯数据（本模块 `LaserWeldHeadData.cs`：`LaserHeadTemperatureData` / `AutoFocusPositionData` / `SafetyIOStatus`）
-- 状态由 `LaserWeldHeadWorkflow` 按三态模型输出：连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`（`SetStep` 映射，[[modules/DeviceControl]]）
+- 状态由 `LaserWeldHeadWorkflow` 按三态模型输出：连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`（经 `MapWeldStatus(phase)` 由私有阶段枚举映射，[[modules/DeviceControl]]）
+  > ⛔ **2026-09-03 更正**：此处旧写 ~~`SetStep` 映射~~ 不成立——`SetStep` 已在 ADR-036 完全重构中废止，改执行步唯一入口为 `RunStep` 赋值；私有枚举 → 对外焊接过程态的映射由 `MapWeldStatus(phase)` 承担。
 
 ## 相关文档
 
 - [[api/LaserWeldHeadController]] — 激光焊接头控制器 API
 - [[architecture/DeviceControlArchitecture]] — 设备控制架构（唯一规范页）
 - [[modules/DeviceControl]] — 设备控制模块
-- ADR-041（已删除，见 ADR-049） — 架构重构决策
 
 ## 待办
 

@@ -110,7 +110,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）→ SendToRobot 下发机器人
 
 **关键点**：英莱回调本就含特征点与宽度，链路本就通。`WeldParamControlWorkflow` 补的是「计算后下发到机器人」这一环。
 
-### 私有阶段 → 焊接过程态映射（ADR-049）
+### 私有阶段 → 焊接过程态映射（ADR-034）
 
 **私有阶段枚举** `WeldParamControlWorkflowState`（内联本文件，不对外）：`Uninitialized`(0) / `Initializing`(1) / `Standby`(2) / `Computing`(3) / `Outputting`(4) / `Holding`(5) / `ErrorAborted`(6)
 
@@ -126,7 +126,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）→ SendToRobot 下发机器人
 
 ### 不入上电级联
 
-**不纳入** `DeviceControlWork.InitializeMachine()` 级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（[[decisions/ADR-013-WorkflowAsAdjustmentDriver]]）。
+**不纳入** `DeviceControlWork.InitializeMachine()` 级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（[[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
 
 ---
 
@@ -145,6 +145,6 @@ WeldParamOutput（功率/送丝/速度/摆幅）→ SendToRobot 下发机器人
 - [[modules/DeviceControl]] — `WeldParamControlWorkflow` 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（含完整数据链路）
 - [[api/WeldDataManager]] — 焊接数据管理器 API
-- [[decisions/ADR-013-WorkflowAsAdjustmentDriver]] — 工作流作为调整主驱动
+- [[decisions/ADR-011-WorkflowAsAdjustmentDriver]] — 工作流作为调整主驱动
 - [[modules/LineLaserCam]] — 英莱线激光，焊缝信息源头
 - [[modules/EmguALG]] — 算法管道，承载 `SeamFeatureResult` 上报

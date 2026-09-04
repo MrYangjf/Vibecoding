@@ -11,8 +11,8 @@ source: history.md [46]
 ## 状态
 已采纳（2026-07-01）｜**结论有效，边界已澄清（2026-09-01 治理标注）**
 
-> **ℹ️ 与 [[decisions/ADR-047-StepDrivenWorkflow]]「单步内禁阻塞等待」红线的关系**：**不冲突，本 ADR 的 `WaitOne` 属合法的有界等待**。
-> 裁定判据（写在 [[standards/StepDrivenWorkflow]] 红线 3）：**有界 + 可失败 = 合法；无界 + 静默 = 违规**。本方案的 `WaitOne` 满足①有上界（按帧周期缩放，默认上限 5000ms）②超时可失败（`_lastAcquiredMat = null`）③外部信号源驱动（相机回调 `Set()`，非空转轮询）。
+> **ℹ️ 与「单步内禁阻塞等待」红线的关系**：**不冲突，本 ADR 的 `WaitOne` 属合法的有界等待**。
+> 裁定判据（原见旧标准 [[standards/StepDrivenWorkflow]]（已废弃）红线 3，现由 [[architecture/DeviceControlArchitecture]] §5 承接）：**有界 + 可失败 = 合法；无界 + 静默 = 违规**。本方案的 `WaitOne` 满足①有上界（按帧周期缩放，默认上限 5000ms）②超时可失败（`_lastAcquiredMat = null`）③外部信号源驱动（相机回调 `Set()`，非空转轮询）。
 > **约束**：若流程改为步骤驱动，该等待必须落在「等待完成」单步内，并在超时后跳 9xx 失败收尾；**不得演化为 `while(true)` 无界轮询**。
 
 ## 背景

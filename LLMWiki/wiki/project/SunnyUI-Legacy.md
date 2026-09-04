@@ -3,7 +3,7 @@ title: SunnyUI 历史归档
 date: 2026-07-28
 tags: [归档, UI, SunnyUI, 历史参考, 迁移]
 status: archived
-superseded_by: decisions/ADR-021-UIFrameworkMigration
+superseded_by: decisions/ADR-018-UIFrameworkMigration
 ---
 
 # SunnyUI 历史归档文档
@@ -12,21 +12,21 @@ superseded_by: decisions/ADR-021-UIFrameworkMigration
 >
 > **归属变更（2026-09-01）**：`archive/` 分类已取消（与 `architecture/` 同是全库最小分类且名字易混），本页迁入 `project/`。内容未变，仅位置变更。
 >
-> AdaWeldSystem 项目已于 **2026-07-28** 完成 UI 框架从 SunnyUI 到 AntdUI 的全面迁移（详见 [[decisions/ADR-021-UIFrameworkMigration]]）。迁移后项目使用 **AntdUI**（MIT 许可），SunnyUI（GPL v3 许可）相关代码已全部移除。本文档汇总了 SunnyUI 时期的设计决策、迁移教训与完成状态，留作技术追溯之用。
+> AdaWeldSystem 项目已于 **2026-07-28** 完成 UI 框架从 SunnyUI 到 AntdUI 的全面迁移（详见 [[decisions/ADR-018-UIFrameworkMigration]]）。迁移后项目使用 **AntdUI**（MIT 许可），SunnyUI（GPL v3 许可）相关代码已全部移除。本文档汇总了 SunnyUI 时期的设计决策、迁移教训与完成状态，留作技术追溯之用。
 >
 > - 当前生效框架：**AntdUI** + **ScottPlot.FormsPlot 4.1.74**（图表）
-> - 迁移决策：[[decisions/ADR-021-UIFrameworkMigration]]
+> - 迁移决策：[[decisions/ADR-018-UIFrameworkMigration]]
 > - 迁移追踪：[[guides/AntdUI-Reference]]
 
 ---
 
 ## 1. 迁移总览
 
-### 1.1 迁移背景（来自 ADR-021）
+### 1.1 迁移背景（来自 ADR-018）
 
 AdaWeldSystem 项目 UI 层原使用 **SunnyUI** 框架（GPL v3 许可）。因商业原因，GPL v3 许可对商业化产品有限制。**AntdUI** 采用 MIT 许可证，商业政策更宽松，适合产品级部署。
 
-### 1.2 迁移决策（来自 ADR-021）
+### 1.2 迁移决策（来自 ADR-018）
 
 将项目 UI 框架从 SunnyUI 迁移至 AntdUI，分五个阶段进行：
 
@@ -40,7 +40,7 @@ AdaWeldSystem 项目 UI 层原使用 **SunnyUI** 框架（GPL v3 许可）。因
 
 > **图表方案变更历史**：阶段 4 起初选用 `AntdUI.Chart`，2026-08-12 用户在 MainPage 实装后改选 `ScottPlot.FormsPlot`（更轻量、高性能、实时动态数据可视化更优）；2026-08-13 升级 5.1.59 后回退 4.1.74（5.x 基于 SkiaSharp 对 .NET 4.8 设计器不友好）。
 
-### 1.3 备选方案对比（来自 ADR-021）
+### 1.3 备选方案对比（来自 ADR-018）
 
 | 方案 | 优点 | 缺点 | 是否采用 |
 |------|------|------|---------|
@@ -48,7 +48,7 @@ AdaWeldSystem 项目 UI 层原使用 **SunnyUI** 框架（GPL v3 许可）。因
 | 购买 SunnyUI 商业许可 | 零迁移成本、已有 ~280 个控件实例 | 持续付费、GPL v3 争议风险 | 不采用 |
 | 使用标准 WinForms 控件 | 零依赖、完全自由 | 视觉效果差、开发效率低 | 不采用 |
 
-### 1.4 迁移后果（来自 ADR-021）
+### 1.4 迁移后果（来自 ADR-018）
 
 **正面：**
 - MIT 许可消除商业化法律风险
@@ -62,7 +62,7 @@ AdaWeldSystem 项目 UI 层原使用 **SunnyUI** 框架（GPL v3 许可）。因
 - UIDataGridView 基于 DataTable，AntdUI Table 基于 AntList\<T\>，数据层需调整
 - Designer.cs 文件需全部重新生成（AntdUI 控件命名空间不同）
 
-### 1.5 关键约束（来自 ADR-021）
+### 1.5 关键约束（来自 ADR-018）
 
 迁移后仍须遵守：
 - [[decisions/ADR-001-DisposePattern]]（DisposeComponents 模式）
@@ -74,13 +74,13 @@ AdaWeldSystem 项目 UI 层原使用 **SunnyUI** 框架（GPL v3 许可）。因
 
 ## 2. 已废弃的 SunnyUI 设计决策
 
-> 以下决策均已被 ADR-021 取代，仅作**历史参考**。
+> 以下决策均已被 ADR-018 取代，仅作**历史参考**。
 
-### 2.1 ADR-006：UILight 属性规范（已废弃）
+### 2.1 UILight 属性规范（已废弃）
 
-**状态：deprecated** — 原始文档已合并入本页（ADR-006 独立页已删除）
+**状态：已废弃** — 原始决策文档已合并入本页
 
-UILight 控件已随 UI 框架迁移由 **AntdUI.Signal** 替代（见 ADR-021 负面后果）。以下 UILight 三要素用法仅作历史参考。
+UILight 控件已随 UI 框架迁移由 **AntdUI.Signal** 替代（见 ADR-018 负面后果）。以下 UILight 三要素用法仅作历史参考。
 
 #### 背景（历史参考）
 
@@ -113,9 +113,9 @@ uiLight.State = UILightState.Off;                   // 初始状态
 
 ---
 
-### 2.2 ADR-009：全局 UI 风格统一为 Purple（已废弃）
+### 2.2 全局 UI 风格统一为 Purple（已废弃）
 
-**状态：deprecated** — 原始文档已合并入本页（ADR-009 独立页已删除）
+**状态：已废弃** — 原始决策文档已合并入本页
 
 全局 UI 框架已迁移至 AntdUI，主题系统改用 `AntdUI.Config.IsLight`（而非 SunnyUI `UIStyles.SetStyle(UIStyle.Purple)`）。以下 Purple 主题设定仅作历史参考。
 
@@ -252,7 +252,7 @@ AntdUI.Message.error(owner, "出错了");
 
 **来源**：[[guides/AntdUI-Reference]]（SunnyUI 迁移背景部分）
 
-WinForms 的 `ToolStrip` 控件族在 **AntdUI 中不存在对应控件**。ADR-021 要求 UI 全量迁移到 AntdUI，头部栏/工具栏不能再使用 `ToolStrip`。
+WinForms 的 `ToolStrip` 控件族在 **AntdUI 中不存在对应控件**。ADR-018 要求 UI 全量迁移到 AntdUI，头部栏/工具栏不能再使用 `ToolStrip`。
 
 #### 对照关系
 
@@ -339,7 +339,7 @@ private bool ShowInputStringDialog(ref string value, string prompt)
 
 ## 4. 迁移状态追踪
 
-**来源**：[[guides/AntdUI-Reference]] + [[decisions/ADR-021-UIFrameworkMigration]]
+**来源**：[[guides/AntdUI-Reference]] + [[decisions/ADR-018-UIFrameworkMigration]]
 
 ### 4.1 总体完成状态（2026-07-28 确认）
 
@@ -381,7 +381,7 @@ private bool ShowInputStringDialog(ref string value, string prompt)
 | [[guides/WinForms-Designer]] | resx 孤儿类型引用 |
 | [[guides/AntdUI-Reference]] | ToolStrip 替代 |
 | [[guides/AntdUI-Reference]] | 对话窗 Modal 承载 |
-| [[decisions/ADR-022-DialogWindowToModalUserControl]] | 对话窗承载方式决策 |
+| [[decisions/ADR-019-DialogWindowToModalUserControl]] | 对话窗承载方式决策 |
 
 ---
 
@@ -389,9 +389,9 @@ private bool ShowInputStringDialog(ref string value, string prompt)
 
 以下是本归档文档的信息来源，原始文档仍保留在 wiki 中：
 
-- [[decisions/ADR-021-UIFrameworkMigration]] — UI 框架迁移决策
-- 本页 §2.1 — UILight 属性规范（已废弃，ADR-006）
-- 本页 §2.2 — Purple 主题决策（已废弃，ADR-009）
+- [[decisions/ADR-018-UIFrameworkMigration]] — UI 框架迁移决策
+- 本页 §2.1 — UILight 属性规范（已废弃）
+- 本页 §2.2 — Purple 主题决策（已废弃）
 - [[guides/AntdUI-Reference]] — 迁移追踪表
 - 本页 §3.1 — MessageBox 迁移
 - [[guides/AntdUI-Reference]] — 表格选型

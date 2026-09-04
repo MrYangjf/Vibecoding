@@ -137,9 +137,9 @@ find . -name "*.cs" -not -path "./bin/*" -not -path "./obj/*" \
 
 **触发场景（真实故障）**
 
-> **注**：原故障案例中的 `DeviceStateMachineBase.cs` / `DeviceState` 四态枚举 / `IDeviceStateMachine` 接口均已于 2026-08-28 删除（旧 `DeviceStateMachine/` 目录整体移除），现由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 的**三态**枚举取代。案例机制（每个 `.cs` 是独立编译单元、须显式 using）不变。
+> **注**：原故障案例中的 `DeviceStateMachineBase.cs`（现役 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`） / `DeviceState` 四态枚举 / `IDeviceStateMachine` 接口均已于 2026-08-28 删除（旧 `DeviceStateMachine/` 目录整体移除），现由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 的**三态**枚举取代。案例机制（每个 `.cs` 是独立编译单元、须显式 using）不变。
 
-2026-07-31 新增 `DeviceStateMachineBase.cs` 时，类中使用了 `GlobalCommData.ShowLog()` 和 `DeviceState` 枚举，但忘记添加 `using AdaWeldSystem.Comm;`。编译报错：
+2026-07-31 新增 `DeviceStateMachineBase.cs`（现役 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`） 时，类中使用了 `GlobalCommData.ShowLog()` 和 `DeviceState` 枚举，但忘记添加 `using AdaWeldSystem.Comm;`。编译报错：
 
 ```
 CS0103: 当前上下文中不存在名称"GlobalCommData"
@@ -226,7 +226,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 
 ### 补充案例：子命名空间与枚举同名 → CS0118（2026-08-28）
 
-**触发场景**：ADR-041 重构后，`DeviceState` 既是枚举名又是命名空间名——枚举 `DeviceState` 定义于命名空间 `AdaWeldSystem.MainDeviceControl.DeviceState` 内（`DeviceStateBase.cs`）。
+**触发场景**：主控架构重构后，`DeviceState` 既是枚举名又是命名空间名——枚举 `DeviceState` 定义于命名空间 `AdaWeldSystem.MainDeviceControl.DeviceState` 内（`DeviceStateBase.cs`）。
 
 **坑点**：位于**兄弟命名空间**（如 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`、`.FlowState`）的文件，裸写 `DeviceState` 时，C# 名称解析沿作用域链上溯，在父作用域 `AdaWeldSystem.MainDeviceControl` 中先命中**同名子命名空间**（命名空间成员含子命名空间），而非其中的枚举 → 用作类型时报：
 
@@ -248,9 +248,9 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 >     // 放在文件顶部（编译单元级）无效——向外走会先在 MainDeviceControl 层停下。
 > ```
 >
-> **实测清单（2026-09-02 ADR-049 后校正为 7 个）**：`MainDeviceControl/DeviceWorkflow/` 下 **5 个**子设备工作流 —— `{LineLaser, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead}Workflow.cs` —— 外加 `MainDeviceControl/DeviceControlWork.cs`、`MainDeviceControl/DeviceStatusWork.cs`（两个整机管控类），再加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
+> **实测清单（2026-09-02 ADR-034 后校正为 7 个）**：`MainDeviceControl/DeviceWorkflow/` 下 **5 个**子设备工作流 —— `{LineLaser, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead}Workflow.cs`（已移除） —— 外加 `MainDeviceControl/DeviceControlWork.cs`、`MainDeviceControl/DeviceStatusWork.cs`（两个整机管控类），再加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
 >
-> （旧版记录 7 个工作流含 `MainDeviceWorkflow.cs` / `SafetyWorkflow.cs`：前者已于 2026-09-02 更名 `DeviceControlWork.cs` 并移出 `DeviceWorkflow/`，后者更名 `DeviceStatusWork.cs` 并移出；`SafetyFlow.cs` / `SafetyInterlock.cs` 于 2026-08-31 三合一合并。均已校正。）
+> （旧版记录 7 个工作流含 `MainDeviceWorkflow.cs` / `SafetyWorkflow.cs`：前者已于 2026-09-02 更名 `DeviceControlWork.cs` 并移出 `DeviceWorkflow/`，后者更名 `DeviceStatusWork.cs` 并移出；`SafetyFlow.cs`（已移除） / `SafetyInterlock.cs`（已移除） 于 2026-08-31 三合一合并。均已校正。）
 >
 > ⚠️ **目录 ≠ 命名空间**：`DeviceStateApiCore/` 只是物理目录，其中 `DeviceStateBase.cs` 仍属 `...MainDeviceControl.DeviceState`，`DeviceWorkflowBase.cs` 仍属 `...MainDeviceControl.FlowState`。
 >
@@ -262,7 +262,8 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 
 ### 补充案例：方法后孤儿代码块导致类提前闭合（2026-08-28）
 
-**触发场景**：`LineLaserWorkflow.cs` 中 `MapToDeviceState` 方法完整闭合后，紧跟着一段 `SetStep` 的事件触发片段（`var handler = StateChanged; if (handler != null) {...}`）——前一轮重构的复制粘贴残留。该片段位于**类级别**（引用了不存在的 `oldStep` → CS0103），且末尾多出的 `}` 提前关闭了整个类，导致后续约 700 行全部落在命名空间级别，产生**连锁编译错误**。
+**触发场景**：`LineLaserWorkflow.cs` 中 ~~`MapToDeviceState`~~ 方法完整闭合后，紧跟着一段 ~~`SetStep`~~ 的事件触发片段（`var handler = StateChanged; if (handler != null) {...}`）——前一轮重构的复制粘贴残留。该片段位于**类级别**（引用了不存在的 `oldStep` → CS0103），且末尾多出的 `}` 提前关闭了整个类，导致后续约 700 行全部落在命名空间级别，产生**连锁编译错误**。
+> ⛔ **2026-09-03 符号沿革**：`MapToDeviceState` 与 `SetStep` 均已在 ADR-036 完全重构中**删除**（映射改 `MapWeldStatus(phase)`，改执行步改 `RunStep` 赋值）。本案例的**根因与检测方法完全有效**，符号名仅作历史记录。
 
 **根因**：粘贴/重写方法时只替换了方法体前半部分，旧尾部未删净。
 
@@ -342,7 +343,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 
 ### 问题描述
 
-`XMLEditor.cs` 的 KUKA 通讯 XML 支持区域（`#region KUKA通讯XML支持`）是未完成的半成品代码，存在以下问题：
+`XMLEditor.cs`（现役 `UIDesign/TabPage/FileEditorPage.cs`） 的 KUKA 通讯 XML 支持区域（`#region KUKA通讯XML支持`）是未完成的半成品代码，存在以下问题：
 
 1. **引用了 Designer.cs 中不存在的控件名**：`menuStrip1`、`treeView1`、`statusStrip1`
 2. **使用了未声明的字段**：`xdocumentReaderWriter1`
@@ -353,7 +354,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 
 ### 根因分析
 
-该区域是从其他表单复制过来的代码片段，控件名与 `XMLEditor.Designer.cs` 中实际定义的控件名不一致：
+该区域是从其他表单复制过来的代码片段，控件名与 `XMLEditor.Designer.cs`（已移除） 中实际定义的控件名不一致：
 
 | 代码中引用 | Designer.cs 实际名称 | 说明 |
 |-----------|---------------------|------|

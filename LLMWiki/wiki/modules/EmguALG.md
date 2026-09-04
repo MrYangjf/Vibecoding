@@ -16,7 +16,7 @@ tags: [模块, 图像算法, EmguCV, 焊缝识别, 实时监控]
 |------|------|
 | `Core/AlgorithmBase.cs` | 统一算法基类：`Preprocess` 编排 + 图形算子封装 + mm↔px 变换 + `Execute(Mat)` 模板方法 + INI 契约抽象（`SaveToIni`/`LoadFromIni`/`ExecuteCore`） |
 | `Core/AlgorithmResult.cs` | 算法结果基类（`Success` / `ElapsedMs` / `ErrorMessage` / `Algorithm`） |
-| `Core/PreprocessConfig.cs` | 预处理配置（Filter / Morphology / Edge / LineLaser 专用）+ INI 契约。算子枚举统一引用 `EmguALG` 命名空间（ADR-026） |
+| `Core/PreprocessConfig.cs` | 预处理配置（Filter / Morphology / Edge / LineLaser 专用）+ INI 契约。算子枚举统一引用 `EmguALG` 命名空间（ADR-020） |
 | `Stages.cs` | **所有 Stage 类合并为一个文件（2026-08-03 合并）**：`StageBase`（抽象基类）+ `FilterStage` / `MorphologyStage` / `EdgeDetectionStage` / `FeatureExtractionStage` / `TemplateMatchStage` + `PipelineConfig`。原 6 个独立文件合并为 1 个。减少文件数量，降低项目文件膨胀 |
 | `Core/ProfileTransform.cs` | mm↔px 唯一换算点（`FromPointCloud` / `ToPixel` / `ToMM`） |
 | `Core/UnitAttribute.cs` / `Core/Attributes/RangeAttribute.cs` | `[Unit("mm")]` / `[Range(min,max)]` 参数特性（UI 提示用，不落盘） |
@@ -25,7 +25,7 @@ tags: [模块, 图像算法, EmguCV, 焊缝识别, 实时监控]
 | `RealtimeMonitor/RealtimeMonitorAlgorithm.cs` | 实时监控领域算法单例 `Instance`（无 Job）；`MonitorConfig` + `CenteringCheckResult` / `SeamQualityResult` |
 | `ImageAlgorithm.cs` | **唯一原子算子文件**（静态库，保留；新增 `ConvertContourToMat(pc, transform)` / `FitLine` 等重载） |
 | `EmguConfiger/` | **配置管理文件夹（2026-08-03 新增）**： |
-| `EmguConfiger/JobManager.cs` | Job CRUD + 切换 + INI 持久化（启动 `Initialize()` 加载；见 [[decisions/ADR-013-WorkflowAsAdjustmentDriver]]） |
+| `EmguConfiger/JobManager.cs` | Job CRUD + 切换 + INI 持久化（启动 `Initialize()` 加载；见 [[decisions/ADR-011-WorkflowAsAdjustmentDriver]]） |
 | `EmguConfiger/AlgorithmJob.cs` | Job 数据容器，内含 `SeamRecognitionConfig` |
 | `EmguConfiger/AlgorithmManager.cs` | **PipelineManager**（保留为编译桥接适配器，Workflow 和 UI 仍调用其 `Execute` / `ReportExternalResult` / `AlgorithmCompleted` 事件） |
 | `ImageRoiTools.cs` | ROI 绘制工具 |
@@ -54,7 +54,7 @@ tags: [模块, 图像算法, EmguCV, 焊缝识别, 实时监控]
 
 ## 监控相机算法区（第 8 区）
 
-> `ImageAlgorithm.cs` 末尾 `#region 8. 监控相机算法区` 供 [[modules/MonitorCam]] 调用（独立模块，与 `RealtimeMonitor` 区分；监控相机走 `MonitorAlgorithmManager`，见 [[decisions/ADR-011-MonitorCameraModule]]）。
+> `ImageAlgorithm.cs` 末尾 `#region 8. 监控相机算法区` 供 [[modules/MonitorCam]] 调用（独立模块，与 `RealtimeMonitor` 区分；监控相机走 `MonitorAlgorithmManager`，见 [[decisions/ADR-009-MonitorCameraModule]]）。
 
 | API | 说明 |
 |-----|------|
