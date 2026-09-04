@@ -33,7 +33,7 @@ status: accepted
 - 新建 `SqlLiteDatabase/FaultRecordManager.cs`：继承 `DatabaseManagerBase`（构造传 `"FaultRecord.db"`，对齐 ProductDatabaseManager 范式），承载建表/插入/查询；DB 文件随之迁到 **`DataBase\FaultRecord.db`**。
 - `FaultRecoveryManager` 删除 `#region SQLite 持久化`（EnsureDb/内联 Persist/`_db`/`_dbLock`/`_tableReady`），`Persist` 保留为「FaultRecord → string[] 映射 + 截断 + 失败日志」的领域侧适配，写入调用 `FaultRecordManager.Instance.InsertFaultRecord(values)`。
 - **分层约束**：FaultRecordManager 以 `string[]` 为写入契约，**不引用领域类型**——SqlLiteDatabase 层不得反向依赖 MainDeviceControl。
-- **FaultCategory/FaultRecord 数据载体留在 FaultRecoveryManager.cs**（ADR-031 决策维持）：它们是故障恢复闭环的领域载体，非 DB 实现。
+- **FaultCategory/FaultRecord 数据载体留在 FaultRecoveryManager.cs**（ADR-031 决策维持；FaultRecoveryManager.cs 已于 2026-09-04 整体移除，ADR-038 D3）：它们是故障恢复闭环的领域载体，非 DB 实现。
 - 管理器内部不做 try/catch 日志（对齐模块范式），由调用方兜底记 Warning。
 
 ### 3. 故障恢复业务消费方归口 ProductFileManager（2026-09-01 追加）

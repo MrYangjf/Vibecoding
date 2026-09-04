@@ -58,6 +58,8 @@ RENAMED = {
     "MotionControlStateMachine.cs": "MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs",
     "MonitorCameraStateMachine.cs": "MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs",
     "LaserWeldHeadStateMachine.cs": "MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs",
+    # ADR-036 批次 0（2026-09-04 落地）：指令协议表 → const string 协议常量类
+    "CommandTable.cs": "MainDeviceControl/DeviceStateApiCore/CommandCore.cs",
     # 通讯层
     "PLCCommunicationManager.cs": "Comm/PLC/Siemens/S7PLCCommunication.cs",
     "RobotCommunicationManager.cs": "Comm/Robot/KUKARobot/KUKARobotManager.cs",
@@ -88,6 +90,8 @@ RENAMED = {
 REMOVED = {
     "SafetyFlow.cs": "ADR-031 合并进 DeviceStatusWork",
     "SafetyInterlock.cs": "ADR-031 合并进 DeviceStatusWork",
+    "FaultRecoveryManager.cs": "2026-09-04 用户裁定整体移除（架构无故障恢复定义，ADR-038 D3）",
+    "FaultRecordManager.cs": "2026-09-04 随 FaultRecoveryManager 整体移除（ADR-038 D3）",
     "SimulationWorkflow.cs": "独立模拟流程已废弃（成员归并 DeviceControlWork）",
     "HorizontalMoveWorkflow.cs": "ADR-012 后移除",
     "TCPServer.cs": "未落地，现役仅有 TCPIPComm 客户端侧",

@@ -1,11 +1,14 @@
 ---
 title: API — FaultRecoveryManager 故障恢复管理器（+ FaultRecord / FaultCategory）
 date: 2026-08-31
-tags: [API, 故障恢复, SQLite, 单例, Safety, FaultRecord]
-source: AdaWeldSystem/ProductFileManager/FaultRecoveryManager.cs
+tags: [API, 故障恢复, SQLite, 单例, Safety, FaultRecord, 已废弃]
+source: AdaWeldSystem/ProductFileManager/FaultRecoveryManager.cs（已移除，2026-09-04 ADR-038 D3）
+status: deprecated
 ---
 
 # API — FaultRecoveryManager 故障恢复管理器
+
+> ⛔ **整页废弃（2026-09-04）**：FaultRecoveryManager / FaultRecordManager / FaultRecord / FaultCategory 已随架构裁定**整体从代码中移除**（用户裁定：架构上无「故障恢复」定义，见 [[decisions/ADR-038-ErrorReportingHierarchy]] D3）。报警语义由 `DeviceControlWork.ReportAlarm` / `ReportAlarmCleared` 承载。下文仅作历史存档，代码中不得再引用任何同名实体。
 
 > **位置**：`ProductFileManager/FaultRecoveryManager.cs`（命名空间 `AdaWeldSystem.ProductFileManager`）
 > **2026-09-01 迁址**：自 `MainDeviceControl/DeviceWorkflow/` 迁入 `ProductFileManager/`，成为故障恢复数据的归口使用方（ADR-033 §3）。**调用方需 `using AdaWeldSystem.ProductFileManager`**，API 签名与行为零变化。

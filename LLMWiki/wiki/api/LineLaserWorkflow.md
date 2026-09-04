@@ -1,172 +1,199 @@
 ﻿---
 title: LineLaserWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
-updated: 2026-09-02
-tags: [API, 工作流, 状态机, 英莱, 线激光, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-034]
+updated: 2026-09-04
+tags: [API, 工作流, 英莱, 线激光, SubDeviceWeldStatus, DeviceWorkflowBase, RunStep, ADR-034, ADR-036]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 ---
 
 # LineLaserWorkflow API 参考
 
-> **⚠️ 2026-09-03 架构重构（ADR-036 已裁定，用户定性「完全重构」）**：本页描述的是**改造前**的 API 现状，改码尚未开工。
-> 下列机制**已裁定清除，不得据本页改码**：`GoStep`/`SetStep` 改步 · `WorkStep`/`WorkStartTime` · 基类常驻监听线程（`StartRunLoop`/`BeatMs`） · `ManualOn`/`ManualOff` · 命令三槽与机器人 pose 监控 · const int 指令表。
-> **现行规范唯一出处**：[[architecture/DeviceControlArchitecture]]（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7 7 线程编排 · §16 代码模板）。
-> 本页将在 [[architecture/DeviceControlArchitecture]] §15 的改码批次完成后同步重写。
-
-> 英莱线激光焊缝跟踪工作流（单例）。
+> 英莱线激光焊缝跟踪工作流（单例，三态模型 + `RunStep` bool 驱动）。
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
-> **继承**：`DeviceWorkflowBase`（非泛型，→ `DeviceStateBase`），`IDisposable` 由基类实现
-> 架构背景见 [[modules/DeviceControl]]、[[architecture/DeviceControlArchitecture]]
->
-> **✅ 2026-09-02 三态模型重构（ADR-034，accepted）**：旧「设备四态 `DeviceState` + 流程态 `LineLaserWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`LineLaserWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus`(`SubDeviceWeldStatus`) 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
-> 步骤驱动规范见 **[[architecture/DeviceControlArchitecture]] §5 · §16**（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已于 2026-09-03 整页废弃）。
+> **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
+> 架构背景见 [[modules/DeviceControl]]、[[architecture/DeviceControlArchitecture]]。
+
+> **✅ 2026-09-04 已落地（ADR-036 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、连接态 `State` / 焊接过程态 `WeldStatus` 由基类承载。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
 ---
 
 ## 概述
 
-两层状态：连接态 `State`(`SubDeviceState`)，由 `ConnectOn`/`ConnectOff` 联动；焊接过程态 `WeldStatus`(`SubDeviceWeldStatus`)，由流程方法经私有 `SetStep` → `SetWeldStatus(MapWeldStatus(...))` 联动；执行步 `WorkStep`（内部游标，经 `GoStep` 推进）。
+两层状态：连接态 `State`（`SubDeviceState`，2 态），由 `ConnectOn`/`ConnectOff` 联动；焊接过程态 `WeldStatus`（`SubDeviceWeldStatus`，7 态），由流程方法（`Start`/`Stop`/`BeginWorking`/各执行步）联动。执行步 `RunStep`（int 游标，由每个 `case` 内 bool 判定推进）驱动 `FlowProcess()`。
 
-`LineLaserWorkflowState` 枚举已**降级为私有字段**，内联于本文件（命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`）。
+**执行步段位**：10 PreWork 清理 → 20 开传感器/激光 → 30 等数据稳定 → 31 等主设备通知 Working → 100 焊接工作 → 700 停止清料 → 800 成功收尾 / 900 失败收尾 → 0 待机。
 
 ### 在工作流体系中的角色
 
-- 由 `DeviceControlWork` 上电初始化（`InitializeMachine`）经 `ConnectOn()` 连接
-- 连续成功帧达到阈值时触发 `WeldParamControlWorkflow.ComputeAndOutput()`（焊接工艺计算与下发）
-- 数据流见 [[decisions/ADR-029-YinglaiDataFlow]]
+- 由 `DeviceControlWork` 上电初始化（`InitializeOn`）与整机编排驱动 `FlowProcess()`。
+- 模拟模式由 `DeviceControlWork.StartSimulationLineLaser()` 触发 `Start()`（经 `StateSwitched` 事件等连接完成后自启）。
+- Working 态焊缝结果（`ContourDataReady` 回调）→ 上报 `PipelineManager` + 触发 `WeldParamControlWorkflow.ComputeAndOutput()`（见下文「触发焊接工艺计算」）。
 
 ---
 
-## 核心类
+## 公共成员
 
-```csharp
-public class LineLaserWorkflow : DeviceWorkflowBase
-{
-    // 单例访问
-    public static LineLaserWorkflow Instance { get; }
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `Instance` | `static LineLaserWorkflow` | `Lazy<T>` 单例 |
+| `StateName` | `override string` | 对外名片名，返回 `Tag`（日志/事件标识） |
+| `IsPreWorkDone` | `bool` | PreWork 是否完成（主设备轮询判断，完成后可进入 Working） |
+| `IsDataStable` | `bool` | 轮廓数据是否稳定有效（主设备轮询判断） |
+| `State` / `WeldStatus` | 基类属性 | 连接态（`SubDeviceState`）/ 焊接过程态（`SubDeviceWeldStatus`） |
+| `RunStep` / `StepWorkTime` / `WorkStepName` / `StepStatusText` | 基类属性 | 执行步 / 步骤用时 / 步中文名 / 可观测摘要（"step:30 / 8.2s …"） |
+| `Start()` | `void` | 启动工作流：Standby → PreWork（要求当前 `WeldStatus == Standby`，否则抛 `InvalidOperationException`） |
+| `Stop()` | `void` | 手动停止：PreWork/Working/Stopping → `ManualStopped`；其他状态忽略并记 Warning |
+| `BeginWorking()` | `void` | 主设备通知进入 Working（要求 PreWork + `_preWorkDone` + `_dataStable` 三条件） |
 
-    // 状态属性（三态模型）
-    public SubDeviceState State { get; }            // 连接态（2 态），基类提供
-    public SubDeviceWeldStatus WeldStatus { get; }   // 焊接过程态（7 态），基类提供
-    public int WorkStep { get; }                     // 执行步（内部游标）
-    public string WorkStepName { get; }
-    public string StepStatusText { get; }            // "step:30 / 8.2s 启动中-等待数据稳定"
+> 执行步段位常量 `StepPreWork=10` / `StepPreWorkOn=20` / `StepPreWorkStable=30` / `StepPreWorkWaitWork=31` / `StepWorking=100` / `StepStopping=700`（私有）；通用三常量 `StepIdle=0` / `StepFinishOk=800` / `StepFinishFail=900` 由基类提供，子类不得重复定义。
 
-    // 运行态属性
-    public bool IsPreWorkDone { get; }
-    public bool IsDataStable { get; }
+---
 
-    // 事件（基类统一提供）
-    public event EventHandler<SubDeviceStateChangedEventArgs> StateSwitched;       // 连接态变更
-    public event EventHandler<WeldStatusChangedEventArgs> WeldStatusChanged;        // 焊接过程态变更
+## 执行步表（`RunStep` 驱动）
 
-    // 连接契约（基类 abstract，UI 开关按钮直调）
-    public override bool ConnectOn();     // 手动连接（自起后台线程）
-    public override void ConnectOff();    // 手动断开（自起后台线程）
+| 步号 | 常量 | 中文名 | 内容 | 出口 |
+|---|---|---|---|---|
+| 0 | `StepIdle`（基类） | 待机 | 非运行阶段态 | — |
+| 10 | `StepPreWork` | 焊接前-清理状态与外设 | 复位失败计数/成功计数/稳定帧计数 + `SafeShutdownPeripherals()` + 置 `_preWorkDone` | → 20 |
+| 20 | `StepPreWorkOn` | 焊接前-开传感器与激光 | `SetSensor(true)` + `SetLaser(true)`；虚拟相机（`_ilCamera==null`）直接置 `_dataStable` | → 30 |
+| 30 | `StepPreWorkStable` | 焊接前-等待数据稳定 | 相机回调查满 `DataStableFrameCount`(5) 帧置 `_dataStable`；超时 10s → `HandleFailure`（重置计时留在原步） | → 31 |
+| 31 | `StepPreWorkWaitWork` | 焊接前-等待进入Working | 模拟模式自驱动 `SetWeldStatus(Working)`；等主设备 `BeginWorking()`（超时 30s → `Fail`） | → 100（状态切换触发） |
+| 100 | `StepWorking` | 工作中-焊接与自适应调整 | 行程达 `_maxWeldLength` → `StopByWeldLengthReached`（置 Stopping）；`_adjustmentPending` → `RunAutoAdjust()`；有效结果缺失满 5s 窗口 → `HandleFailure` | → 700 |
+| 700 | `StepStopping` | 停止中-关闭外设 | `SafeShutdownPeripherals()` | → 800 |
+| 800 | `StepFinishOk` | 成功收尾 | Stopping 完成 `SetWeldStatus(Standby)` | → 0 |
+| 900 | `StepFinishFail` | 失败收尾 | `SetWeldStatus(ErrorAborted)` + `IsAlarm` | → 0 |
 
-    // 生命周期（基类模板）
-    public void Initialize();             // → ConnectOn() 阻塞同步
-    public void Reset();                   // → ResetProcess()
-    public void ClearAlarm();              // → ClearStatus()
-    public void Start();                   // → StartRunLoop()
-    public void Stop();                    // → StopRunLoop()
-    public void Dispose();                 // 基类实现（模板方法 + DisposeManaged 钩子）
+**超时/计数常量**（秒）：`DataStableTimeoutSeconds=10` / `WaitWorkingTimeoutSeconds=30` / `FirstResultTimeoutSeconds=5` / `DataStableFrameCount=5`。`MaxConsecutiveFailures`（默认 5，可配）达上限才转失败收尾。
 
-    // 分步驱动（命令变量触发）
-    public void BeginStarting();
-    public void BeginWorking();
+> ✅ `PreWorkWaitTimeoutSeconds` 已于 2026-09-04 注释收尾轮删除（双模式 Grep 确认零引用）；等待 Working 超时用 `WaitWorkingTimeoutSeconds`。
+> ⚠️ 等待类执行步**不再无限等待**：超时 → 失败收尾 → `ErrorAborted`（符合「不得留在原步死等」约定）。真实焊接链路中 `BeginWorking()` 目前仓库内**无调用方**——若主设备未在 30s 内通知，工作流将报警；模拟模式在步 31 内自驱动，无需 `BeginWorking`。
+
+---
+
+## 状态联动
+
+### `OnWeldStatusChanged`（把执行步复位到该阶段入口；离开运行态解绑相机）
+
+| 新焊接过程态 | 动作 |
+|---|---|
+| `PreWork` | `AdvanceStep(StepPreWork)`（10） |
+| `Working` | `AdvanceStep(StepWorking)`（100） |
+| `Stopping` | `AdvanceStep(StepStopping)`（700） |
+| 其他（`Standby`/`NoReset`/`ManualStopped`/`ErrorAborted`） | `AdvanceStep(StepIdle)` + `ReleaseCameraBinding()`（退订事件、关外设、`CameraSelector.SetWorking(false)`） |
+
+> `AdvanceStep` 内部**改步 + 刷新计时成对出现**（基类机制），防止把停留时长带入下一步误判超时。
+
+### `WeldStatusTrans()`（整机下发迁移的本地适配）
+
+| 当前焊接过程态 | 动作 |
+|---|---|
+| `NoReset` | return（不动作） |
+| `Stopping` | `AdvanceStep(StepStopping)`（执行停止清料） |
+| `ManualStopped` / `ErrorAborted` | `AdvanceStep(StepIdle)` |
+
+### `FlowProcess()` switch 骨架
+
+```
+if (!IsEnable) return;
+switch (RunStep) {
+    case 10:  if (DoPreWork())      AdvanceStep(20);  break;
+    case 20:  if (DoPreWorkOn())    AdvanceStep(30);  break;
+    case 30:  if (DoPreWorkStable())AdvanceStep(31);  break;
+    case 31:  if (DoPreWorkWaitWork()) AdvanceStep(100); break;
+    case 100: if (DoWorking())      AdvanceStep(700); break;
+    case 700: if (DoStopping())     AdvanceStep(800); break;
+    case 800: if (DoFinishOk())     AdvanceStep(0);   break;
+    case 900: if (DoFinishFail())   AdvanceStep(0);   break;
+    default:  break;   // StepIdle 与未登记步：空转，靠状态切换复位到阶段入口
 }
 ```
 
----
-
-## 执行步表（内部游标）
-
-| 步号 | 中文名 | 内容 | 出口 |
-|---|---|---|---|
-| 0 | 待机 | 非运行阶段态 | — |
-| 10 | 启动前准备-清理状态与外设 | 复位计数/标志 + `SafeShutdownPeripherals()` + 置 `_preWorkDone` | → 11 |
-| 11 | 启动前准备-等待进入 Starting | 等主设备 `BeginStarting()`（超时 30s）；模拟模式自驱动 | → 20 / 900 |
-| 20 | 启动中-开传感器与激光 | `SetSensor(true)` + `SetLaser(true)`；虚拟相机直接判稳 | → 30 / 31 |
-| 30 | 启动中-等待数据稳定 | 等相机回调查满 5 帧置 `_dataStable`（超时 10s） | → 31 / 900 |
-| 31 | 启动中-等待进入 Working | 等主设备 `BeginWorking()`（超时 30s）；模拟模式自驱动 | → 100 / 900 |
-| 100 | 工作中-焊接与自适应调整 | 行程达 `_maxWeldLength` → 700；`_adjustmentPending` → `RunAutoAdjust()` | → 700 |
-| 700 | 停止中-关闭外设 | `SafeShutdownPeripherals()` | → 800 |
-| 800 | 成功收尾 | `SetWeldStatus(Standby)` | → 0 |
-| 900 | 失败收尾 | `SetWeldStatus(ErrorAborted)` + `IsAlarm` + `RecordFault` | → 0 |
-
-**超时阈值常量**：`PreWorkWaitTimeoutMs=30000` / `DataStableTimeoutMs=10000` / `WaitWorkingTimeoutMs=30000` / `FirstResultTimeoutMs=5000`。
-
-> **命名**：步号常量（私有）`StepPreWork=10` / `StepPreWorkWait=11` / `StepStartingOn=20` / `StepStartingStable=30` / `StepStartingWaitWork=31` / `StepWorking=100` / `StepStopping=700`；单步方法统一 `DoXxx()`。通用三常量 `StepIdle`/`StepFinishOk`/`StepFinishFail` 与 `FailFlow(reason)` 由基类下沉。
-
-### 行为变化（重要）
-
-- **等待主设备通知的超时语义**：改造前 PreWork / 数据稳定后为「30 秒超时后继续无限等待」，改造后为「30 秒超时 → 失败收尾 → `ErrorAborted`」（符合「不得留在原步死等」约定）。
-  **⚠️ `BeginStarting()` / `BeginWorking()` 目前无主设备调用方**，UI 单独调试（`MotionControlPage` 直接 `Start()`）时 30 秒后会报警；调试请启用模拟模式自驱动或由主设备补齐分步驱动。
-- **相机绑定/解绑时机**：`Start()` 内 `BindCamera()`；离开运行态时在 `OnWeldStatusChanged` 内 `ReleaseCameraBinding()`。
-- **失败计数不再每拍累加**：改造前每 5ms 调一次 `HandleFailure` 会瞬间打满；改造后需持续 5s 无有效结果才计一次。
-
----
-
-## 连接契约（✅ 2026-09-02 修订）
-
-| 方法 | 说明 |
-|---|---|
-| `ConnectOn()` | 手动连接（`public override`，自起后台线程直接 `ConnectManual` 并置 Connected，UI 开关按钮直调） |
-| `ConnectOff()` | 手动断开（`public override`，自起后台线程 `DisconnectManual` + 关外设） |
-| `Initialize()` | 初始化（基类模板，内部 `ConnectOn()` 阻塞同步三步 connect→readConfiguration→verifyHardwareStatus，成功→`Connected`，失败→`Disconnected`） |
-
-> `State` / `WeldStatus` / `StateSwitched` / `WeldStatusChanged` / `GoStep` / `FlowProcess` / `ConnectOn` / `ConnectOff` / `ResetProcess` / `ClearStatus` / `GetStepName` 均由基类提供或约束，本文件内看不到定义属正常。
-
----
-
-## 过程态与连接态映射
-
-私有阶段枚举 `LineLaserWorkflowState` 经 `MapWeldStatus(...)` 映射到对外 `SubDeviceWeldStatus`：
-
-| 私有阶段态 `LineLaserWorkflowState` | 焊接过程态 `SubDeviceWeldStatus` | 连接态 `SubDeviceState` |
-|---|---|---|
-| `Uninitialized` | `Standby` | `Disconnected` |
-| `Standby` / `ManualStopped` | `Standby` | `Connected` |
-| `Initializing` / `PreWork` / `Starting` / `Working` / `Stopping` | `PreWork`/`Starting`/`Working`/`Stopping`（对应） | `Connected` |
-| `ErrorAborted` | `ErrorAborted` | `Connected` |
-
-> 过程态写入统一经私有 `SetStep(phase, reason)` → `SetWeldStatus(MapWeldStatus(phase), reason)`，**禁止手工 `WeldStatus = ...` 赋值**。
+> ⛔ 全部 case 无 `Thread.Sleep` / `while` 轮询：等待靠「外部线程重入 + `IsTimeout(seconds)`」判定超时。
 
 ---
 
 ## 关键行为
 
-### ConnectOn（手动连接，阻塞同步）
+### Start()（Standby → PreWork）
 
-阻塞同步执行三步初始化（connect → readConfiguration → verifyHardwareStatus），成功后 `SetState(Connected)` + `SetWeldStatus(Standby)`；失败 `SetState(Disconnected)` + `SetWeldStatus(ErrorAborted)`。复位职责（关激光/关传感器）归 `ResetProcess`。
+`lock(_syncRoot)` 内要求 `WeldStatus == Standby`（否则抛异常）→ 复位计数、清 `_preWorkDone`/`_dataStable` → `SetWeldStatus(PreWork)`。随后按模式选择相机：模拟+虚拟相机 → `CameraSelector.SelectVirtual()`，否则 `SelectIntelligentLaser()`；`CameraSelector.SetWorking(true)`；`BindCamera()` 订阅轮廓事件。相机绑定仅在运行期存在，离开运行态由 `OnWeldStatusChanged` 触发 `ReleaseCameraBinding()`。
+
+### 数据稳定判定（PreWork 阶段）
+
+`IlCamera_ContourDataReady` 回调中，若处于 `PreWork` 且结果有效，`_startingValidFrameCount` 累加，连续满 5 帧（`DataStableFrameCount`）置 `_dataStable = true`；任一帧无效则清零重计。
 
 ### 触发焊接工艺计算
 
-Working 态中，当连续成功帧计数达到 `_adjustTriggerSuccessCount` 时：
+回调中连续成功帧达 `_adjustTriggerSuccessCount`（默认 1，可配）时置 `_adjustmentPending`；`FlowProcess` 步 100 消费后调用 `RunAutoAdjust()`：
 
 ```csharp
-var ir = e.Inspect;                          // 英莱回调结果
-var sf = new SeamFeatureResult();
-sf.CenterY   = ir.FeatureY;
-sf.CenterX   = ir.FeatureZ;
-sf.SeamWidth = (ir.Width0 + ir.Width1) * 0.5;
-sf.SeamArea  = ir.Area;
-double robotX = GetCurrentRobotX();
-PipelineManager.Instance.ReportExternalResult(sf, robotX, null);
-_lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();
+// 硬件 CAMBOX 跟踪运行期间跳过软件离散调整
+if (MotionControlWorkflow.Instance.IsRunning) { _lastAdjustSuccess = true; return; }
+_lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();   // 焊接工艺计算与下发
 ```
 
-**焊缝信息即英莱线激光的结果**——回调本就含 `FeatureY/FeatureZ`（特征点）与 `Width0/Width1`（宽度）。
+> 焊缝特征与机器人 X 由 `WeldProcess` 在 `PipelineManager.AlgorithmCompleted` 中暂存，工艺工作流统一计算下发，此处无需传参。
+
+### 失败计数语义
+
+- 有效结果缺失需**持续满 5s 超时窗口**才计一次失败（`FirstResultTimeoutSeconds`），且每次计时后 `ResetWorkTime()`——避免每拍累加瞬间打满。
+- `HandleFailure` 连续失败达 `_maxConsecutiveFailures`（默认 5）→ `Fail(reason)`：记录 `_failStep`/`_failReason` 后 `AdvanceStep(900)`。
+- 步 900 失败收尾：`SetWeldStatus(ErrorAborted)` + `IsAlarm=true` → 回 0 待机，等待人工复位。（故障落库已随模块移除删除，ADR-038）
 
 ### 待机安全默认态
 
-`Standby` 时传感器与激光**均关闭**（安全默认态）。
+`Standby` 时传感器与激光均关闭（安全默认态）；`SafeShutdownPeripherals()` 由步 10/700、`ResetProcess`、`ReleaseCameraBinding` 多处保证。
 
 ---
 
-## UI 接入
+## 连接 / 生命周期契约
+
+| 方法 | 语义 | 状态联动 |
+|---|---|---|
+| `InitializeOn()` | 阻塞连接（上电初始化用）：`InitializeInternal`（connect→readConfiguration→verifyHardwareStatus，走 `RunStepAction` 三步模板）；失败 `SetWeldStatus(ErrorAborted)` 返回 false | 成功：`State=Connected` + `WeldStatus=NoReset` |
+| `InitializeOff()` | 阻塞断开：断开相机、`SafeShutdownPeripherals` + `ReleaseCameraBinding` | `State=Disconnected` + `WeldStatus=NoReset` |
+| `ConnectOn()` | 非阻塞：自起后台线程 `ConnectWorker` 执行连接（`_isConnecting` 防重入，已连接直接 true） | 成功 `State=Connected`；失败 `WeldStatus=ErrorAborted` |
+| `ConnectOff()` | 非阻塞：自起后台线程 `DisconnectWorker` 断开 | `State=Disconnected` |
+| `ResetProcess()` | 线性阻塞链：未连接拒绝（false）；关外设 + 复位失败计数 | `WeldStatus=Standby` |
+| `ClearStatus()` | 复位前状态清理：清报警与标志位、`AdvanceStep(0)` | `WeldStatus=NoReset` |
+| `ResetWorkTime()` | `ResetStepTime()`（基类） | — |
+
+> 连接初始化模拟相关：模拟开启且非虚拟相机时先 `CameraSelector.SelectIntelligentLaser()`；`CameraSelector.IsVirtual` 时三步直通返回 true。
+
+---
+
+## 配置项（`ConfigFileName = "LineLaserWorkflow"`）
+
+| 配置元素 | 默认值 | 说明 |
+|---|---|---|
+| `TimeOutSeconds` | 30 | 基类超时阈值（秒） |
+| `MaxConsecutiveFailures` | 5 | 连续失败上限，达上限转失败收尾 |
+| `MaxWeldLength` | 1000.0 | 焊缝最大行程（mm），达行程自动 Stopping |
+| `AdjustTriggerSuccessCount` | 1 | 连续成功帧触发工艺计算的阈值 |
+
+`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/XML/LineLaserWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。配置非线程安全，运行期禁止在 `FlowProcess()` 内读写。
+
+---
+
+## 事件与生命周期
+
+- 构造函数订阅 `GlobalCommData.CommunicationCommandReceived += OnCommunicationCommandReceived`（回调统一 `ShowCommunicationLog(Tag, message)` 记通信收发日志）。
+- `DisposeManaged()`（基类 `Dispose()` 钩子，ADR-025）：退订全局事件 → 退订相机事件 → `_ilCamera.Dispose()` → `CameraSelector.SetWorking(false)`。
+- 连接/断开线程（`ConnectWorker`/`DisconnectWorker`）为后台线程，`_isConnecting` 标志防重入。
+
+---
+
+## 可观测性
+
+`GetStepName` 映射：`0 待机` / `10 焊接前-清理状态与外设` / `20 焊接前-开传感器与激光` / `30 焊接前-等待数据稳定` / `31 焊接前-等待进入Working` / `100 工作中-焊接与自适应调整` / `700 停止中-关闭外设` / `800 成功收尾` / `900 失败收尾` / 其余 `未登记步(N)`。
+
+`SubDeviceLog()`（C7 契约，各子流程自写日志）：输出连接态 / 焊接过程态 / 步骤名 / 有效结果 / 实测帧率 / 稳定帧计数。
+
+---
+
+## 调用方与 UI 接入
 
 ```csharp
 using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;
@@ -175,17 +202,23 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // 读 SubDeviceState / Sub
 var wf = LineLaserWorkflow.Instance;
 var status = wf.WeldStatus;   // 焊接过程态：判断是否运行、显示分步进度
 var state  = wf.State;        // 连接态：判断能否操作、销毁前是否断开
+var step   = wf.StepStatusText;  // "step:100 / 3.4s 工作中-焊接与自适应调整"
 ```
 
-调用方：`FormMain.cs`、`ILCamPage.cs`、`MotionControlPage.cs`、`MainPage.cs`
+- 编排调用方：`DeviceControlWork`（`InitializeOn`/`InitializeOff` 级联；模拟：`StartSimulationLineLaser`/`StopSimulationLineLaser`/`ResetSimulationLineLaser` + `OnSimLineLaserStateChanged` 回调）。
+- UI 读态：`FormMain.cs`、`ILCamPage.cs`、`MotionControlPage.cs`、`MainPage.cs`（只读 `WeldStatus`/`State`/`StepStatusText`）。
+- ⚠️ UI/外部**不得越权直驱**线激光 `Start`（模拟流程由 `DeviceControlWork` 统一编排，见 `StartSimulationLineLaser` 注释）。
 
 ---
 
 ## 关联
 
 - [[modules/DeviceControl]] — 所属架构
-- [[architecture/DeviceControlArchitecture]] — 架构规范页
-- [[modules/WeldParamControl]] — 焊接工艺计算链路
+- [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
+- [[lessons/StepMemberNameCollision]] — `RunStepAction` 命名避让基类 `RunStep` 属性的 CS0102 教训
+- [[modules/WeldParamControl]] / [[api/WeldParamControlWorkflow]] — 焊接工艺计算链路
+- [[api/MotionControlWorkflow]] — CAMBOX 硬件跟踪运行期间跳过软件调整
+- [[api/GlobalCommData]] — 日志与通讯底层出口
 - [[decisions/ADR-029-YinglaiDataFlow]] — 英莱数据流
-- [[decisions/ADR-026-LineLaserWorkflowRefactor]] — 分步重构
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型决策
+- [[decisions/ADR-036-RawDesignRefinement20260903]] — 原档细化与完全重构裁定

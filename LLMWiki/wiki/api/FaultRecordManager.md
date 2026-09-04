@@ -1,10 +1,13 @@
 ---
 title: FaultRecordManager API — 故障记录数据库管理器
 date: 2026-08-31
-tags: [API, 故障恢复, SQLite, 单例, 数据库]
+tags: [API, 故障恢复, SQLite, 单例, 数据库, 已废弃]
+status: deprecated
 ---
 
 # FaultRecordManager API — 故障记录数据库管理器
+
+> ⛔ **整页废弃（2026-09-04）**：FaultRecordManager 已随 FaultRecoveryManager **整体从代码中移除**（[[decisions/ADR-038-ErrorReportingHierarchy]] D3）。历史存档见下文。
 
 > **位置**：`SqlLiteDatabase/FaultRecordManager.cs`，命名空间 `AdaWeldSystem.SqlLiteDatabase`（2026-08-31 新增，ADR-033）。
 > FaultRecord 表的建表、插入与查询；继承 `DatabaseManagerBase`，数据库文件 `DataBase\FaultRecord.db`（首启自动建目录建表）。

@@ -1,143 +1,172 @@
 ﻿---
 title: MotionControlWorkflow API 参考（CAMBOX 硬件实时焊缝跟踪 · 三态模型）
 date: 2026-09-02
-updated: 2026-09-02
-tags: [API, 工作流, 运控, CAMBOX, 正运动, RSI, EtherCAT, 实时跟踪, SubDeviceWeldStatus, 执行步, 步骤驱动, ADR-034]
+updated: 2026-09-04
+tags: [API, 工作流, 运控, CAMBOX, 正运动, RSI, 实时跟踪, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-034, ADR-036]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 ---
 
 # MotionControlWorkflow API 参考
 
-> **⚠️ 2026-09-03 架构重构（ADR-036 已裁定，用户定性「完全重构」）**：本页描述的是**改造前**的 API 现状，改码尚未开工。
-> 下列机制**已裁定清除，不得据本页改码**：`GoStep`/`SetStep` 改步 · `WorkStep`/`WorkStartTime` · 基类常驻监听线程（`StartRunLoop`/`BeatMs`） · `ManualOn`/`ManualOff` · 命令三槽与机器人 pose 监控 · const int 指令表。
-> **现行规范唯一出处**：[[architecture/DeviceControlArchitecture]]（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7 7 线程编排 · §16 代码模板）。
-> 本页将在 [[architecture/DeviceControlArchitecture]] §15 的改码批次完成后同步重写。
-
-> 运控工作流（单例），承载 **CAMBOX 硬件级实时焊缝跟踪**。
+> 运动控制工作流（单例），承载 **CAMBOX 硬件级实时焊缝跟踪**（启动/停止编排器，不参与实时运动控制）。
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
-> **继承**：`DeviceWorkflowBase`（非泛型，→ `DeviceStateBase`），`IDisposable` 由基类实现
-> 设计依据见 [[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
->
-> **✅ 2026-09-02 三态模型重构（ADR-034，accepted）**：旧「设备四态 `DeviceState` + 流程态 `LaserCamBoxWorkflowState`」改为三态模型——连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`；旧 `Step`(流程态枚举) 对外不再暴露，由私有 `_phase`(`LaserCamBoxWorkflowState`) 驱动 `FlowProcess`，对外经 `WeldStatus` 承载。旧 `ManualOn`/`ManualOff` → `ConnectOn`/`ConnectOff`；`StateChanged(WorkflowStepChangedEventArgs<T>)` → `WeldStatusChanged(WeldStatusChangedEventArgs)` + `StateSwitched(SubDeviceStateChangedEventArgs)`。
+> **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
+> 设计依据见 [[decisions/ADR-023-RSICamBoxTrackingArchitecture]]。
+
+> **✅ 2026-09-04 已落地（ADR-036 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`，每拍开头刷跟踪状态）、`RunStep` 每 case 靠 bool 推进、跟踪引擎异常只记日志不上抛（订阅方直订 `Tracker.TrackingError`）。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`BeatMs`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
 ---
 
 ## 定位
 
-- **CAMBOX 跟踪归入运控**，由本类统一承载
-- 电子凸轮由**硬件总线**完成实时跟随；PC 侧仅做**启停编排与轨迹规划**，不参与实时运动控制
-- 主轴：虚拟编码器轴 axis8（`ATYPE=25`，KUKA PDO 驱动）；从轴：Y 轴 axis0
+- **CAMBOX 跟踪归入运控**，由本类统一承载；电子凸轮由**硬件总线**完成实时跟随，PC 侧仅做启停编排与轨迹规划。
+- 主轴：虚拟编码器轴 axis8（`ATYPE=25`，KUKA PDO 驱动）；从轴：Y 轴 axis0。
+- 本类**不产出设备数据**；跟踪点/跟踪异常的订阅方直接订阅 `Tracker` 属性暴露的 `CamBoxTracker`（权责边界，ADR-030 R2）。
+- 差异化职责（原档 R011）：**检测送丝位置和焊接质量阈值**——`SubDeviceLog()` 内 `// todo`，待硬件点位明确后落地。
 
 ---
 
-## 核心类
+## 公共成员
 
-```csharp
-public class MotionControlWorkflow : DeviceWorkflowBase
-{
-    // 单例访问（Lazy<T>）
-    public static MotionControlWorkflow Instance { get; }
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `Instance` | `static MotionControlWorkflow` | `Lazy<T>` 单例 |
+| `StateName` | `override string` | 对外名片名，返回 `Tag`（日志/事件标识） |
+| `Tracker` | `CamBoxTracker` | CAMBOX 跟踪引擎（跟踪点/异常事件直订源） |
+| `EncoderAxis` | `EncoderAxis` | 通讯编码器主轴（axis8，ATYPE=25） |
+| `PositionBuffer` | `RSIPositionBuffer` | RSI 位置时间戳环形缓冲 |
+| `IsRunning` | `bool` | 是否正在运行（`Tracking` 或 `WaitingForMaster`） |
+| `State` / `WeldStatus` | 基类属性 | 连接态（`SubDeviceState`）/ 焊接过程态（`SubDeviceWeldStatus`） |
+| `RunStep` / `StepWorkTime` / `WorkStepName` / `StepStatusText` | 基类属性 | 执行步 / 步骤用时 / 步中文名 / 可观测摘要 |
 
-    // 状态（三态模型）
-    public SubDeviceState State { get; }            // 连接态（2 态）
-    public SubDeviceWeldStatus WeldStatus { get; }   // 焊接过程态（7 态）
-    public bool IsRunning { get; }
-    public int WorkStep { get; }
-    public string WorkStepName { get; }
-    public string StepStatusText { get; }
+> `ConfigFileName = "MotionControlWorkflow"`（protected override，配置落在 `Config/XML/` 下）。
+> **枚举命名提示**：相位枚举名为 `LaserCamBoxWorkflowState`（历史命名，与实现类 `MotionControlWorkflow` 不同名，非缺陷）。
 
-    // 组件访问
-    public CamBoxTracker Tracker { get; }
-    public EncoderAxis EncoderAxis { get; }
-    public RSIPositionBuffer PositionBuffer { get; }
+---
 
-    // 事件（基类统一提供）
-    public event EventHandler<SubDeviceStateChangedEventArgs> StateSwitched;
-    public event EventHandler<WeldStatusChangedEventArgs> WeldStatusChanged;
-    // 注：TrackingError / PointAdded 已于 2026-08-31 移除（违反 ADR-030 R2）
+## 私有相位 `LaserCamBoxWorkflowState`（同文件公共枚举）
 
-    // 连接契约 + 生命周期
-    public override bool ConnectOn();    // 手动连接（自起后台线程）
-    public override void ConnectOff();   // 手动断开（自起后台线程）
-    public void Initialize();            // 基类模板 → ConnectOn()
-    public void Reset();                  // → ResetProcess()
-    public void ClearAlarm();             // → ClearStatus()
+`_phase`（默认 `Idle`）仅驱动 `FlowProcess` 与可观测性，对外经 `SetWeldStatus(MapWeldStatus(phase))` 映射：
 
-    // 运行控制（命令变量受理式）
-    public bool Start();                  // 受理启动 → SetWeldStatus(PreWork) → 执行步 10
-    public void Stop(bool immediate = false);  // 受理停止 → SetWeldStatus(Stopping) → 执行步 700
-    public void Reset();
+| 取值 | 含义 | 映射 `SubDeviceWeldStatus` |
+|---|---|---|
+| `Idle` | 空闲（未启动） | `Standby` |
+| `Initializing` | 初始化中（配置三组件） | `PreWork` |
+| `WaitingForMaster` | 等待主轴运动（机器人开始进给） | `Working` |
+| `Tracking` | 正常跟踪中（硬件 CAMBOX 实时跟随） | `Working` |
+| `Paused` | 临时暂停（激光丢帧等可恢复中断） | `Working` |
+| `Stopping` | 停止中 | `Stopping` |
+| `Error` | 异常（EtherCAT 断连等严重错误） | `ErrorAborted` |
 
-    // 轨迹与位置
-    public bool AddTrajectoryPoint(double laserOffset, DateTime laserTimestamp);
-    public void AddRSIPositionSample(long timestamp, double position, double velocity = 0);
-    public bool BeginYAxisTracking();
+> `SetPhase(phase, reason)` 是相位唯一写入口：刷新 `_phase` → `SetWeldStatus(MapWeldStatus(phase), reason)` → 把执行步复位到该阶段入口（`WaitingForMaster`→10、`Tracking`→100、`Paused`→110、`Stopping`→700、其余→0）。
+> ⛔ 禁止手工 `WeldStatus = ...` / `State = ...` 赋值。
 
-    public void Dispose();
+---
+
+## 执行步表（`RunStep` 驱动）
+
+| 步号 | 常量 | 中文名 | 内容 | 出口 |
+|---|---|---|---|---|
+| 0 | `StepIdle`（基类） | 空闲待机 | 非运行阶段态 | — |
+| 10 | `StepResetEncoder` | 启动-清零编码器轴 | `_encoderAxis.Reset()`（必须在 CAMBOX 启动前） | → 20 |
+| 20 | `StepStartCamBox` | 启动-启动CAMBOX | `_tracker.Start()`；失败留原步重入，超时 5s → `Fail("CAMBOX 启动超时")` | → 30 / 900 |
+| 30 | `StepWaitMaster` | 启动-等待主轴运动 | 等 `SyncPhaseFromTracker` 转 `Tracking`；超时 120s → `Fail` | → 100 / 900 |
+| 100 | `StepTracking` | 跟踪中 | `ApplySpotAlignCompensation()`（消费光斑对准偏差驱动振镜，`// todo` 摆幅落地） | — |
+| 110 | `StepPaused` | 暂停中-等待恢复 | 等 `SyncPhaseFromTracker` 回 `Tracking`；超时 30s → `Fail` | → 100 / 900 |
+| 700 | `StepStopping` | 停止收尾 | `_tracker.Stop(false)` + `_encoderAxis.Reset()` + `_positionBuffer.Clear()` → `SetPhase(Idle)` | → 0 |
+| 900 | `StepFinishFail`（基类常量） | 失败收尾 | `SetPhase(Error)` + `IsAlarm` + `RecordFault`（`MotionStepFail`） | → 0 |
+
+**超时/常量**（秒）：`CamBoxStartTimeoutSeconds=5` / `MasterWaitTimeoutSeconds=120` / `PausedTimeoutSeconds=30`。
+
+### `FlowProcess()` switch 骨架（每拍先刷状态）
+
+```
+if (!IsEnable) return;
+UpdateTrackerStatus();          // _tracker.UpdateStatus + _encoderAxis.UpdateStatus + SyncPhaseFromTracker
+switch (RunStep) {
+    case 10:  if (DoResetEncoder()) AdvanceStep(20);   break;
+    case 20:  if (DoStartCamBox())  AdvanceStep(30);   break;
+    case 30:  if (DoWaitMaster())   AdvanceStep(100);  break;
+    case 110: if (DoPaused())       AdvanceStep(100);  break;
+    case 700: if (DoStopping())     AdvanceStep(0);    break;
+    case 900: if (DoFinishFail())   AdvanceStep(0);    break;
+    case 100: ApplySpotAlignCompensation();            break;  // 跟踪中：消费光斑对准偏差
+    default:  break;   // StepIdle 与未登记步：空转，靠相位切换复位
 }
 ```
 
-> **枚举命名提示**：私有阶段枚举名为 `LaserCamBoxWorkflowState`（历史命名，内联于本文件），实现类名已统一为 `MotionControlWorkflow`。二者不同名是历史原因，非缺陷。
-
----
-
-## 过程态与连接态映射
-
-私有阶段枚举 `LaserCamBoxWorkflowState` 经 `MapWeldStatus(...)` 映射到对外 `SubDeviceWeldStatus`：
-
-| 私有阶段态 `LaserCamBoxWorkflowState` | 焊接过程态 `SubDeviceWeldStatus` | 连接态 `SubDeviceState` |
-|---|---|---|
-| `Idle`（未初始化） | `Standby` | `Disconnected` |
-| `Idle`（已初始化） | `Standby` | `Connected` |
-| `Initializing` / `WaitingForMaster` / `Tracking` / `Paused` / `Stopping` | `PreWork`/`Starting`/`Working`/`Stopping`（对应） | `Connected` |
-| `Error` | `ErrorAborted` | `Connected` |
-
-### Idle 一态两义（特殊处理）
-
-`Idle` 既可能是"未连接就绪"也可能是"已连接就绪"，按初始化标记区分：
-
-```csharp
-case ...:  return SubDeviceWeldStatus.Working;   // 跟踪中
-case Error: return SubDeviceWeldStatus.ErrorAborted;
-default:   // Idle
-    return _initialized ? SubDeviceState.Connected : SubDeviceState.Disconnected;
-```
+> ⛔ 全部 case 无 `Thread.Sleep` / `while` 轮询：等待靠「外部线程重入 + `IsTimeout(seconds)`」判定。
+> `SyncPhaseFromTracker()` 把 `CamBoxTracker.State` 同步到工作流相位：`Tracking` → `SetPhase(Tracking)`、`Paused` → `SetPhase(Paused,"激光丢帧暂停")`、`Error` → `Fail("跟踪引擎异常")`。
 
 ---
 
 ## 关键行为
 
-### ConnectOn（自动初始化，受理式）
+### Initialize（三参数，公共）
 
-配置 `CamBoxTracker`、`EncoderAxis`、`RSIPositionBuffer` 三组件并绑定正运动控制器句柄。由 `DeviceControlWork` 自动初始化（`InitializeMachine`）第 2 步调用（`ConnectOn()`），句柄取自 `zmController.GetHandle()`。未检测到正运动控制器时跳过。
+```csharp
+public bool Initialize(CamBoxTrackingConfig trackingConfig, EncoderAxisConfig encoderConfig, IntPtr controllerHandle)
+```
 
-### 后台监控（基类监听线程）
+`controllerHandle == IntPtr.Zero` → 失败。流程（`lock(_lock)`）：`SetPhase(Initializing)` → ① `_encoderAxis.Initialize(encoderConfig, handle)` ② `_tracker.Initialize(trackingConfig, handle, _positionBuffer)` ③ `_positionBuffer.Clear()`；任一步失败 → `SetPhase(Error)` + `State=Disconnected` + false。成功 → `_initialized=true` + `SetPhase(Idle)` + `State=Connected` + `WeldStatus=NoReset`。
 
-`FlowProcess()` **每拍开头**调 `UpdateTrackerStatus()`（`_tracker.UpdateStatus()` + `_encoderAxis.UpdateStatus()` + `SyncStateFromTracker()`），节拍 `BeatMs = 20`（50Hz，与原设计一致）。
+### Start / Stop（受理式）
+
+- `Start()`：要求已初始化（`_tracker`/`_encoderAxis` 非空，否则 false）→ `SetPhase(WaitingForMaster)`（执行步 10 起，由编排线程完成后续清零/启 CAMBOX/等主轴）。**受理即返回**，硬件启动结果读 `WeldStatus`。
+- `Stop(bool immediate = false)`：`immediate=true` 先 `_tracker.Stop(true)`；`Idle`/`Error` 态忽略；否则 `SetPhase(Stopping)`（执行步 700 完成停 CAMBOX 与复位）。
+
+### 轨迹写入（非实时）
+
+- `AddTrajectoryPoint(double laserOffset, DateTime laserTimestamp)` → `_tracker.AddTrajectoryPointWithTimestamp(...)`（时间戳插值 + 前置补偿 + 写入，最常用方法）。
+- `AddRSIPositionSample(long timestamp, double position, double velocity = 0)` → `_positionBuffer.AddSample(...)`。
+- `BeginYAxisTracking()`：焊前阶段由主设备调用；当前为**骨架实现，恒返回 true**（`// TODO` 基于机器人焊前位执行 Y 轴偏移跟踪并回报结果）。
+
+### 光斑对准偏差消费（原档20260904 §7.4.5 / §7.5.2 步骤⑤）
+
+`StepTracking` 内 `ApplySpotAlignCompensation()`：读 `DeviceControlWork.Instance.AlignDatum` 只读中枢（ADR-030：产出方持有、消费方取用），把 `OffsetX`/`OffsetY` 存入私有 `_lastSpotOffsetX/Y`（供振镜补偿与调试观测）；`// todo` 振镜摆动控制待 `WeldParamControlWorkflow.LastOutput.GalvoAmplitude` 摆幅基准落地后实现。
+
+> 用户 2026-09-04 裁定：监控相机**只给结果**（对中 OK/NG + 偏差值），光斑对准偏差由**控制器**消费以驱动振镜摆动光斑，相机不自行补偿。
+
+### 跟踪引擎异常
+
+`_tracker.TrackingError += OnTrackerError`（构造函数订阅）→ 仅 `Log` 错误，不上抛为工作流事件（订阅方直接订阅 Tracker）。
 
 ---
 
-## 执行步表（内部游标）
+## 连接 / 生命周期契约
 
-| 步号 | 中文名 | 内容 | 出口 |
-|---|---|---|---|
-| 0 | 空闲待机 | 非运行阶段态 | — |
-| 10 | 启动-清零编码器轴 | `_encoderAxis.Reset()`（必须在 CAMBOX 启动前） | → 20 |
-| 20 | 启动-启动 CAMBOX | `_tracker.Start()`；失败留原步重入重试，超时 5s | → 30 / 900 |
-| 30 | 启动-等待主轴运动 | 等 `SyncStateFromTracker` 转 `Tracking`（超时 120s） | → 100 / 900 |
-| 100 | 跟踪中 | 空转（周期状态刷新已在每拍开头完成） | — |
-| 110 | 暂停中-等待恢复 | 激光丢帧暂停，恢复回 100；超时 30s | → 100 / 900 |
-| 700 | 停止收尾 | `tracker.Stop(false)` + `encoderAxis.Reset()` + `buffer.Clear()` → `SetWeldStatus(Standby)` | → 0 |
-| 900 | 失败收尾 | `SetWeldStatus(ErrorAborted)` + `IsAlarm` + `RecordFault` | → 0 |
+| 方法 | 语义 | 状态联动 |
+|---|---|---|
+| `InitializeOn()` | 阻塞连接：`MotionManager.Initialize()`；无正运动控制器（`DefaultController` 非 `ZMotionController`）→ 记 Warning + `State=Connected`（无 CAMBOX）跳过；否则取 `MotionConfigManager.Config` 三参数 `Initialize(...)` | 成功 `State=Connected`；失败 `State=Disconnected` |
+| `InitializeOff()` | 阻塞断开：`_tracker.Stop(true)` + 复位编码器 + 清缓冲 → `SetPhase(Idle)` | `State=Disconnected` + `WeldStatus=NoReset` |
+| `ConnectOn()` | 非阻塞：要求 `_initialized`（否则 false） | `State=Connected` |
+| `ConnectOff()` | 非阻塞：`Stop(false)` | `State=Disconnected` |
+| `ResetProcess()` | 线性阻塞链：清凸轮表（`_tracker.Reset()`）+ 清缓冲 + 复位编码器 → `SetPhase(Idle)` | `WeldStatus=Standby` |
+| `ClearStatus()` | 复位前状态清理 | `WeldStatus=NoReset` |
+| `ResetWorkTime()` | `ResetStepTime()`（基类） | — |
+| `WeldStatusTrans()` | `NoReset` return；`Stopping` 且相位非 Stopping → `SetPhase(Stopping)`；`ManualStopped`/`ErrorAborted` 且相位非 Idle → `SetPhase(Idle)` | — |
 
-**超时阈值常量**：`CamBoxStartTimeoutMs=5000` / `MasterWaitTimeoutMs=120000` / `PausedTimeoutMs=30000`。
+---
 
-> **行为变化**：`Start()` 由「同步完成清零编码器 + 启动 CAMBOX 后返回」改为「**受理指令**后返回，实际动作由监听线程按执行步完成」。返回值语义变为「指令是否受理」，硬件启动结果请读 `WeldStatus`（`PreWork`/`Working`）。调用方 `MotionControlPage.cs` 经 `WeldStatus` 观察状态，兼容。
+## 配置项（`ConfigFileName = "MotionControlWorkflow"`）
 
-### 轨迹点追加
+| 配置元素 | 默认值 | 说明 |
+|---|---|---|
+| `TimeOutSeconds` | 30 | 基类超时阈值（秒） |
 
-`AddTrajectoryPoint(laserOffset, laserTimestamp)` — 追加激光偏移轨迹点，内部与 `RSIPositionBuffer` 中的位置序列做时间戳插值对齐。
+`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/XML/MotionControlWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。各步超时用私有常量判定，与 `TimeOutSeconds` 相互独立。
+
+---
+
+## 可观测性与释放
+
+`GetStepName` 映射：`0 空闲待机` / `10 启动-清零编码器轴` / `20 启动-启动CAMBOX` / `30 启动-等待主轴运动` / `100 跟踪中` / `110 暂停中-等待恢复` / `700 停止收尾` / `900 失败收尾` / 其余 `未登记步(N)`。
+
+`SubDeviceLog()`（C7 契约）：输出连接态 / 焊接过程态 / 相位 / 步骤名 / 已初始化标志（送丝/质量阈值日志 todo）。
+
+`DisposeManaged()`（基类 `Dispose()` 钩子，ADR-025）：退订 `TrackingError` → 释放 `_tracker`/`_encoderAxis`/`_positionBuffer`（置 null、`_initialized=false`）→ `State=Disconnected` + `SetPhase(Idle)`。
 
 ---
 
@@ -148,22 +177,24 @@ using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;
 
 var wf = MotionControlWorkflow.Instance;
 var status = wf.WeldStatus;   // 焊接过程态
-// 启停
+var running = wf.IsRunning;   // Tracking 或 WaitingForMaster
+// 启停（受理式，硬件结果读 WeldStatus）
 wf.Start();
 wf.Stop();
 ```
 
-调用方：`MotionControlPage.cs`（启停按钮）、`FormMain.cs`
+调用方：`MotionControlPage.cs`（启停按钮）、`FormMain.cs`、`DeviceControlWork`（初始化级联 + `AlignDatum` 消费侧）。`LineLaserWorkflow.RunAutoAdjust` 以 `MotionControlWorkflow.Instance.IsRunning` 判断 CAMBOX 硬件跟踪运行期间跳过软件离散调整。
 
 ---
 
 ## 关联
 
 - [[modules/DeviceControl]] — 所属架构
-- [[architecture/DeviceControlArchitecture]] — 架构规范页（第 10 章 运动控制）
-- [[api/CamBoxTracker]] — CAMBOX 跟踪引擎
+- [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
+- [[api/CamBoxTracker]] — CAMBOX 跟踪引擎（跟踪点/异常直订源）
 - [[api/EncoderAxis]] — ATYPE=25 通讯编码器轴
 - [[api/RSIPositionBuffer]] — RSI 位置时间戳环形缓冲
+- [[api/MotionManager]] / [[api/ZMotionController]] — 正运动控制器入口与句柄
 - [[modules/MotionControl]] — 运控硬件层
 - [[decisions/ADR-023-RSICamBoxTrackingArchitecture]] — CAMBOX 架构决策
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 本次三态模型决策（现行有效）
+- [[decisions/ADR-034-ThreeStateModelRefactor]]、[[decisions/ADR-036-RawDesignRefinement20260903]] — 三态模型与原档细化裁定

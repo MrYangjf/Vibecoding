@@ -19,7 +19,7 @@ ProductFileManager/
 ├── RecordFrame.cs           ← 记录帧数据结构（点云帧）
 ├── WeldActionRecord.cs      ← 焊接动作/过程记录（双记录：过程帧 + 调整动作，ADR-010）
 ├── SmartRayConverter.cs     ← SmartRay 原始点云 → PointCloudData 转换器
-└── FaultRecoveryManager.cs  ← 故障恢复管理器单例（故障恢复数据归口使用方，2026-09-01 迁入）
+└── FaultRecoveryManager.cs  ← 故障恢复管理器单例（故障恢复数据归口使用方，2026-09-01 迁入；已移除 2026-09-04，ADR-038 D3）
 ```
 
 ## 职责边界

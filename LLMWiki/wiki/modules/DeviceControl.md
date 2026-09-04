@@ -67,25 +67,27 @@ source: AdaWeldSystem/MainDeviceControl/ 模块源码
 
 ```
 MainDeviceControl/
-├── DeviceStateApiCore/               基类 API 核心（2026-09-01 由 DeviceState/ + FlowState/ 合并）
-│   │                                 ※ 目录合并但命名空间不变，下分两个：
-│   │                                   ...DeviceState / ...FlowState（详见下方「目录 ≠ 命名空间」）
-│   ├── DeviceStateBase.cs            设备态/过程态基类 + 三枚举 + 事件参数    ns ...DeviceState
-│   ├── CommandTable.cs               机器人握手协议        ns ...DeviceState
-│   └── DeviceWorkflowBase.cs         工作流基类（非泛型）  ns ...FlowState
-├── DeviceWorkflow/                   命名空间 AdaWeldSystem.MainDeviceControl.DeviceWorkflow
-│   ├── DeviceControlWork.cs          整机主控（MainDeviceStatus + 5 步上电初始化）  ns ...DeviceWorkflow
-│   ├── DeviceStatusWork.cs           安全/IO/状态管控（三线程）                   ns ...DeviceWorkflow
-│   ├── LineLaserWorkflow.cs          线激光
-│   ├── MonitorCameraWorkflow.cs      监控相机
-│   ├── MotionControlWorkflow.cs      运控（CAMBOX）
-│   ├── WeldParamControlWorkflow.cs   焊接工艺控制
-│   └── LaserWeldHeadWorkflow.cs      焊接头（骨架）
-│   ※ 2026-09-01 `FaultRecoveryManager.cs`（含 FaultCategory / FaultRecord）迁出至 [[modules/ProductFileManager]]，
-│     本目录 7 个类为其消费方（ADR-033 §3）；模拟模式真相源为 `DeviceControlWork`（`*Simulation` API）
+├── DeviceControlWork.cs            整机运行编排单例（7 常驻线程 + §7.5 九公共方法）  ns ...DeviceWorkflow
+├── DeviceStatusWork.cs             安全/IO/状态管控（3 常驻线程）                   ns ...DeviceWorkflow
+├── DeviceStateApiCore/             基类 API 核心（2026-09-01 由 DeviceState/ + FlowState/ 合并）
+│   │                               ※ 目录合并但命名空间不变，下分两个：
+│   │                                 ...DeviceState / ...FlowState（详见下方「目录 ≠ 命名空间」）
+│   ├── DeviceStateBase.cs          设备态/过程态基类 + 三枚举 + 事件参数    ns ...DeviceState
+│   ├── CommandCore.cs              机器人指令协议（const string）           ns ...DeviceState
+│   └── DeviceWorkflowBase.cs       工作流基类（非泛型）                     ns ...FlowState
+└── DeviceWorkflow/                 命名空间 AdaWeldSystem.MainDeviceControl.DeviceWorkflow
+    ├── LineLaserWorkflow.cs        线激光
+    ├── MonitorCameraWorkflow.cs    监控相机
+    ├── MotionControlWorkflow.cs    运控（CAMBOX）
+    ├── WeldParamControlWorkflow.cs 焊接工艺控制
+    └── LaserWeldHeadWorkflow.cs    焊接头（骨架）
+    ※ 2026-09-01 `FaultRecoveryManager.cs`（含 FaultCategory / FaultRecord）迁出至 [[modules/ProductFileManager]]，
+      本目录 7 个类为其消费方（ADR-033 §3）；模拟模式真相源为 `DeviceControlWork`（`*Simulation` API）
+    ※ 2026-09-04 ADR-036 批次 0~3 + 4.4 已落地；本页「旧机制」横幅仅作改造前后对照，
+      现行规范唯一出处 = [[architecture/DeviceControlArchitecture]]
 ```
 
-> **目录 ≠ 命名空间（2026-09-01 起）**：`DeviceState/` 与 `FlowState/` 已合并为物理目录 `DeviceStateApiCore/`，但**命名空间刻意保持不变**——`DeviceStateBase.cs` / `CommandTable.cs` 仍为 `AdaWeldSystem.MainDeviceControl.DeviceState`，`DeviceWorkflowBase.cs` 仍为 `AdaWeldSystem.MainDeviceControl.FlowState`。理由：改名会波及 7 个工作流及全部消费方的 `using`，收益为零。以下小节标题沿用**命名空间语义**标注。
+> **目录 ≠ 命名空间（2026-09-01 起）**：`DeviceState/` 与 `FlowState/` 已合并为物理目录 `DeviceStateApiCore/`，但**命名空间刻意保持不变**——`DeviceStateBase.cs` / `CommandCore.cs` 仍为 `AdaWeldSystem.MainDeviceControl.DeviceState`，`DeviceWorkflowBase.cs` 仍为 `AdaWeldSystem.MainDeviceControl.FlowState`。理由：改名会波及 7 个工作流及全部消费方的 `using`，收益为零。以下小节标题沿用**命名空间语义**标注。
 
 ### DeviceStateApiCore/DeviceStateBase.cs（ns ...DeviceState）
 
@@ -103,22 +105,28 @@ MainDeviceControl/
 | `CheckDeviceIOSafe()` | IO 安全检查 |
 | `OnStateSwitched(old,new)` / `OnWeldStatusChanged(old,new)` | 切换钩子，可重写 |
 
-### DeviceStateApiCore/CommandTable.cs（ns ...DeviceState）
+### DeviceStateApiCore/CommandCore.cs（ns ...DeviceState）
 
-> **⛔ 旧机制（代码现状，待批次 0 改造，裁定 C3）**：本文件将改造为 **`CommandCore.cs`**——
-> 指令载体由 `const int` + 三个枚举（`RobotPose` / `RobotCommand` / `DeviceCommand`）改为 **`const string` 固定指令**，
-> **机器人指令按字符串解析**；`RobotPoseCode` 删除；**不再监控机器人 pose**（设备由机器人指令驱动，无权限管理机器人状态）。
-> 现行规范见 [[architecture/DeviceControlArchitecture]] §3.1。
+> **✅ 2026-09-04 已落地（ADR-036 批次 0.3 / 0.4，裁定 C3）**：⛔ `CommandTable.cs` **已删除**，现役 **`CommandCore.cs`**——
+> 指令载体由 `const int` + 三枚举（`RobotPose` / `RobotCommand` / `DeviceCommand`）改为 **`const string` 固定指令**，
+> **机器人指令按字符串解析**；`RobotPoseCode` / `SignalCode` / `InteractionTable` 一并删除；
+> **不再监控机器人 pose**（设备由机器人指令驱动，无权限管理机器人状态）。
+> 完整常量表与消费链路见 [[api/CommandCore]]，规范见 [[architecture/DeviceControlArchitecture]] §3.1。
 
-机器人握手协议（均 `enum : int`）：
-- `RobotPose` — 机器人状态上报
-- `RobotCommand` — 机器人下发指令
-- `DeviceCommand` — 设备侧指令（`CmdGoXxx` 对齐 Pose + `CmdOK` + `CmdAbort`）
-- `InteractionTable` — 交互合法性表（`IsValidPose` 等）
+| 类别 | 常量 |
+|---|---|
+| 方向标识 | `ReceiveCommand` / `SendCommand` |
+| 接收指令 `Rx*`（9 条） | `RxHomePose` / `RxStartSafePose` / `RxPreWeldPose` / `RxWeldStartPose` / `RxPreStopPose` / `RxWeldStopPose` / `RxStopSafePose` / `RxPreWeldRequest` / `RxAbort` |
+| 下发指令 `Tx*`（9 条） | `TxGoHome` / `TxGoStartSafe` / `TxGoPreWeld` / `TxGoWeldStart` / `TxGoPreStop` / `TxGoWeldStop` / `TxGoStopSafe` / `TxOK` / `TxAbort` |
+| 工具函数 | `Normalize(string)`（去空白 + 转大写）/ `IsKnownCommand(string)`（命中判定） |
+
+消费链路：`GlobalCommData.CommunicationCommandReceived` → `OnCommRecived()` 规整并入队
+→ `CommCommandWork` 线程 `DequeueCommand()` → `DispatchCommand(cmd)`。
+位姿类指令**仅记录不驱动流程**（裁定 C3），`RxAbort` 转 `EstopMachine`。
 
 ### DeviceStateApiCore/DeviceWorkflowBase.cs（ns ...FlowState；非泛型，ADR-034）
 
-> **⛔ 旧机制（代码现状，待批次 1 改造；下表描述的是改造前成员）**。按 2026-09-03 原档与用户裁定：
+> **✅ 2026-09-04 批次 1 已落地**。下表为**改造前后对照**（改造前成员 → 现行成员），不是现状描述。按 2026-09-03 原档与用户裁定：
 >
 > | 项 | 处置 |
 > |---|---|
@@ -190,35 +198,33 @@ MainDeviceControl/
 | `ClearAlarm()` | 模板方法：记日志 → `ClearStatus()`（清除报警入口，与 `Reset` 并列） |
 | `Dispose()` | 停监听线程 → `DisposeManaged()`（子类不再重写 `Dispose`，ADR-001） |
 
-> **易误判点**：`Reset`/`Dispose`/`State`/`WeldStatus`/`StateSwitched`/`WeldStatusChanged`/`GoStep`/`FlowProcess` 都由基类提供或约束，具体工作流文件内 grep 不到属正常，不是缺陷。
+> **易误判点**：`Reset`/`Dispose`/`State`/`WeldStatus`/`StateSwitched`/`WeldStatusChanged`/`RunStep`/`FlowProcess`/`ResetWorkTime` 都由基类提供或约束，具体工作流文件内 grep 不到属正常，不是缺陷。
 > 手动连接/断开的 `ConnectOn`/`ConnectOff` 为 `public abstract`，UI 直调，线程由子类内部自起。
 
-### 子工作流的等价最小改写（ADR-034）
+### 子工作流现行范式（2026-09-04 批次 0~4.4 落地）
 
-各子工作流保留各自阶段枚举为**私有 `_phase`/`_flowState` 字段**驱动 `FlowProcess`；私有 `SetStep(枚举, reason)` 内部：
-1. 刷新 `_phase` + 调 `SetWeldStatus(MapWeldStatus(...))`；
-2. 按旧 `OnWeldStatusChanged` 规则调 `GoStep(段位)`。
+各子工作流**不自带线程**，由 `DeviceControlWork` 5 条子设备线程五段式驱动 `FlowProcess()`；执行步走基类 `RunStep`（`switch(RunStep)` → 每 `case` 内 bool 判定推进，`AdvanceStep(n)` 改步并刷新计时）。
 
-行为与新主控设计完全等价，规避旧 API 编译失败。对外仅暴露 `State`/`WeldStatus`/`WorkStep` 三态 + 步骤驱动三件套。
-
+- 阶段枚举为**私有 `_phase`**（或直接 `RunStep` 步号），切换经 `MapWeldStatus(...)` 映射为对外 `SubDeviceWeldStatus` 后走 `SetWeldStatus`；
+- `GoStep`/`SetStep`/`WorkStep` **均已删除**（裁定 C6）；超时用 `TimeOutSeconds`（秒）+ `ResetWorkTime()`；
+- 5 子类实现基类 17 项契约（含 `InitializeOn`/`Off` 阻塞连接、`ConnectOn`/`Off` 非阻塞、`LoadConfig`/`SaveConfig` 无参、`WeldStatusTrans`、`SubDeviceLog`）。
+- 外部驱动（子设备级命令）经 `DeviceControlWork` 虚拟 IO（§7.9）→ `CascadeWeldStatus` → 基类 `RequestWeldStatus` 统一下发。
 ---
 
 ## 整机主控与安全：删除并归并
 
 ### DeviceControlWork
 
-`public class DeviceControlWork`（单例，**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**），自带运行线程（节拍 `BeatMs=10`）与内部执行步（`_workStep` + `GetStepName`）。对外状态为 `MainDeviceStatus`（6 态），原整机流程态 `MainDeviceFlowState` 不再存在（转内部私有执行步常量）。承接：
+`public class DeviceControlWork`（单例，**独立管控类，不继承任何基类**）——整机运行编排者，**2026-09-04 已按 ADR-036 重构落地**：
 
-- 主设备运行态 `Status`(MainDeviceStatus) + `StatusChanged`(`MainDeviceStatusChangedEventArgs`)；内部 `SetStatus(...)` 为唯一写入入口
-- 对外操作契约：`InitializeMachine` / `StartMachine` / `StopMachine` / `ResetMachine` / `ClearAlarm` / `EStopMachine` / `EStopCancel`；`EmergencyStop` / `ReportAlarm` / `ReportAlarmCleared`
-- `RobotPose` / `RobotCommand` 命令消费（三槽：`_pendingPose` > `_pendingCommand` > `_pendingAbort`，Pose/Command 分槽避免 `StartSafePose=1` 与 `PreWeldRequest=1` 编码重叠丢指令）
-- 模拟模式统一管理：`EnableSimulation` / `DisableSimulation` / `LoadSimulation` / `SaveSimulation` / `StartSimulationLineLaser` / `StopSimulationLineLaser` / `ResetSimulationLineLaser` / `StartRobotXSimulation` / `StopRobotXSimulation` / `IsSimulationEnabled` / `CurrentMode` / `SelectedMode` / `ShouldUseVirtualCamera` / `ShouldMoveAxis` / `SimStartX` / `SimSpeed` / `SimTargetDistance` / `SeamProfile` / `RandomMode` / `GetEffectiveRobotX`
-- `IsWelding`（焊接中）、`WorkStep` / `WorkStepName`（内部执行步可观测）
-- 子设备级联：经 `DeviceStatusWork.Instance.IsSafe` 门控；`ConnectOn`/`ConnectOff` 级联各子设备
+- 7 条常驻线程（5 子设备驱动 `FlowProcess` + 心跳 + 指令）共用私有体 `SubDeviceWork(flow,name)` 五段式驱动，防空转 `Sleep(10)`/`Sleep(100)`
+- `Current`/`Last` 双 `MainDeviceStatus` 快照 + `IsReseting`/`IsWorking`/`IsAlarmstop`/`IsCloseWork` 标志位；`MachineStatusTrans` 校验迁移合法
+- §7.5 九公共方法：`MachineFlowWorkOpen`/`MachineCommandWorkOpen`/`InitializeMachine`/`ClearMachine`/`ResetMachine`/`StartMachine`/`ClearAlarm`/`EstopMachine`/`EstopCancel`
+- 命令经虚拟 IO（§7.9）：机器人指令 `MapCommandToIo` → 置位，`DeviceStatusWork` 双线程扫描后 `ExecuteIo` 统一执行
+- 模拟模式由第 8 条按需线程 `thSimTestWork` 承载（2026-09-04 用户裁定），随 `EnableSimulation`/`DisableSimulation` 启停
 
-> 主设备不再有「整机流程态」，改为 **主设备运行态（过程状态）** `MainDeviceStatus`。各 `SetStatus(...)` 调用见 `DeviceControlWork.cs`（Running/Alarm/EStop/Stop/NoReset/Reseting）。
-> API 详见 [[api/DeviceControlWork]]（现述 DeviceControlWork）。
-
+> ⛔ **本页下方原有「改造前」结构存档**（自带线程节拍 `BeatMs=10`、内部执行步 `_workStep`/`GetStepName`、命令三槽 `_pendingPose`>`_pendingCommand`>`_pendingAbort`、`RobotPose`/`RobotCommand` 指令消费、`EStopMachine`/`StartWork` 旧名）
+> **已全部清除**（ADR-036 裁定 C1/C3/C6 + §2 同源约束 + 2026-09-04 批次落地）。现行 API 见 [[api/DeviceControlWork]]，设计见 [[architecture/DeviceControlArchitecture]] §7；主设备运行态为 `MainDeviceStatus`（Running/Alarm/EStop/Stop/NoReset/Reseting）。
 ### DeviceStatusWork
 
 `public class DeviceStatusWork`（单例），安全检查三合一（`IsSafe` / `CheckDeviceStates` / 故障记录）归并至此；监控未启动返回 `true`（不阻断整机）。API 详见 [[api/DeviceStatusWork]]（现述 DeviceStatusWork）。
@@ -229,13 +235,13 @@ MainDeviceControl/
 
 | 工作流 | 私有阶段枚举 | 执行步 | 状态 | 说明 |
 |---|---|---|---|---|
-| `DeviceControlWork` | （无，直接 `MainDeviceStatus`） | — | 全实现 | 整机主控：三槽命令变量 + 上电初始化 5 步 + 机器人信号交互 + 模拟模式 |
-| `LineLaserWorkflow` | `LineLaserWorkflowState`(私有) | 0/10/11/20/30/31/100/700/800/900 | 全实现 | 线激光焊缝跟踪，触发焊接工艺计算 |
-| `MonitorCameraWorkflow` | `MonitorWorkflowState`(私有) | 0/10/20/30/800/900 | 全实现 | 监控相机触发采集/分析/结果 + 健康巡检 |
-| `MotionControlWorkflow` | `LaserCamBoxWorkflowState`(私有) | 0/10/20/30/100/110/700/900 | 全实现 | CAMBOX 硬件实时跟踪（`BeatMs=20`） |
-| `WeldParamControlWorkflow` | `WeldParamControlWorkflowState`(私有) | 0/10/20/800/900 | 全实现 | 焊接工艺计算与下发（**非设备**，命令变量触发） |
-| `LaserWeldHeadWorkflow` | `LaserWeldHeadWorkflowState`(私有) | 仅 0 | 骨架 | 私有逻辑待实现（`IsRunLoopActive=false`，不启线程） |
-| `DeviceStatusWork` | （无，三线程内部态 IOWork/EMGWork/StatusWork） | —（三线程非步骤驱动） | 全实现 | 安全/IO/状态管控：IOWork 互锁→Alarm、EMGWork 急停→EStop、StatusWork 反射三色灯 |
+| `DeviceControlWork` | （无，直接 `MainDeviceStatus`） | — | 全实现 | 整机主控：7 常驻线程编排（5 子设备驱动 `FlowProcess`）+ 指令队列消费 + 上电初始化 + 模拟模式（第 8 条按需线程） |
+| `LineLaserWorkflow` | （无，`RunStep` 段位直驱） | 0/10/20/30/31/100/700/800/900 | 全实现 | 线激光焊缝跟踪，触发焊接工艺计算 |
+| `MonitorCameraWorkflow` | `MonitorWorkflowState`(同文件公共枚举，仅内部驱动) | 0/10/20/30/800/900 | 全实现 | 监控相机触发采集/分析/结果（健康巡检归 `MonitorCameraRun`） |
+| `MotionControlWorkflow` | `LaserCamBoxWorkflowState`(同文件公共枚举，仅内部驱动) | 0/10/20/30/100/110/700/900 | 全实现 | CAMBOX 硬件实时跟踪（`FlowProcess` 每拍开头刷跟踪状态） |
+| `WeldParamControlWorkflow` | `WeldParamControlWorkflowState`(同文件公共枚举，仅内部驱动) | 0/10/20/800/900 | 全实现 | 焊接工艺计算与下发（**非设备**，`_pendingCompute` 触发变量） |
+| `LaserWeldHeadWorkflow` | `LaserWeldHeadWorkflowState`(同文件公共枚举，仅内部驱动) | 仅 0 | 骨架 | 温度阈值监控（原档 R009）待落地，`FlowProcess()` 空转 |
+| `DeviceStatusWork` | （无，三线程内部态 thIOWork/thEMGWork/thLightStatusWork） | —（三线程非步骤驱动） | 全实现 | 安全/IO/状态管控：IOWork 互锁→Alarm、EMGWork 急停→EStop、LightStatusWork 反射三色灯 |
 
 > 段位规范：0 待机 / 1~9 入口准备 / 10~99 主链路 A / 100~199 主链路 B / 700~799 清料 / 800~899 成功收尾 / 900~999 失败收尾。详见 [[architecture/DeviceControlArchitecture]] §5。
 
@@ -243,11 +249,11 @@ MainDeviceControl/
 
 `DeviceStatusWork.cs` 单文件承载：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（ADR-031 三合一 + ADR-034 归并）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
 
-**三线程（非步骤驱动）**：`DeviceStatusWork` 是独立管控类，不继承 `DeviceWorkflowBase`，由三个常驻线程驱动（各 20Hz）——`IOWork`（AboveNormal）周期互锁检查 → 失败 `ReportAlarm` + `RecordFault`，恢复 `ReportAlarmCleared`；`EMGWork`（Highest）急停轮询 → 按下 `EStopMachine`、释放 `EStopCancel`；`StatusWork`（Normal）反射 `DeviceControlWork.Status` 到三色灯。
+**三线程（非步骤驱动，2026-09-04 对齐原档命名）**：`DeviceStatusWork` 是独立管控类，不继承 `DeviceWorkflowBase`，由三个常驻线程驱动（各 20Hz）——`thIOWork`（线程体 `IOWork()`，AboveNormal）周期互锁检查 → 失败 `ReportAlarm` + `RecordFault`，恢复 `ReportAlarmCleared`；`thEMGWork`（线程体 `EMGWork()`，Highest）急停轮询 → 按下 `EstopMachine`、释放 `EstopCancel`；`thLightStatusWork`（线程体 `LightStatusWork()`，Normal）反射 `DeviceControlWork.Status` 到三色灯。
 
 **主设备门控（⛔ 旧写法，裁定 C3 已移除）**：~~`DeviceControlWork.IsRobotPoseSafe()` 读 `DeviceStatusWork.Instance.IsSafe`~~ → 新方法名与 pose 语义一并删除，**直接读 `DeviceStatusWork.Instance.IsSafe`**（本机安全 IO，与机器人 pose 无关）。监控未启动时不门控（返回 true）。
 
-**随整机启动**：`StartWork()` 由 `DeviceControlWork.StartMachine` 调用、`CloseWork()` 由 `StopMachine`/`Dispose` 调用，不再需显式单独启动。
+**随整机启动**：`MachineIOWorkOpen()` 由 `DeviceControlWork.InitializeMachine`/`StartMachine` 调用、`MachineIOWorkClose()` 由 `StopMachine`/`Dispose` 调用（2026-09-04 取代旧 `StartWork()`/`CloseWork()`）。
 
 API 详见 [[api/DeviceStatusWork]]（现述 DeviceStatusWork）。
 

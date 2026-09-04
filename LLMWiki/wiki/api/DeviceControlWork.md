@@ -1,7 +1,7 @@
-﻿---
+﻿﻿---
 title: DeviceControlWork API 参考（整机主控 · 主设备运行态 MainDeviceStatus）
-date: 2026-09-02
-tags: [API, 工作流, 主控, 上电初始化, 机器人交互, 主设备运行态, 模拟, DeviceControlWork, ADR-034]
+date: 2026-09-04
+tags: [API, 工作流, 主控, 上电初始化, 机器人交互, 主设备运行态, 模拟, DeviceControlWork, ADR-034, ADR-036]
 source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 ---
 
@@ -14,42 +14,61 @@ source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
 > **继承**：**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**（原档明确）。
 > 架构背景见 [[architecture/DeviceControlArchitecture]] 第 7 章。
->
-> **⚠️ 2026-09-03 原档细化已裁定（ADR-036 accepted）**：原档 `主控设计.xlsx` 为 `DeviceControlWork` 定义了 **7 条常驻线程**——5 条子设备工作线程（`thLaserHeadWork` / `thLineLaserWork` / `thMonitorCamWork` / `thMotionControlWork` / `thWeldParamControlWork`）+ 2 条机器人通讯线程（`thHeartInspectWork` 心跳 / `thCommCommandWork` 指令），以及 `MachineFlowWorkOpen` / `MachineCommandWorkOpen` / `InitializeMachine` / `ClearMachine` / `ResetMachine` / `StartMachine` / `ClearAlarm` / `EstopMachine` / `EstopCancel` 共 9 个公共方法，`CommWork` / `OnCommRecived` / `CommCommandWork` / `MachineStatusTrans` / `WeldStatusTrans` + 5 个 `XxxWork()` 循环体共 11 个私有方法。
-> **已裁定的清除项**：基类常驻监听线程（`BeatMs` 等）已废，子流程改由本类线程驱动（C1）；`_workStep` + `GetStepName` 的内部执行步机制由子类 `RunStep` 取代（C6）；命令三槽（`_pendingPose` / `_pendingCommand` / `_pendingAbort`）**拆除，不再监控机器人 pose**（C3）。
-> 落地批次见 [[architecture/DeviceControlArchitecture]] §15.2。
+
+## ✅ 2026-09-04 落地状态（ADR-036 批次 0~3 + 4.4）
+
+原档 `主控设计.xlsx` R013 定义的 **7 条常驻线程 + 9 个公共方法 + 11 类私有方法已全部落地**：
+
+| 落地项 | 内容 |
+|---|---|
+| 7 条常驻线程 | 5 条子设备工作线程 + `thHeartInspectWork`（心跳）+ `thCommCommandWork`（指令交互） |
+| 9 个公共方法 | `MachineFlowWorkOpen` / `MachineCommandWorkOpen` / `InitializeMachine` / `ClearMachine` / `ResetMachine` / `StartMachine` / `ClearAlarm` / `EstopMachine` / `EstopCancel` |
+| 私有方法 | `CommWork` / `OnCommRecived` / `CommCommandWork` / `MachineStatusTrans` / `WeldStatusTrans` + 5 个 `XxxWork()` 循环体 |
+| 双份状态快照 | 私有 `Current` / `Last`；公共只读 `Status` 返回 `Current` |
+| 四个标志位 | `IsReseting` / `IsWorking` / `IsAlarmstop`(public) / `IsCloseWork` |
+
+**已清除的旧机制**（grep 全项目 0 残留）：
+
+- ❌ 内部执行步机制 `_workStep` / `WorkStep` / `WorkStepName` / `GoStep` / `FailFlow` / `GetStepName` —— 按 §2「独立管控类的步机制同源约束」**禁止**自建与基类 `RunStep` 平行的步机制，业务状态链改由 `MainDeviceStatus` 表达
+- ❌ 命令三槽 `_pendingPose` / `_pendingCommand` / `_pendingAbort` → ✅ `Queue<string>` + `CommandCore` const string
+- ❌ `IsRobotPoseSafe` → ✅ 直接读 `DeviceStatusWork.Instance.IsSafe`
+- ❌ `RobotPose` / `RobotCommand` / `DeviceCommand` / `SignalCode` 枚举 → ✅ [[api/CommandCore]]
+- ❌ 单条 `RunLoop` / `BeatMs`
+
+> ⚠️ **真编译待 Visual Studio**：沙盒无 C# 编译器，以上为静态自检结论（括号配对 / region 配对 / 抽象契约覆盖 / 跨类符号存在性 / 禁用符号残留，5 项全绿）。
+> 剩余 `// todo` 见文末「遗留待办」。
 
 ---
 
 ## 核心类
 
 ```csharp
-public class DeviceControlWork
+public class DeviceControlWork : IDisposable
 {
     // 单例访问（Lazy<T>）
     public static DeviceControlWork Instance { get; }
 
     // 主设备运行态（6 态，过程状态）
-    public MainDeviceStatus Status { get; }                 // Running/Alarm/EStop/Stop/NoReset/Reseting
+    public MainDeviceStatus Status { get; }                 // = 私有 Current 快照
     public event EventHandler<MainDeviceStatusChangedEventArgs> StatusChanged;  // OldStatus/NewStatus/Reason/Timestamp
 
-    // 内部执行步（可观测）
-    public int WorkStep { get; }
-    public string WorkStepName { get; }
-    public bool IsWelding { get; }          // 焊接中
+    // 可观测
+    public bool IsWelding { get; }            // Status == Running && IsWorking
+    public bool IsAlarmstop { get; set; }     // 供状态层读写（沿用参考实现 MachineStatusWork）
+    public bool IsRobotOnline { get; }        // 由心跳线程刷新
 
-    // 命令变量入口（回调只赋值不做业务）
-    public void ReceiveRobotPose(RobotPose pose);
-    public void ReceiveRobotCommand(RobotCommand cmd);
-
-    // 对外操作契约（基类无，本类直供）
-    public bool InitializeMachine();        // 上电初始化级联 5 步
-    public bool StartMachine();             // 拉起 DeviceStatusWork + RunLoop，置 Stop（就绪，幂等）
-    public void StopMachine();              // 停线程 → 级联 ClearStatus×5 → CascadeDisconnect → CloseWork → 置 Stop
-    public bool ResetMachine();             // 在位检测(阻断) → 清命令变量 → Reseting → 级联 ResetProcess×5 → Stop
-    public bool ClearAlarm();               // 仅清报警标志：Alarm → NoReset
-    public void EStopMachine(string reason);// → SetStatus(EStop)
-    public void EStopCancel();              // → SetStatus(NoReset)
+    // ---- §7.5 九个公共方法 ----
+    public void MachineFlowWorkOpen();        // 实例化 5 条子设备线程并 Start（幂等）
+    public void MachineCommandWorkOpen();     // 实例化 2 条通讯线程并 Start（幂等）
+    public void MachineFlowWorkClose();       // 只置 IsCloseWork，不 Abort 线程
+    public bool InitializeMachine();          // 子设备实例化 → 连接 → 开启通讯 → 拉起线程
+    public void ClearMachine();                // 全部 ClearStatus + 强制 NoReset
+    public bool ResetMachine();               // 单次 Task：NoReset → Reseting → Stop
+    public bool StartMachine();               // 只切 Stop → Running（真正执行靠常驻线程）
+    public void StopMachine();
+    public bool ClearAlarm();                 // 依 Last 回落 Stop / NoReset
+    public void EstopMachine(string reason);  // ⚠️ 旧名 EStopMachine 已改名
+    public void EstopCancel();                // ⚠️ 旧名 EStopCancel 已改名
     public void EmergencyStop();
     public void ReportAlarm(string reason);
     public void ReportAlarmCleared();
@@ -76,13 +95,50 @@ public class DeviceControlWork
     public SimSeamProfile SeamProfile { get; }
     public bool RandomMode { get; }
 
-    public void Dispose();
+    public void Dispose();                    // → DisposeComponents()（ADR-001，不重写 Dispose(bool)）
 }
 ```
 
-> **日志出口（2026-09-03 统一）**：本类全部日志经私有 `Log(...)` → `DeviceLog.Write(_tag, ...)`；
-> 模拟模式相关另用 `_simTag` → `DeviceLog.Write(_simTag, ...)`。
-> **禁止**在 `MainDeviceControl/` 下直接调 `GlobalCommData.ShowLog`。见 [[api/DeviceLog]]。
+> **日志出口（2026-09-04 回归直连）**：本类全部日志经私有 `Log(...)` → `GlobalCommData.ShowLog(_tag, ...)`；
+> 模拟模式相关另用 `_simTag` → `GlobalCommData.ShowLog(_simTag, ...)`。
+> 标签写法约定见 [[standards/CodeSimplification]] §三；底层出口见 [[api/GlobalCommData]]。
+
+---
+
+## 常驻线程（7 条 + 1 条按需模拟线程）
+
+| 线程 | 类别 | 驱动对象 | 节拍 |
+|---|---|---|---|
+| `thLaserHeadWork` | 子设备 | `LaserWeldHeadWorkflow.FlowProcess()` | 运行态 10ms / 非运行态 100ms |
+| `thLineLaserWork` | 子设备 | `LineLaserWorkflow.FlowProcess()` | 同上 |
+| `thMonitorCamWork` | 子设备 | `MonitorCameraWorkflow.FlowProcess()` | 同上 |
+| `thMotionControlWork` | 子设备 | `MotionControlWorkflow.FlowProcess()` | 同上 |
+| `thWeldParamControlWork` | 子设备 | `WeldParamControlWorkflow.FlowProcess()` | 同上 |
+| `thHeartInspectWork` | 通讯 | 机器人通讯**心跳检测**（只检测不收发） | 1000ms |
+| `thCommCommandWork` | 通讯 | 机器人**指令交互**（队列消费 + 分派） | 空闲 100ms |
+| `thSimTestWork` | 模拟（按需） | `SimTick()` 发布模拟 robotX | 20ms |
+
+**5 条子设备线程共用**私有体 `SubDeviceWork(flow, name)`，严格执行五段式（范式 M1）：
+
+```csharp
+while (!IsCloseWork)
+{
+    if (Current != MainDeviceStatus.Running)
+    {
+        Thread.Sleep(100);          // 非运行态：慢节拍
+        flow.ResetWorkTime();       // 清步骤计时，防暂停时长被计入超时
+        continue;
+    }
+    flow.FlowProcess();             // 运行态：驱动一步
+    Thread.Sleep(10);               // 运行态：快节拍防空转
+}
+```
+
+> 单拍异常只记日志不退出，避免整条流程永久停摆。线程一律 `IsBackground = true`（M2）；
+> `MachineFlowWorkClose()` **只置 `IsCloseWork = true`，不 Abort 线程**（M3）。
+
+⚠️ **`thSimTestWork` 是第 8 条线程，不在 §7.2 的 7 条常驻线程内**：2026-09-04 用户裁定「在 DeviceControlWork 中做一条后台线程跑模拟测试」，
+随 `EnableSimulation` / `DisableSimulation` 启停，非常驻。模拟设计的其余部分待用户修正后补全。
 
 ---
 
@@ -97,34 +153,27 @@ public class DeviceControlWork
 | `NoReset`(4) | 报警/急停已清除，待复位 |
 | `Reseting`(5) | 复位中 |
 
-唯一写入入口：`private void SetStatus(MainDeviceStatus newStatus, string reason)`（触发 `StatusChanged` 并记日志）。
+唯一写入入口：`private void SetStatus(MainDeviceStatus newStatus, string reason)`（经 `MachineStatusTrans` 校验后触发 `StatusChanged` 并记日志）。
 
-### 状态读取红线（2026-09-03 修复，强制）
+### 状态迁移合法性 `MachineStatusTrans`
 
-`_status` 由 `_statusLock` 保护，**任何业务读取必须走 `Status` 属性**，禁止裸读 `_status`——
+`SetStatus` 内**先校验后写入**，非法迁移只记 Warning 日志、不改状态：
+
+| 规则 | 说明 |
+|---|---|
+| 急停优先 | `EStop` 只能经 `EstopCancel` 解除（`EStop → NoReset`），其余迁移一律拒绝 |
+| 启动门槛 | 只有 `Stop` 才允许直接 `→ Running`（范式 M6 的门控） |
+| 禁止直落 | `Running` 不允许直接 `→ NoReset`，须先 `Stop` |
+
+### 状态读取红线（强制）
+
+`_status` / `_lastStatus` 由 `_statusLock` 保护，**任何业务读取必须走 `Status` 属性或私有 `Current` / `Last`**，禁止裸读字段——
 加锁与不加锁的读混用，等于没加锁。
 
 ```csharp
 if (Status != MainDeviceStatus.Stop) ...     // 正确
 if (_status != MainDeviceStatus.Stop) ...    // 错误：绕过锁
 ```
-
-**合法裸读仅 5 处**（审计残留白名单）：字段声明、`_statusLock` 声明、`Status` getter 内、`SetStatus` 锁内写块、
-`ClearAlarm` 内的 check-and-set（必须与写入同处一把锁内，拆开会产生 TOCTOU）。
-
-### 步时间与超时不变量（2026-09-03 修复）
-
-本类**不继承 `DeviceWorkflowBase`**，自带私有步机制，须与基类保持同源不变量：
-
-| 不变量 | 实现 | 违反后果 |
-|---|---|---|
-| 步号与时间成对刷新 | `GoStep(n)`：`_workStep = n;` + `Interlocked.Exchange(ref _workStartTicks, ...)` | 超时判定基准错乱 |
-| 非运行态持续刷新时间戳 | `RunLoop()` 的 `else { ResetStepTime(); }` 分支 | **停机超 60s 后再开机，首拍即误判超时跳 900 失败收尾** |
-| 重启复位步 | `StartMachine()` 内 `GoStep(StepIdle)` | 沿用停机时刻的步号与时间戳，同样误判 |
-| 64 位字段原子读写 | `Interlocked.Exchange` / `Interlocked.Read` | 32 位平台读到撕裂值，`DateTime` 构造出荒谬时间 |
-
-> ⚠️ 本类曾因漏抄基类「非运行态刷新」分支而出现停机久后开机即报超时。
-> 详见 [[lessons/DeviceControlWorkInheritanceBypass]] 坑三/坑五，规范见 [[architecture/DeviceControlArchitecture]] §5 · §7.2（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已废弃）。
 
 ---
 
@@ -136,11 +185,13 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 
 | 步骤 | 内容 | 调用 |
 |---|---|---|
-| `[1/5]` | 焊接头 | `LaserWeldHeadController.Instance.ConnectOn()` |
-| `[2/5]` | 运动控制器 + CAMBOX 跟踪 | `MotionManager.Initialize()` + `MotionControlWorkflow.ConnectOn()` |
-| `[3/5]` | 线激光相机 | `LineLaserWorkflow.ConnectOn()` |
-| `[4/5]` | 监控相机 | `MonitorCameraWorkflow.ConnectOn()` |
-| `[5/5]` | 机器人通讯 | RSI / EKI 二选一 |
+| 前置 | 清状态并强制 `NoReset` | `ClearMachine()` |
+| `[1/5]` | 焊接头 | `LaserWeldHeadController.Instance.Initialize()` + `_weldHead.ConnectOn()` |
+| `[2/5]` | 运动控制器 + CAMBOX 跟踪 | `_motion.InitializeOn()`（已下沉至 workflow）+ `_motion.ConnectOn()` |
+| `[3/5]` | 线激光相机 | `_lineLaser.ConnectOn()` + `WaitChildConnected` |
+| `[4/5]` | 监控相机 | `_monitorCam.ConnectOn()` + `WaitChildConnected` |
+| `[5/5]` | 机器人通讯 | `CommWork()` → 调 `Comm` 提供的 RSI / EKI 方法（§7.4 裁定 C5） |
+| 收尾 | 拉起全部常驻线程 | `MachineFlowWorkOpen()` + `MachineCommandWorkOpen()` + `DeviceStatusWork.Instance.MachineIOWorkOpen()` |
 
 末步执行 `EvaluateInitializationResult()` 聚合判定：子设备全 `Connected` → `SetStatus(Stop)`（整机就绪）；否则 → `SetStatus(Alarm)`。
 
@@ -148,29 +199,62 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 
 子设备连接态 `SubDeviceState.Connected` 视为正常；其余（`Disconnected`）计为未就绪。
 
+### 复位链路 `ResetMachine()`
+
+`NoReset → Reseting → Stop`，**单次执行 `new Task(...)`**（范式 M4），不走常驻线程：
+
+1. `ClearMachine()` 强制 `NoReset`
+2. `MachineStatusTrans(Reseting)` 校验后 `SetStatus(Reseting)`
+3. `CascadeResetProcess()` 级联 5 个子流程 `ResetProcess()`
+4. **复查状态仍为 `Reseting`**（被急停/报警改写即判「复位被中止」并退出，范式 M5）
+5. 成功 → `Stop`，失败 → `Alarm`
+
+前置门禁：运行中拒绝；`IsRobotReachable()` 不通过 → `Alarm` + `RecordFault("ROBOT_OFFLINE")` 并阻断。
+
 ---
 
-## 关键边界：机器人/PLC 连接不属于本工作流
+## 关键边界：机器人/PLC 连接不属于本类
 
-机器人和 PLC 的连接是外部设备通讯，由顶层 `Comm`（`CommunicationManager`）管控。本工作流只做**信号交互**：
+机器人和 PLC 的连接是外部设备通讯，由顶层 `Comm`（`CommunicationManager`）管控。本类只是**使用方**（§7.4 裁定 C5）：
 
 | 方向 | 内容 |
 |---|---|
-| 接收 | `RobotPose`（机器人状态上报），经 `GlobalCommData.CommunicationCommandReceived` 到达 |
-| 下发 | `DeviceCommand`（`CmdGoXxx` 对齐 Pose + `CmdOK` + `CmdAbort`），经 `GlobalCommData.mCommunicationManager.RobotManager.SendRobotData(...)` |
+| 接收 | `GlobalCommData.CommunicationCommandReceived` → `OnCommRecived()` 只做 `CommandCore.Normalize` + 入队，**不做业务** |
+| 下发 | `SendRobotCommand(CommandCore.Tx*)` → `comm.RobotManager.SendRobotData(...)` |
 
 不直接持有连接、不直接操作 socket。详见 [[modules/Comm]]。
 
-> **命令变量三槽（关键）**：接收侧回调**只写命令变量**（`ReceiveRobotPose` / `ReceiveRobotCommand`），不做业务；`ConsumeCommand()` 在运行线程内按「Abort → Command → Pose」顺序取快照并清零，避免重入。
-> ⚠️ `RobotCommand.PreWeldRequest = 1` 与 `RobotPose.StartSafePose = 1` **编码区间重叠**，故 Pose / Command 必须分槽存放，单槽会丢指令。
+### 指令队列（取代旧命令三槽）
+
+ADR-036 裁定 C3：**不再监控机器人 pose**，`RobotPose` / `RobotCommand` / `DeviceCommand` 枚举全部删除，
+指令一律以 `const string` 解析（[[api/CommandCore]]）。
+
+```
+通讯回调 OnCommRecived(msg)
+   → CommandCore.Normalize(msg)
+   → IsKnownCommand? 否 → Warning 丢弃
+   → lock(_commLock) _commCommandQueue.Enqueue(cmd)
+                                   ↓
+CommCommandWork 线程：DequeueCommand() → DispatchCommand(cmd) → WeldStatusTrans()
+```
+
+`DispatchCommand` 现状：`RxAbort` → `EstopMachine`；其余位姿/请求**仅记录**（位姿不再驱动流程），
+`RxPreWeldRequest` 待批次 4.5 落地后接入。
 
 ---
 
 ## 级联范围
 
-自动初始化（`InitializeMachine`）级联的子设备：**焊接头、运控、线激光、监控相机、机器人通讯**（5 项），经各子设备 `ConnectOn()` 受理式连接。
+| 级联动作 | 覆盖 |
+|---|---|
+| **上电连接** `CascadeConnect()` | 焊接头、运控、线激光、监控相机（**不含** `WeldParamControlWorkflow`，§8.3 无实体设备） |
+| **上电断开** `CascadeDisconnect()` | 同上 |
+| **复位** `CascadeResetProcess()` | 上述 4 个 + 焊接工艺（5 个，流程动作非连接动作） |
+| **清状态** `CascadeClearStatus()` | 同上 5 个 |
+| **焊接工作态迁移** `WeldStatusTrans()` | 同 5 个，各自调自己的 `WeldStatusTrans()` |
 
-> **不含 `WeldParamControlWorkflow`**——焊接工艺控制流程由 `LineLaserWorkflow` 在连续成功帧达阈值时触发，保持单一驱动源（[[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
+> ⚠️ 子流程的 `WeldStatus` 写入口是 `protected`，整机层**无法直接赋值**，
+> 故 `WeldStatusTrans()` 是「委托各子流程自行迁移」的编排入口，不是赋值入口。
 
 ---
 
@@ -181,14 +265,35 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 | 成员 | 说明 |
 |---|---|
 | `bool IsSimulationEnabled` | 模拟是否开启 |
-| `void EnableSimulation(SimTestMode mode)` / `void DisableSimulation()` | 开/关模拟（Disable 幂等） |
-| `void LoadSimulation()` / `void SaveSimulation()` | INI 双文件持久化 |
-| `double GetEffectiveRobotX()` | 模拟开启返 `SimStartX + SimSpeed × elapsed`，否则 0 |
-| `void StartRobotXSimulation()` / `void StopRobotXSimulation()` | 共享模拟 robotX 时钟启停 |
+| `void EnableSimulation(SimTestMode mode)` / `void DisableSimulation()` | 开/关模拟（Disable 幂等）；开启时一并拉起 `thSimTestWork`，关闭时置标志位令其自行退出 |
+| `void LoadSimulation()` / `void SaveSimulation()` | INI 双文件持久化（新 `SimulationController.ini` + 旧 `MotionControlWorkflow.ini` 回退迁移） |
+| `double GetEffectiveRobotX()` | 读模拟线程按节拍发布的 `_simRobotX`；未开启返回 0 |
+| `void StartRobotXSimulation()` / `void StopRobotXSimulation()` | 共享模拟 robotX 时钟启停（开启时把起点写入 `_simRobotX`） |
 | `void StartSimulationLineLaser()` / `void StopSimulationLineLaser()` / `void ResetSimulationLineLaser()` | 线激光模拟生命周期编排入口（UI 只经这些方法触发） |
 | `SimTestMode CurrentMode` / `SelectedMode`、`ShouldUseVirtualCamera`、`ShouldMoveAxis`、`SimStartX`、`SimSpeed`、`SimTargetDistance`、`SeamProfile`、`RandomMode` | 9 个属性原样并入；`SimTestMode` 枚举定义于本文件尾 |
 
-消费方：`MotionControlPage`（开启模拟一键联动）、`FormMain`（启动加载）。「模拟是 MODE 不是线程」理念沿用至今，现行设计见 [[architecture/DeviceControlArchitecture]]。
+消费方：`MotionControlPage`（开启模拟一键联动）、`FormMain`（启动加载）、`LineLaserWorkflow`（读 `IsSimulationEnabled` / `ShouldUseVirtualCamera` / `GetEffectiveRobotX`）。
+
+> ⚠️ **2026-09-04 用户裁定**：模拟测试改由 `DeviceControlWork` 内的后台线程 `thSimTestWork` 承载（20ms 节拍跑 `SimTick()`），
+> 「模拟是 MODE 不是线程」的旧表述**仅对原设计成立**，现行实现为 **MODE + 按需线程**。
+> 模拟设计的其余内容（虚拟相机喂数 / 坐标下发运控 / 轨迹注入）待用户修正后补全，当前以 `// todo` 占位。
+
+---
+
+## 遗留待办（`// todo` 占位，属批次 4 未落地部分）
+
+| # | 待办 | 位置 | 批次 |
+|---|---|---|---|
+| 1 | Preworking 五项设备运行检查（§7.7） | 5 个子工作流 + `DispatchCommand` 的 `RxPreWeldRequest` 分支 | 4.5 |
+| 2 | Working 四路焊接子流程（§7.8） | Motion ②④⑤ / WeldParamControl 摆幅中点 | 4.6 |
+| 3 | 机器人心跳**报文**下发 | `HeartInspectWork`（待 `CommandCore` 补心跳常量） | — |
+| 4 | 指令交互闭环「等待子流程完成 → 反馈机器人」 | `CommCommandWork` | 4.5/4.6 之后 |
+| 5 | 焊接头温度阈值监控 | `LaserWeldHeadWorkflow` | 4.1 |
+| 6 | 监控相机轴控制行为 | `MonitorCameraWorkflow` | 4.2 |
+| 7 | 运控送丝位置 + 焊接质量阈值检测 | `MotionControlWorkflow` | 4.3 |
+| 8 | 模拟测试设计的其余内容 | `SimTick()` | 用户后续修正 |
+
+见 [[architecture/DeviceControlArchitecture]] §15.2。
 
 ---
 
@@ -200,24 +305,133 @@ using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;
 var main = DeviceControlWork.Instance;
 main.StatusChanged += OnMainDeviceStatusChanged;   // 统一入口：Stop 即整机就绪，Running 即焊接中
 bool welding = main.IsWelding;
-
-// 现场排故：卡在哪个子步、卡了多久
-string status = "step:" + main.WorkStep + " " + main.WorkStepName;
+bool robotOnline = main.IsRobotOnline;
 ```
 
-> **红线**：UI 线程禁止直接驱动内部运行线程。驱动主设备工作流**必须**走 `InitializeMachine()` / `StartMachine()` / `StopMachine()` / `ResetMachine()` / `ClearAlarm()` / `EStopMachine()` 等对外契约；禁止直接调内部编排方法。
+> **红线**：UI 线程禁止直接驱动内部运行线程。驱动主设备**必须**走
+> `InitializeMachine()` / `StartMachine()` / `StopMachine()` / `ResetMachine()` / `ClearAlarm()` / `EstopMachine(reason)` / `EstopCancel()`；
+> 禁止直接调内部编排方法（`MachineFlowWorkOpen` 等）。
 
-调用方：`FormMain.cs`（构造/启动/关闭）
+调用方：`FormMain.cs`（构造/启动/关闭）、`MotionControlPage.cs`（模拟参数）。
 
 ---
+
+---
+
+## 虚拟 IO 层（2026-09-04 新增，原档20260904 §2）
+
+> **背景**：用户补充原档 `raw/architecture/激光焊接系统业务流程图20260904.md` 后裁定
+> 「完整落地 IO 中转」，并给出硬约束——**不新建 .cs 文件、不新建扫描线程**。
+> 虚拟 IO 常量与置位表定义在 `DeviceControlWork.cs` 内部，扫描由 `DeviceStatusWork` 现有两线程承担。
+
+### 虚拟 IO 操作 API
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `IoInit` / `IoReset` / `IoStart` / `IoStop` / `IoClearAlarm` / `IoEmg` | `public const string` | 系统级 6 条（原档 §2.4） |
+| `IoSubConnect` … `IoSubAlarmStop` | `public const string` | 子设备级 7 条（原档 §10.3） |
+| `SetVirtualIo(ioName)` | `void` | **三种触发源统一置位入口** |
+| `ClearVirtualIo(ioName)` | `void` | 清单个位 |
+| `IsVirtualIoSet(ioName)` | `bool` | 电平型查询，不清位（急停用） |
+| `TakeVirtualIo(ioName)` | `bool` | 脉冲型取走并清位，保证每条命令只执行一次 |
+| `ClearAllVirtualIo()` | `void` | 全清（`DisposeComponents` 调用） |
+| `SnapshotVirtualIo()` | `string[]` | 全量快照，供 `GetIOState` |
+| `ExecuteIo(ioName)` | `bool` | **扫描器唯一执行入口**，分派到 `DoXxx` |
+
+### 命令方法（置位）与执行体（扫描执行）对照
+
+> 公共方法**只置位不执行**；真正执行体为 `DoXxx`，由 `thIOWork` / `thEMGWork` 扫描驱动。
+
+| 公共方法（置位） | 置位 IO | 执行体 | 原档 |
+|---|---|---|---|
+| `InitializeMachine()` | `IoInit` | `DoInitializeMachine()` | §10.2-1 |
+| `ResetMachine()` | `IoReset` | `DoResetMachine()` | §10.2-2 |
+| `StartMachine()` | `IoStart` | `DoStartMachine()` | §10.2-3 |
+| `StopMachine()` | `IoStop` | `DoStopMachine()` | §10.2-4 |
+| `ClearAlarm()` | `IoClearAlarm` | `DoClearAlarm()` | §10.2-5 |
+| `EstopMachine(reason)` | `IoEmg` | `DoEstopMachine()` | §10.2-6 |
+
+**两条易错约束**：
+
+1. `InitializeMachine()` 必须先拉起线程（`MachineFlowWorkOpen` / `MachineCommandWorkOpen` /
+   `DeviceStatusWork.MachineIOWorkOpen`）再置位——否则扫描器未起，`IoInit` 无人消费。
+2. `DoStopMachine()` **不关闭 `thIOWork`**（扫描器不能自杀），
+   仅在 `DisposeComponents` 调 `MachineIOWorkClose()` + `ClearAllVirtualIo()`。
+
+### 子设备级命令（原档 §10.3）
+
+`DoSubPrework` / `DoSubWork` / `DoSubStop` / `DoSubManualStop` / `DoSubAlarmStop`
+统一经 `CascadeWeldStatus(target, reason)` 向 5 个子设备下发
+（走基类 `DeviceWorkflowBase.RequestWeldStatus`，因 `SetWeldStatus` 是 protected）。
+`IoSubConnect` / `IoSubReset` 属初始化 / 复位内部自动调用，不单独走扫描。
+
+---
+
+## 查询与参数命令（2026-09-04 新增，原档 §10.4 / §10.5）
+
+| 命令 | 签名 | 原档 | 说明 |
+|---|---|---|---|
+| `GetMainDeviceStatus` | `MainDeviceStatus` | §10.4-14 | 只读，返回 `Current` |
+| `GetSubDeviceStatus(tag)` | `SubDeviceWeldStatus` | §10.4-15 | 按子设备 `Tag` 查；未命中返回 `NoReset` |
+| `GetAllSubDeviceStatus()` | `Dictionary<string, SubDeviceWeldStatus>` | §10.4-16 | 5 个子设备（4 实体 + 1 虚拟） |
+| `GetAlarmInfo()` | `MachineAlarmInfo` | §10.4-17 | 故障代码 / 描述 / 发生时间；数据源 `_lastAlarm` |
+| `GetIOState()` | `string[]` | §10.4-18 | 调试用，返回已置位虚拟 IO |
+| `GetWeldParam()` | `WeldParamOutput` | §10.5-20 | 只读，返回 `_weldParam.LastOutput` |
+| `SetWeldParam(param)` | `bool` | §10.5-19 | 前置：M3 停止；**运行中禁止修改**，违反返回 false |
+| `SetRobotCoord(x, y, z)` | `bool` | §10.5-21 | 前置条件同上 |
+| `GetRobotCoord(out x, out y, out z)` | `void` | — | 配套读取 |
+
+`MachineAlarmInfo` 为 2026-09-04 新增的数据载体（与 `MainDeviceStatusChangedEventArgs` 同文件，未新建 .cs）。
+
+---
+
+## 预检失败整机通路（2026-09-04 新增，原档 §4.2 / §9）
+
+`CheckPreworkFailed()` —— 由 `DeviceStatusWork.IOWork` 在 Running IO 扫描后逐拍调用。
+
+**原档规则**：`Pre-Working Fail` **不进入报警态 M5**，而是 M4→M3、S3→S2（不报警，可重新发起）。
+
+**判定依据**：整机处于 `Running` 但 `_everWorking == false`（从未真正进入 `Working`）时，
+若有任一子设备处于 `Standby`（即从 PreWork 退回），判定预检失败，整机回落 `Stop`。
+`_everWorking` 在 `DoStartMachine` 中重置。
+
+---
+
+## 对中偏差数据中枢（2026-09-04 新增，原档 §7.4.5）
+
+`AlignDatum`（只读属性）→ `MonitorCameraWorkflow.LastResult`。
+
+用户裁定原话：**监控相机只能给结果**（对中 OK/NG），NG 时给出两个数据：
+
+| 字段 | 消费方 | 用途 |
+|---|---|---|
+| `OffsetX` / `OffsetY` | **控制器** `MotionControlWorkflow` | 驱动振镜摆动光斑（`ApplySpotAlignCompensation`，`StepTracking` 阶段） |
+| `WireStickoutDeviation` | **机器人** | 调整送丝距离 |
+
+振镜摆动控制本身仍为 `// todo`（依赖运控振镜轴指令与 `WeldParamOutput.GalvoAmplitude` 摆幅基准落地）。
+
+---
+
+## 遗留待办（`// todo` 清单）
+
+| # | 位置 | 内容 |
+|---|---|---|
+| 1 | `MapCommandToIo` 调用后 | 指令闭环反馈机器人执行结果（待批次 4.5 / 4.6） |
+| 2 | `ApplySpotAlignCompensation` | 振镜摆动控制（待振镜轴指令 + 摆幅基准） |
+| 3 | `SimTick` | 模拟测试设计其余内容（用户后续修正） |
+| 4 | `DoSubPrework` 链路 | Preworking 五项检查实值判定（批次 4.5） |
+| 5 | Working 四路子流程 | 工艺参数闭环（批次 4.6） |
+
+> ⚠️ **C3 待决**：`DoClearAlarm()` 的消报语义（回落 Stop 还是 NoReset）尚未最终裁定，
+> 当前按旧文档回落 Stop。详见 [[decisions/OPEN-ClearAlarmSemantics]]。
 
 ## 关联
 
 - [[modules/DeviceControl]] — 所属架构
-- [[architecture/DeviceControlArchitecture]] — 架构规范页
+- [[architecture/DeviceControlArchitecture]] — 架构规范页（§7 为本类规范，§15.2 为落地批次）
+- [[api/CommandCore]] — 机器人指令协议（const string，取代 CommandTable）
+- [[api/DeviceStatusWork]] — 安全/IO/状态管控：`IsSafe` 门控 + `MachineIOWorkOpen/Close`
 - [[modules/Comm]] — 机器人/PLC 连接归属地
-- [[modules/Safety]] — `DeviceStatusWork.IsSafe` 门控接入
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 本次归并重命名决策（现行有效）
-- [[api/DeviceLog]] — 日志统一出口（本类 `_tag` / `_simTag` 的落地）
-- [[lessons/DeviceControlWorkInheritanceBypass]] — 状态直读 / 时间戳非原子 / 停机重启误判超时 三类 BUG 根因
-- [[api/DeviceControlWork]] — 墓碑（已删除，真相源=本页）
+- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型决策
+- [[decisions/ADR-036-RawDesignRefinement20260903]] — 本次重构依据（7 线程 + 9 方法 + 裁定 C1~C7）
+- [[api/GlobalCommData]] — 通讯与日志底层出口（本类 `_tag` / `_simTag` 的直连落地）

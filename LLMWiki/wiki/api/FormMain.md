@@ -37,7 +37,7 @@ source: AdaWeldSystem/UIDesign/MainWindow/FormMain.cs + .Designer.cs
 | `OnMainDeviceStatusChanged(object, MainDeviceStatusChangedEventArgs)` | 整机状态变更回调，`BeginInvoke` 封送后调 `UpdateSystemStatusLabel` |
 | `UpdateSystemStatusLabel(MainDeviceStatus)` | 按整机状态（Running/Alarm/EStop/Stop/NoReset/Reseting）更新标签文本与颜色（绿/红/红/灰/橙等） |
 | `OnWorkflowStateChanged(object, WeldStatusChangedEventArgs)` | 线激光焊接过程态变更回调（订阅 `LineLaserWorkflow.Instance.WeldStatusChanged`，ADR-034），`BeginInvoke` 封送后调 `UpdateStatusLabel` |
-| `UpdateStatusLabel(SubDeviceWeldStatus)` | 线激光焊接过程态映射为状态栏文本（Standby/PreWork/Starting/Working/Stopping/ErrorAborted/ManualStopped） |
+| `UpdateStatusLabel(SubDeviceWeldStatus)` | 线激光焊接过程态映射为状态栏文本（NoReset/Standby/PreWork/Working/Stopping/ErrorAborted/ManualStopped） |
 | `uiMillisecondTimer1_Tick` | 每周期驱动顶部状态刷新：`ShowStatus()` 更新整机/流程/系统时间标签，并调 `mainPage.RefreshDeviceSwitchUi()` 刷新 MainPage 硬件快捷开关（`UpdateDeviceStatus()` 旧方法已于 2026-08-27 状态栏裁剪时删除，设备级连接标签改由 MainPage `ButtonShadow` 常驻按钮表征，ADR-032） |
 | `FormMain_FormClosed(object, FormClosedEventArgs)` | 退订单例事件（`LineLaserWorkflow.WeldStatusChanged` / `DeviceControlWork.StatusChanged`）+ `DeviceControlWork.Instance.Dispose()` + `LineLaserWorkflow.Instance.Dispose()`（设计器 Dispose 不覆盖单例事件订阅，须显式退订） |
 | `FormMain_FormClosing(object, FormClosingEventArgs)` | 关闭前询问：运行中设备确认强制关闭，否则确认退出；`AntdUI.Modal.open` 非 OK 则 `e.Cancel=true` |

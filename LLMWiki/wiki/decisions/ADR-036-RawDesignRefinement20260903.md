@@ -15,7 +15,7 @@ status: accepted
 2026-09-03 用户更新 `raw/architecture/` 原档（ADR-035 唯一修改入口）：
 
 1. `主控设计.xlsx` —— 从「一句话职责」细化为**成员级清单**（基类 17 项契约、5 子工作流差异化职责、两个独立管控类的线程/私有方法/公共方法全表），新增 `CommandCore` 与 `SubDeviceWeldStatus.NoReset`。
-2. `激光焊接系统业务流程图.pdf`（新增，含文本层）—— 取代已删除的两份旧 PDF，业务主链细化到**检查项级**。
+2. `激光焊接系统业务流程图20260904.md`（2026-09-04 新增，**业务流主源**）—— 用户人工全量转写版（706 行），取代 `激光焊接系统业务流程图.pdf` 成为提取对象；在原 PDF 基础上补齐 §2 IO 统一触发架构、§3.4 双态映射、§10 共 21 条机器人命令设计。PDF 保留为图形备份。
 
 AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别出 7 项与现行「步骤驱动」「双流程」「三态模型」三项决策或代码冲突之处，按 ADR-035 §3 **提交用户裁定**（未裁定不得改码）。
 
@@ -41,7 +41,7 @@ AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别
 
 ### 2. 原档集合收敛 3 → 2（已生效）
 
-现役原档 = `主控设计.xlsx`（静态结构）+ `激光焊接系统业务流程图.pdf`（业务流 + 检查清单）。旧两份 PDF 及 3 张渲染图已删除；泳道图覆盖的「类协作时序」信息在新原档中不再覆盖，该部分以代码事实为准。
+现役原档 = `主控设计.xlsx`（静态结构）+ `激光焊接系统业务流程图20260904.md`（业务流 + 检查清单 + IO 触发 + 命令表，主源）。旧两份 PDF 及 3 张渲染图已删除；泳道图覆盖的「类协作时序」信息在新原档中不再覆盖，该部分以代码事实为准。
 
 ### 3. 受影响的既有 ADR 处置
 
@@ -133,4 +133,4 @@ AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别
 - 步骤驱动决策、双流程决策（均已删除）—— 受影响 / 部分被取代
 - [[decisions/ADR-034-ThreeStateModelRefactor]] —— 部分被取代的 ADR
 - [[lessons/StepDrivenWorkflowPitfalls]]（坑三：基类抽象成员连锁）、[[lessons/StepMemberNameCollision]]（CS0102）—— 改码门禁
-- [[modules/DeviceControl]]、[[api/DeviceControlWork]]、[[api/DeviceStatusWork]]、[[api/DeviceLog]] —— 受影响页面
+- [[modules/DeviceControl]]、[[api/DeviceControlWork]]、[[api/DeviceStatusWork]] —— 受影响页面（`api/DeviceLog` 页已随 `DeviceLog.cs` 于 2026-09-04 移除）

@@ -1,4 +1,119 @@
-﻿# Wiki Log — 变更日志
+﻿## [2026-09-04 18:04:24] coding | 启动日志 8 项问题修复：状态机语义 + 初始化时序 + 报错分层（ADR-037/038）
+
+**起因（用户）**：提供程序启动日志，指出 8 项问题——FormMain 越权打印初始化完成 / Stop→Alarm 违反设计 / 故障恢复模块来路不明 / 子设备初始化时序颠倒 / 子设备初始态出现 Standby / 清状态在未连接时误触发 / 同一错误重复记录 3~4 层 / 心跳未开启也无限刷报警。
+
+**用户三项评审裁定**：① 故障恢复模块整体删除；② 初始化连接失败置 Alarm、清除报警后回 NoReset；③ AntdUI Modal 非阻塞等待。
+
+**代码修复（9 文件 + 2 删除 + 1 新增）**：
+- `DeviceControlWork`：初始态 Stop→NoReset；`DoInitializeMachine` 删 ClearMachine、通讯提为第 0 步、焊接头/运控 Initialize 失败不再误置 Connected；`EvaluateInitializationResult` 全部就绪保持 NoReset；`DoClearAlarm` 一律回 NoReset（关闭 OPEN-ClearAlarmSemantics）；心跳线程重写（通讯开启成功才检测，失效停检+重连 3 次）；新增 `InitializationCompleted` 事件；删 RecordFault。
+- `DeviceStatusWork`：删 RecordFault/状态反射日志。`DeviceStateBase`：删连接态/焊接过程态切换日志（事件保留）。
+- `MotionControlWorkflow`：ClearStatus 不再经 SetPhase(Idle) 映射出中间 Standby；删重复报错。4 个工作流删 FaultRecord 调用。
+- `FormMain`：删越权日志；初始化移至 Shown + Modal 等待（新 `InitWaitingPanel`，事件自动关闭）。
+- 删除 `ProductFileManager/FaultRecoveryManager.cs`、`SqlLiteDatabase/FaultRecordManager.cs`（csproj 同步）。
+
+**校验**：旧符号残留 0、花括号配平 0 差、BOM/CRLF 与备份一致（备份 `AdaWeldSystem_backup_20260904_174325.tar.gz`）；真编译待 Visual Studio。
+
+**Ingest**：新增 ADR-037 / ADR-038；架构页 §9 三处 + TOC 更新；api/FaultRecoveryManager、api/FaultRecordManager 挂 ⛔ 废弃横幅；api/DeviceStatusWork、api/LineLaserWorkflow 同步；OPEN-ClearAlarmSemantics 关闭；index 决策表加 2 行。
+
+## [2026-09-04 15:21:47] coding | /// 注释精简轮：MainDeviceControl 10 文件长篇 XML 注释瘦身
+
+**起因（用户）**：上一轮（14:54）把类注释改成「单行 summary + remarks」后用户指出 summary/remarks 都属于 /// 注释，仍存在大量长篇大论——remarks 搬家不等于精简。
+
+**规范依据**：standards/CodeSimplification 二.②（summary 20 字内单行；类 summary 一行完成；过程/由来归 LLMWiki 不进代码）+ RefFileOrganization §3。
+
+**本轮裁定（已回灌规范页）**：类头 remarks 至多 1~2 行只写「为什么」级个性约束（R0xx 差异化职责、数据/权责边界）；子类与基类共性（线程归属/推进模型/对外态承载）只在基类写一次；枚举值清单、执行步段位清单、数据流向分步、「用户 2026-09-04 裁定」类由来叙述全删（由 wiki/OPEN 决议页承载，DoClearAlarm 保留 C3 待决指针一行）。
+
+**改动**：10 文件（DeviceControlWork / DeviceStatusWork / DeviceStateBase×4 / DeviceWorkflowBase / CommandCore / 5 workflow）——类头 10 处（最长 27 行 remarks → 1 行）、多行成员 summary 5 处单行化、成员级 3 行以上 remarks 19 处压缩。多行 summary 残留 0、多行 remarks 残留 0。
+
+**校验（Step 2.6）**：Python 对照 15:08 备份（AdaWeldSystem_backup_20260904_150857.tar.gz）逐文件 diff——差异全部为 /// 注释行、BOM+CRLF 全保持。**真编译待 Visual Studio**。
+
+**新踩坑**：同一文件的多个 Edit 放同一并行批次存在竞态（DeviceStateBase 三个枚举编辑仅最后一个落盘）——同文件多处编辑必须串行执行。
+
+**wiki 同步**：standards/CodeSimplification.md 二.② 追加 remarks 篇幅细则。
+
+## [2026-09-04 14:54:09] docs | ADR-036 术语与类注释收尾（9 文件，仅注释变更）
+
+**范围**：MainDeviceControl 9 个 .cs —— DeviceStateBase / CommandCore / DeviceWorkflowBase / LineLaserWorkflow / DeviceStatusWork / LaserWeldHeadWorkflow / MonitorCameraWorkflow / MotionControlWorkflow / WeldParamControlWorkflow（DeviceControlWork 类头已合规，免改）。Step 2.1 备份 `AdaWeldSystem_backup_20260904_143222.tar.gz`。
+
+**内容**：
+1. 类级 XML 注释统一为「单行 `<summary>` + `<remarks>`」结构。其中 MonitorCameraWorkflow 原类头**标签损坏**（`<summary>` 无闭合、`</remarks>` 孤悬），本轮修复；WeldParamControlWorkflow 27 行巨型单块 summary 拆分，`**…**` markdown 星号统一为 `<b>` XML 标签。
+2. 残留旧术语清理：WorkStep / GoStep / SetStep / IsRunLoopActive / StartRunLoop / ADR-047 等表述统一为现行口径（RunStep bool 驱动 / 17 项契约 / 子流程不自带线程）；过程性表述（如"不再用 WaitOne(5000)"）改现状描述。
+3. LineLaserWorkflow 删除未使用历史常量 `PreWorkWaitTimeoutSeconds`（13:59 纪录标注的清理候选；`PreWorkWaitTimeoutSeconds` / `PreWorkWaitTimeout` 双模式 Grep 零引用确认后删除）。
+4. 类头「差异化职责」表述与 wiki api 页对齐（MonitorCamera R010 轴控制行为 + 送丝距离合规检查）。
+
+**校验（Step 2.6）**：Python 校验器对照 14:32 备份逐文件 diff —— 差异仅 `///` 注释行（唯一例外即上述常量删除）、字节风格全部 BOM+CRLF 保持、`<summary>`/`<remarks>`/`<param>`/`<returns>` 开闭配对全过。**真编译待 Visual Studio**。临时脚本 4 个已清理。
+
+**wiki 同步**：api/LineLaserWorkflow.md 的「清理候选」注记改为已删除。
+
+## [2026-09-04 13:59:16] docs | 五个子工作流 API 页整页重写对齐现行代码
+
+**起因**：2026-09-04 13:43 轮 DeviceLog 移除 + 残留审计后，五个 api 子工作流页（LaserWeldHeadWorkflow / LineLaserWorkflow / MonitorCameraWorkflow / MotionControlWorkflow / WeldParamControlWorkflow）仍为「改造前 API 存档 + ⏳ 整页重写待办」横幅。本轮整页重写，剔除 GoStep/WorkStep/Starting/StartRunLoop/ManualOn/命令三槽 等已清除机制描述，改为现行代码 + 架构页 §4/§5/§16 口径。
+
+**每页落地要点**（以各 .cs 现行源码为准逐项核对）：
+- LineLaserWorkflow：执行步段位 10→20→30→31→100→700（基类 0/800/900）；DoPreWorkWaitWork 超时 30s → Fail（模拟模式在步 31 自驱动）；数据稳定 5 帧；失败计数 5s 窗口 + MaxConsecutiveFailures=5；OnWeldStatusChanged 复位表 + ReleaseCameraBinding；WeldStatusTrans 三分支；BeginWorking 现仓库内无调用方；连接/断开后台线程 _isConnecting 防重入
+- MonitorCameraWorkflow：私有相位 MonitorWorkflowState 映射（Acquiring/Analyzing/Completed→Working，Uninitialized→NoReset）；WaitOne(0) 非阻塞探测 + 超时 5s；WireStickoutDeviation（2026-09-04 裁定，供机器人调送丝）；OffsetX/OffsetY 供振镜（§7.4.5）；健康巡检归 MonitorCameraRun
+- MotionControlWorkflow：相位 LaserCamBoxWorkflowState 映射表；步 10/20/30/100/110/700/900；IsRunning=Tracking|WaitingForMaster；Initialize 三参数；StepTracking 内 ApplySpotAlignCompensation 消费 DeviceControlWork.AlignDatum（todo 振镜摆幅）
+- LaserWeldHeadWorkflow：骨架期（相位 0~3，无业务执行步）；温度阈值监控（原档 R009 / 批次 4.1）todo；FlowProcess 空转
+- WeldParamControlWorkflow：相位 0~6 映射（默认→Working）；StepIdle 消费 _pendingCompute；LoadParameters/ComputeAndOutput/Complete/SwitchParameter；ConsecutiveFailureCount 直通 WeldProcess；CalcGalvoAmplitude TODO 占位 0
+
+**字节风格保持**：LineLaser BOM+CRLF / MotionControl BOM+CRLF / MonitorCamera BOM+LF / LaserWeldHead noBOM+LF / WeldParam noBOM+LF（逐文件还原，避免无谓 diff）。
+
+**模块页同步**：modules/DeviceControl.md「各工作流」表 7 行修正——LineLaser 步号去 11、MotionControl 去 BeatMs=20、LaserWeldHead 去 IsRunLoopActive、DeviceControlWork 去「三槽命令变量」、DeviceStatusWork 行与节改 thIOWork/thEMGWork/thLightStatusWork + EstopMachine/EstopCancel/MachineIOWorkOpen/MachineIOWorkClose 新名。
+
+**遗留观察**：LineLaserWorkflow.cs:34 PreWorkWaitTimeoutSeconds 为未使用历史常量（清理候选）；五个相位枚举为同文件公共枚举但仅内部 _phase/_flowState 驱动（与「私有相位」描述等价）。
+
+**体检**：wiki_audit（红链 0 / 孤儿 0 / 重复 0 / ADR 1~36 连续）/ lint_scan（死链 0）/ drift_scan_precise（待修正 0）三项全绿。真编译待 Visual Studio。
+
+## [2026-09-04 13:43:25] fix | 移除残留设计 DeviceLog + MainDeviceControl 知识库残留比对审计
+
+**起因（用户裁定）**：用户指出 DeviceLog 属**残留设计**——新架构（主控设计.xlsx + 激光焊接系统业务流程图 20260904.md + 用户逐条裁定）从未要求该中间层。追溯：2026-09-03 00:54 轮次（设备日志统一出口 feat）AI 在处理「63 处 ShowLog 标签发散」时自创 DeviceLog.cs 静态类并写入架构页 §2/§16.6、新建 api/DeviceLog.md 制度化；用户裁定 C7 仅限 `SubDeviceLog()` public + 各子流程各自重写，与整机出口无关。
+
+**代码侧**：删 `MainDeviceControl/DeviceLog.cs`（os.remove）+ `.csproj` 摘登记；11 处调用改直连 `GlobalCommData.ShowLog`（DeviceStateBase 3 / DeviceWorkflowBase 1 / DeviceControlWork 6 / DeviceStatusWork 1）。`SubDeviceLog`（C7 契约）保留。
+
+**wiki 侧**：删 `api/DeviceLog.md`；9 页 35 处替换（`[[api/DeviceLog]]`→`[[api/GlobalCommData]]`、DeviceLog 类描述改直连、lessons/CodeSimplification/index/ADR-036/modules/vibecoding-workflow/架构页 §2 目录+§16.6 映射）。架构页 §16.6 映射修正：参考 `CommenData.ShowLog`→`Comm/GlobalCommData.ShowLog`、`CommenData.MachineLog`→`Comm/GlobalCommData.MachineLog`（原误映射到 DeviceLog）。
+
+**残留比对审计发现（批次 A~F 落地后知识库同步遗漏）**：
+1. 5 个 api 子工作流页（LaserWeldHead/LineLaser/MonitorCamera/MotionControl/WeldParam）仍为**改造前 API 存档**且横幅称「改码尚未开工」（已过时）→ 横幅纠错 + 标注「⏳ 整页重写待办」（正文 GoStep/Starting/WorkStep 等旧名，均已在代码清除）
+2. `modules/DeviceControl.md` 旧 DeviceControlWork 存档节（BeatMs=10/_workStep/命令三槽）→ 整节重写为 7 线程现行 + ⛔ 存档标注；「等价最小改写（GoStep）」节 → 现行范式（RunStep/AdvanceStep）
+3. 架构页 §13 与 api/FormMain.md `SubDeviceWeldStatus` 枚举仍列已删 `Starting` → 改 NoReset 开头 7 态
+4. `modules/Safety.md` 「IsRobotPoseSafe pose 语义并入监控循环」措辞 → 修正为 C3 已删、IsSafe=本机安全 IO
+
+**体检**：wiki_audit / lint_scan / drift_scan_precise 三项全绿。真编译待 Visual Studio。
+
+## 2026-09-04 12:18:32 — 新增原档 md 版 + IO 统一触发架构落地（批次 A/B/C/D/E/F）
+
+**原档变更**：新增 `raw/architecture/激光焊接系统业务流程图20260904.md`（706 行，人工全量转写）。
+**该 md 版取代 PDF 成为业务流原档主源**，PDF 降级为图形备份。ADR-035 登记由 2 份修订为 3 份，
+已同步架构页 §5 / §959、`index.md`、`ADR-036`（共 6 处）。
+
+**补齐内容**：md 版比 pypdf 提取的 928 字多出 10 项，其中最重要的是
+**§2 IO 统一触发架构整章**（PDF 文本层完全丢失）与 **§10 共 21 条机器人命令设计表**。
+
+**七项冲突裁定**：C1 完整落地 IO 中转 / C2 是数据流非归属 / C3 暂维持旧文档回 Stop 并标记
+/ C4 以代码 `Standby` 为准 / C5 子设备级命令不新增公共 API / C6 查询+参数 8 条全落地 / C7 本轮做。
+
+**用户硬约束（务必牢记）**：
+1. **不新建 .cs 文件** —— 虚拟 IO 常量与置位表定义在 `DeviceControlWork.cs` 内部。
+2. **不新建扫描线程** —— `thEMGWork`（急停，单线程）+ `thIOWork`（Running+Alarm，一个线程），
+   两者**同时监控虚拟 IO 与物理 IO**，物理 IO 由控制器给出。
+3. **机器人通讯必须转到 IO** —— 坐标类解析 string 仅记录，动作类机器人直接写 IO 量，
+   两条路径都收敛到虚拟 IO 层。
+
+**改码**（批次 B/C/D/E，静态校验全绿，**真编译待 Visual Studio**）：
+- `DeviceControlWork.cs`：新增虚拟 IO 常量 13 条 + 置位表 + 6 个操作 API + `ExecuteIo` 分派；
+  5 个系统级命令改为置位（`DoXxx` 为执行体）；`DispatchCommand` → `MapCommandToIo`（机器人通讯转 IO）；
+  8 条查询/参数命令；`CheckPreworkFailed` 预检通路；`AlignDatum` 偏差中枢
+- `DeviceStatusWork.cs`：`thEMGWork` 物理+虚拟急停统一扫描；`thIOWork` 增 `ScanRunningIo` + `CheckPreworkFailed`；
+  新增 `ReadPhysicalEmg` / `ScanPulseIo`
+- `DeviceWorkflowBase.cs`：新增**非抽象** `RequestWeldStatus`（不破坏 17 项抽象契约）
+- `MonitorCameraWorkflow.cs`：`MonitorResult` 补 `WireStickoutDeviation`
+- `MotionControlWorkflow.cs`：`StepTracking` 阶段消费光斑偏差 `ApplySpotAlignCompensation`
+
+**知识库**：新建 `decisions/OPEN-ClearAlarmSemantics`（C3 待决标记，含用户焊接工艺 reasoning）；
+架构页新增 **§7.9 IO 统一触发架构**（100 行）；`api/DeviceControlWork` 新增 5 个章节。
+三项扫描全绿（红链 0 / 孤儿 0 / 死链 0 / drift 待修正 0）。
+
+# Wiki Log — 变更日志
 
 > 时间导向的追加日志。每条记录以 `## [日期时间] 操作类型 | 描述` 开头。
 > 时间戳获取方式：执行 PowerShell 命令 `Get-Date -Format "yyyy-MM-dd HH:mm:ss"` 获取准确时间。
@@ -13,6 +128,22 @@
 > - **已删除、编号不再存在（15 条）**：旧 006、009、017、023、024、025、027、032、033、036、040、041、042、047、048。
 >   ⚠️ 其中 006 / 017 / 025 / 033 / 036 等编号**已被新决策复用** —— **同名并非同一决策，切勿混淆**。
 > 检索一律以 [[index/index]] §7 的现行有效表为唯一准绳。
+
+## [2026-09-04 10:00:25] ingest | ADR-036 批次 0~3 + 4.4 落地：MainDeviceControl 按新主控设计重构
+
+- **触发**：用户指令「按照全新构架设计 MainDeviceControl 代码修正方案，然后改造代码」（`@skill:vibecoding-llmwiki`，Phase 0~4）。三项范围裁定：① 覆盖批次 0+1+2+3 + 4.4（业务行为补全 4.1/4.2/4.3/4.5/4.6 留 `// todo`）；② `CommandCore` 指令常量按旧 `DeviceCommand` 语义落字符串；③ **模拟测试模式保留在 `DeviceControlWork`，并新增一条后台线程承载**（用户原话：「我决定在 DeviceControlWork.cs 文件中做一个后台线程来跑模拟测试。后面我将修正模拟测试的其他设计内容，暂时先按原逻辑落位到这」）。
+- **Phase 0 侦察结论**：代码库 **100% 旧设计**，ADR-036 落地率 0%。影响半径 = `MainDeviceControl/` 9 文件 + UI 3 文件（`FormMain`/`ILCamPage`/`MonitorCamPage`，均只命中 `SubDeviceWeldStatus.Starting`）+ 1 行 `.csproj`。两组不同 grep pattern 交叉验证，计数吻合。
+- **Phase 2 改码（9 个文件）**：
+  - **批次 0**：`SubDeviceWeldStatus` 改 7 态（删 `Starting`、加 `NoReset`(0)）；UI 三处中文映射同步；`CommandTable.cs` → `CommandCore.cs`（const string，`.csproj` 同步登记，旧文件用 `os.remove` 删除——**本仓库禁用 `git rm`**）。
+  - **批次 1**：`DeviceWorkflowBase` 全面重写，删常驻监听线程机制（`StartRunLoop`/`BeatMs`/`RunLoopPriority`）、`GoStep`/`FailFlow`/`FailReason`/`FailStep`；`WorkStep`→`RunStep`、`WorkStartTime`→`StepWorkTime`(TimeSpan)、`_timeoutMs`(ms)→`TimeOutSeconds`(秒)；新增 17 项契约（5 属性 + 阻塞 10 + 非阻塞 2）；补 `ReadInt`/`ReadDouble`（原 `.ToInt()` 扩展在项目里根本不存在）。5 个子类全部重写/改造落地。
+  - **批次 2**：`DeviceControlWork` 重写为 7 常驻线程 + §7.5 九方法；命令三槽 + `IsRobotPoseSafe` + 内部执行步机制整体删除，改 `Queue<string>` + `CommandCore`；新增 `Current`/`Last` 双快照 + `IsReseting`/`IsWorking`/`IsAlarmstop`/`IsCloseWork`；新增模拟后台线程 `thSimTestWork`。
+  - **批次 3**：`DeviceStatusWork` 三线程改名 `thIOWork`/`thEMGWork`/`thLightStatusWork` + 三标志位 + `MachineIOWorkOpen()`/`MachineIOWorkClose()`；`EStopMachine`→`EstopMachine`、`EStopCancel`→`EstopCancel` 同步改名。
+  - **批次 4.4**：`WeldParamControlWorkflow` 无实体设备，`ConnectOn/Off` 简化为 `_paramReady` bool。
+- **踩坑与规避**：① `LineLaserWorkflow.RunStep(Func<bool>)` 与新增 `RunStep` 属性 **CS0102** → 先改名 `RunStepAction`；② `Config.GetElementValue(...).ToInt()` 不存在 → 基类补 `ReadInt`/`ReadDouble`；③ `MonitorCameraWorkflow`/`WeldParamControlWorkflow` 批量插入后残留**悬挂 `#endregion`**（region depth = -1），`GetStepName` 被留在区域外 → 按 `MotionControlWorkflow` 的干净布局复位；④ `CommandCore.cs` 行尾 LF 与同目录其余 CRLF 不一致 → 统一 CRLF 并保留 BOM。
+- **Step 2.6 正确性验证**：沙盒无 C# 编译器，用 Python 静态校验器（掩码字符串/注释后）检查 5 类——括号配平 / region 配对 / 基类抽象契约覆盖（13 抽象 + 5 子类全实现）/ 跨类符号存在性 / 禁用符号残留，**全部通过**。**⚠️ 真编译待 Visual Studio。**
+- **Phase 3 知识库同步**：重写 [[api/DeviceControlWork]]（7 线程 + 九方法 + 迁移校验 + 遗留待办表）；更新 [[api/DeviceStatusWork]]（线程改名 + `MachineIOWorkOpen/Close` + 三标志位）；**新增 [[api/CommandCore]]**；[[architecture/DeviceControlArchitecture]] §15.2 增「落地状态总表」；`index/index.md` 三条 API 行改写 + 修正过时的 7 态枚举列表（补 `NoReset`、删 `Starting`）。
+- **遗留 `// todo`**（属批次 4 未落地）：Preworking 五项检查（4.5）、Working 四路子流程（4.6）、机器人心跳报文、指令交互闭环、温度阈值（4.1）、相机轴控（4.2）、送丝位置检测（4.3）、模拟设计其余内容。清单见 [[api/DeviceControlWork]]「遗留待办」。
+- **备份**：改码前打 `AdaWeldSystem_backup_20260904_092111.tar.gz`（96 MB，排除 `bin`/`obj`）。
 
 ## [2026-09-03 18:59:16] ingest | 废弃 ADR 页删除 + 全库 ADR 连续重编号 001~036
 

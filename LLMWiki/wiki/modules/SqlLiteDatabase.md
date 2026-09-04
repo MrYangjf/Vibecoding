@@ -21,7 +21,7 @@ SqlLiteDatabase/
 ├── ConfigManager.cs                     ← 配置管理
 ├── AutoParamManager.cs                  ← 自动参数数据库管理
 ├── ProductDatabaseManager.cs            ← 产品数据库管理
-└── FaultRecordManager.cs                ← 故障记录数据库管理（2026-08-31 新增，ADR-033）
+└── FaultRecordManager.cs                ← 故障记录数据库管理（2026-08-31 新增，ADR-033；已移除 2026-09-04，ADR-038 D3）
 ```
 
 ## 核心文件
@@ -34,7 +34,7 @@ SqlLiteDatabase/
 | ConfigManager.cs | 配置管理（系统配置持久化） |
 | AutoParamManager.cs | 自动参数数据库管理（JSON 序列化） |
 | ProductDatabaseManager.cs | 产品数据库管理（Product.db 按日期分表） |
-| FaultRecordManager.cs | 故障记录持久化（`DataBase\FaultRecord.db` 表 FaultRecord，详见 [[api/FaultRecordManager]]；2026-08-31 自 FaultRecoveryManager 内联实现下沉而来） |
+| FaultRecordManager.cs | 故障记录持久化（`DataBase\FaultRecord.db` 表 FaultRecord，详见 [[api/FaultRecordManager]]；2026-08-31 自 FaultRecoveryManager 内联实现下沉而来；已移除 2026-09-04，ADR-038 D3） |
 
 ## 技术要点
 

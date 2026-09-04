@@ -54,7 +54,7 @@ private const string Tag = "运动控制工作流";   // 基类已有 public obj
 
 1. **`Tag` 不是死成员，是日志标签的真相源**——保留并收紧为 `public string Tag { get; protected set; }`（`object` → `string`，setter 降为 `protected`）。
 2. **子类禁止再声明任何 `Tag` / `_tag` 同名成员**；日志标签只能在构造函数里给基类属性赋值：`Tag = "线激光工作流";`。
-3. 每个流程与管控类**必须有且只有一个日志出口**。收敛结果见 [[api/DeviceLog]]。
+3. 每个流程与管控类**必须有且只有一个日志出口**（`GlobalCommData.ShowLog` 直连，无中间封装）。见 [[api/GlobalCommData]]。
 4. **判据**：审计报「0 消费者」时，先问「它是不是某种横切关注点的载体（日志/权限/序列化）」，
    不要直接下「死成员」结论——尤其当 `raw/` 原档把它列为契约成员时。
 
@@ -80,22 +80,22 @@ private const string Tag = "运动控制工作流";   // 基类已有 public obj
 
 ### 规避（硬约束）
 
-新建 `AdaWeldSystem.MainDeviceControl.DeviceLog` 静态类作为**唯一设备日志出口**，收敛为四级约定：
+曾新建 `DeviceLog` 静态类作唯一出口（**2026-09-04 按用户裁定移除**——新架构未要求中间层），现行=直连 `GlobalCommData.ShowLog` + 标签约定：
 
 | 角色 | 标签来源 | 调用写法 |
 |---|---|---|
 | 子工作流 | 基类 `Tag` | 基类 `protected void Log(string message, MessageLevel level = MessageLevel.Info)` |
-| 独立管控类 | 私有 `_tag` | 本类私有 `Log(...)` → `DeviceLog.Write(_tag, ...)` |
-| 状态基座 | `StateName` | `DeviceLog.Write(StateName, ...)` |
-| 模拟模式 | `_simTag` | `DeviceLog.Write(_simTag, ...)` |
+| 独立管控类 | 私有 `_tag` | 本类私有 `Log(...)` → `GlobalCommData.ShowLog(_tag, ...)` |
+| 状态基座 | `StateName` | `GlobalCommData.ShowLog(StateName, ...)` |
+| 模拟模式 | `_simTag` | `GlobalCommData.ShowLog(_simTag, ...)` |
 
 **验收口径（可用 grep 自检）**：
 
 ```
-MainDeviceControl/ 下 ShowLog 命中应仅剩 DeviceLog.cs 一处（即封装点本身）
+MainDeviceControl/ 下无 DeviceLog 中间类（仅剩 C7 契约 `SubDeviceLog` 抽象名）；日志直连 `GlobalCommData.ShowLog`
 ```
 
-设备日志走 `DeviceLog`；**通讯收发报文仍走 `GlobalCommData.ShowCommunicationLog`，二者不得混用**
+设备日志直连 `GlobalCommData.ShowLog`；**通讯收发报文仍走 `GlobalCommData.ShowCommunicationLog`，二者不得混用**
 （连接 `open`/`close` 归设备日志，报文 `content`/`stop` 归通信日志）。
 
 ---
@@ -221,7 +221,7 @@ grep -n "_status" AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 | # | BUG | 修复 | 文件 |
 |---|---|---|---|
 | 1 | 子类 `const string Tag` 遮蔽基类 `Tag`（CS0108） | 基类 `Tag` 收紧为 `public string { get; protected set; }`；子类删遮蔽声明，构造函数首行赋值 | `DeviceWorkflowBase.cs` + 5 个子工作流 |
-| 2 | 日志出口发散 63 处 | 新建 `DeviceLog` 统一出口；全量改走 `Log(...)` / `DeviceLog.Write(...)` | 新增 `DeviceLog.cs` + 8 个文件 |
+| 2 | 日志出口发散 63 处 | 直连 `GlobalCommData.ShowLog` + 统一标签（曾建 `DeviceLog` 中间类，2026-09-04 按裁定移除） | `DeviceLog.cs` 删除，8 文件改直连 |
 | 3 | `long` 时间戳裸读写 | `Interlocked.Exchange` / `Interlocked.Read` | `DeviceControlWork.cs` |
 | 4 | `_status` 直读绕过锁（8 处） | 全部改走 `Status` 属性（保留 `ClearAlarm` 锁内 check-and-set） | `DeviceControlWork.cs` |
 | 5 | 停机再启动首拍误判超时 | `RunLoop` 补 `else ResetStepTime()`；`StartMachine` 内 `GoStep(StepIdle)` | `DeviceControlWork.cs` |
@@ -234,7 +234,7 @@ grep -n "_status" AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 
 ## 关联
 
-- [[api/DeviceLog]] — 本次新建的统一日志出口（标签约定在本页）
+- [[api/GlobalCommData]] — 设备日志直连出口（标签约定另见 [[standards/CodeSimplification]] §三⑤）
 - [[standards/CodeSimplification]] §三 — 设备日志规范（内容无符号、记录时机、通讯全记录）
 - [[architecture/DeviceControlArchitecture]] — §5 步骤驱动与超时、§15 落地清单、§16 代码模板
 - [[api/DeviceControlWork]] — 主设备运行管控（坑三/四/五 的现场）

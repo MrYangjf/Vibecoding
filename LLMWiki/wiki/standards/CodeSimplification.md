@@ -83,6 +83,7 @@ status: accepted
 - `public`/`protected` 方法/属性/类/接口的 `/// <summary>` **建议写**（对外接口应有文档）；`private` 方法**可选**（复杂逻辑或不易理解的私有方法建议写，简单方法可不写）。
 - `/// <summary>` 20 字内，动词开头描述"做什么"，不写过程/实现步骤/调用链（错误：`先校验参数然后调用 Repository 插入…`；正确：`创建订单`）。
 - 类/结构体/枚举/接口 的 `/// <summary>` 必须一行完成，20 字内，不写多行。
+- `<remarks>` 不是长篇容身之处（2026-09-04 裁定）：类头 remarks **至多 1~2 行**，只写「为什么」级个性约束（差异化职责 R0xx、数据/权责边界）；子类与基类的共性描述（线程归属、推进模型、对外态承载）只在基类写一次；枚举值清单、执行步段位清单、数据流向分步、裁定日期等过程/由来描述由 LLMWiki 承载，不进代码。
 - 每个 `<param name="x">` 说明参数含义/取值范围/是否可 null/单位/枚举语义，**不重复参数名本身**（错误 `<param name="order">order</param>`）；有返回值写 `<returns>` 说明 true/false 各自含义，不写"返回结果"废话；仅当调用方应感知并处理的异常才写 `<exception>`。
 - C# 7.3 注意：不用 `string?` 可空性标注、不用 `<inheritdoc/>` 偷懒；泛型尖括号转义 `List&lt;T&gt;`。
 
@@ -125,26 +126,26 @@ status: accepted
   2. **非命令通道**：`FailedItems.Add("...: ...")`、`throw new InvalidOperationException("...：...")`、图像叠加文本（`DrawTextOnImage`）、提示文案（`PathFallbackMessage`）等同样含符号，按同口径去符号。
   3. **模块整合/迁移后必须复跑**：`SafetyInterlock.cs`（已移除）因早期安全模块整合迁入 Workflow 时未纳入清理，残留 7 处 FailedItems 符号 → 迁移/合并文件后复跑本检查。
 
-### ⑤ 日志出口统一：一个标签 + 一个出口（2026-09-03 确立，强制）
+### ⑤ 日志出口统一：一个标签 + 直连出口（2026-09-03 确立，2026-09-04 修正：无中间封装）
 
-> **背景**：`MainDeviceControl/` 曾出现 63 处 `GlobalCommData.ShowLog`、四类标签写法并存（私有 `_tag` / 遮蔽基类的 `const Tag` / `StateName` / `_simTag`），
+> **背景（2026-09-04 修正）**：曾以新建 `DeviceLog` 中间类收敛（起因：63 处 `GlobalCommData.ShowLog`、四类标签写法并存），后用户裁定**新架构未要求该中间层**，`DeviceLog.cs` 已移除，改直连 + 统一标签。原发散情形：（私有 `_tag` / 遮蔽基类的 `const Tag` / `StateName` / `_simTag`），
 > 且子类 `private const string Tag` 遮蔽基类 `public object Tag` 触发 **CS0108** 与 `string`/`object` 类型对撞。详见 [[lessons/DeviceControlWorkInheritanceBypass]]。
 
 **强制规则**：
 
 | # | 规则 | 说明 |
 |---|---|---|
-| 1 | **设备日志唯一出口 = `DeviceLog`** | `MainDeviceControl/` 下禁止再直接调 `GlobalCommData.ShowLog`；`DeviceLog` 内部是全项目唯一调用点。见 [[api/DeviceLog]] |
+| 1 | **设备日志出口 = 直连 `GlobalCommData.ShowLog`** | `MainDeviceControl/` 下禁止再直接调 `GlobalCommData.ShowLog`；`MainDeviceControl/` 下不设中间封装层，调用点直接 `GlobalCommData.ShowLog(tag, ...)` |
 | 2 | **每个流程/管控类有且只有一个日志标签** | 子工作流用基类属性 `Tag`（构造函数首行赋值，禁止子类再声明同名成员）；独立管控类用私有 `_tag`；状态基座用 `StateName` |
-| 3 | **本类内走 `Log(...)` 辅助方法，不重复传标签** | 基类提供 `protected void Log(string message, MessageLevel level = MessageLevel.Info)`；独立管控类各自定义私有 `Log(...)` 转发到 `DeviceLog.Write(_tag, ...)` |
-| 4 | **设备日志与通讯日志不得混用** | 运行/状态/异常/连接 `open`·`close` → `DeviceLog`；监听建立后到停止前的**收发报文内容** → `GlobalCommData.ShowCommunicationLog`（全记录不摘要，见 ③） |
+| 3 | **本类内走 `Log(...)` 辅助方法，不重复传标签** | 基类提供 `protected void Log(string message, MessageLevel level = MessageLevel.Info)`；独立管控类各自定义私有 `Log(...)` 直连 `GlobalCommData.ShowLog(_tag, ...)` |
+| 4 | **设备日志与通讯日志不得混用** | 运行/状态/异常/连接 `open`·`close` → `GlobalCommData.ShowLog`；监听建立后到停止前的**收发报文内容** → `GlobalCommData.ShowCommunicationLog`（全记录不摘要，见 ③） |
 | 5 | **跨线程共享的 `long`/`double`/`decimal` 字段禁止裸读写** | 时间戳、计数器、累计量一律 `Interlocked.Exchange` / `Interlocked.Read`；32 位平台上 64 位读写非原子 |
 
 **自检命令**：
 
 ```bash
-# ① 出口收敛：命中应仅剩 DeviceLog.cs 内的封装点
-grep -rn "ShowLog" AdaWeldSystem/MainDeviceControl/
+# ① 出口回归：MainDeviceControl/ 不应再有 DeviceLog / 中间封装（2026-09-04 移除）
+grep -rn "DeviceLog" AdaWeldSystem/MainDeviceControl/   # 期望仅剩 C7 契约 SubDeviceLog
 
 # ② 标签收敛：Tag 只应在基类声明 1 次 + 各子工作流构造函数赋值 1 次
 grep -rn "string Tag\|Tag = \"" AdaWeldSystem/MainDeviceControl/

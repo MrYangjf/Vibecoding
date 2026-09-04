@@ -1,4 +1,4 @@
-﻿---
+﻿﻿---
 title: Safety 模块 — 安全检查流程（DeviceStatusWork）+ 故障恢复
 date: 2026-09-02
 tags: [模块, 安全互锁, 安全检查, 故障恢复, 状态机, PLC, DeviceStatusWork, ADR-034]
@@ -77,7 +77,7 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 `DeviceControlWork` 焊前一次性门控**直接读** `DeviceStatusWork.Instance.IsSafe`。
 
 > ⛔ **旧写法已移除（2026-09-03，裁定 C3）**：~~`DeviceControlWork.IsRobotPoseSafe(pose)`~~ 已从整机编排类删除——不再以「机器人 pose 是否安全」为门控输入，改为直接消费 `DeviceStatusWork` 的互锁结果。
-> 安全闭环本身继续有效（见 [[decisions/ADR-031-SafetyCheckConsolidation]]），变的只是接入点：原 `IsRobotPoseSafe` 的 pose 判定语义已并入 `DeviceStatusWork` 的监控循环。
+> 安全闭环本身继续有效（见 [[decisions/ADR-031-SafetyCheckConsolidation]]），变的只是接入点：原 `IsRobotPoseSafe` 已删除（2026-09-03 裁定 C3：不再监控机器人 pose）；`DeviceStatusWork.IsSafe` 反映的是**本机安全 IO**（急停/安全门/互锁），与机器人 pose 无关。
 
 监控未启动时 `IsSafe` 返回 true，与合并前「恒安全」行为等价，接入不阻断整机。
 
