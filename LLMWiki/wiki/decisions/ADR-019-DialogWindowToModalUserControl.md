@@ -5,7 +5,7 @@ tags: [决策, UI, AntdUI, Modal, UserControl, 对话窗]
 status: accepted
 ---
 
-# ADR-019：子对话窗承载方式改为「Modal 承载的 UserControl」
+# ADR-019 子对话窗承载方式改为「Modal 承载的 UserControl」
 
 ## 背景
 
@@ -13,7 +13,7 @@ status: accepted
 
 ## 决策
 
-1. **对话窗改为 `UserControl`**：原 8 个 `AntdUI.Window` 对话窗（LLCameraSetting / ConfigForm / AutoParamForm / FileTraceForm / RecordConfigForm / RenderParamForm / AlgorithmEditForm / UserEdit）基类改为 `System.Windows.Forms.UserControl`，统一迁入 `UIDesign/SubView/`，**取消 PageHeader**。
+1. **对话窗改为 `UserControl`**：原 8 个 `AntdUI.Window` 对话窗（LLCameraSetting / ConfigForm / AutoParamForm / FileTraceForm / RecordConfigForm / RenderParamForm / ILAlgorithmEditForm / UserEditForm）基类改为 `System.Windows.Forms.UserControl`，统一迁入 `UIDesign/SubDialog/`，**取消 PageHeader**。
 2. **以 `AntdUI.Modal` 承载**：调用点改用
    ```csharp
    using (var form = new XxxForm())
@@ -25,10 +25,10 @@ status: accepted
        });
    }
    ```
-   - `owner`：`UserControl` 内调用用 `this.FindForm()`；`Window`/`Form` 内调用（如 `FormLogin`）用 `this`（Modal 的 owner 是 `Control`/`IWin32Window`，UserControl 合法）。
+   - `owner`：`UserControl` 内调用用 `this.FindForm()`；`Window`/`Form` 内调用（如 `LoginForm`）用 `this`（Modal 的 owner 是 `Control`/`IWin32Window`，UserControl 合法）。
 3. **命名空间保持不变**：仍为 `AdaWeldSystem.Sub3UI` / `AdaWeldSystem.Sub2UI`，避免全项目 `using` 连锁改动（仅 .cs 物理路径变更，故需同步更新 `.csproj` 的 `Compile`/`EmbeddedResource` 路径为 `SubView/`，并将 `SubType` 改 `UserControl`）。
 4. **关闭/返回值**：`UserControl` 无 `DialogResult`/`Close`，改用 `var host = this.FindForm(); if (host != null) host.DialogResult = DialogResult.OK;`（Modal 内部即 `ShowDialog` 的 `Form`，设 `DialogResult` 即关闭并令 `Modal.open` 返回该值；Demo `TableDemo.cs` 的 `Modal.open(...)==DialogResult.OK` 证实此语义）。`Message.*(this,…)` 全部改 `Message.*(this.FindForm(),…)`（UserControl 不能隐式转 `Target`，详见 [[guides/AntdUI-Reference]]）。
-5. **生命周期事件**：原 `FormClosing` 资源管理（如 AlgorithmEditForm 停英莱页定时器）改订阅 `HandleDestroyed`（UserControl 无 FormClosing；遵循 [[decisions/ADR-001-DisposePattern]] 不重写 `Dispose(bool)`）。
+5. **生命周期事件**：原 `FormClosing` 资源管理（如 ILAlgorithmEditForm 停英莱页定时器）改订阅 `HandleDestroyed`（UserControl 无 FormClosing；遵循 [[decisions/ADR-001-DisposePattern]] 不重写 `Dispose(bool)`）。
 
 ## 备选方案
 

@@ -1,4 +1,4 @@
-﻿---
+---
 title: LineLaserCam 模块组 — 线激光相机族
 date: 2026-07-21
 tags: [模块, 相机, 线激光, 目录]
@@ -50,7 +50,7 @@ Working → Stopping(关激光+关传感器+清理) → Standby
 
 > **易误判点**：`LineLaserWorkflow` 文件里 grep 不到 `State` / `SetState` / `WeldStatus` / `SetWeldStatus` / `StateSwitched` / `WeldStatusChanged` 是正常的，它们由基类 `DeviceStateBase` 提供。
 
-## 状态标签规范（2026-08-19，ADR-026）
+## 状态标签规范（2026-08-19，ADR-022）
 
 > 设备状态标签统一规范：**子设备（线激光）是状态主体，厂商硬件（英莱/SmartRay 等）是实例化实现**。详见 [[modules/DeviceControl]]。
 

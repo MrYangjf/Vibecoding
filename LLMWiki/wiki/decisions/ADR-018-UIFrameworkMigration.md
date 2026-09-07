@@ -5,7 +5,7 @@ tags: [决策, UI, 迁移, SunnyUI, AntdUI]
 status: accepted
 ---
 
-# ADR-018：UI 框架从 SunnyUI 迁移至 AntdUI
+# ADR-018 UI 框架从 SunnyUI 迁移至 AntdUI
 
 ## 背景
 

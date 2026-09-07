@@ -20,9 +20,9 @@ UIDesign/
 │   ├── FormMain.Designer.cs
 │   └── FormMain.resx
 ├── ControlPage/                 ← 原 Sub1UI/（2026-08-05 重命名）
-│   ├── MainPage.cs              ← 首页/仪表盘（**整页 AntdUI.GridPanel 三层嵌套**：外层 uiGridPanelMain「上 68% 顶端分栏 / 下 32% 日志 panelLog（AntdUI.Panel 包裹 AntdUI.Input）」；内层 uiGridPanel1「左 40% / 右 60%」，Padding=5；右格内层 uiGridPanel2「2×2 GridPanel 承载 4 个 AntdUI.Panel（panelChart2/3/4/5），每个 Panel 包裹一张 Chart（圆润边角+白底+阴影动画），Padding=5」；5 张 Chart 均嵌入 Panel（Dock=Fill 充满 Panel），后由 Panel 嵌入 GridPanel（Dock=Fill 充满单元格）；日志由 RichTextBox 改为 **AntdUI.Input**（Multiline+AutoScroll+ReadOnly）；全部不可拖动）；**英莱线激光轮廓（formsPlot1）ScottPlot Signal 模式**（2026-08-18，详见 [[decisions/ADR-029-YinglaiDataFlow]]）：固定 `double[1920]` 数组（`_contourSignalXs`=X/`_contourSignalData`=Y）+ `AddSignalXY` + `Refresh()`，订阅英莱相机 `ContourDataReady` 事件（`InvokeRequired` 跨线程封送），60Hz 全帧率刷新不节流；**2026-08-26 修复**：① FormMain.LoadNavAndPages 中显式调用 mainPage.AddContourLineChart() + AddNewDataLineChart() 初始化图表与事件订阅（此前方法定义但从未调用导致主界面轮廓空白）；② **X 轴用 `_contourSignalXs`（= 沿激光线物理坐标 Y，非等距）由 `AddSignalXY` 显式传入**，不再用 `SampleRate`/`OffsetX`（见 [[lessons/IntelligentLaser-Pitfalls]] §5.16）；③ **轴范围由校准框（四边基准）确定**（从 `CalibrationInfo` 四角点计算 Y/Z mm 范围，含负值，加 5% 边距，连接时锁定一次），无校准框时回退默认值；④ **叠加特征点散点**（AddScatter，红色实心圆 markerSize=8，HasValidResult 时显示 FeatureY/FeatureZ）；⑤ **锁定轴缩放平移**（Configuration 禁滚轮/拖拽 + 每帧 SetAxisLimits 双保险）
+│   ├── MainPage.cs              ← 首页/仪表盘（**整页 AntdUI.GridPanel 三层嵌套**：外层 uiGridPanelMain「上 68% 顶端分栏 / 下 32% 日志 panelLog（AntdUI.Panel 包裹 AntdUI.Input）」；内层 uiGridPanel1「左 40% / 右 60%」，Padding=5；右格内层 uiGridPanel2「2×2 GridPanel 承载 4 个 AntdUI.Panel（panelChart2/3/4/5），每个 Panel 包裹一张 Chart（圆润边角+白底+阴影动画），Padding=5」；5 张 Chart 均嵌入 Panel（Dock=Fill 充满 Panel），后由 Panel 嵌入 GridPanel（Dock=Fill 充满单元格）；日志由 RichTextBox 改为 **AntdUI.Input**（Multiline+AutoScroll+ReadOnly）；全部不可拖动）；**英莱线激光轮廓（formsPlot1）ScottPlot Signal 模式**（2026-08-18，详见 [[decisions/ADR-026-YinglaiDataFlow]]）：固定 `double[1920]` 数组（`_contourSignalXs`=X/`_contourSignalData`=Y）+ `AddSignalXY` + `Refresh()`，订阅英莱相机 `ContourDataReady` 事件（`InvokeRequired` 跨线程封送），60Hz 全帧率刷新不节流；**2026-08-26 修复**：① FormMain.LoadNavAndPages 中显式调用 mainPage.AddContourLineChart() + AddNewDataLineChart() 初始化图表与事件订阅（此前方法定义但从未调用导致主界面轮廓空白）；② **X 轴用 `_contourSignalXs`（= 沿激光线物理坐标 Y，非等距）由 `AddSignalXY` 显式传入**，不再用 `SampleRate`/`OffsetX`（见 [[lessons/IntelligentLaser-Pitfalls]] §5.16）；③ **轴范围由校准框（四边基准）确定**（从 `CalibrationInfo` 四角点计算 Y/Z mm 范围，含负值，加 5% 边距，连接时锁定一次），无校准框时回退默认值；④ **叠加特征点散点**（AddScatter，红色实心圆 markerSize=8，HasValidResult 时显示 FeatureY/FeatureZ）；⑤ **锁定轴缩放平移**（Configuration 禁滚轮/拖拽 + 每帧 SetAxisLimits 双保险）
 │   ├── NavPage.cs               ← 统一导航页面（替代 ImagePage/ParamPage，通过 LoadTabs() 接受不同子页配置，实例化两次分别作为参数界面和图形界面；左侧垂直 AntdUI.Menu 导航 + 右侧 Tabs 内容区，TabMenuVisible=false；Vertical 模式，BackActive=White，BackHover=Gray，Round=false）
-│   └── DataReviewPage.cs        ← 数据回顾页面（原 DataReview.cs，**2026-08-05 布局重构，2026-08-07 分页控件升级**：外层 uiTableLayoutPanel1（AntdUI.GridPanel）「左 25% panelLeft / 右 75% panelRight」；panelLeft 内嵌 uiGridPanelLeft「35px 日历 / fill 表格 / fill Pagination 分页 / 30px 页脚」；panelRight 内嵌 uiGridPanelRight「35px 复选框流式布局 / fill 图表 / 20px 进度标签 / 40px 滑块」；全部 GroupBox 替换为 AntdUI.Panel（白底+灰边框+阴影动画）；btnRenerView 以 Modal.open 弹窗展示 HelixRenderForm）
+│   └── DataReviewerPage.cs        ← 数据回顾页面（原 DataReview.cs，**2026-08-05 布局重构，2026-08-07 分页控件升级**：外层 uiTableLayoutPanel1（AntdUI.GridPanel）「左 25% panelLeft / 右 75% panelRight」；panelLeft 内嵌 uiGridPanelLeft「35px 日历 / fill 表格 / fill Pagination 分页 / 30px 页脚」；panelRight 内嵌 uiGridPanelRight「35px 复选框流式布局 / fill 图表 / 20px 进度标签 / 40px 滑块」；全部 GroupBox 替换为 AntdUI.Panel（白底+灰边框+阴影动画）；btnRenerView 以 Modal.open 弹窗展示 HelixRenderForm）
 ├── TabPage/                     ← 原 Sub2UI/（2026-08-05 重命名）
 │   ├── ILCamPage.cs             ← **线激光/英莱相机工作页面（核心，已替代 LLCamWorkJob）**（完全使用英莱，替代线激光页面挂载；TableLayoutPanel + AntdUI.Panel/Button/Label/Select + Emgu ImageBox 显示轮廓 Mat；IP 输入(初始化读本地配置 `LoadSavedIp`) + 扫描按钮 + 连接 + 开激光/开相机 toggle + JOB select + 算法编辑按钮 + 参数编辑按钮 + 轮廓点/分析结果；**2026-08-17 新增「自动显示」AntdUI.Switch（默认关闭）**：用状态机 `LineLaserWorkflow.State` 判断自动运行中→禁用全部手动按钮、switch 控制轮廓刷新，空闲→恢复按钮；事件订阅放代码后置）；**2026-08-24 UI 状态刷新统一入口重构**：原 `UpdateConnectionUi`/`UpdateModeUi`/`SyncFromHardwareAfterConnect` 三碎片入口内联为 private `*Core` 方法，统一收敛到单入口 `RefreshUi(RefreshUiScope scope)`（`[Flags]` 枚举 Connection/Mode/Hardware 可组合，内置 InvokeRequired 封送），构造函数/btnConnect/工作流态回调/状态机态回调全部只调 `RefreshUi`；**2026-08-24 传感器控制精简**：启停传感器改用 `SetSensor`、弃 `SetCaptureCamera`（非线激光方式），激光/传感器按钮 text 与 `ExtraMouseDown` 收敛到单一 `UpdateLaserSensorUi()`（基于 `IsLaserOn()`/`IsCameraOn()` 真相源，移除 `_isLaserOn`/`_isCameraOn` 本地副本），消除 btnLaser/btnCaptureCamera/SyncFromHardware/UpdateConnectionUi 四处重复 set text
 │   ├── ParamConfigPage.cs       ← **2026-08-07 GridPanel+FlowPanel改造**：两列布局（42% / 58%），左列5行（参数列表+焊丝参数+板材焊缝类型+操作按钮），右列2行（基础参数+公式设置），全部 AntdUI.Panel 包裹；6 个表单区 TableLayoutPanel 已替换为 AntdUI.FlowPanel（label+input 自动流式排列，Gap=8，左对齐）
@@ -30,30 +30,38 @@ UIDesign/
 │   ├── CommPage.cs              ← 合并通讯页面（三选一模式：机器人/通用/PLC，GridPanel 四行布局：Radio→Tabs→Checkbox→Input，见下方 CommPage 章节）
 │   ├── MonitorCamPage.cs        ← 监控相机页面（焊前对中/焊中质检 + 右侧内联算法参数）
 │   └── MotionControlPage.cs     ← **2026-08-07 GridPanel+FlowPanel改造**：两行布局（65% / 35%），上行两列（标定参数面板+模拟测试面板），下行运动轴参数面板；3 个表单区 TableLayoutPanel 已替换为 AntdUI.FlowPanel（label+input 自动流式排列，Gap=8，左对齐）
-└── SubView/                     ← 对话窗+算法子页（Modal 承载的 UserControl，见 [[decisions/ADR-019-DialogWindowToModalUserControl]]；原 ViewPage/ 算法子页已并入）
-    ├── EmguAlgoPage.cs          ← ❌ **已移除**：原项目算法(EmguALG)编辑子页，职责已并入下方 `ILAlgoPage.cs`；AlgorithmEditForm 当前只挂 ILAlgoPage
-    ├── ILAlgoPage.cs            ← **英莱算法参数编辑子页**（UserControl，由 AlgorithmEditForm 承载；2026-08-07 GridPanel改造：三行布局（45px工具栏 / fill参数区 / fill结果区），左右分栏（左参数面板350px / 右结果区），结果区40px标题栏+fill图像区；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，连接判断与标签统一直读 `_ilCamera.IsConnected` 真相源；**2026-08-24 Job 流面板重构**：顶部 JOB 按钮流+切换/新建/删除操作+参数表+接头类型显示）
-    ├── LLCameraSetting.cs       ← ❌ **已移除**：原线激光相机设置（原 Sub3UI），职责现由下方 `ILParamPage.cs` 承担
-    ├── ConfigForm.cs            ← 系统配置弹窗（UserControl + AntdUI.Table + AntdUI.Pagination，Modal 承载；命名空间 Sub3UI；2026-08-12 InitTableColumns 设 `AutoSizeColumnsMode=ColumnsMode.Fill` 列宽填满区域）
-    ├── AutoParamForm.cs         ← 自动参数弹窗（UserControl；命名空间 Sub3UI）
-    ├── FileTraceForm.cs         ← 文件追踪弹窗（UserControl；命名空间 Sub3UI；2026-08-14 由 GroupBox+ListBox 改为 Label+AntdUI.Table：两个 Label 显示原 groupbox 标题「正常记录文件/临时文件（异常保留）」，表头 No.+选取(ColumnCheck 单选)+文件名；单选互斥范式见 [[guides/AntdUI-Reference]]）
-    ├── ILScanDialog.cs          ← **2026-08-14 英莱相机扫描结果弹窗**（UserControl + AntdUI.Table，Modal 承载；命名空间 Sub3UI；表头 No.+选取(ColumnCheck 单选互斥)+IP+序列号+软件版本+传感器类型；`SelectedIp` 属性 + 确定回填；见 [[guides/AntdUI-Reference]]）
-    ├── ILParamPage.cs           ← **2026-08-14/15 英莱相机参数编辑页**（UserControl + AntdUI.Table 单元格编辑，Modal 承载；命名空间 Sub3UI；表头 参数名/当前值(SetEditable+DoubleClick)/单位/说明；编辑**相机参数**：曝光/激光强度/抗弧光，复用 [[api/IntelligentLaserCameraRun]] 的 FetchCameraParams/ApplyCameraParams；**与 Job 参数（算法参数）分离**）；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，`UpdateConnLabel`/`LoadParams`/按钮守卫统一直读 `IsConnected` 真相源
-    ├── RecordConfigForm.cs      ← 记录配置弹窗（UserControl；命名空间 Sub3UI）
-    ├── RenderParamForm.cs       ← 渲染参数弹窗（UserControl；命名空间 Sub3UI）
-    ├── HelixRenderForm.cs       ← Helix 3D 渲染子视图（原 TabPage/Helix3Drender，2026-08-07 迁入 SubView 并改名；ElementHost 嵌 WPF 点云渲染；2026-08-13 移除「记录配置」按钮 `btnRecordConfig`，该入口迁至 DataReviewPage.BtnRecordSetting）
-    ├── AlgorithmEditForm.cs     ← 算法编辑弹窗（UserControl + AntdUI.Tabs + UserControl 子页，Modal 承载；命名空间 Sub3UI；见 [[api/AlgorithmEditForm]]）
-    ├── UserEdit.cs              ← 用户编辑弹窗（UserControl + AntdUI.Table；命名空间 Sub2UI）
-    └── FormLogin.cs             ← 登录弹窗（UserControl，Modal 承载；命名空间 Sub1UI；见 [[guides/AntdUI-Reference]]）
+└── SubDialog/                   ← 对话窗（Modal 承载的 UserControl，见 [[decisions/ADR-019-DialogWindowToModalUserControl]]）
+                                   **2026-09-07 目录重构**：原扁平 `SubView/`（含 ViewPage/ 前身）按**业务域**拆分为 5 个子目录，
+                                   同批 8 个类型改名（见文末「2026-09-07 目录与命名对照」）。命名空间仍为 Sub3UI/Sub2UI/Sub1UI，未随目录变更。
+    ├── DataReviewerDialog/      ← 数据回溯域（命名空间 Sub3UI）
+    │   ├── FileTraceForm.cs     ← 文件追踪弹窗（UserControl；2026-08-14 由 GroupBox+ListBox 改为 Label+AntdUI.Table：两个 Label 显示原 groupbox 标题「正常记录文件/临时文件（异常保留）」，表头 No.+选取(ColumnCheck 单选)+文件名；单选互斥范式见 [[guides/AntdUI-Reference]]）
+    │   ├── HelixRenderForm.cs   ← Helix 3D 渲染子视图（原 TabPage/Helix3Drender，2026-08-07 迁入并改名；ElementHost 嵌 WPF 点云渲染；2026-08-13 移除「记录配置」按钮 `btnRecordConfig`，该入口迁至 DataReviewerPage.BtnRecordSetting）
+    │   ├── RecordConfigForm.cs  ← 记录配置弹窗（UserControl）
+    │   └── RenderParamForm.cs   ← 渲染参数弹窗（UserControl）
+    ├── FormMainDialog/          ← 主窗口域（命名空间 Sub3UI）
+    │   └── InitWaitingForm.cs   ← 初始化等待面板（原 `InitWaitingPanel`，2026-09-07 改名；FormMain 初始化期间以 Modal 展示，事件触发自动关闭）
+    ├── IntelligentLaserDialog/  ← 英莱线激光域（命名空间 Sub3UI）
+    │   ├── ILAlgoForm.cs        ← **英莱算法参数编辑子页**（原 `ILAlgoPage`，2026-09-07 改名；UserControl，由 ILAlgorithmEditForm 承载；2026-08-07 GridPanel改造：三行布局（45px工具栏 / fill参数区 / fill结果区），左右分栏（左参数面板350px / 右结果区），结果区40px标题栏+fill图像区；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，连接判断与标签统一直读 `_ilCamera.IsConnected` 真相源；**2026-08-24 Job 流面板重构**：顶部 JOB 按钮流+切换/新建/删除操作+参数表+接头类型显示）
+    │   ├── ILAlgorithmEditForm.cs ← 算法编辑弹窗（原 `AlgorithmEditForm`，2026-09-07 改名；UserControl + AntdUI.Tabs + UserControl 子页，Modal 承载；见 [[api/ILAlgorithmEditForm]]）
+    │   ├── ILParamForm.cs       ← **英莱相机参数编辑页**（原 `ILParamPage`，2026-09-07 改名；UserControl + AntdUI.Table 单元格编辑，Modal 承载；表头 参数名/当前值(SetEditable+DoubleClick)/单位/说明；编辑**相机参数**：曝光/激光强度/抗弧光，复用 [[api/IntelligentLaserCameraRun]] 的 FetchCameraParams/ApplyCameraParams；**与 Job 参数（算法参数）分离**）；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，`UpdateConnLabel`/`LoadParams`/按钮守卫统一直读 `IsConnected` 真相源
+    │   └── ILScanForm.cs        ← **英莱相机扫描结果弹窗**（原 `ILScanDialog`，2026-09-07 改名；UserControl + AntdUI.Table，Modal 承载；表头 No.+选取(ColumnCheck 单选互斥)+IP+序列号+软件版本+传感器类型；`SelectedIp` 属性 + 确定回填；见 [[guides/AntdUI-Reference]]）
+    ├── ParamContolDialog/       ← 参数控制域（命名空间 Sub3UI）
+    │   ├── AutoParamForm.cs     ← 自动参数弹窗（UserControl）
+    │   └── ConfigForm.cs        ← 系统配置弹窗（UserControl + AntdUI.Table + AntdUI.Pagination，Modal 承载；2026-08-12 InitTableColumns 设 `AutoSizeColumnsMode=ColumnsMode.Fill` 列宽填满区域）
+    └── UserManagerDialog/       ← 用户管理域
+        ├── LoginForm.cs         ← 登录弹窗（原 `FormLogin`，2026-09-07 改名；UserControl，Modal 承载；命名空间 Sub1UI；见 [[guides/AntdUI-Reference]]）
+        └── UserEditForm.cs      ← 用户编辑弹窗（原 `UserEdit`，2026-09-07 改名；UserControl + AntdUI.Table；命名空间 Sub2UI）
+
+> ❌ **已从本目录移除（仅沿革）**：`EmguAlgoPage.cs`（原项目算法 EmguALG 编辑子页，职责并入 `ILAlgoForm.cs`，ILAlgorithmEditForm 当前只挂 ILAlgoForm）、`LLCameraSetting.cs`（原线激光相机设置，职责现由 `ILParamForm.cs` 承担）。
 
 ## 页面继承关系（AntdUI 迁移后）
 
 | 层级 | 基类 | 用途 |
 |------|------|------|
 | Sub1UI / Sub2UI 页面 | `UserControl` | 功能页面（由 FormMain 的 AntdUI.Tabs 承载，`AddTabSelect`） |
-| SubView 对话窗（9 个） | `UserControl` | **Modal 承载的对话窗**（无 PageHeader）；由调用点 `AntdUI.Modal.open(new Modal.Config(owner,标题,form,TType.Info){CloseIcon=true,BtnHeight=0})` 弹出；命名空间仍保持原 `Sub3UI`/`Sub2UI`/`Sub1UI`，见 [[decisions/ADR-019-DialogWindowToModalUserControl]]、[[guides/AntdUI-Reference]]。内部以注入的 `private readonly Window Window`（`XxxForm(Window _window)` 构造，复刻 AntdUI demo SystemSet 模式）作 `Message`/嵌套 `Modal` 的 owner（不用 `this.FindForm()`），关闭仍用 `this.FindForm().DialogResult` |
+| SubDialog 对话窗（13 个，散布于 5 个业务子目录） | `UserControl` | **Modal 承载的对话窗**（无 PageHeader）；由调用点 `AntdUI.Modal.open(new Modal.Config(owner,标题,form,TType.Info){CloseIcon=true,BtnHeight=0})` 弹出；命名空间仍保持原 `Sub3UI`/`Sub2UI`/`Sub1UI`，见 [[decisions/ADR-019-DialogWindowToModalUserControl]]、[[guides/AntdUI-Reference]]。内部以注入的 `private readonly Window Window`（`XxxForm(Window _window)` 构造，复刻 AntdUI demo SystemSet 模式）作 `Message`/嵌套 `Modal` 的 owner（不用 `this.FindForm()`），关闭仍用 `this.FindForm().DialogResult` |
 | FormMain | `AntdUI.Window` | 主窗口（PageHeader + Segmented + Tabs 导航框架，Segmented 替换原 Menu） |
-| 算法编辑子页 EmguAlgoPage / ILAlgoPage | `UserControl` | 由 AlgorithmEditForm（SubView，Modal 承载）的 AntdUI.Tabs 承载 |
+| 算法编辑子页 EmguAlgoPage（已移除）/ ILAlgoForm | `UserControl` | 由 ILAlgorithmEditForm（SubDialog/IntelligentLaserDialog，Modal 承载）的 AntdUI.Tabs 承载 |
 
 ## 常用控件对照（迁移后现状）
 
@@ -66,8 +74,8 @@ UIDesign/
 | 状态灯 | `AntdUI.Signal` | 原 UILight（[[project/SunnyUI-Legacy]] 已被取代） |
 | 日期选择 | `AntdUI.DatePicker` | 原 UICalendar |
 | 图表 | `ScottPlot.FormsPlot`（4.1.74） | **2026-08-12 由 `AntdUI.Chart` 全面替换**；**2026-08-13 上午升级 5.1.59、下午回退 4.1.74**（5.x 基于 SkiaSharp 对 .NET 4.8 设计器不友好），4.1 语法 `Plot.AddScatter(xs, ys, ...)`/`AxisAuto()`/`SetAxisLimits()`/`Legend()`/`Refresh()`；`Configuration.DpiStretch=false` 防高 DPI 字体锯齿；**无需 SkiaSharp/OpenTK/System.ValueTuple**（见 [[guides/Project-Tools]]） |
-| 网格布局（可选） | `AntdUI.GridPanel` | **可选布局容器**（[[decisions/ADR-024-LayoutContainerFreedom]] 解除强制使用，因会强制排序）；按需选用。若使用：`Span` 定义行列（值仅 `fill`/`%`/整数/浮点，`px`/`auto` 非法），子控件单参数 `Controls.Add` 且按**逆序**入格；见 [[guides/AntdUI-Reference]]、[[guides/AntdUI-Reference]] |
-| 流式布局（可选） | `AntdUI.FlowPanel` | **可选布局容器**（[[decisions/ADR-024-LayoutContainerFreedom]] 解除强制使用，因会强制排序）；按需选用。若使用：`Align=TAlignFlow.Left` 左对齐 + `Gap=N` 控件间距 + `Padding` 内边距 + `AutoScroll` 自动滚动；`TAlignFlow` 枚举：Left/LeftCenter/Center/RightCenter/Right；子控件通过 `Controls.Add` 按顺序添加，自动从左到右排列并换行；表单布局统一 label 宽 140px + input 宽 160px + 行间距由 Gap 控制；见 [[guides/AntdUI-Reference#flowpanel-表单布局]] |
+| 网格布局（可选） | `AntdUI.GridPanel` | **可选布局容器**（[[decisions/ADR-022-LayoutContainerFreedom]] 解除强制使用，因会强制排序）；按需选用。若使用：`Span` 定义行列（值仅 `fill`/`%`/整数/浮点，`px`/`auto` 非法），子控件单参数 `Controls.Add` 且按**逆序**入格；见 [[guides/AntdUI-Reference]]、[[guides/AntdUI-Reference]] |
+| 流式布局（可选） | `AntdUI.FlowPanel` | **可选布局容器**（[[decisions/ADR-022-LayoutContainerFreedom]] 解除强制使用，因会强制排序）；按需选用。若使用：`Align=TAlignFlow.Left` 左对齐 + `Gap=N` 控件间距 + `Padding` 内边距 + `AutoScroll` 自动滚动；`TAlignFlow` 枚举：Left/LeftCenter/Center/RightCenter/Right；子控件通过 `Controls.Add` 按顺序添加，自动从左到右排列并换行；表单布局统一 label 宽 140px + input 宽 160px + 行间距由 Gap 控制；见 [[guides/AntdUI-Reference#flowpanel-表单布局]] |
 | 消息/对话框 | `AntdUI.Message.*`（Toast，非阻塞）/ `AntdUI.Modal.open(new Modal.Config(owner,"标题","内容"){Icon=TType.*,Draggable=true})`（模态可拖拽） | 原 UIMessageBox；**`Message` 的 owner 类型为 `AntdUI.Target`**（`Window`/`Form` 类可传 `this`，`UserControl` 须传 `Form.ActiveForm`/`(Target)null`/`this.FindForm()`，不可裸 `null` 否则 CS0121）；**`Modal` 的 owner 为 `Control`/`IWin32Window`**（官方 Demo 直接 `Config(window,…)`，裸 `null` 不二义，但锚定父窗体建议 `Form.ActiveForm`/`this.FindForm()`）。详见 [[guides/AntdUI-Reference]] |
 | 主题 | `AntdUI.Config.IsLight` 等 | 原 UIStyles.SetStyle(Purple)（[[project/SunnyUI-Legacy]] 已废弃） |
 
@@ -76,12 +84,12 @@ UIDesign/
 - 控件优先在 Designer.cs 静态定义；`InitializeComponent()` 禁流程控制语句
 - 所有 Workflow 事件处理必须检查 `InvokeRequired`（[[guides/WinForms-UI-Threading]]）
 - 事件直接订阅 `control.Event += handler`，禁止 `new EventHandler()` 包装 AntdUI 自定义事件（范式 §二）
-- 使用 AntdUI.FlowPanel 实现表单流式布局（替代 TableLayoutPanel）——**可选**，见 [[decisions/ADR-024-LayoutContainerFreedom]]
+- 使用 AntdUI.FlowPanel 实现表单流式布局（替代 TableLayoutPanel）——**可选**，见 [[decisions/ADR-022-LayoutContainerFreedom]]
 - 3D渲染通过 ElementHost 嵌入 WPF 控件
 - FileEditorPage 用 `AntdUI.Select`（`_configSelector`）下拉承载全部通讯 XML 配置入口（服务器/客户端/发送/接收/RSI/EKI），不在 Designer.cs 中定义 MenuStrip；原「打开」按钮（OpenFileDialog）已弃用
 - **WinForms 设计器模式保护**：构造函数访问单例/硬件/配置前先判 `LicenseManager.UsageMode == LicenseUsageMode.Designtime`，见 [[guides/WinForms-Designer]]
 - 主窗口布局：`PageHeader(Dock=Top, ShowButton=true)` + `Segmented(Dock=Top, 图标+文本)` + `Tabs(Dock=Fill)`；`ControlBox=false`；按钮加到 `PageHeader.Controls`。顶部导航已由 `AntdUI.Segmented` 替代原先的 `AntdUI.Menu`，通过 `SelectIndex` 与 `Tabs.SelectedIndex` 双向联动（`bool syncing` 重入守卫）。SegmentedItem 不支持 `Visible`，权限显隐用 `Items.Remove/Add`。见 [[guides/AntdUI-Reference#Segmented-导航模式]]。
-- ~~所有 `AntdUI.Window` 弹窗统一顶部 `PageHeader`~~：**已废弃**。2026-07-30 经 `ADR-019` 改为「**Modal 承载的 `UserControl`**」——8 个对话窗（原 Sub2 UserEdit + Sub3 全部 7 个）迁入 `SubView/`，基类改 `UserControl`，取消 PageHeader，由调用点 `AntdUI.Modal.open(new Modal.Config(owner,标题,form,TType.Info){CloseIcon=true,BtnHeight=0})` 弹出。详见 [[guides/AntdUI-Reference]]（旧 PageHeader 范式见 [[guides/AntdUI-Reference]]，已标记废弃）
+- ~~所有 `AntdUI.Window` 弹窗统一顶部 `PageHeader`~~：**已废弃**。2026-07-30 经 `ADR-019` 改为「**Modal 承载的 `UserControl`**」——8 个对话窗（原 Sub2 UserEditForm + Sub3 全部 7 个）迁入 `SubView/`，基类改 `UserControl`，取消 PageHeader，由调用点 `AntdUI.Modal.open(new Modal.Config(owner,标题,form,TType.Info){CloseIcon=true,BtnHeight=0})` 弹出。详见 [[guides/AntdUI-Reference]]（旧 PageHeader 范式见 [[guides/AntdUI-Reference]]，已标记废弃）
 
 ## 各页面要点（迁移后）
 
@@ -107,7 +115,7 @@ UIDesign/
 ### MonitorCamPage（Sub2UI，UserControl）
 焊前对中/焊中质检。Live 预览（`chkLive`）、阶段选择（`cmbPhase`，`AntdUI.Select`）、单次/连续/停止按钮；状态显示 `lblStatus`（`AntdUI.Label`）+ `uiLightStatus`（**`AntdUI.Signal`**）。右侧 `panelRight` 内联算法参数（容差/合格分，`MonitorAlgorithmManager` 读写 `Config/INI/MonitorAlgorithm.ini`，见 [[decisions/ADR-014-MonitorCamPage-AlgorithmInline]]）。订阅 MonitorCameraWorkflow 五大事件全部 `InvokeRequired` 守卫；`DisposeComponents()` 模式，未重写 `Dispose(bool)`。
 
-### DataReviewPage（Sub1UI，UserControl，2026-08-05 布局重构，2026-08-07 分页升级 + 3D弹窗）
+### DataReviewerPage（Sub1UI，UserControl，2026-08-05 布局重构，2026-08-07 分页升级 + 3D弹窗）
 离线回溯生产数据：**布局已全面标准化**——外层 `uiTableLayoutPanel1`（AntdUI.GridPanel）「左 25% `panelLeft` / 右 75% `panelRight`」；`panelLeft` 内嵌 `uiGridPanelLeft`（Span="35:fill;fill;30:fill;30:fill"）「35px `uiCalendar1`（**`AntdUI.DatePicker`**）/ fill `uiDataGridView1`（**`AntdUI.Table`**）/ fill `pagination1`（**`AntdUI.Pagination`**，2026-08-07 替换原自建 btnPrev/btnNext/lblPageInfo；PageSizeOptions=[20,50,100,200]，ShowSizeChanger=true，ValueChanged 事件驱动 FillPage 刷新表格）/ 30px `uiDataGridViewFooter1`（统计标签）」；`panelRight` 内嵌 `uiGridPanelRight`（Span="35:fill;fill;20:fill;40:fill"）「35px `uiFlowLayoutPanel1`（4 个 `AntdUI.Checkbox` 复选框）/ fill `uiLineChart2`（**`AntdUI.Chart`**）/ 20px `uiSymbolLabel1`（进度文本）/ 40px `uiTrackBar1`（**`AntdUI.Slider`**）」。全部 GroupBox 替换为 `AntdUI.Panel`（白底+灰边框 `BorderColor=217,217,217`+阴影动画 `Shadow=5,ShadowOpacity=0.2`）。`RunRecordManager` 按 `yyyyMMdd` 子目录枚举 `.pDat` → 表格列表 → 图表渲染焊缝宽度/速度/送丝/激光功率曲线 + 调整点。⚠️ Chart 数据填充逻辑当前为 TODO（等 VS 确认 AntdUI.Chart 数据 API），曲线暂无数据。目录缺失/空目录经 `AntdUI.Modal`/`Message` 提示。
 
 **btnRenerView（3D数据回溯按钮）**：点击后以 `AntdUI.Modal.open` 弹窗形式展示 `HelixRenderForm`（SubView 模式，900×600，MaskClosable=true，CloseIcon=true）。
@@ -117,8 +125,8 @@ UIDesign/
 ### MotionControlPage（Sub2UI，UserControl，设计器生成）
 三大参数组（**AntdUI.FlowPanel** 流式布局，无 Tab）：① 标定数据（`flowPanelCalib`，6 组 label+input + 保存按钮，写 `MoveControlData.Instance`）② 模拟测试参数（`flowPanelSim`，5 组 label+控件 + checkbox + 2 按钮，写 `MotionControlWorkflow` + `VirtualCameraRun`）③ 运动轴参数（`flowPanelAxis`，2 个 label 占位）。FlowPanel 配置：`Align=TAlignFlow.Left`、`Gap=8`、`Padding=(10,4,10,4)`、`Dock=Fill`；Label 统一宽 150px+高 34px+MiddleLeft，Input 统一宽 160px+高 32px。`BtnStartSim_Click` 启停模拟流程；`OnLineLaserStateChanged` 经 `InvokeRequired` 守卫方法更新 UI。详见 [[api/MotionControlPage]]。
 
-### AlgorithmEditForm（SubView，UserControl，Modal 承载）
-算法编辑弹窗：`tabsAlgo`（**`AntdUI.Tabs`**）按 `CameraSelector.Active` 接口 `AddTabSelect` 挂载 `ILAlgoPage`（⚠️ 原 `EmguAlgoPage` 分支已随文件移除，当前仅英莱一页）（英莱 Job Parameter 编辑 + 实时识别结果只读）。接口分隔决策见 [[decisions/ADR-017-AlgorithmEditInterfaceSplit]]（框架层描述已按 AntdUI 落地）。2026-07-30 经 `ADR-019` 由 `AntdUI.Window` 改为 `UserControl` 并迁入 `SubView/`，调用点 `ILCamPage.btnEditJob_Click`（原 `LLCamWorkJob`）以 `AntdUI.Modal.open(...)` 弹出；原 `FormClosing` 停英莱页定时器逻辑改订阅 `HandleDestroyed`（不重写 `Dispose(bool)`）。详见 [[api/AlgorithmEditForm]]。
+### ILAlgorithmEditForm（SubView，UserControl，Modal 承载）
+算法编辑弹窗：`tabsAlgo`（**`AntdUI.Tabs`**）按 `CameraSelector.Active` 接口 `AddTabSelect` 挂载 `ILAlgoForm`（⚠️ 原 `EmguAlgoPage` 分支已随文件移除，当前仅英莱一页）（英莱 Job Parameter 编辑 + 实时识别结果只读）。接口分隔决策见 [[decisions/ADR-017-AlgorithmEditInterfaceSplit]]（框架层描述已按 AntdUI 落地）。2026-07-30 经 `ADR-019` 由 `AntdUI.Window` 改为 `UserControl` 并迁入 `SubView/`，调用点 `ILCamPage.btnEditJob_Click`（原 `LLCamWorkJob`）以 `AntdUI.Modal.open(...)` 弹出；原 `FormClosing` 停英莱页定时器逻辑改订阅 `HandleDestroyed`（不重写 `Dispose(bool)`）。详见 [[api/ILAlgorithmEditForm]]。
 
 ### ILCamPage（Sub2UI，UserControl，已替代 LLCamWorkJob）
 线激光/英莱相机工作核心页：IP 输入+扫描+连接、开激光/开传感器按钮、Job 下拉+应用按钮、帧率模式下拉+应用按钮、算法编辑按钮、参数编辑按钮、轮廓画面+分析结果表。**已完全替代原 `LLCamWorkJob`**（Sub2UI 时代线激光页面，文件已改名并迁至 `UIDesign/TabPage/ILCamPage.cs`）。Workflow 事件全部 `InvokeRequired` 守卫。详见 [[lessons/IntelligentLaserSensorControl]]。
@@ -126,9 +134,9 @@ UIDesign/
 ### AutoParamForm（SubView，UserControl，Modal 承载）
 自动参数弹窗（命名空间 Sub3UI）：表格 `uiDataGridView1`（**`AntdUI.Table`**，InitTableColumns 代码后置 + `Binding(AntList<AutoParamRow>)`）；原头部 `ToolStrip`（`labelK`/`LabelJ`/`labelM` 三标签 + `btnSave` 保存）已迁移为 `AntdUI.FlowPanel`（Dock=Top）承载 3×`AntdUI.Label` + `lblSpacer`（`Dock=Fill` 弹性占位右推）+ `AntdUI.Button`（`btnSave`，保留保存功能）；K/J/M 文本在 `LoadConfigData` 中赋值。**2026-08-12 表格可编辑 + 列宽填满**：`InitTableColumns` 设 `EditMode=TEditMode.DoubleClick`（双击进入编辑）+ 可编辑列（焊接速度/送丝速度/焊接功率）经 `.SetEditable(true)` 开启 + `AutoSizeColumnsMode=ColumnsMode.Fill` 列宽填满区域；构造函数订阅 `CellEndEdit` → `uiDataGridView1_CellEndEdit`，按 `e.Column.Key` 将编辑值写回 `AutoParamRow` 对应属性，`btnSave_Click` 经 `UpdateParamValues` 落库（`RobotSpeed`/`FeedSpeed`/`LaserPower` 用 `CultureInfo.InvariantCulture` 解析回写字典）。迁移范式见 [[guides/AntdUI-Reference]]。
 
-### MainPage 硬件快捷开关（AntdUI ButtonShadow 常驻按钮，ADR-032；2026-08-31 风格迭代）
+### MainPage 硬件快捷开关（AntdUI ButtonShadow 常驻按钮，ADR-026；2026-08-31 风格迭代）
 
-`MainPage` 使用 **AntdUI `ButtonShadow` 常驻按钮**（ADR-032，2026-08-31 替代已废弃的 `FloatButton` 悬浮覆盖层方案），6 个按钮在构造函数中代码后置创建（`InitDeviceSwitchButtons()`），直接 `Controls.Add` 进 **`panelfloatbutton` 面板**（MainPage 底部 54px 全宽条，tableLayoutPanel2 第 3 行）。**2026-08-31 风格迭代（形态对齐 AntdUI Demo `buttonShadow1`）**：
+`MainPage` 使用 **AntdUI `ButtonShadow` 常驻按钮**（ADR-026，2026-08-31 替代已废弃的 `FloatButton` 悬浮覆盖层方案），6 个按钮在构造函数中代码后置创建（`InitDeviceSwitchButtons()`），直接 `Controls.Add` 进 **`panelfloatbutton` 面板**（MainPage 底部 54px 全宽条，tableLayoutPanel2 第 3 行）。**2026-08-31 风格迭代（形态对齐 AntdUI Demo `buttonShadow1`）**：
 
 - 设备：焊接头 / 线激光 / 监控相机 / 运动控制器 / 机器人通讯 / PLC通讯（6 个 `ButtonShadow`，`Name=btnDev_{i}`）。
 - **按钮形态（buttonShadow1 同款）**：52×52 方形阴影按钮、`BorderWidth=1F`、`IconRatio=1.2F`、`ShadowColor=黑`、**仅显示 SVG 图标无文本**（默认 poweroff 电源 SVG，与 demo 同源）。**2026-08-31 15:04 面板竖直摆放后按钮改纵向堆叠**：X=2 左对齐固定、Y 按 `btnTop + i*(btnHeight+gap)` 自上而下递增（52×52、gap=15）；**面板最上方标题 `AntdUI.Label`「子设备状态」（15:10 新增，AutoSizeMode=Width、高 24、代码后置局部变量）**，按钮起始 Y 让位标题，整体面板高度需求 428px。
@@ -147,7 +155,7 @@ UIDesign/
 
 ## UI 类资源释放规范（2026-08-19，ADR-001/034 落地）
 
-> **UI 设计器类 `DisposeComponents()` 按需使用**：仅当持有「外部嵌套控件/独立资源」（设计器 `Dispose(bool)` 覆盖不到的代码 new 非容器控件、单例/静态事件订阅、外部对象生命周期）时编写，并由 `HandleDestroyed` 或父页面关闭调用；无嵌套/无独立资源则不需要。非 UI 类一律标准 `IDisposable.Dispose()`（见 [[decisions/ADR-025-DisposePatternFullCoverage]]）。
+> **UI 设计器类 `DisposeComponents()` 按需使用**：仅当持有「外部嵌套控件/独立资源」（设计器 `Dispose(bool)` 覆盖不到的代码 new 非容器控件、单例/静态事件订阅、外部对象生命周期）时编写，并由 `HandleDestroyed` 或父页面关闭调用；无嵌套/无独立资源则不需要。非 UI 类一律标准 `IDisposable.Dispose()`（见 [[decisions/ADR-023-DisposePatternFullCoverage]]）。
 
 | UI 类 | 外部资源 | 释放方式 |
 |-------|---------|---------|
@@ -177,6 +185,25 @@ UIDesign/
 - 子设备级状态另读 `Instance.WeldStatus`（焊接过程态）与 `Instance.State`（连接态），见 [[architecture/DeviceControlArchitecture]] §13
 - 弹窗范式：`AntdUI.Modal.open(new Modal.Config(this, title, message, type)) == DialogResult.OK`（owner 用 this，FormMain 为 AntdUI.Window）
 
+## 2026-09-07 目录与命名对照
+
+> 用户于 2026-09-07 重构 `UIDesign/`：扁平的 `SubView/` 按**业务域**拆为 `SubDialog/` 下 5 个子目录，同批 8 个类型改名。**命名空间未随目录变更**（仍为 Sub3UI/Sub2UI/Sub1UI）。下表供检索旧名/旧路径使用。
+
+| 旧路径（`UIDesign/SubView/`） | 新路径（`UIDesign/SubDialog/`） | 类型改名 |
+|---|---|---|
+| `DataReviewPage.cs`（在 `ControlPage/`，非 SubView） | `ControlPage/DataReviewerPage.cs` | `DataReviewPage` → `DataReviewerPage` |
+| `ILAlgoPage.cs` | `IntelligentLaserDialog/ILAlgoForm.cs` | `ILAlgoPage` → `ILAlgoForm` |
+| `ILParamPage.cs` | `IntelligentLaserDialog/ILParamForm.cs` | `ILParamPage` → `ILParamForm` |
+| `ILScanDialog.cs` | `IntelligentLaserDialog/ILScanForm.cs` | `ILScanDialog` → `ILScanForm` |
+| `AlgorithmEditForm.cs` | `IntelligentLaserDialog/ILAlgorithmEditForm.cs` | `AlgorithmEditForm` → `ILAlgorithmEditForm` |
+| `FormLogin.cs` | `UserManagerDialog/LoginForm.cs` | `FormLogin` → `LoginForm` |
+| `UserEdit.cs` | `UserManagerDialog/UserEditForm.cs` | `UserEdit` → `UserEditForm` |
+| `InitWaitingPanel.cs` | `FormMainDialog/InitWaitingForm.cs` | `InitWaitingPanel` → `InitWaitingForm` |
+| `FileTraceForm.cs` / `HelixRenderForm.cs` / `RecordConfigForm.cs` / `RenderParamForm.cs` | `DataReviewerDialog/`（同名） | 无 |
+| `AutoParamForm.cs` / `ConfigForm.cs` | `ParamContolDialog/`（同名） | 无 |
+
+⚠️ **代码内残留旧标识（非阻塞，待清理）**：Designer 的 `this.Name` 仍是旧值（`DataReviewerPage.Designer.cs:336` = `"DataReviewPage"`、`ILAlgoForm.Designer.cs:197` = `"ILAlgoPage"`、`InitWaitingForm.cs:59` = `"InitWaitingPanel"`）；`ILAlgoForm.cs` 内 6 处日志标签仍写 `"AlgorithmEditForm"`；`ILAlgorithmEditForm.cs` 事件处理器名仍为 `AlgorithmEditForm_HandleDestroyed`。
+
 ## 已知问题 / 缺口
 
 - ~~ConfigForm 分页~~：已关闭（2026-07-28 UI 整改）——`AntdUI.Pagination` 实装（Total/PageSize/ShowSizeChanger + ValueChanged lambda 切片），范式见 [[guides/AntdUI-Reference]]
@@ -191,7 +218,7 @@ UIDesign/
 ## 相关页面
 
 - [[decisions/ADR-018-UIFrameworkMigration]] — 迁移决策与完成状态
-- [[decisions/ADR-024-LayoutContainerFreedom]] — 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+- [[decisions/ADR-022-LayoutContainerFreedom]] — 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 - [[guides/AntdUI-Reference]] — 开发范式（权威）
 - [[guides/Project-Tools]] — 图表承载统一用 ScottPlot.FormsPlot 4.1.74（2026-08-12 替换 AntdUI.Chart，2026-08-13 升级 5.x 后回退 4.1.74）
 - [[decisions/ADR-018-UIFrameworkMigration]] / [[guides/AntdUI-Reference]] — 迁移决策与追踪

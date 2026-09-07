@@ -1,11 +1,11 @@
 ---
-title: ADR-016 — CameraSelector 上提至 LineLaserCam/Api 统一对外接口层
+title: ADR-016 CameraSelector 上提至 LineLaserCam/Api 统一对外接口层
 status: accepted
 date: 2026-07-21
 tags: [决策, 相机, 目录, 线激光, 接口层, 重构]
 ---
 
-# ADR-016 — CameraSelector 上提至 LineLaserCam/Api 统一对外接口层
+# ADR-016 CameraSelector 上提至 LineLaserCam/Api 统一对外接口层
 
 ## 状态
 Accepted（已采纳，2026-07-21 执行）

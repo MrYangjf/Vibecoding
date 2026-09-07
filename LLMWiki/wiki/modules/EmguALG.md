@@ -50,7 +50,7 @@ tags: [模块, 图像算法, EmguCV, 焊缝识别, 实时监控]
 
 ## 过渡桥接（PipelineManager）
 
-`AlgorithmManager.cs`（`PipelineManager` / `PipelineConfig`）**暂保留为编译桥接适配器**：`Workflow/LineLaserWorkflow.cs`、`WeldParamControl/WeldProcess.cs`、`Workflow/MotionControlWorkflow.cs`、`JobManager.cs`、UI 配置页（`EmguAlgoPage` / `AlgorithmEditForm` / `LLCamWorkJob`）仍调用其 `Execute` / `ReportExternalResult` / `AlgorithmCompleted` / `PipelineConfig`。新 API 当前未暴露 `Execute(Mat)` 重载与结果事件，迁移上述调用点需在 VS x64 中补 API 并验证（见算法架构设计 §12）。
+`AlgorithmManager.cs`（`PipelineManager` / `PipelineConfig`）**暂保留为编译桥接适配器**：`Workflow/LineLaserWorkflow.cs`、`WeldParamControl/WeldProcess.cs`、`Workflow/MotionControlWorkflow.cs`、`JobManager.cs`、UI 配置页（`EmguAlgoPage` / `ILAlgorithmEditForm` / `LLCamWorkJob`）仍调用其 `Execute` / `ReportExternalResult` / `AlgorithmCompleted` / `PipelineConfig`。新 API 当前未暴露 `Execute(Mat)` 重载与结果事件，迁移上述调用点需在 VS x64 中补 API 并验证（见算法架构设计 §12）。
 
 ## 监控相机算法区（第 8 区）
 
@@ -67,7 +67,7 @@ tags: [模块, 图像算法, EmguCV, 焊缝识别, 实时监控]
 - [[modules/WeldParamControl]] 暂经 `PipelineManager.AlgorithmCompleted` 获取焊缝特征（待迁移到 `SeamRecognitionResult`）
 - [[modules/DeviceControl]] 暂经 `PipelineManager.Execute` / `ReportExternalResult`（待迁移到 `SeamRecognitionAlgorithm.Instance`）
 - [[modules/MonitorCam]] 调用 `DetectPreWeldAlignment` / `DetectWeldQuality`；自身算法由 `MonitorAlgorithmManager` 管理（与 EmguALG 的 `AlgorithmManager` 不是一回事）
-- [[api/AlgorithmEditForm]]（Sub3UI 弹窗）当前编辑 `PipelineConfig`（待 re-point 到 `SeamRecognitionConfig`）
+- [[api/ILAlgorithmEditForm]]（Sub3UI 弹窗）当前编辑 `PipelineConfig`（待 re-point 到 `SeamRecognitionConfig`）
 
 ---
 

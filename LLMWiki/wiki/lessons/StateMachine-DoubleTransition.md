@@ -1,6 +1,6 @@
-﻿# 教训：状态机重复转换
+# 教训：状态机重复转换
 
-> **历史语境注记（2026-09-02，ADR-034）**：本页记录的是**已删除的旧架构**——`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 模板方法、`_deviceStateMachine` 字段、`DeviceState` 四态枚举均已不复存在（2026-08-28 起）。现行状态由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载三态模型，写入唯一入口为 `SetState`/`SetWeldStatus`/`SetStatus`。
+> **历史语境注记（2026-09-02，ADR-028）**：本页记录的是**已删除的旧架构**——`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 模板方法、`_deviceStateMachine` 字段、`DeviceState` 四态枚举均已不复存在（2026-08-28 起）。现行状态由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载三态模型，写入唯一入口为 `SetState`/`SetWeldStatus`/`SetStatus`。
 > **本页保留的通用教训**：同一目标状态被两层代码各自推进一次 → 第二次命中非法转换守卫。**该反模式在三态模型下依然存在**（例如基类 `ConnectOn()` 与子类 `FlowProcess()` 都调 `SetState(Connected)`），规避动作不变：状态推进只允许一处负责。
 
 ## 现象

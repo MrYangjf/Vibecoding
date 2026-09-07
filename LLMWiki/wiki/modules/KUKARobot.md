@@ -457,9 +457,9 @@ Comm/
 
 ## 7. RSI FastIPO + EtherCAT 从站
 
-> **决策依据**：[[decisions/ADR-023-RSICamBoxTrackingArchitecture]]
+> **决策依据**：[[decisions/ADR-036-MotionControllerDeltaReplacement]]（现行运控 = 台达 EtherCAT；原 RSI-CAMBOX 决策已随正运动移除，见 [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]）
 > **详细设计**：[[architecture/DeviceControlArchitecture]]
-> **核心用途**：为正运动 CAMBOX 电子凸轮提供硬件级同步的主轴位置数据
+> **核心用途**：为焊缝跟踪提供硬件级同步的主轴位置数据（台达侧承接方案 OPEN：ECAM2 / 虚拟轴 + GearIn / PVT）
 
 ### 7.1 链路特性
 
@@ -565,9 +565,9 @@ PC 获取机器人位置的两种方式：
 - [[api/KUKARobot]] —— C# API 参考
 - [[modules/Comm]] —— 通讯总线模块
 - [[modules/WeldParamControl]] —— 焊接工艺模块
-- [[modules/MotionControl]] —— 运动控制模块（CAMBOX 硬件级实时跟踪）
+- [[modules/MotionControl]] —— 运动控制模块（台达 EtherCAT 三层架构）
 - [[architecture/DeviceControlArchitecture]] —— 设备控制架构规范页（第 10 章 运动控制）
-- [[decisions/ADR-023-RSICamBoxTrackingArchitecture]] —— RSI-CAMBOX 运动控制决策
+- [[decisions/ADR-036-MotionControllerDeltaReplacement]] —— 台达 EtherCAT 运控决策
 - [[people/MotionControlSpecialist]] —— 运动控制专员
 - [[people/GeneralTechSpecialist]] —— 通用技术专员
 

@@ -256,7 +256,7 @@ if (!_intelligentInstance.IsConnected)
 
 **问题**
 
-英莱相机页面（`ILCamPage`）用 `System.Windows.Forms.Timer`（50ms ≈ 20fps）轮询 `CurrentMat`/`LastContourPointCount`/`LastInspectResult` 刷新轮廓画面；算法编辑页 `ILAlgoPage` 用 150ms Timer 轮询 `LastInspectResult` 刷新「实时识别结果」表。这与英莱官方 .NET Framework Demo 严重不符。
+英莱相机页面（`ILCamPage`）用 `System.Windows.Forms.Timer`（50ms ≈ 20fps）轮询 `CurrentMat`/`LastContourPointCount`/`LastInspectResult` 刷新轮廓画面；算法编辑页 `ILAlgoForm` 用 150ms Timer 轮询 `LastInspectResult` 刷新「实时识别结果」表。这与英莱官方 .NET Framework Demo 严重不符。
 
 **根因（对 demo 的语义误读）**
 
@@ -272,8 +272,8 @@ if (!_intelligentInstance.IsConnected)
 **修复**
 
 1. `IntelligentLaserCameraRun` 新增 `event EventHandler ContourFrameReady`：在 `MillionOutline` 回调成功换帧后调 `NotifyFrameReady()`，按 50ms 节流（~20fps，与 demo 一致）触发事件。事件在 SDK 原生线程触发，**不触碰 UI 控件**。
-2. `ILCamPage` / `ILAlgoPage` 删除各自 Timer 轮询，改订阅 `ContourFrameReady`，处理器内 `InvokeRequired` 封送到 UI 线程再刷新。
-3. 生命周期：`ILCamPage` 在 `HandleDestroyed` 退订；`ILAlgoPage` 的清理方法由 `StopTimer()` 改名 `StopRefresh()`（退订事件），`AlgorithmEditForm.HandleDestroyed` 同步改名调用。
+2. `ILCamPage` / `ILAlgoForm` 删除各自 Timer 轮询，改订阅 `ContourFrameReady`，处理器内 `InvokeRequired` 封送到 UI 线程再刷新。
+3. 生命周期：`ILCamPage` 在 `HandleDestroyed` 退订；`ILAlgoForm` 的清理方法由 `StopTimer()` 改名 `StopRefresh()`（退订事件），`ILAlgorithmEditForm.HandleDestroyed` 同步改名调用。
 
 **结论**
 
@@ -294,7 +294,7 @@ if (!_intelligentInstance.IsConnected)
 - 托管层永远收不到这两个回调
 - 结果：
   ① 校准框/十字架永远不显示（`_calibration.HasData=false`）
-  ② 参数页面（`ILParamPage`/`AlgorithmEditForm`）永远无数据（`_jobParams` 为空缓存）
+  ② 参数页面（`ILParamForm`/`ILAlgorithmEditForm`）永远无数据（`_jobParams` 为空缓存）
 
 **根因分析**
 
@@ -661,7 +661,7 @@ UI 层（`UIDesign/` 目录下）代码直接 `using IntelligentLaser_CSharp;` �
 1. **连接后状态检测**：`ILCamPage.btnConnect_Click` 在 `ConnectManual` 成功后调用 `_ilCamera.DetectHardwareStatus()`，获取 `IlHardwareStatus` 快照（LaserOn / CaptureCameraOn / SensorRunning / FpsModel / CurrentFps），同步到 UI 状态变量与控件文本。
 2. **状态查询方法**：`IsLaserOn()`（已有）/ `IsCaptureCameraOn()`（新增，`FetchSensorInfo`→`DwCaptureCameraEnable`）/ `IsSensorRunning()`（新增，`FetchSensorFps` > 0 判断）/ `FetchFpsModel()`（新增，`FetchSensorFpsModel`）分别查询单项状态。
 3. **帧率下拉状态联动**：`UpdateFpsDropdownState()` 根据 `IsCaptureCameraOn()` 动态设置可用/禁用，相机开启时禁用帧率切换。
-4. **算法编辑页实时参数**：`ILAlgoPage.InitIlModule` 连接时优先 `FetchAllJobParams()` 从设备拉取实时参数，失败才回退离线缓存，确保展开的是当前 Job 的参数。
+4. **算法编辑页实时参数**：`ILAlgoForm.InitIlModule` 连接时优先 `FetchAllJobParams()` 从设备拉取实时参数，失败才回退离线缓存，确保展开的是当前 Job 的参数。
 
 **通则**
 
@@ -871,7 +871,7 @@ else
 
 **修复（2026-08-26）**
 
-将 `SetAxisLimits` + `Refresh()` 提到分支外，**每帧**执行（与 ADR-029 Signal 模式「每帧原地修改数组 → Refresh 重绘」设计一致）。`AddContourLineChart` 订阅入口（`FormMain` 构造已显式调用）正常，根因就是刷新语句位置错误，非订阅/初始化问题。
+将 `SetAxisLimits` + `Refresh()` 提到分支外，**每帧**执行（与 ADR-024 Signal 模式「每帧原地修改数组 → Refresh 重绘」设计一致）。`AddContourLineChart` 订阅入口（`FormMain` 构造已显式调用）正常，根因就是刷新语句位置错误，非订阅/初始化问题。
 
 **通则**
 
@@ -924,7 +924,7 @@ else
 **注意事项**
 
 - 锁定时机 = 相机连接后校准框四角点首次就绪的帧（等价于用户所说「连接时」）；若校准框数据始终不到达，轴保持 `_contourYMin/Max`/`_contourZMin/Max` 默认回退范围（含负值，不锁定、每帧轻量检查）。
-- 与 [[decisions/ADR-029-YinglaiDataFlow]] 决策3（Signal 模式每帧刷新）不冲突：刷新照常 60Hz，仅轴范围从「每帧重设」改为「连接时一次锁定」。
+- 与 [[decisions/ADR-026-YinglaiDataFlow]] 决策3（Signal 模式每帧刷新）不冲突：刷新照常 60Hz，仅轴范围从「每帧重设」改为「连接时一次锁定」。
 - 切勿把 `SetAxisLimits` 重新放回每帧（会回到无意义开销）。校准框量程（含负值）通常远大于单条焊缝 Z 起伏，轮廓在固定相机量程视图下显得平缓属预期——这是用户明确的「固定相机量程」选择，不要为放大起伏而改用数据范围（见 §5.15 回退说明）。
 
 ### 5.12 主界面轮廓 Signal 轴映射：Y→X 轴、Z→Y 轴（首末点锚定防镜像）
@@ -989,7 +989,7 @@ if (Math.Abs(dy) > 1e-6)
 **教训**：
 - 高频相机/传感器事件**禁止逐事件 `BeginInvoke` + 在封送体内做重活**；必须「生产者预拷贝数据 + 合并/节流派发（volatile 标志或 Timer 限 ~60Hz）」，否则必现内存泄漏 + UI 饱和。
 - 跨线程传递数据**不要延迟读调用方缓冲**：在生产者线程立即拷进自己的复用数组，封送只传「已落定的快照」。
-- 与 ADR-029 Signal 模式「每帧刷新」、§5.9（每帧 Refresh）、§5.11（轴锁定：校准框量程）、§5.12（Y→X/Z→Y）、§5.13（初始不可见）、§5.16（AddSignalXY）均不冲突：刷新照常，仅把「数据拷贝」与「UI 重绘」拆到两个线程。
+- 与 ADR-024 Signal 模式「每帧刷新」、§5.9（每帧 Refresh）、§5.11（轴锁定：校准框量程）、§5.12（Y→X/Z→Y）、§5.13（初始不可见）、§5.16（AddSignalXY）均不冲突：刷新照常，仅把「数据拷贝」与「UI 重绘」拆到两个线程。
 
 ---
 

@@ -1,26 +1,27 @@
 ---
-title: ADR-031 — 安全检查三文件合并为单一安全检查流程
+title: ADR-028 安全检查三文件合并为单一安全检查流程
 date: 2026-08-31
 tags: [决策, 架构, 安全互锁, 安全检查, 文件合并, SafetyWorkflow, MainDeviceControl]
 status: accepted
+previous_id: ADR-031
 ---
 
 > ⚠️ 历史名称提示：本页为**历史决策记录**，正文中的下列文件名为决策当时的旧名，
 > 保留原文以留存上下文，现役对应如下：
 >
-> - `SafetyFlow.cs` → 已移除（ADR-031 合并进 DeviceStatusWork）
-> - `SafetyInterlock.cs` → 已移除（ADR-031 合并进 DeviceStatusWork）
+> - `SafetyFlow.cs` → 已移除（ADR-025 合并进 DeviceStatusWork）
+> - `SafetyInterlock.cs` → 已移除（ADR-025 合并进 DeviceStatusWork）
 > - `SafetyWorkflow.cs` → 现役 `MainDeviceControl/DeviceStatusWork.cs`
 >
-> **⚠️ 2026-09-03 术语更新（ADR-036）**：本 ADR 的**安全闭环本身继续有效**（检查 → 报警 → 急停 → 记故障 → 复位，现行见 [[architecture/DeviceControlArchitecture]] §9），但正文下列表述**已过时，不得照搬**：
+> **⚠️ 2026-09-03 术语更新（ADR-030）**：本 ADR 的**安全闭环本身继续有效**（检查 → 报警 → 急停 → 记故障 → 复位，现行见 [[architecture/DeviceControlArchitecture]] §9），但正文下列表述**已过时，不得照搬**：
 > ① `IsRobotPoseSafe()` 已**移除**（裁定 C3：不再监控机器人 pose，设备无权限管理机器人状态）——焊前门控改为直接读 `DeviceStatusWork.Instance.IsSafe`（本机安全 IO，与 pose 无关）；
 > ② `SetStep(...)` 改态写法已废止（裁定 C6），现行以 `RunStep` 由 bool 判断推进；
 > ③ 文中 `DeviceWorkflowBase<TStep>` 泛型基类已删，现为非泛型 `DeviceWorkflowBase`。
 > 现行架构以 [[architecture/DeviceControlArchitecture]] 为唯一真相源。
 
-# ADR-031 — 安全检查三文件合并为单一安全检查流程
+# ADR-028 安全检查三文件合并为单一安全检查流程
 
-> **后续更名（2026-09-02，ADR-034）**：本文决策的「合并产物 `DeviceWorkflow/SafetyWorkflow.cs`」已**整体更名为 `DeviceStatusWork.cs`**，并由「继承 `DeviceWorkflowBase<SafetyWorkflowState>` 的工作流」改为「**独立管控类 + IOWork/EMGWork/StatusWork 三线程**」（旧 `SafetyWorkflowState` 枚举已删除）。"三文件合一、单一入口"的核心结论继续有效，现行形态见 [[api/DeviceStatusWork]] 与 [[modules/Safety]]。
+> **后续更名（2026-09-02，ADR-028）**：本文决策的「合并产物 `DeviceWorkflow/SafetyWorkflow.cs`」已**整体更名为 `DeviceStatusWork.cs`**，并由「继承 `DeviceWorkflowBase<SafetyWorkflowState>` 的工作流」改为「**独立管控类 + IOWork/EMGWork/StatusWork 三线程**」（旧 `SafetyWorkflowState` 枚举已删除）。"三文件合一、单一入口"的核心结论继续有效，现行形态见 [[api/DeviceStatusWork]] 与 [[modules/Safety]]。
 
 ## 背景
 
@@ -98,7 +99,7 @@ MonitorOnce() → Checker.Check()
 |---|---|
 | 只做物理合并，三类原样搬进一个文件 | 未解决「判定器与循环割裂」，检查器仍是零调用方、循环仍是空桩 |
 | 把 `FaultRecord`/`FaultCategory` 也并入 SafetyWorkflow.cs | 它们是故障恢复链路的数据载体，与 `FaultRecoveryManager` 强耦合，且受 [[lessons/FaultRecoveryDeviceKey]] 约束，归入后者职责更清晰 |
-| 保留 `CheckAsync` 以维持公共 API | 零调用方 + 伪异步，保留即累积死代码；ADR-028 明确此类应删 |
+| 保留 `CheckAsync` 以维持公共 API | 零调用方 + 伪异步，保留即累积死代码；ADR-023 明确此类应删 |
 | 接入门控时未启动监控即判定不安全 | 会在 PLC 未标定的环境下直接阻断整机，行为回归风险不可控 |
 
 ## 后果
@@ -109,11 +110,11 @@ MonitorOnce() → Checker.Check()
 - 安全子系统首次具备完整闭环：检查 → 报警 → 急停 → 记故障 → 复位
 - 继承泛型基类后删除自建线程状态字段，`SetStep` 单点收口（`SetStep` 同值短路，50ms 轮询不会刷日志）
 - 脚本告警 42 → 1，唯一残留为轮询节拍（见下）
-- 设计天然满足 [[decisions/ADR-030-WorkflowResponsibilityBoundary]] R3（流程态通知走基类 `StateChanged`）与 R4（结果以 `LastResult` 只读属性暴露，不抛事件）
+- 设计天然满足 [[decisions/ADR-027-WorkflowResponsibilityBoundary]] R3（流程态通知走基类 `StateChanged`）与 R4（结果以 `LastResult` 只读属性暴露，不抛事件）
 
 ### 负面 / 已知取舍
 
-- **残留 1 项脚本告警**：`MonitorLoop` 的 `Thread.Sleep`。安全监控是**周期性轮询**（PLC 无推送事件源），Sleep 是正确节拍；且原设计用 `ThreadPriority.Highest` 独立线程，改用 Timer 会降级为线程池普通优先级。此为 ADR-028「禁止过度等待」规则的**有意例外**（该规则针对"等待异步操作完成"，非"周期轮询节拍"）。
+- **残留 1 项脚本告警**：`MonitorLoop` 的 `Thread.Sleep`。安全监控是**周期性轮询**（PLC 无推送事件源），Sleep 是正确节拍；且原设计用 `ThreadPriority.Highest` 独立线程，改用 Timer 会降级为线程池普通优先级。此为 ADR-023「禁止过度等待」规则的**有意例外**（该规则针对"等待异步操作完成"，非"周期轮询节拍"）。
 - **`Config` 与 `Check()` 当前零调用方**：保留作为现场标定入口与焊前一次性门控 API。
 - **PLC 未连接时互锁恒定失败**：`CheckPlc` 被跳过并记一条 `PLC 未连接或未启用` 失败项 → 一旦启动安全监控，整机 Pose 将被门控。现场须先标定 `SafetyFlow` 的 PLC 点位，或暂不启动监控（默认即不启动）。
 
@@ -125,7 +126,7 @@ MonitorOnce() → Checker.Check()
 
 ## 关联
 
-- 前置：[[decisions/ADR-030-WorkflowResponsibilityBoundary]]（R3/R4）
+- 前置：[[decisions/ADR-027-WorkflowResponsibilityBoundary]]（R3/R4）
 - 取代早期安全模块「三文件并存」的结论（其中「迁 Workflow 不建子文件夹」部分仍有效）
 - 模块：[[modules/Safety]]、[[modules/DeviceControl]]
 - API：[[api/DeviceStatusWork]]、[[api/DeviceControlWork]]

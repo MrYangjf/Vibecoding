@@ -6,7 +6,7 @@ status: accepted
 source: history.md [45]
 ---
 
-# ADR-004：Step 状态机决策
+# ADR-004 Step 状态机决策
 
 ## 背景
 

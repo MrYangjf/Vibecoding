@@ -110,7 +110,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）→ SendToRobot 下发机器人
 
 **关键点**：英莱回调本就含特征点与宽度，链路本就通。`WeldParamControlWorkflow` 补的是「计算后下发到机器人」这一环。
 
-### 私有阶段 → 焊接过程态映射（ADR-034）
+### 私有阶段 → 焊接过程态映射（ADR-028）
 
 **私有阶段枚举** `WeldParamControlWorkflowState`（内联本文件，不对外）：`Uninitialized`(0) / `Initializing`(1) / `Standby`(2) / `Computing`(3) / `Outputting`(4) / `Holding`(5) / `ErrorAborted`(6)
 

@@ -18,14 +18,14 @@ tags: [专员, UI, WinForms, AntdUI]
 ## 负责文件
 
 ```
-UIDesign/                          ← 现役 4 个子目录：MainWindow / ControlPage / TabPage / SubView
+UIDesign/                          ← 现役 4 个子目录：MainWindow / ControlPage / TabPage / SubDialog
 ├── MainWindow/
 │   ├── FormMain.cs                ← 主窗体（原 ParentUI/FormMain.cs）
 │   └── FormMain.Designer.cs
 ├── ControlPage/
 │   ├── MainPage.cs
 │   ├── NavPage.cs
-│   └── DataReviewPage.cs
+│   └── DataReviewerPage.cs        ← 现役名（原 DataReviewPage.cs）
 ├── TabPage/                       ← 原 Sub2UI/（2026-08-05 重命名）
 │   ├── ILCamPage.cs               ← 现役名（原 LLCamWorkJob.cs）
 │   ├── ParamConfigPage.cs
@@ -33,26 +33,21 @@ UIDesign/                          ← 现役 4 个子目录：MainWindow / Cont
 │   ├── CommPage.cs
 │   ├── MonitorCamPage.cs
 │   └── MotionControlPage.cs
-└── SubView/                       ← 对话窗 + 算法子页（原 ViewPage/；原 Sub3UI/ 已并入）
-    ├── AlgorithmEditForm.cs
-    ├── ILAlgoPage.cs              ← 英莱算法参数编辑（原 EmguAlgoPage.cs 已移除，职责并入此页）
-    ├── ILParamPage.cs             ← 现役名（原 LLCameraSetting.cs）
-    ├── ILScanDialog.cs
-    ├── ConfigForm.cs
-    ├── AutoParamForm.cs
-    ├── FileTraceForm.cs
-    ├── RecordConfigForm.cs
-    ├── RenderParamForm.cs
-    ├── HelixRenderForm.cs         ← 现役名（原 Helix3Drender.cs）
-    ├── FormLogin.cs
-    └── UserEdit.cs
+└── SubDialog/                     ← 对话窗，2026-09-07 由扁平 SubView/ 按业务域拆分为 5 个子目录
+    ├── DataReviewerDialog/        （FileTraceForm / HelixRenderForm / RecordConfigForm / RenderParamForm）
+    ├── FormMainDialog/            （InitWaitingForm ← 原 InitWaitingPanel）
+    ├── IntelligentLaserDialog/    （ILAlgoForm / ILAlgorithmEditForm / ILParamForm / ILScanForm）
+    ├── ParamContolDialog/         （AutoParamForm / ConfigForm）
+    └── UserManagerDialog/         （LoginForm ← 原 FormLogin / UserEditForm ← 原 UserEdit）
 ```
 
+> 完整旧→新对照表见 [[modules/UIDesign]] §「2026-09-07 目录与命名对照」。
+
 > ⚠️ 历史名称提示：上表为现役结构；下列旧名均已不存在于代码库，保留以备对照——
-> `Sub2UI/` → `UIDesign/TabPage/`（2026-08-05 重命名）；`Sub3UI/` → 并入 `UIDesign/SubView/`；
-> `LLCamWorkJob.cs` → `UIDesign/TabPage/ILCamPage.cs`；`LLCameraSetting.cs` → `UIDesign/SubView/ILParamPage.cs`；
-> `XMLEditor.cs` → `UIDesign/TabPage/FileEditorPage.cs`；`Helix3Drender.cs` → `UIDesign/SubView/HelixRenderForm.cs`；
-> `EmguAlgoPage.cs` → 已移除（职责并入 `UIDesign/SubView/ILAlgoPage.cs`）；
+> `Sub2UI/` → `UIDesign/TabPage/`（2026-08-05 重命名）；`Sub3UI/` → 并入 `UIDesign/SubDialog/`；
+> `LLCamWorkJob.cs` → `UIDesign/TabPage/ILCamPage.cs`；`LLCameraSetting.cs` → `UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs`；
+> `XMLEditor.cs` → `UIDesign/TabPage/FileEditorPage.cs`；`Helix3Drender.cs` → `UIDesign/SubDialog/DataReviewerDialog/HelixRenderForm.cs`；
+> `EmguAlgoPage.cs` → 已移除（职责并入 `UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs`）；
 > `TCPServer.cs` → 未落地（现役仅 `Comm/CommBase/Ethernet/TCPIPComm.cs` 客户端侧）；
 > `TCPClinet.cs` → 历史拼写错误名，现役 `Comm/CommBase/Ethernet/TCPIPComm.cs`
 

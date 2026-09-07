@@ -1,7 +1,7 @@
 ---
 title: 步号常量与单步方法同名导致 CS0102（含跨文件样板下沉与脚本误报两则）
 date: 2026-09-01
-tags: [教训, 步骤驱动, CSharp, 编译, ADR-028, DeviceWorkflowBase, 命名]
+tags: [教训, 步骤驱动, CSharp, 编译, ADR-023, DeviceWorkflowBase, 命名]
 ---
 
 # 步号常量与单步方法同名 → CS0102
@@ -10,7 +10,7 @@ tags: [教训, 步骤驱动, CSharp, 编译, ADR-028, DeviceWorkflowBase, 命名
 > 上一轮改造把 8 个 workflow 全部改成「常量步号 + 同名单步方法」的写法，本轮审查才发现这套写法**根本编译不过**。
 > 规范正文见 [[architecture/DeviceControlArchitecture]] §5（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已废弃），本页只记踩坑与规避动作。
 >
-> **类名与规模注记（2026-09-02，ADR-034）**：文中「8 个 workflow」现为 **7 个**——5 个子设备工作流（`LineLaser`/`MonitorCamera`/`MotionControl`/`WeldParamControl`/`LaserWeldHead`）+ `DeviceControlWork` + `DeviceStatusWork`；`SafetyWorkflow` 现为 `DeviceStatusWork`（其 `StepAlarm = 900` 与 `DoAlarm()` 已随三线程模型移除）；`MainDeviceWorkflow` 现为 `DeviceControlWork`。**CS0102 同名冲突的规避动作继续有效**。
+> **类名与规模注记（2026-09-02，ADR-028）**：文中「8 个 workflow」现为 **7 个**——5 个子设备工作流（`LineLaser`/`MonitorCamera`/`MotionControl`/`WeldParamControl`/`LaserWeldHead`）+ `DeviceControlWork` + `DeviceStatusWork`；`SafetyWorkflow` 现为 `DeviceStatusWork`（其 `StepAlarm = 900` 与 `DoAlarm()` 已随三线程模型移除）；`MainDeviceWorkflow` 现为 `DeviceControlWork`。**CS0102 同名冲突的规避动作继续有效**。
 >
 > **🔥 2026-09-03 新增实战案例（裁定 C6，改码前必看）**：按新原档把 `WorkStep` 改名为基类属性 **`RunStep`** 时，
 > `LineLaserWorkflow.cs` 中**已存在** `private bool RunStep(Func<bool>, string, string)` 方法 → 新增属性 `RunStep` 直接触发

@@ -1,11 +1,12 @@
 ---
-title: ADR-038 报错分层与状态切换零日志
+title: ADR-035 报错分层与状态切换零日志
 date: 2026-09-04
 tags: [决策, 日志, 报错, 分层]
 status: accepted
+previous_id: ADR-038
 ---
 
-# ADR-038 报错分层与状态切换零日志
+# ADR-035 报错分层与状态切换零日志
 
 ## 背景
 
@@ -35,10 +36,10 @@ status: accepted
 ### D3 重复报错触发面清理
 
 - 删除主设备层对子设备已报错误的逐条复述（如 `运动控制器初始化未通过`）。
-- 焊接头/运控初始化失败不再误置 Connected（ADR-037 D2-4）。
+- 焊接头/运控初始化失败不再误置 Connected（ADR-031 D2-4）。
 - 故障恢复模块（FaultRecoveryManager / FaultRecordManager）整体移除——架构无此定义（用户裁定），RecordFault 调用面全部删除。
 
 ## 相关
 
-- [[ADR-037-MainDeviceStateSemantics]]（状态机语义）
+- [[decisions/ADR-034-MainDeviceStateSemantics]]（状态机语义）
 - [[standards/CodeSimplification]]（注释与日志规范）

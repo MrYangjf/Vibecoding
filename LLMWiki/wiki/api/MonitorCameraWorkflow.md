@@ -1,8 +1,8 @@
-﻿---
+---
 title: MonitorCameraWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
 updated: 2026-09-04
-tags: [API, 工作流, 监控, 权责边界, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-030, ADR-034, ADR-036]
+tags: [API, 工作流, 监控, 权责边界, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-027, ADR-028, ADR-030]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 ---
 
@@ -13,10 +13,10 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
 > **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
 
-> **✅ 2026-09-04 已落地（ADR-036 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、采集等待改「`WaitOne(0)` 非阻塞探测 + 步骤计时判超时」（⛔ 不再 `WaitOne(5000)` 阻塞）。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> **✅ 2026-09-04 已落地（ADR-030 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、采集等待改「`WaitOne(0)` 非阻塞探测 + 步骤计时判超时」（⛔ 不再 `WaitOne(5000)` 阻塞）。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
-## 权责边界（ADR-030）
+## 权责边界（ADR-027）
 
 **本流程不产出任何设备数据事件**，职责划分：
 
@@ -27,7 +27,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 | 流程进度 | 本流程（基类提供） | `WeldStatusChanged`（`WeldStatusChangedEventArgs`） |
 | 检测结果 | 本流程**只读持有** | `LastResult` / `LastOverlay` 属性，订阅方在流程态转 Completed 后按需拉取 |
 
-> ⚠️ 历史版本曾提供 `DisplayEvent`/`ResultEvent`/`ErrorAborted`/`ManualStopped`/`StatusChanged` 五个自定义事件，**已全部移除**（仅剩基类三事件，ADR-030 R1~R4）。
+> ⚠️ 历史版本曾提供 `DisplayEvent`/`ResultEvent`/`ErrorAborted`/`ManualStopped`/`StatusChanged` 五个自定义事件，**已全部移除**（仅剩基类三事件，ADR-027 R1~R4）。
 
 ---
 
@@ -157,13 +157,13 @@ switch (RunStep) {
 
 `SubDeviceLog()`（C7 契约）：输出连接态 / 焊接过程态 / 步骤名 / 检测阶段 / 合格 / 缺陷数。
 
-`DisposeManaged()`（基类 `Dispose()` 钩子，ADR-025）：停相机巡检 + 释放 `_lastMat`/`_resultMat`（`_resultLock` 保护）。
+`DisposeManaged()`（基类 `Dispose()` 钩子，ADR-023）：停相机巡检 + 释放 `_lastMat`/`_resultMat`（`_resultLock` 保护）。
 
 ---
 
 ## 事件
 
-**仅基类事件**，无自定义事件（ADR-030 R1~R4）：
+**仅基类事件**，无自定义事件（ADR-027 R1~R4）：
 
 | 事件 | 来源 | 参数 |
 |---|---|---|
@@ -207,6 +207,6 @@ private void ShowResult()
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
 - [[api/MonitorCameraRun]] — 采集运行控制与健康巡检（图像/连接态/巡检的归属）
 - [[api/MonitorAlgorithmManager]] — 算法配置管理器（`AlignmentConfig` / `QualityConfig`）
-- [[decisions/ADR-030-WorkflowResponsibilityBoundary]] — 权责边界决策
+- [[decisions/ADR-027-WorkflowResponsibilityBoundary]] — 权责边界决策
 - [[decisions/ADR-005-CallbackAcquisition]] — 回调采集（有界可失败语义）
-- [[decisions/ADR-009-MonitorCameraModule]]、[[decisions/ADR-034-ThreeStateModelRefactor]]、[[decisions/ADR-036-RawDesignRefinement20260903]]
+- [[decisions/ADR-009-MonitorCameraModule]]、[[decisions/ADR-031-ThreeStateModelRefactor]]、[[decisions/ADR-033-RawDesignRefinement20260903]]

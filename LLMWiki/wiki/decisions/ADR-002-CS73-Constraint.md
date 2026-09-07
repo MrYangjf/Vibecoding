@@ -6,7 +6,7 @@ status: accepted
 source: history.md [44]
 ---
 
-# ADR-002：C# 7.3 语法约束决策
+# ADR-002 C# 7.3 语法约束决策
 
 ## 背景
 

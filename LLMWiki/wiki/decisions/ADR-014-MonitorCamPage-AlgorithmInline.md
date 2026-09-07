@@ -12,7 +12,7 @@ source: 用户需求「MonitorCamWorkJob 命名修改，没有 workjob」「界�
 > - `ImagePage.cs` → 现役 `UIDesign/TabPage/MonitorCamPage.cs`
 >
 
-# ADR-014：监控相机页面命名与算法参数内联
+# ADR-014 监控相机页面命名与算法参数内联
 
 > 📌 **实现控件已随 [[decisions/ADR-018-UIFrameworkMigration]] 迁移为 AntdUI**：本文描述的 `UIGroupBox`/`UIPanel` 等容器现对应 `System.Windows.Forms.GroupBox`；状态指示改用 `AntdUI.Signal`（原 UILight）。本 ADR 的**命名与「算法参数内联于右侧面板」决策精神不变**。
 

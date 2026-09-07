@@ -11,8 +11,8 @@ source: AdaWeldSystem/MonitorCam/MonitorCameraRun.cs
 > 监控相机运行控制单例。底层 SDK 通过 `IMonitorCameraApi` 抽象，当前实现为 `HikvisionCameraApi`（海康面阵相机，MvCameraControl.Net SDK）。
 > 参考 SmartRay `CameraRun` 的 Live/PIL 模式与采集完成信号机制（[[decisions/ADR-005-CallbackAcquisition]]）。
 >
-> **权责（ADR-030 R1）**：本类是监控相机的**唯一数据产出方**——图像、连接态、健康巡检全部归属本类。
-> 2026-08-31 由 `MonitorCameraWorkflow` 下沉健康巡检至此（此前流程越权持有，见 [[decisions/ADR-030-WorkflowResponsibilityBoundary]]）。
+> **权责（ADR-027 R1）**：本类是监控相机的**唯一数据产出方**——图像、连接态、健康巡检全部归属本类。
+> 2026-08-31 由 `MonitorCameraWorkflow` 下沉健康巡检至此（此前流程越权持有，见 [[decisions/ADR-027-WorkflowResponsibilityBoundary]]）。
 
 ## 核心类
 
@@ -120,7 +120,7 @@ HikvisionCameraApi 实时采集回调 → FrameReceived → FrameCompletedEvent 
 - [[api/MonitorCameraWorkflow]] — 消费本类的编排方（只读调用 + 拉结果）
 - [[api/MonitorAlgorithmManager]] — 算法配置（对中容差 / 质量合格分）
 - [[standards/WorkflowResponsibilityBoundary]] — 权责执行细则（R1 数据产出归属）
-- [[decisions/ADR-030-WorkflowResponsibilityBoundary]] — 健康巡检下沉决策
+- [[decisions/ADR-027-WorkflowResponsibilityBoundary]] — 健康巡检下沉决策
 - [[modules/MonitorCam]] — 所属模块
 
 *来源：AdaWeldSystem/MonitorCam/MonitorCameraRun.cs + IMonitorCameraApi.cs*

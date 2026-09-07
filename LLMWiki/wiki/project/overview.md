@@ -1,4 +1,4 @@
-﻿---
+---
 title: AdaWeldSystem 项目概览
 date: 2026-07-01
 tags: [项目, 概览, 架构]
@@ -26,9 +26,9 @@ tags: [项目, 概览, 架构]
 ## 目录结构（2026-08-04 更新）
 
 > ⚠️ 历史名称提示：本树为 **2026-08-04 快照**，保留原文以留存上下文。与 2026-09-03 代码库的主要差异：
-> - `UIDesign/ParentUI/` → 现役 `UIDesign/MainWindow/`；`UIDesign/Sub2UI/` → `UIDesign/TabPage/`；`UIDesign/Sub3UI/` → 并入 `UIDesign/SubView/`
+> - `UIDesign/ParentUI/` → 现役 `UIDesign/MainWindow/`；`UIDesign/Sub2UI/` → `UIDesign/TabPage/`；`UIDesign/Sub3UI/` → 并入 `UIDesign/SubDialog/`（2026-09-07 该目录再由扁平 `SubView/` 按业务域拆为 `SubDialog/` 下 5 个子目录，8 个类型改名，详见 [[modules/UIDesign]] §「2026-09-07 目录与命名对照」）
 > - `EmguALG/Core/`、`EmguALG/EmguConfiger/` 等子目录下多个 Stage 文件已合并为单一 `EmguALG/Stages.cs`（详见 [[modules/EmguALG]]）
-> - 各模块旧有的 StateMachine 类（`MonitorCameraStateMachine`、`MotionControlStateMachine`、`LaserWeldHeadStateMachine`）已统一迁移至 `MainDeviceControl/DeviceWorkflow/` 下的同名 Workflow 类（ADR-034）
+> - 各模块旧有的 StateMachine 类（`MonitorCameraStateMachine`、`MotionControlStateMachine`、`LaserWeldHeadStateMachine`）已统一迁移至 `MainDeviceControl/DeviceWorkflow/` 下的同名 Workflow 类（ADR-028）
 >
 ```
 AdaWeldSystem/
@@ -100,11 +100,15 @@ AdaWeldSystem/
 │   ├── AutoParamManager.cs
 │   └── ProductDatabaseManager.cs
 ├── UIDesign/                            ← UI 界面
-│   ├── ParentUI/                        (FormMain)
-│   ├── ControlPage/                     (MainPage, NavPage×2, DataReviewPage)
-│   ├── Sub2UI/                          (LLCamWorkJob, Helix3Drender, CommPages, ...)
-│   ├── Sub3UI/                          (EmguAlgoPage, ILAlgoPage)
-│   └── SubView/                         (AlgorithmEditForm, ConfigForm, FormLogin, ...)
+│   ├── MainWindow/                      (FormMain；原 ParentUI/)
+│   ├── ControlPage/                     (MainPage, NavPage×2, DataReviewerPage)
+│   ├── TabPage/                         (ILCamPage, ParamConfigPage, FileEditorPage, CommPage, MonitorCamPage, MotionControlPage；原 Sub2UI/)
+│   └── SubDialog/                       ← 2026-09-07 由 SubView/ 按业务域拆分
+│       ├── DataReviewerDialog/          (FileTraceForm, HelixRenderForm, RecordConfigForm, RenderParamForm)
+│       ├── FormMainDialog/              (InitWaitingForm)
+│       ├── IntelligentLaserDialog/      (ILAlgoForm, ILAlgorithmEditForm, ILParamForm, ILScanForm)
+│       ├── ParamContolDialog/           (AutoParamForm, ConfigForm)
+│       └── UserManagerDialog/           (LoginForm, UserEditForm)
 ├── WeldParamControl/                    ← 焊接参数控制（原 InteliWeld）
 │   ├── WeldProcess.cs
 │   └── WeldDataManager.cs
@@ -118,12 +122,12 @@ AdaWeldSystem/
 
 | 模块 | 文件数 | 职责简述 |
 |------|-------|---------|
-| [[modules/DeviceControl]] | 12 | **设备控制中枢 `MainDeviceControl/`**：三态模型（`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus`）+ 5 个子设备工作流 + 2 个整机管控类（`DeviceControlWork` 运行编排 / `DeviceStatusWork` 安全·IO·状态）；故障恢复 2026-09-01 归口迁出至 [[modules/ProductFileManager]]（ADR-033 §3）。架构见 [[architecture/DeviceControlArchitecture]] |
+| [[modules/DeviceControl]] | 12 | **设备控制中枢 `MainDeviceControl/`**：三态模型（`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus`）+ 5 个子设备工作流 + 2 个整机管控类（`DeviceControlWork` 运行编排 / `DeviceStatusWork` 安全·IO·状态）；故障恢复 2026-09-01 归口迁出至 [[modules/ProductFileManager]]（ADR-027 §3）。架构见 [[architecture/DeviceControlArchitecture]] |
 | [[modules/UIDesign]] | 22 | 全部 UI 界面（AntdUI），子命名空间 `Sub1UI` / `Sub2UI` / `Sub3UI` |
 | [[modules/LineLaserCam]] | 17 | 线激光相机族父目录 |
 | └ [[modules/SmartRayCam]] | 10 | SmartRay 3D 轮廓传感器 SDK 封装与运行控制 |
 | └ [[modules/HikRobotCam]] | 3 | 海康机器人 **3D 线激光**相机 SDK 封装（MV3D-LP 系列） |
-| └ [[modules/IntelligentLaserCam]] | 1 | 英莱线激光相机（默认线激光，见 [[decisions/ADR-026-LineLaserWorkflowRefactor]]） |
+| └ [[modules/IntelligentLaserCam]] | 1 | 英莱线激光相机（默认线激光，见 [[decisions/ADR-024-LineLaserWorkflowRefactor]]） |
 | └ VirtualCam | 1 | 虚拟相机（模拟模式取图源） |
 | └ `Api/` | 2 | 相机接口层（`CameraSelector` / `ICameraRun`，命名空间 `LineLaserCamApi`） |
 | [[modules/MotionControl]] | 17 | 运控：正运动 ZMotion / CAMBOX 跟踪 / `MoveControlData` / `MotionManager` |

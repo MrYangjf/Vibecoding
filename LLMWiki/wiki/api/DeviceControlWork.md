@@ -1,13 +1,13 @@
-﻿﻿---
+---
 title: DeviceControlWork API 参考（整机主控 · 主设备运行态 MainDeviceStatus）
 date: 2026-09-04
-tags: [API, 工作流, 主控, 上电初始化, 机器人交互, 主设备运行态, 模拟, DeviceControlWork, ADR-034, ADR-036]
+tags: [API, 工作流, 主控, 上电初始化, 机器人交互, 主设备运行态, 模拟, DeviceControlWork, ADR-028, ADR-030]
 source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 ---
 
 # DeviceControlWork API 参考
 
-> **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-034-ThreeStateModelRefactor]]。
+> **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-031-ThreeStateModelRefactor]]。
 > 主设备对外状态为 **运行态 `MainDeviceStatus`**（6 态：Running/Alarm/EStop/Stop/NoReset/Reseting），由 `SetStatus(...)` 单一入口写入，禁手工赋值。
 >
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs`（**直接挂在 `MainDeviceControl/` 下，不在 `DeviceWorkflow/` 子目录**）
@@ -15,7 +15,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 > **继承**：**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**（原档明确）。
 > 架构背景见 [[architecture/DeviceControlArchitecture]] 第 7 章。
 
-## ✅ 2026-09-04 落地状态（ADR-036 批次 0~3 + 4.4）
+## ✅ 2026-09-04 落地状态（ADR-030 批次 0~3 + 4.4）
 
 原档 `主控设计.xlsx` R013 定义的 **7 条常驻线程 + 9 个公共方法 + 11 类私有方法已全部落地**：
 
@@ -73,7 +73,7 @@ public class DeviceControlWork : IDisposable
     public void ReportAlarm(string reason);
     public void ReportAlarmCleared();
 
-    // 模拟模式（原 SimulationWorkflow 归并，见 ADR-034）
+    // 模拟模式（原 SimulationWorkflow 归并，见 ADR-028）
     public void EnableSimulation(SimTestMode mode);
     public void DisableSimulation();
     public void LoadSimulation();
@@ -118,22 +118,27 @@ public class DeviceControlWork : IDisposable
 | `thCommCommandWork` | 通讯 | 机器人**指令交互**（队列消费 + 分派） | 空闲 100ms |
 | `thSimTestWork` | 模拟（按需） | `SimTick()` 发布模拟 robotX | 20ms |
 
-**5 条子设备线程共用**私有体 `SubDeviceWork(flow, name)`，严格执行五段式（范式 M1）：
+**5 条子设备线程共用**私有体 `SubDeviceWork(flow, name)`，严格执行五段式（范式 M1），**每拍前置问询运行态**（范式 M5，2026-09-07）：
 
 ```csharp
 while (!IsCloseWork)
 {
     if (Current != MainDeviceStatus.Running)
     {
+        StopSubDeviceDrive(flow);   // 状态不对就不执行：只记一次 Warning，不改任何状态
         Thread.Sleep(100);          // 非运行态：慢节拍
-        flow.ResetWorkTime();       // 清步骤计时，防暂停时长被计入超时
         continue;
     }
+    if (_driveStopped != 0) Interlocked.Exchange(ref _driveStopped, 0);
     flow.FlowProcess();             // 运行态：驱动一步
     Thread.Sleep(10);               // 运行态：快节拍防空转
 }
 ```
 
+> `StopSubDeviceDrive()` 内 `Interlocked.CompareExchange(_driveStopped, 1, 0)` 闭锁：运行态被改为非 Running 时
+> **整机只记一次**「子流程停止驱动」并每拍清步骤计时；**线程不修改任何状态**——
+> 参考基线裁定（HonorMachineTest）：线程只判断「状态不对就不执行」，
+> 状态一律由 IO 动作链（`DoXxx → SetStatus`）专门管理，`Stopping` 等焊接态迁移由停止命令链下发。
 > 单拍异常只记日志不退出，避免整条流程永久停摆。线程一律 `IsBackground = true`（M2）；
 > `MachineFlowWorkClose()` **只置 `IsCloseWork = true`，不 Abort 线程**（M3）。
 
@@ -193,7 +198,7 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 | `[5/5]` | 机器人通讯 | `CommWork()` → 调 `Comm` 提供的 RSI / EKI 方法（§7.4 裁定 C5） |
 | 收尾 | 拉起全部常驻线程 | `MachineFlowWorkOpen()` + `MachineCommandWorkOpen()` + `DeviceStatusWork.Instance.MachineIOWorkOpen()` |
 
-末步执行 `EvaluateInitializationResult()` 聚合判定：子设备全 `Connected` → `SetStatus(Stop)`（整机就绪）；否则 → `SetStatus(Alarm)`。
+末步执行 `EvaluateInitializationResult()` 聚合判定：子设备全 `Connected` → **保持 `NoReset` 待复位**（ADR-034 D1：只有复位流程成功才到 `Stop`）；否则 → `SetStatus(Alarm)`。
 
 ### 聚合判定口径
 
@@ -201,15 +206,23 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 
 ### 复位链路 `ResetMachine()`
 
-`NoReset → Reseting → Stop`，**单次执行 `new Task(...)`**（范式 M4），不走常驻线程：
+`NoReset → Reseting → Stop`，**单次执行 `new Task(...)`**（范式 M4），不走常驻线程，**每步前置问询运行态**（范式 M5，2026-09-07）：
 
-1. `ClearMachine()` 强制 `NoReset`
-2. `MachineStatusTrans(Reseting)` 校验后 `SetStatus(Reseting)`
-3. `CascadeResetProcess()` 级联 5 个子流程 `ResetProcess()`
-4. **复查状态仍为 `Reseting`**（被急停/报警改写即判「复位被中止」并退出，范式 M5）
-5. 成功 → `Stop`，失败 → `Alarm`
+1. **急停态直接拒绝复位**（`EStop` 前置门禁，须先解除急停）
+2. `ClearMachine()` 强制 `NoReset` → **问询仍为 `NoReset`**（`IsActionAborted`，被互锁报警抢占即中止）
+3. `MachineStatusTrans(Reseting)` 校验后 `SetStatus(Reseting)`
+4. `CascadeResetProcess()` 级联 5 个子流程 `ResetProcess()`，**每步前置问询仍为 `Reseting`**，被抢占立即中止
+5. **再次问询仍为 `Reseting`**（被急停/报警改写即判「复位链被中止」并退出，不覆盖新状态）
+6. 成功 → `Stop`，失败 → `Alarm`
 
-前置门禁：运行中拒绝；`IsRobotReachable()` 不通过 → `Alarm` + `RecordFault("ROBOT_OFFLINE")` 并阻断。
+前置门禁：运行中拒绝；`IsRobotReachable()` 不通过 → `Alarm` 并阻断（错误归口设备对象层，主设备层不复述，ADR-035）。
+
+### 初始化链前置问询 `DoInitializeMachine()`
+
+2026-09-07 补齐：初始化 5 步（机器人通讯 → 焊接头 → 运控 → 线激光 → 监控相机）**每步之间调用
+`IsInitAborted()`**——初始化期间合法运行态只有 `NoReset` 与 `Alarm`，出现 `EStop / Reseting / Running`
+即判被抢占，中止后续步骤与聚合判定（中止日志只记一次）；`WaitChildConnected` 等待循环每拍
+`IsInitPreempted()`（静默版）问询，被抢占立即退出等待。启动链 `DoStartMachine` 置 `Running` 后同样问询一次。
 
 ---
 
@@ -226,7 +239,7 @@ DeviceControlWork.Instance.InitializeMachine();   // 上电初始化入口（阻
 
 ### 指令队列（取代旧命令三槽）
 
-ADR-036 裁定 C3：**不再监控机器人 pose**，`RobotPose` / `RobotCommand` / `DeviceCommand` 枚举全部删除，
+ADR-030 裁定 C3：**不再监控机器人 pose**，`RobotPose` / `RobotCommand` / `DeviceCommand` 枚举全部删除，
 指令一律以 `const string` 解析（[[api/CommandCore]]）。
 
 ```
@@ -338,6 +351,31 @@ bool robotOnline = main.IsRobotOnline;
 | `SnapshotVirtualIo()` | `string[]` | 全量快照，供 `GetIOState` |
 | `ExecuteIo(ioName)` | `bool` | **扫描器唯一执行入口**，分派到 `DoXxx` |
 
+### IO 两类语义与「只触发一次」硬特性（2026-09-07 补）
+
+虚拟 IO 分**脉冲型**与**电平型**两类，语义不同、不得混用：
+
+| 类型 | 查询方式 | 消除时机 | 适用 |
+|---|---|---|---|
+| 脉冲型（命令） | `TakeVirtualIo` | **取走即清位**，动作执行前已完成 | `IoInit`/`IoReset`/`IoStart`/`IoStop`/`IoClearAlarm`/`IoSub*` |
+| 电平型（状态） | `IsVirtualIoSet` | 由触发方主动 `ClearVirtualIo` | `IoEmg` 急停 |
+
+> **「IO 只能触发一次动作，进入动作后 IO 必须取消掉」**——这是虚拟 IO 的硬特性。
+> 脉冲型命令若不在动作开始前消除，扫描器下一拍会再次命中并重复进入动作，形成无限动作循环。
+> 实现上由 `TakeVirtualIo` 保证（内部为 `HashSet.Remove`，命中同时清位）。
+
+**动作不得占用 IO 扫描线程**：`ExecuteIo` 分派的 `DoXxx` 可能耗时数十秒（初始化链要连 4 个子设备）。
+扫描器**取走 IO → 记日志 → 拉起独立动作线程 → 立即返回**，IO 在动作开始前即已消除。
+
+```
+扫描线程:  TakeVirtualIo(IoInit) → Log"命中" → DispatchAction → 继续扫描
+                                                    ↓
+动作线程:                              ExecuteIo → DoInitializeMachine（20s）
+```
+
+若动作被同步执行，会出现「日志里 IO 命中打在动作结束后」的假象，看起来像 IO 未消除——
+实为扫描线程被独占，不是 IO 滞留（2026-09-07 日志排查结论）。
+
 ### 命令方法（置位）与执行体（扫描执行）对照
 
 > 公共方法**只置位不执行**；真正执行体为 `DoXxx`，由 `thIOWork` / `thEMGWork` 扫描驱动。
@@ -432,6 +470,6 @@ bool robotOnline = main.IsRobotOnline;
 - [[api/CommandCore]] — 机器人指令协议（const string，取代 CommandTable）
 - [[api/DeviceStatusWork]] — 安全/IO/状态管控：`IsSafe` 门控 + `MachineIOWorkOpen/Close`
 - [[modules/Comm]] — 机器人/PLC 连接归属地
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型决策
-- [[decisions/ADR-036-RawDesignRefinement20260903]] — 本次重构依据（7 线程 + 9 方法 + 裁定 C1~C7）
+- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型决策
+- [[decisions/ADR-033-RawDesignRefinement20260903]] — 本次重构依据（7 线程 + 9 方法 + 裁定 C1~C7）
 - [[api/GlobalCommData]] — 通讯与日志底层出口（本类 `_tag` / `_simTag` 的直连落地）

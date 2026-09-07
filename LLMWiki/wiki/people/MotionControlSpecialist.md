@@ -34,7 +34,7 @@ MotionControl/
 │                                 - 连接态 SubDeviceState（2 态）
 │                                 - 焊接过程态 SubDeviceWeldStatus（7 态）
 │                                 - 状态写入唯一入口 SetState/SetWeldStatus（禁手工赋值）
-├── MotionConfig.cs            ← 运动参数配置
+├── MotionConfig.cs            ← 运动参数配置   （2026-09-07 已删除，暂不新建）
 │                                 - 轴参数结构定义
 │                                 - INI文件持久化
 │                                 - 参数加载/保存

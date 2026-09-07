@@ -1,13 +1,13 @@
 ---
 title: API — CommandCore 机器人指令协议（const string，取代 CommandTable）
 date: 2026-09-04
-tags: [API, 指令协议, 机器人, 主控, CommandCore, ADR-036]
+tags: [API, 指令协议, 机器人, 主控, CommandCore, ADR-030]
 source: AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs
 ---
 
 # API — CommandCore 机器人指令协议
 
-> **本页述 `CommandCore`（静态常量类，机器人指令协议）**，ADR-036 裁定 C3，2026-09-04 落地。
+> **本页述 `CommandCore`（静态常量类，机器人指令协议）**，ADR-030 裁定 C3，2026-09-04 落地。
 >
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceState`（⚠️ 目录 `DeviceStateApiCore/` 下的类分属 `...DeviceState` 与 `...FlowState` 两个命名空间，禁止新增 `...DeviceStateApiCore`）
@@ -109,5 +109,5 @@ GlobalCommData.CommunicationCommandReceived
 
 - [[api/DeviceControlWork]] — 唯一消费方（指令队列 + `DispatchCommand`）
 - [[architecture/DeviceControlArchitecture]] — §3.1 指令协议表、§7.3 指令交互线程
-- [[decisions/ADR-036-RawDesignRefinement20260903]] — 裁定 C3（字符串协议 + 不再监控 pose）
+- [[decisions/ADR-033-RawDesignRefinement20260903]] — 裁定 C3（字符串协议 + 不再监控 pose）
 - [[guides/Namespace-Compilation]] — 新增 .cs 必须登记 `.csproj`（`CommandCore.cs` 已登记）

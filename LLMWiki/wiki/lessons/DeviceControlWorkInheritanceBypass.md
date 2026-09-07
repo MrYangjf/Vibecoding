@@ -1,7 +1,7 @@
 ---
 title: 教训 — 独立管控类绕过/复制基类机制的 5 类 BUG（Tag 遮蔽 · 日志出口发散 · 时间戳非原子 · 字段直读 · 停机重启误判超时）
 date: 2026-09-03
-tags: [教训, 继承, 并发, 日志, 步骤驱动, DeviceControlWork, CS0108, Interlocked, ADR-034]
+tags: [教训, 继承, 并发, 日志, 步骤驱动, DeviceControlWork, CS0108, Interlocked, ADR-028]
 source: AdaWeldSystem/MainDeviceControl/**（2026-09-03 修复）
 ---
 
@@ -10,7 +10,7 @@ source: AdaWeldSystem/MainDeviceControl/**（2026-09-03 修复）
 > **来源**：2026-09-03 对 `MainDeviceControl/` 的一次完整性审计 + 修复，共 5 个 BUG、8 个文件、约 63 处日志调用改造。
 > 规范正文见 [[architecture/DeviceControlArchitecture]] 与 [[standards/CodeSimplification]] §三（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已于 2026-09-03 整页废弃）。本页只记**踩过的坑**与规避动作。
 >
-> **⚠️ 2026-09-03 机制变更（ADR-036，用户裁定「完全重构」）**：本页记录的 5 类 BUG 与「独立管控类另起炉灶会腐化」的**根因继续有效**，
+> **⚠️ 2026-09-03 机制变更（ADR-030，用户裁定「完全重构」）**：本页记录的 5 类 BUG 与「独立管控类另起炉灶会腐化」的**根因继续有效**，
 > 但正文中的成员名已随旧框架清除（裁定 C1/C6）：`GoStep` → **`RunStep` 由 `case` 内 bool 推进**；`IsStepTimeout` → **`TimeOutSeconds`（秒）**；
 > `FailFlow` → 超时后 Alarm + RecordFault + 跳 9xx 段；`ResetStepTime` → **`ResetWorkTime()`**。
 > 另：`DeviceControlWork` **仍不继承** `DeviceWorkflowBase`（新架构下它是 7 线程编排层，与基类职责本就不同），
@@ -241,5 +241,5 @@ grep -n "_status" AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 - [[lessons/StepMemberNameCollision]] — CS0108 的另一形态（常量下沉后子类残留）
 - [[lessons/CSharp-Language-Pitfalls]] — C# 语言层陷阱合集
 - [[lessons/DeviceWorkflowDualFlowCallerGate]] — 另一条关于「调用方入口」的红线
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型与独立管控类定位
+- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型与独立管控类定位
 - [[architecture/DeviceControlArchitecture]] §2 — 独立管控类为何不在继承链上

@@ -60,11 +60,11 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 | `void ResetMeasuredFps()` | **2026-08-18 新增**：重置实测 FPS 计数器（`_lastFrameTime` + `_firstFrameSkipped` + `_measuredFps`）。相机关闭/重新开启时调用，确保首帧被剔除 |
 | `bool IsManualMode { get; set; }` | **2026-08-20 新增**：手动模式标志。true=手动调试模式（回调生成 Mat + 触发 ContourFrameReady UI 事件）；false=自动/其他模式（回调仅外传 ContourDataReady 数据，不生成 Mat、不触发 UI 事件，节省 CPU/GPU）。默认 true（兼容手动页面直接使用场景）。由 `ILCamPage.UpdateModeUi` 根据工作流运行状态自动设置 |
 | `bool IsLaserOn()` | 激光状态。**2026-08-25 起本地状态**：`_isConnected && _isLaserOn`（连接时 `SyncHardwareStatus` 同步 + `SetLaser` 更新，UI 读取无延迟；弃每次 `FetchLaserStatus` 硬件查询） |
-| `List<string> GetJointTypeDisplayKeys(int jointType)` | **2026-08-25 新增**：该接头类型应显示的参数键集（jointtypelist.json `display`，技术员确认的 Job 实际使用参数）；供 `ILAlgoPage` 参数表过滤 |
+| `List<string> GetJointTypeDisplayKeys(int jointType)` | **2026-08-25 新增**：该接头类型应显示的参数键集（jointtypelist.json `display`，技术员确认的 Job 实际使用参数）；供 `ILAlgoForm` 参数表过滤 |
 | `int LastContourPointCount { get; }` | 最近一次毫米轮廓点数量（MillionOutline 回调内更新，供页面显示轮廓点数） |
 | `IlCalibrationInfo CalibrationInfo { get; }` | **校准数据快照（2026-08-17 新增）**：中心点 + 4 角点（mm 物理坐标，[0]=Y 横向 / [1]=Z 高度），由 `InternalRefCornerPts` 回调填充（`_calibLock` 保护）；未收到校准回调时为 null。供 `ConvertContourToMatDemo` 绘制校准框（矩形区域）+ 大十字架（参照官方 demo） |
-| `event EventHandler ContourFrameReady` | **轮廓帧就绪事件（2026-08-17 新增，回调驱动显示）**：每成功换一帧触发一次，按 ~20fps（50ms）节流（`NotifyFrameReady`），由 `ILCamPage`/`ILAlgoPage` 订阅后直接刷新轮廓画面与识别结果，**替代 UI 层轮询 Timer**（与英莱官方 demo 的「回调更新画面」一致）；在 SDK 原生线程触发，订阅方须 `InvokeRequired` 封送。**2026-08-20 回调重构后仅手动模式触发**：`IsManualMode=true` 时才生成 Mat 并触发此事件；自动模式不触发，节省 CPU/GPU |
-| `event EventHandler<ContourDataEventArgs> ContourDataReady` | **轮廓数据就绪事件（2026-08-18 新增，数据分发中心）**：每帧 MillionOutline 回调成功产出轮廓后触发，携带 `PointCloudData`（YZ 坐标，mm）+ `IlInspectResult`（ParseRes+特征）+ 实测帧率。供 MainPage 轮廓 ScottPlot 订阅做实时显示、供 `LineLaserWorkflow` Running 模式订阅做结果码监听。**不节流**，完全跟随回调帧率（默认 ~60Hz）。在 SDK 原生线程触发，订阅方须 `InvokeRequired` 封送。**2026-08-20 回调重构后两种模式均触发**：手动模式和自动模式都会外传此事件，数据消费方（ScottPlot / 工作流）不受影响。详见 [[decisions/ADR-029-YinglaiDataFlow]] |
+| `event EventHandler ContourFrameReady` | **轮廓帧就绪事件（2026-08-17 新增，回调驱动显示）**：每成功换一帧触发一次，按 ~20fps（50ms）节流（`NotifyFrameReady`），由 `ILCamPage`/`ILAlgoForm` 订阅后直接刷新轮廓画面与识别结果，**替代 UI 层轮询 Timer**（与英莱官方 demo 的「回调更新画面」一致）；在 SDK 原生线程触发，订阅方须 `InvokeRequired` 封送。**2026-08-20 回调重构后仅手动模式触发**：`IsManualMode=true` 时才生成 Mat 并触发此事件；自动模式不触发，节省 CPU/GPU |
+| `event EventHandler<ContourDataEventArgs> ContourDataReady` | **轮廓数据就绪事件（2026-08-18 新增，数据分发中心）**：每帧 MillionOutline 回调成功产出轮廓后触发，携带 `PointCloudData`（YZ 坐标，mm）+ `IlInspectResult`（ParseRes+特征）+ 实测帧率。供 MainPage 轮廓 ScottPlot 订阅做实时显示、供 `LineLaserWorkflow` Running 模式订阅做结果码监听。**不节流**，完全跟随回调帧率（默认 ~60Hz）。在 SDK 原生线程触发，订阅方须 `InvokeRequired` 封送。**2026-08-20 回调重构后两种模式均触发**：手动模式和自动模式都会外传此事件，数据消费方（ScottPlot / 工作流）不受影响。详见 [[decisions/ADR-026-YinglaiDataFlow]] |
 | `int FetchCurrentJobId()` | 获取当前 JOB ID（`FetchJobInfo`；⚠️ dwCmd=0 查询语义待真机验证） |
 | `List<IlJobDescInfo> FetchJobList()` | **2026-08-24 新增**：读取运行目录 `IntelligentLaser_jobdesclist.json`（连接相机后原生 SDK 自动落盘，**这是「全部 Job 号」的官方数据源**，SDK 无枚举 API 但落盘 JSON 提供），返回全部 Job 描述（Id/JointType/JobDescribe）；文件缺失/解析失败返回空列表，不缓存不兜底 |
 | `IlJobDescInfo GetCurrentJobInfo()` | **2026-08-24 新增**：当前 JOB 完整描述（`FetchCurrentJobId` + `FetchJobList` 按 id 匹配）；未连接/查不到返回 null。供 UI 展示当前 JOB 与接头类型 |
@@ -90,7 +90,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 | **相机参数（基础参数）** | `IntelligentSensorBaseParams` / `FetchSensorBaseParam`·`SetSensorBaseParam` | 曝光(`Exptime`·uint)、激光强度(`Power`·uint)、抗弧光/伽马(`Gama`·float)、温度(`FTempCpu` 只读) | `IlCameraParam` + `FetchCameraParams`/`ApplyCameraParams` |
 | **Job 参数（算法参数）** | `TIntelligentJobParam` / `FetchJobParamter`·`SetJobParamter` | 焊缝接头种类、特征点、向量等算法参数（名称/类型/范围由 SDK 初始化回调下发，**不硬编码**） | `IlJobParamInfo` + `FetchAllJobParams`/`ApplyJobParams` |
 
-> 相机参数编辑 UI 为 `Sub3UI/ILParamPage`（Table 单元格编辑曝光/激光强度/抗弧光）；Job 参数编辑在 `Sub3UI/AlgorithmEditForm` 模块 B（`ILAlgoPage`）。
+> 相机参数编辑 UI 为 `Sub3UI/ILParamForm`（Table 单元格编辑曝光/激光强度/抗弧光）；Job 参数编辑在 `Sub3UI/ILAlgorithmEditForm` 模块 B（`ILAlgoForm`）。
 
 ## 校准数据（InternalRefCornerPts，显示画面）
 
@@ -116,7 +116,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 
 ## Job Parameter（英莱算法参数）
 
-英莱相机自带一套**设备侧 Job Parameter**（焊缝接头种类、特征点、向量等算法参数，名称/类型/范围由 SDK 初始化回调下发，**不硬编码**），与 EmguALG 的 `PipelineConfig`（项目算法参数）是两套完全不同的参数体系。二者已合并进同一 UI 窗体 `Sub3UI/AlgorithmEditForm`（见 [[api/AlgorithmEditForm]] 模块 B），但后端由本类以 `IlJobParamInfo` 托管缓存封装，**UI 绝不直连 `IntelligentLaser_export`**（呼应 [[api/IntelligentLaserSDK_CSharp_DevManual]] §7「参数读写封装进相机模块」）。
+英莱相机自带一套**设备侧 Job Parameter**（焊缝接头种类、特征点、向量等算法参数，名称/类型/范围由 SDK 初始化回调下发，**不硬编码**），与 EmguALG 的 `PipelineConfig`（项目算法参数）是两套完全不同的参数体系。二者已合并进同一 UI 窗体 `Sub3UI/ILAlgorithmEditForm`（见 [[api/ILAlgorithmEditForm]] 模块 B），但后端由本类以 `IlJobParamInfo` 托管缓存封装，**UI 绝不直连 `IntelligentLaser_export`**（呼应 [[api/IntelligentLaserSDK_CSharp_DevManual]] §7「参数读写封装进相机模块」）。
 
 ### 数据契约 IlJobParamInfo（命名空间级托管类）
 `ValueType`：`1=string` / `2=float` / `3=int`；范围仅 float/int 有效。字段：`Name`/`StringValue`/`FloatValue(double)`/`IntValue(long)`/`HasRange`/`FloatMin/FloatMax`/`IntMin/IntMax`。
@@ -132,7 +132,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 ### Job 列表与接头类型（运行目录 JSON 数据源，2026-08-24 接入）
 连接相机后，原生 SDK 会在**运行目录**（`AppDomain.CurrentDomain.BaseDirectory`）自动落盘两个 JSON，**这是「全部 Job 号」与「接头类型语义」的官方数据源**（技术员确认，SDK 无枚举 API 但落盘 JSON 提供）：
 - **`IntelligentLaser_jobdesclist.json`**：`[{"jobdescribe":"","jointtype":32,"id":1}, ...]` → 全部 Job（Id + JointType + JobDescribe）。`FetchJobList()` 解析，UI 填入 cmbJob 下拉（需求①「读取所有 job 号」落地）。
-- **`IntelligentLaser_jointtypelist.json`**：`{"joint_types":[{"hex":"0x10","int":16,"name_zh":"左搭接","name_en":"Left-Lap","lines":[...],"calculations":[...],"display":{参数key:默认值},"green/blue/orange":[参数key分组]}, ...]}` → 接头类型语义字典（20+ 类型：对接 32/微对接 33/左搭接 16/右搭接 17/V坡口 49/平板 80/直线圆管 96 等）。`GetJointTypeName()` 取中文名，cmbJob 项显示 `JOB 1 [对接]`、ILAlgoPage 顶部显示当前接头类型。`display` 键为「该类型应显示的参数集」，green/blue/orange 为参数类别分组，后续 UI 拆分（相机参数 vs Job 算法参数）可据此过滤/着色。
+- **`IntelligentLaser_jointtypelist.json`**：`{"joint_types":[{"hex":"0x10","int":16,"name_zh":"左搭接","name_en":"Left-Lap","lines":[...],"calculations":[...],"display":{参数key:默认值},"green/blue/orange":[参数key分组]}, ...]}` → 接头类型语义字典（20+ 类型：对接 32/微对接 33/左搭接 16/右搭接 17/V坡口 49/平板 80/直线圆管 96 等）。`GetJointTypeName()` 取中文名，cmbJob 项显示 `JOB 1 [对接]`、ILAlgoForm 顶部显示当前接头类型。`display` 键为「该类型应显示的参数集」，green/blue/orange 为参数类别分组，后续 UI 拆分（相机参数 vs Job 算法参数）可据此过滤/着色。
 - **注意**：JSON 由原生层生成，SDK C# 包装与官方 demo 均未读取——解析须自行实现（本项目用 Newtonsoft.Json，csproj 已引用 `3rdDepend\Newtonsoft.Json.dll`）；文件缺失/未连接时按「无线激光即无 Job」返回空，不缓存不兜底。
 
 ### 线程与资源
@@ -151,7 +151,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 - **raw-Marshal 规避 GC 压力**：弃用 `ContourData.PointArray` 的托管 getter（每帧 `new` 2048 个 FPoint 包装），改用 `contour.__Instance` 基址 + `IntPtr.Add` + **全限定 `System.Runtime.InteropServices.Marshal.Copy` + `System.BitConverter.ToSingle`** 直接读 `FPoint`（y@0 / z@4），读完即走（彻底规避 SDK 命名空间遮蔽 BCL `Marshal` 的编译错误，见 [[lessons/IntelligentLaser-Pitfalls]]）。
 - **SDK 自有算法结果捕获（InspectResult）**：同一 `MillionOutlineInspect` 回调在读取轮廓后，额外在 `using` 块内读取 `inspect.InspectResult[0]`（`RuntimeInspectResult`：ParseRes / CurrentFeaturePoint.YPos-ZPos(mm) / Width[2] / HeightOrDepth[2] / Area / Angles[3] / Radii[2] / Vec[2] / Timestamp），拷贝进线程安全快照 `IlInspectResult`（双锁 `_ilLock` 保护 `_lastInspect`/`_hasInspect`），经 `HasInspectResult`/`LastInspectResult` 暴露。工作流 `AnalyzeImage()` 据此走英莱自有算法路线（详见下方「算法路线分支」）。
 - **轮廓 Mat 复用持久画布（2026-08-26 重构）**：`ConvertContourToMatDemo` 不再每帧 `new Bitmap`/`new Graphics`/`new Mat`。改为**复用持久 `_canvasBmp`(834×554)+`_canvasG`**（`EnsureCanvas()` 首次创建）每帧 `Clear` 重绘，并通过 `UpdateCurrentMatFromCanvas()` 把画布 `CopyTo` 进**持久 `_currentMat`**（首帧新建、后续原地复用，同尺寸/类型零新分配）。整段绘制在 `lock(_matLock)` 内执行，与 `CurrentMat` getter 互斥，且避免回调并发重入；销毁路径 `_matLock` 内同步 `Dispose` 画布，无 GDI 句柄泄漏。采用 `Bitmap.ToMat()`+`Mat.CopyTo()`（Emgu.CV 4.x 确定性 API），版本安全。回调手动分支因此移除旧「双缓冲换帧（`newMat` 交换 + 旧帧 `Dispose`）」，由方法内部原地更新 `_currentMat` 天然替代。
-- **回调驱动显示（2026-08-17）**：`MillionOutline` 回调成功换帧后调 `NotifyFrameReady()`，按 ~20fps（50ms 节流）触发 `ContourFrameReady` 事件，由 `ILCamPage`（轮廓画面）/`ILAlgoPage`（实时识别结果）订阅后经 `InvokeRequired` 封送到 UI 线程刷新——**替代此前 UI 层 `Timer` 轮询显示**。与英莱官方 demo 一致：**回调更新画面，轮询只用于查状态**（见 [[lessons/IntelligentLaser-Pitfalls]]）。
+- **回调驱动显示（2026-08-17）**：`MillionOutline` 回调成功换帧后调 `NotifyFrameReady()`，按 ~20fps（50ms 节流）触发 `ContourFrameReady` 事件，由 `ILCamPage`（轮廓画面）/`ILAlgoForm`（实时识别结果）订阅后经 `InvokeRequired` 封送到 UI 线程刷新——**替代此前 UI 层 `Timer` 轮询显示**。与英莱官方 demo 一致：**回调更新画面，轮询只用于查状态**（见 [[lessons/IntelligentLaser-Pitfalls]]）。
 - **校准数据双回调（2026-08-17）**：`RegisterCallbacks()` 在轮廓回调之外额外注册 `InternalRefCornerPts` 校准回调（`_cbCalibration` 存字段防 GC），`CalibrationCallback` 在 `using` 块内把 `IntelligentCalibrationInfo`（中心点+4角点）拷贝进 `IlCalibrationInfo` 快照（`_calibLock` 保护）。`ConvertContourToMatDemo` 改为实例方法读取校准数据：有校准数据时按 demo `resetInnerData`/`TransPoint`/`Paint` 绘制**黄色校准框 + 浅灰大十字架 + 浅绿角点/中心点 + 红色特征点**，轮廓折线按像素/mm 比例映射；无校准数据回退自动缩放画法。
 - **连接位掩码（Core 未连=硬失败）**：`ConnectToSensor` 返回位掩码。`EM_INTELLIGENT_CONNECT_E_CORE` 位为 1 表示 Core 服务未连上 → **视为硬失败**：记录 `Error` 日志、`UnInitSDK()` 清理、直接返回（不置 `_isConnected`/`_isOpened`），避免状态栏假阳性「已连接」。仅当 Core 连上时才继续启用传感器/激光/采集相机。
 

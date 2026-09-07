@@ -6,7 +6,7 @@ status: accepted
 source: raw/skills/02-Development/ImageAlgorithmSpecialist.md
 ---
 
-# ADR-003：单算法文件决策
+# ADR-003 单算法文件决策
 
 ## 背景
 

@@ -2,7 +2,7 @@
 title: LaserWeldHeadWorkflow API 参考（焊接头工作流 · 骨架期）
 date: 2026-09-02
 updated: 2026-09-04
-tags: [API, 工作流, 焊接头, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-034, ADR-036]
+tags: [API, 工作流, 焊接头, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-028, ADR-030]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs
 ---
 
@@ -13,7 +13,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
 > **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
 
-> **✅ 2026-09-04 已落地（ADR-036 批次 0~4.4）**：本类已按新架构改码——无自带线程、`RunStep` 驱动范式就位（骨架期无业务执行步）、对外焊接过程态统一经 `SetWeldStatus` 承载。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> **✅ 2026-09-04 已落地（ADR-030 批次 0~4.4）**：本类已按新架构改码——无自带线程、`RunStep` 驱动范式就位（骨架期无业务执行步）、对外焊接过程态统一经 `SetWeldStatus` 承载。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
 ---
@@ -47,7 +47,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs
 
 ---
 
-## 差异化职责（原档 R009，ADR-036 批次 4.1 待办）
+## 差异化职责（原档 R009，ADR-030 批次 4.1 待办）
 
 **温度阈值监控**——待硬件温度点位明确后落地。当前留痕位置：
 
@@ -118,5 +118,5 @@ string status = head.StateName + " / " + head.WorkStepName;
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
 - [[modules/LaserWeldHead]] — 焊接头模块（ILaserWeldHeadController 等）
 - [[api/LaserWeldHeadController]] — 控制器 API
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型（现行有效）
-- [[decisions/ADR-036-RawDesignRefinement20260903]] — 原档细化与完全重构裁定
+- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型（现行有效）
+- [[decisions/ADR-033-RawDesignRefinement20260903]] — 原档细化与完全重构裁定

@@ -1,4 +1,4 @@
-﻿---
+---
 title: 步骤驱动改造六坑（执行步复位覆盖 / 步内阻塞 / 抽象类级联编译 / 命令槽碰撞 / 失败计数爆表 / 故障快照类型错配）
 date: 2026-09-01
 tags: [教训, 步骤驱动, 执行步, DeviceWorkflowBase, 并发, 编译]
@@ -9,12 +9,12 @@ tags: [教训, 步骤驱动, 执行步, DeviceWorkflowBase, 并发, 编译]
 > 来源：2026-09-01 全量步骤驱动改造（当时已 accepted，该决策现已删除），8 个文件一次到位的实战总结。
 > 规范正文见 [[architecture/DeviceControlArchitecture]]（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已废弃），本页只记**踩过的坑**与规避动作。
 >
-> **类名与机制注记（2026-09-02，ADR-034）**：文中的 `SafetyWorkflow` **现为 `DeviceStatusWork`**（`DoAlarm()` 已不存在，报警/急停改由 `DeviceStatusWork` 三线程经 `DeviceControlWork` 单一控制源处置）；`MainDeviceWorkflow` **现为 `DeviceControlWork`**；`MapToDeviceState(_step)` 四态映射已删除，改为 `SetWeldStatus(MapWeldStatus(_phase))`。~~六坑的规避动作本身继续有效~~ → **2026-09-03 起逐坑重新判定，见下方横幅与各坑标注**。
+> **类名与机制注记（2026-09-02，ADR-028）**：文中的 `SafetyWorkflow` **现为 `DeviceStatusWork`**（`DoAlarm()` 已不存在，报警/急停改由 `DeviceStatusWork` 三线程经 `DeviceControlWork` 单一控制源处置）；`MainDeviceWorkflow` **现为 `DeviceControlWork`**；`MapToDeviceState(_step)` 四态映射已删除，改为 `SetWeldStatus(MapWeldStatus(_phase))`。~~六坑的规避动作本身继续有效~~ → **2026-09-03 起逐坑重新判定，见下方横幅与各坑标注**。
 >
-> ## ⛔ 2026-09-03 重大前提变更（ADR-036，用户裁定「完全重构」）
+> ## ⛔ 2026-09-03 重大前提变更（ADR-030，用户裁定「完全重构」）
 >
 > 本页六坑建立于 **2026-09-01 旧框架**（`GoStep`/`SetStep` 改步 + 基类常驻监听线程 + 命令变量三槽）。
-> 该框架已由架构原档**整体重构取代**（见 [[decisions/ADR-036-RawDesignRefinement20260903]]）：
+> 该框架已由架构原档**整体重构取代**（见 [[decisions/ADR-033-RawDesignRefinement20260903]]）：
 >
 > | 旧机制 | 处置 | 现行 |
 > |---|---|---|
@@ -136,7 +136,7 @@ CS0534: "XxxWorkflow" 不实现继承的抽象成员 "DeviceWorkflowBase<...>.Fl
 
 ### 现象
 
-`DeviceControlWork`（原 `MainDeviceWorkflow`，ADR-034）若把机器人上报的两类信号塞进同一个 `int` 命令槽：
+`DeviceControlWork`（原 `MainDeviceWorkflow`，ADR-028）若把机器人上报的两类信号塞进同一个 `int` 命令槽：
 
 ```csharp
 private volatile int _pendingSignal = -1;   // ❌ Pose 和 Command 共用
@@ -200,7 +200,7 @@ ResetStepTime();                                    // 计一次后重新计时
 ### 现象
 
 `DoFinishFail()` 的 `FaultRecord` 初始化器里写 `State = _step.ToString()`。
-`FaultRecord.State` 是**强类型 `DeviceState`**（ADR-033），string 无法隐式转换 → **CS0029 编译错误**，4 个 workflow（LineLaser / Monitor / Motion / WeldParam）同时报错。
+`FaultRecord.State` 是**强类型 `DeviceState`**（ADR-027），string 无法隐式转换 → **CS0029 编译错误**，4 个 workflow（LineLaser / Monitor / Motion / WeldParam）同时报错。
 
 ### 根因
 

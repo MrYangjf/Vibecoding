@@ -1,8 +1,9 @@
 ---
-title: ADR-035 架构原档单一来源约定（raw/architecture）
+title: ADR-032 架构原档单一来源约定（raw/architecture）
 date: 2026-09-02
-tags: [决策, 架构, 知识库治理, 原档, 单一来源, 主控设计, 泳道图, ADR-035]
+tags: [决策, 架构, 知识库治理, 原档, 单一来源, 主控设计, 泳道图, ADR-029]
 status: accepted
+previous_id: ADR-035
 ---
 
 > ⚠️ 历史名称提示：本页为**历史决策记录**，正文中的下列文件名为决策当时的旧名，
@@ -12,7 +13,7 @@ status: accepted
 > - `MachineStatusWork.cs` → 现役 `MainDeviceControl/DeviceStatusWork.cs`
 >
 
-# ADR-035：架构原档单一来源约定（raw/architecture）
+# ADR-032 架构原档单一来源约定（raw/architecture）
 
 > **2026-09-02 接受**：用户指令——「将架构设计 xlsx 和 pdf 文件沉淀到知识库原档，保证不会错误，并且后续我只需要修改这些文件，来更新架构」。**2026-09-02（晚）扩充**：新增第 3 份原档 `焊接系统工作流程业务流向图.pdf`（业务状态流），原档 2→3。
 > **2026-09-04 扩为 3 份（md 版升为主源）**：用户指出 AI 对 PDF 的解析有欠缺，
@@ -58,7 +59,7 @@ AI 重读原档（xlsx 全量 dump + 与 git HEAD 版本逐单元格 diff + PDF 
     ↓ 原档已改代码未改的项登记到架构页 §15「待落地项与冲突裁定」
 交叉更新受影响的 modules/ api/ standards/ lessons/ index 页
     ↓
-**冲突项交用户裁定（ADR-035 §3），未裁定前不得改码**
+**冲突项交用户裁定（ADR-029 §3），未裁定前不得改码**
     ↓
 tools/wiki_audit.py + lint_scan.py + drift_scan_precise.py 全绿收口 + logs/log.md 记录
 ```
@@ -71,7 +72,7 @@ tools/wiki_audit.py + lint_scan.py + drift_scan_precise.py 全绿收口 + logs/l
 
 - 本约定只收口**架构**原档；`raw/knowledge/` 下既有原档（如 `AdaWeldSystem_Wiki.md`）维持原状，不强制迁移。
 - 架构页仍遵守「不按 V1/V2/V3 代际描述、只维护当前事实」（页头声明）；本 ADR 是该原则的上游保障——变更从 wiki 入口前移到原档入口。
-- [[decisions/ADR-034-ThreeStateModelRefactor]] 记录的状态模型语义变更即首次按本流程落地（原档 xlsx Sheet1 E 列枚举定义 → 架构页 §1/§3）。
+- [[decisions/ADR-031-ThreeStateModelRefactor]] 记录的状态模型语义变更即首次按本流程落地（原档 xlsx Sheet1 E 列枚举定义 → 架构页 §1/§3）。
 
 ## 影响文件
 
@@ -79,4 +80,4 @@ tools/wiki_audit.py + lint_scan.py + drift_scan_precise.py 全绿收口 + logs/l
 - **2026-09-03 原档收敛（3 → 2）**：删除 `焊接设备工作流程图.pdf`、`焊接系统工作流程业务流向图.pdf`、`page_0.png`、`业务流向图_overview.png`、`业务流向图_page0.png`；新增 `激光焊接系统业务流程图.pdf`
 - 修改：`wiki/architecture/DeviceControlArchitecture.md`（页头 source 与原档分工表改为 2 份；新增 §3.1 指令表、§6.1 子工作流差异化职责、§7.3.1 原档线程模型、§7.6 新业务主链、§7.7 五项运行检查、§7.8 四路子流程、§9 原档命名对照、§15 待落地与冲突裁定）
 - 登记：`wiki/index/index.md`（raw 原档区 + 本 ADR 条目）
-- 派生决策：[[decisions/ADR-036-RawDesignRefinement20260903]]（原档 9-03 细化内容的落地与裁定记录）
+- 派生决策：[[decisions/ADR-033-RawDesignRefinement20260903]]（原档 9-03 细化内容的落地与裁定记录）

@@ -532,7 +532,7 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
   }
   ```
 
-#### DataReviewPage（1 图）
+#### DataReviewerPage（1 图）
 
 - 多系列 + 复选框显隐：ScottPlot 无逐系列 `Visible`，故每次按勾选状态 `Clear()` 后重建 plottable。
 - 滑块范围缩放：`formsPlotData.Plot.SetAxisLimits(min, max); formsPlotData.Refresh();`
@@ -667,7 +667,7 @@ if (ll.WeldStatus == SubDeviceWeldStatus.Standby)
     ll.Start();                // 此时仍是 Working → Start 被跳过/抛异常
 ```
 
-> **术语对照（2026-09-02 ADR-034）**：旧代码写作 `ll.State == LineLaserWorkflowState.Uninitialized/Standby`（阶段枚举直接对外）；现行对外只有 `SubDeviceWeldStatus` 七态，阶段枚举降为私有。连接就绪另看 `ll.State`（`SubDeviceState` 两态）。
+> **术语对照（2026-09-02 ADR-028）**：旧代码写作 `ll.State == LineLaserWorkflowState.Uninitialized/Standby`（阶段枚举直接对外）；现行对外只有 `SubDeviceWeldStatus` 七态，阶段枚举降为私有。连接就绪另看 `ll.State`（`SubDeviceState` 两态）。
 
 ### 4.4 模拟测试：行程到达 = 正常停止，不是异常终止
 

@@ -248,7 +248,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 >     // 放在文件顶部（编译单元级）无效——向外走会先在 MainDeviceControl 层停下。
 > ```
 >
-> **实测清单（2026-09-02 ADR-034 后校正为 7 个）**：`MainDeviceControl/DeviceWorkflow/` 下 **5 个**子设备工作流 —— `{LineLaser, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead}Workflow.cs`（已移除） —— 外加 `MainDeviceControl/DeviceControlWork.cs`、`MainDeviceControl/DeviceStatusWork.cs`（两个整机管控类），再加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
+> **实测清单（2026-09-02 ADR-028 后校正为 7 个）**：`MainDeviceControl/DeviceWorkflow/` 下 **5 个**子设备工作流 —— `{LineLaser, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead}Workflow.cs`（已移除） —— 外加 `MainDeviceControl/DeviceControlWork.cs`、`MainDeviceControl/DeviceStatusWork.cs`（两个整机管控类），再加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
 >
 > （旧版记录 7 个工作流含 `MainDeviceWorkflow.cs` / `SafetyWorkflow.cs`：前者已于 2026-09-02 更名 `DeviceControlWork.cs` 并移出 `DeviceWorkflow/`，后者更名 `DeviceStatusWork.cs` 并移出；`SafetyFlow.cs`（已移除） / `SafetyInterlock.cs`（已移除） 于 2026-08-31 三合一合并。均已校正。）
 >
@@ -263,7 +263,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 ### 补充案例：方法后孤儿代码块导致类提前闭合（2026-08-28）
 
 **触发场景**：`LineLaserWorkflow.cs` 中 ~~`MapToDeviceState`~~ 方法完整闭合后，紧跟着一段 ~~`SetStep`~~ 的事件触发片段（`var handler = StateChanged; if (handler != null) {...}`）——前一轮重构的复制粘贴残留。该片段位于**类级别**（引用了不存在的 `oldStep` → CS0103），且末尾多出的 `}` 提前关闭了整个类，导致后续约 700 行全部落在命名空间级别，产生**连锁编译错误**。
-> ⛔ **2026-09-03 符号沿革**：`MapToDeviceState` 与 `SetStep` 均已在 ADR-036 完全重构中**删除**（映射改 `MapWeldStatus(phase)`，改执行步改 `RunStep` 赋值）。本案例的**根因与检测方法完全有效**，符号名仅作历史记录。
+> ⛔ **2026-09-03 符号沿革**：`MapToDeviceState` 与 `SetStep` 均已在 ADR-030 完全重构中**删除**（映射改 `MapWeldStatus(phase)`，改执行步改 `RunStep` 赋值）。本案例的**根因与检测方法完全有效**，符号名仅作历史记录。
 
 **根因**：粘贴/重写方法时只替换了方法体前半部分，旧尾部未删净。
 

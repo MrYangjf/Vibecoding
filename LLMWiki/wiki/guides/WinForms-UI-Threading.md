@@ -140,7 +140,7 @@ GlobalCommData.ShowLog(string TAG, string message,
 
 ### 3.3 修复方案
 
-#### MainDeviceThread 三段式 API（历史方案，现 `DeviceControlWork`，ADR-034）
+#### MainDeviceThread 三段式 API（历史方案，现 `DeviceControlWork`，ADR-028）
 
 ```
 PowerOnInitialize()   → 阶段二设备上线（各设备 Initialize → Standby）
@@ -169,8 +169,8 @@ DeviceControlWork.Instance.StartMachine();       // 拉起运行线程并置就�
 DeviceControlWork.Instance.Dispose();            // 停止全部 + 关闭连接
 ```
 
-> **类名与释放入口更新（2026-09-02 ADR-034 / 2026-08-19 ADR-001）**：`MainDeviceThread` → `MainDeviceWorkflow` → **现为 `DeviceControlWork`**（三态模型，`MainDeviceWorkflow` 已删除）；初始化/启动入口为 `InitializeMachine()` / `StartMachine()`（原 `PowerOnInitialize()` / `Start()`）；非 UI 类的 `DisposeComponents()` 已统一为标准 `IDisposable.Dispose()`。
-> **状态订阅入口（ADR-034）**：整机订阅 `DeviceControlWork.Instance.StatusChanged`（`MainDeviceStatus`）；子设备订阅 `Instance.WeldStatusChanged`（`SubDeviceWeldStatus`）与 `Instance.StateSwitched`（`SubDeviceState`）。旧泛型 `StateChanged(WorkflowStepChangedEventArgs<TStep>)` 已删除。
+> **类名与释放入口更新（2026-09-02 ADR-028 / 2026-08-19 ADR-001）**：`MainDeviceThread` → `MainDeviceWorkflow` → **现为 `DeviceControlWork`**（三态模型，`MainDeviceWorkflow` 已删除）；初始化/启动入口为 `InitializeMachine()` / `StartMachine()`（原 `PowerOnInitialize()` / `Start()`）；非 UI 类的 `DisposeComponents()` 已统一为标准 `IDisposable.Dispose()`。
+> **状态订阅入口（ADR-028）**：整机订阅 `DeviceControlWork.Instance.StatusChanged`（`MainDeviceStatus`）；子设备订阅 `Instance.WeldStatusChanged`（`SubDeviceWeldStatus`）与 `Instance.StateSwitched`（`SubDeviceState`）。旧泛型 `StateChanged(WorkflowStepChangedEventArgs<TStep>)` 已删除。
 
 ### 3.4 关键约束
 

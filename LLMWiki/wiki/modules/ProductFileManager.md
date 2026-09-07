@@ -8,8 +8,8 @@ tags: [模块, 产品记录, 过程数据, 生产信息, 文件]
 
 > 掌管程序整个生命周期的记录文件：过程数据（`.pDat`/`.tmp` 点云与焊接过程记录）、生产信息、**故障恢复数据**等。
 > **模块位置**：`AdaWeldSystem/ProductFileManager/`
-> **来源**：2026-08-31 由 `PCLOperate/RunFileRecord/` 整体迁入（ADR-033）；命名空间 `AdaWeldSystem.ProductFileManager`。
-> **2026-09-01 二次归口**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）自 `MainDeviceControl/DeviceWorkflow/` 迁入，补齐 ADR-033 背景中「故障恢复数据归口一处」的第三块拼图——此前只完成了 DB 实现下沉（[[modules/SqlLiteDatabase]]），业务消费方仍留在设备控制层。
+> **来源**：2026-08-31 由 `PCLOperate/RunFileRecord/` 整体迁入（ADR-027）；命名空间 `AdaWeldSystem.ProductFileManager`。
+> **2026-09-01 二次归口**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）自 `MainDeviceControl/DeviceWorkflow/` 迁入，补齐 ADR-027 背景中「故障恢复数据归口一处」的第三块拼图——此前只完成了 DB 实现下沉（[[modules/SqlLiteDatabase]]），业务消费方仍留在设备控制层。
 
 ## 目录结构
 
@@ -19,7 +19,7 @@ ProductFileManager/
 ├── RecordFrame.cs           ← 记录帧数据结构（点云帧）
 ├── WeldActionRecord.cs      ← 焊接动作/过程记录（双记录：过程帧 + 调整动作，ADR-010）
 ├── SmartRayConverter.cs     ← SmartRay 原始点云 → PointCloudData 转换器
-└── FaultRecoveryManager.cs  ← 故障恢复管理器单例（故障恢复数据归口使用方，2026-09-01 迁入；已移除 2026-09-04，ADR-038 D3）
+└── FaultRecoveryManager.cs  ← 故障恢复管理器单例（故障恢复数据归口使用方，2026-09-01 迁入；已移除 2026-09-04，ADR-032 D3）
 ```
 
 ## 职责边界
@@ -34,7 +34,7 @@ ProductFileManager/
 - → `PCLOperate.Models`（PointCloudData/Point3D）、`PCLOperate.DataIO`（点云读写）；`PCLOperate` 的 3DModel/DataIO/Render 仍留在原处——迁移只动了 RunFileRecord 子域。
 - → `SqlLiteDatabase`（`FaultRecordManager` 写库）。
 - → `MainDeviceControl.DeviceState`（`SubDeviceWeldStatus` 焊接过程态七态枚举，`FaultRecord.State` 字段类型）。**这是刻意保留的枚举级反向依赖**：`MainDeviceControl/DeviceWorkflow/` 下 5 个子工作流 + 2 个管控类都要引用本模块记录故障，构成模块级双向引用；替代方案（State 改 string / 枚举下沉）会牺牲强类型或扩大改动面，已评估后放弃。
-- ⚠️ **分层红线**：`SqlLiteDatabase` 层**不得反向依赖**本模块的领域类型（`FaultRecord`），写入契约固定为 `string[]`（ADR-033 §2）。
+- ⚠️ **分层红线**：`SqlLiteDatabase` 层**不得反向依赖**本模块的领域类型（`FaultRecord`），写入契约固定为 `string[]`（ADR-027 §2）。
 
 ## 对外契约（类名与公共 API 迁移前后不变）
 
@@ -43,7 +43,7 @@ ProductFileManager/
 
 ## 消费方（14 处）
 
-**过程记录 `RunRecordManager`（8 处）**：WeldProcess（过程帧+调整记录）· CameraRun(SmartRay)（AddSmartRayFrame）· IntelligentLaserCameraRun（AddFrame）· AlgorithmManager(EmguALG) · DataReviewPage（ParsePDatRecords 回溯）· HelixRenderForm（GetAllFrames 3D 回放）· FileTraceForm · RecordConfigForm
+**过程记录 `RunRecordManager`（8 处）**：WeldProcess（过程帧+调整记录）· CameraRun(SmartRay)（AddSmartRayFrame）· IntelligentLaserCameraRun（AddFrame）· AlgorithmManager(EmguALG) · DataReviewerPage（ParsePDatRecords 回溯）· HelixRenderForm（GetAllFrames 3D 回放）· FileTraceForm · RecordConfigForm
 
 **故障恢复 `FaultRecoveryManager`（6 处，均在 `MainDeviceControl/DeviceWorkflow/`）**：`DeviceStatusWork`（`"Safety"`）· `DeviceControlWork`（`"MainDevice"`）· `LineLaserWorkflow` · `MonitorCameraWorkflow` · `MotionControlWorkflow` · `WeldParamControlWorkflow`（后四处传 `Tag`）
 
@@ -51,7 +51,7 @@ ProductFileManager/
 
 ## 相关
 
-- [[decisions/ADR-033-ProductLifecycleRecordModule]]（含 §3 故障恢复业务消费方归口，2026-09-01 追加）
+- [[decisions/ADR-030-ProductLifecycleRecordModule]]（含 §3 故障恢复业务消费方归口，2026-09-01 追加）
 - [[api/FaultRecoveryManager]] · [[api/FaultRecordManager]]
 - [[modules/SqlLiteDatabase]]（FaultRecordManager）
 - [[modules/Safety]] · [[modules/DeviceControl]]（消费方所在模块）

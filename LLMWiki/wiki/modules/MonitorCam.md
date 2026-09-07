@@ -42,7 +42,7 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 
 > 私有阶段 → `SubDeviceWeldStatus` 的映射表见 [[architecture/DeviceControlArchitecture]] §6（**唯一维护点**，本页不复制，避免两处漂移）。
 
-> **权责边界（ADR-030）**：流程只输出「进度」，图像/连接态/健康度由 `MonitorCameraRun` 输出（`FrameCompletedEvent` / `StatusChanged`），算法结果由流程以只读属性 `LastResult` 暴露。执行细则见 [[standards/WorkflowResponsibilityBoundary]]。
+> **权责边界（ADR-027）**：流程只输出「进度」，图像/连接态/健康度由 `MonitorCameraRun` 输出（`FrameCompletedEvent` / `StatusChanged`），算法结果由流程以只读属性 `LastResult` 暴露。执行细则见 [[standards/WorkflowResponsibilityBoundary]]。
 
 ## 回调等待取图机制
 

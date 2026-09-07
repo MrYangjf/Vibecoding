@@ -1,7 +1,7 @@
 # Code Graph — 代码知识图谱参考文档
 
 > **定位**：本文件是参考资料，不是指令源。AI 编码时参考此文档理解 code graph 技术，
-> 实际编码决策以 LLMWiki `wiki/` 内容为准（见 `decisions/ADR-025-CodeGraphForCodeReview`）。
+> 实际编码决策以 LLMWiki `wiki/` 内容为准（见 `decisions/ADR-023-CodeGraphForCodeReview`）。
 >
 > **重要**：本项目**固定使用 code-review-graph** 作为唯一代码图谱工具。CodeGraph (colbymchenry/codegraph) 仅作为技术竞品保留在此参考文档中，不启用、不降级、不路由。
 >

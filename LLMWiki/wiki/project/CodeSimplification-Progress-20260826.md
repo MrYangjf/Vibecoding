@@ -24,14 +24,14 @@ date: 2026-08-26 · 范围：LineLaserCam 模块(17) + IL* UI(4) = 20 文件 / 1
 | LineLaserCam/SmartRayCam/ApiCore/PackagedImage.cs | 4 | 0 | 4 | 0 | 待修复 | |
 | LineLaserCam/SmartRayCam/ApiCore/SensorPointCloudMSR.cs | 3 | 1 | 3 | 1 | 待修复 | |
 | LineLaserCam/SmartRayCam/ApiCore/SensorPointCloud.cs | 3 | 1 | 3 | 1 | 待修复 | |
-| UIDesign/SubView/ILParamPage.cs | 2 | 8 | 1 | 9 | 已修复(留1误报) | UI·A类已清；CheckRange(double/long)为合法重载误报，留业务确认 |
+| UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs | 2 | 8 | 1 | 9 | 已修复(留1误报) | UI·A类已清；CheckRange(double/long)为合法重载误报，留业务确认 |
 | LineLaserCam/HikRobotCam/ApiCore/HikCameraDevice.cs | 2 | 29 | 2 | 29 | 待修复 | |
-| UIDesign/SubView/ILAlgoPage.cs | 2 | 28 | 0 | 21 | 已修复 | UI·A类已清（本次修复断裂的嵌套类 IlJobParamRow + 区域错乱） |
+| UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs | 2 | 28 | 0 | 21 | 已修复 | UI·A类已清（本次修复断裂的嵌套类 IlJobParamRow + 区域错乱） |
 | LineLaserCam/SmartRayCam/CameraPresetManager.cs | 2 | 25 | 2 | 25 | 待修复 | |
 | UIDesign/TabPage/ILCamPage.cs | 2 | 22 | 0 | 22 | 已修复 | UI·A类已清（功能型 region 保留，info 级） |
 | LineLaserCam/HikRobotCam/ApiCore/HikCameraManager.cs | 1 | 7 | 1 | 7 | 待修复 | |
 | LineLaserCam/SmartRayCam/ApiCore/SensorState.cs | 1 | 5 | 1 | 5 | 待修复 | |
-| UIDesign/SubView/ILScanDialog.cs | 1 | 4 | 0 | 5 | 已修复 | UI·A类已清 |
+| UIDesign/SubDialog/IntelligentLaserDialog/ILScanForm.cs | 1 | 4 | 0 | 5 | 已修复 | UI·A类已清 |
 | LineLaserCam/Api/ICameraRun.cs | 1 | 2 | 1 | 2 | 待修复 | |
 | LineLaserCam/SmartRayCam/ApiCore/SensorManager.cs | 0 | 1 | 0 | 1 | 待修复 | |
 | LineLaserCam/SmartRayCam/ApiCore/Sensor.cs | 0 | 1 | 0 | 1 | 待修复 | |

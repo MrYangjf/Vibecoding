@@ -6,14 +6,14 @@ status: accepted
 source: 用户需求「Workflow 统一管理所有工作流程」
 ---
 
-# ADR-013：Workflow 模块作为流程管理中枢
+# ADR-013 Workflow 模块作为流程管理中枢
 
 ## 状态
 已采纳（2026-07-17）｜**已被取代（2026-09-01 治理标注）**
 
 > **⚠️ 已被取代 —— 中枢载体与监督机制均已变更**
 > - ❌ **失效 1（目录）**：「所有工作流迁入 `Workflow/`、命名空间 `AdaWeldSystem.Workflow`」已被后续主控架构重构推翻——中枢目录现为 `MainDeviceControl/DeviceWorkflow/`。
-> - ❌ **失效 2（监督）**：决策 2 的 `MonitorSupervisionWorkflow`（后台轮询 + `StatusChanged` 事件）已被 [[decisions/ADR-030-WorkflowResponsibilityBoundary]] 推翻——健康巡检下沉子设备 `MonitorCameraRun`，工作流零自定义事件、只做编排。
+> - ❌ **失效 2（监督）**：决策 2 的 `MonitorSupervisionWorkflow`（后台轮询 + `StatusChanged` 事件）已被 [[decisions/ADR-027-WorkflowResponsibilityBoundary]] 推翻——健康巡检下沉子设备 `MonitorCameraRun`，工作流零自定义事件、只做编排。
 > - ✅ **仍然有效**：决策 1 `MonitorAlgorithmManager`（单例 + INI 持久化、无 JOB 切换）维持不变。
 > - **当前真相源**：[[modules/DeviceControl]]、[[standards/WorkflowResponsibilityBoundary]]、[[api/MonitorCameraRun]]。
 

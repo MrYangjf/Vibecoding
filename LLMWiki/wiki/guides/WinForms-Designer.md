@@ -42,12 +42,12 @@ public void DisposeComponents()
 }
 ```
 
-> **⚠️ 适用范围澄清（2026-08-19，见 [[decisions/ADR-025-DisposePatternFullCoverage]]）**：
+> **⚠️ 适用范围澄清（2026-08-19，见 [[decisions/ADR-023-DisposePatternFullCoverage]]）**：
 > - `DisposeComponents()` **仅限 UI 设计器类**（Form / UserControl）使用
 > - **非 UI 类（后端类）禁止编写 `DisposeComponents()`**，必须实现标准 `IDisposable.Dispose()` 并正确释放资源
 > - **UI 类也非必需**：仅当持有「外部嵌套控件/独立资源」（代码 new 的非容器控件、单例/静态事件订阅、外部对象生命周期）时才写；无嵌套/无独立资源则不需要
 > - **禁止**修改 Designer.cs 的 `Dispose(bool)` 释放外部资源；**禁止**用 finalizer 退订事件（事件源持引用时 finalizer 永不执行）
-> - 已发现并迁移的非 UI 类误用：Workflow ×4、ZMotion ×4、Comm ×4（TCPIPComm 族），见 ADR-025 落地清单
+> - 已发现并迁移的非 UI 类误用：Workflow ×4、ZMotion ×4、Comm ×4（TCPIPComm 族），见 ADR-023 落地清单
 > - 已修复的 UI 类问题（2026-08-19 第二轮）：HelixRenderForm（还原被改的 Designer.cs + 补 DisposeComponents）、MainPage（移除无效 finalizer + 补 DisposeComponents）、CommPage/MonitorCamPage/MotionControlPage/FormMain（补 HandleDestroyed/FormClosed 退订链）
 > - 自审命令补充：`grep -rn "DisposeComponents" --include="*.cs" AdaWeldSystem/` 中，非 UIDesign/ 目录下不得出现 `DisposeComponents` 定义；`grep -rn "protected override void Dispose" --include="*.Designer.cs"` 应为标准生成代码（无 `_viewer`/`elementHost` 等业务资源注入）
 
@@ -57,7 +57,7 @@ public void DisposeComponents()
 
 - 禁止在 Designer.cs 中修改 Dispose 方法
 - **禁止在 UI 类的 `.cs` 文件中重写 `Dispose(bool)` 方法**（会与设计器冲突）
-- **禁止非 UI 类编写 `DisposeComponents()`**（非 UI 类必须用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-025-DisposePatternFullCoverage]]）
+- **禁止非 UI 类编写 `DisposeComponents()`**（非 UI 类必须用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-023-DisposePatternFullCoverage]]）
 - 禁止在 InitializeComponent 中使用 for/while/if 等流程控制语句
 
 ### 1.5 自审命令

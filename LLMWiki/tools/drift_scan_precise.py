@@ -46,7 +46,7 @@ for root, _, files in os.walk(CODE):
 
 # 1) 已改名/重构：旧名 -> 现役文件
 RENAMED = {
-    # 主控层：ADR-034 三态模型 + MainDeviceControl 单点合并
+    # 主控层：ADR-028 三态模型 + MainDeviceControl 单点合并
     "MainDeviceWorkflow.cs": "MainDeviceControl/DeviceControlWork.cs",
     "MachineControlWork.cs": "MainDeviceControl/DeviceControlWork.cs",
     "MachineStatusWork.cs": "MainDeviceControl/DeviceStatusWork.cs",
@@ -58,7 +58,7 @@ RENAMED = {
     "MotionControlStateMachine.cs": "MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs",
     "MonitorCameraStateMachine.cs": "MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs",
     "LaserWeldHeadStateMachine.cs": "MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs",
-    # ADR-036 批次 0（2026-09-04 落地）：指令协议表 → const string 协议常量类
+    # ADR-030 批次 0（2026-09-04 落地）：指令协议表 → const string 协议常量类
     "CommandTable.cs": "MainDeviceControl/DeviceStateApiCore/CommandCore.cs",
     # 通讯层
     "PLCCommunicationManager.cs": "Comm/PLC/Siemens/S7PLCCommunication.cs",
@@ -75,23 +75,23 @@ RENAMED = {
     "TemplateMatchStage.cs": "EmguALG/Stages.cs",
     "PipelineConfig.cs": "EmguALG/Stages.cs",
     # UI：SunnyUI 时代页面 -> AntdUI 迁移后现役页面
-    "Helix3Drender.cs": "UIDesign/SubView/HelixRenderForm.cs",
+    "Helix3Drender.cs": "UIDesign/SubDialog/DataReviewerDialog/HelixRenderForm.cs",
     "XMLEditor.cs": "UIDesign/TabPage/FileEditorPage.cs",
     "CommGeneralPage.cs": "UIDesign/TabPage/CommPage.cs",
     "CommRobotPage.cs": "UIDesign/TabPage/CommPage.cs",
     "ImagePage.cs": "UIDesign/TabPage/MonitorCamPage.cs",
     "ParamPage.cs": "UIDesign/TabPage/ParamConfigPage.cs",
-    "EmguAlgoPage.cs": "UIDesign/SubView/ILAlgoPage.cs",
+    "EmguAlgoPage.cs": "UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs",
     "LLCamWorkJob.cs": "UIDesign/TabPage/ILCamPage.cs",
-    "LLCameraSetting.cs": "UIDesign/SubView/ILParamPage.cs",
+    "LLCameraSetting.cs": "UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs",
 }
 
 # 2) 已移除：无现役对应物，历史 ADR 可保留旧名但须加注「（已移除）」
 REMOVED = {
-    "SafetyFlow.cs": "ADR-031 合并进 DeviceStatusWork",
-    "SafetyInterlock.cs": "ADR-031 合并进 DeviceStatusWork",
-    "FaultRecoveryManager.cs": "2026-09-04 用户裁定整体移除（架构无故障恢复定义，ADR-038 D3）",
-    "FaultRecordManager.cs": "2026-09-04 随 FaultRecoveryManager 整体移除（ADR-038 D3）",
+    "SafetyFlow.cs": "ADR-025 合并进 DeviceStatusWork",
+    "SafetyInterlock.cs": "ADR-025 合并进 DeviceStatusWork",
+    "FaultRecoveryManager.cs": "2026-09-04 用户裁定整体移除（架构无故障恢复定义，ADR-032 D3）",
+    "FaultRecordManager.cs": "2026-09-04 随 FaultRecoveryManager 整体移除（ADR-032 D3）",
     "SimulationWorkflow.cs": "独立模拟流程已废弃（成员归并 DeviceControlWork）",
     "HorizontalMoveWorkflow.cs": "ADR-012 后移除",
     "TCPServer.cs": "未落地，现役仅有 TCPIPComm 客户端侧",
@@ -103,8 +103,39 @@ REMOVED = {
     "SystemStatus.cs": "已并入 Comm/SystemComm.cs",
     "TCPClinet.cs": "拼写错误的历史名；现役 Comm/CommBase/Ethernet/TCPIPComm.cs",
     "MonitorCameraEventArgs.cs": "事件参数类已移除；配置现由 MonitorCam/MonitorCameraRun.cs 承担",
-    "YAxisController.cs": "Y 轴专用控制器已移除；现役 MotionControl/MotionManager.cs + ZMotion/ZMotionAxis.cs",
+    "YAxisController.cs": "Y 轴专用控制器已移除；现役 MotionControl/MontionManager.cs + DeltaEtherCAT/DeltaMontionAxis.cs",
     "XMLEditor.Designer.cs": "随 XMLEditor.cs 一并移除；现役 UIDesign/TabPage/FileEditorPage.Designer.cs",
+    # 2026-09-07 正运动（ZMotion）整体移除（ADR-034）
+    "ZMotionController.cs": "2026-09-07 随 ZMotion/ 删除；现役 MotionControl/DeltaEtherCAT/DeltaMontionControl.cs",
+    "ZMotionAxis.cs": "2026-09-07 随 ZMotion/ 删除；现役 MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs",
+    "ZMotionIO.cs": "2026-09-07 随 ZMotion/ 删除；现役 DeltaInputIO.cs / DeltaOutputIO.cs",
+    "ZMotionNative.cs": "2026-09-07 随 ZMotion/ 删除；现役 DeltaEtherCAT/Native/EtherCATMasterNative.cs",
+    "ZMotionNativeLaser.cs": "2026-09-07 随 ZMotion/ 删除（振镜归焊接头）",
+    "ZMotionGalvo.cs": "2026-09-07 随 ZMotion/ 删除（振镜归焊接头）",
+    "InterpolationEngine.cs": "2026-09-07 随 ZMotion/ 删除；候选 EtherCATAdvancedNative 插补族（未接线）",
+    "EncoderAxis.cs": "2026-09-07 随 ZMotion/ 删除（ATYPE=25 通讯编码器轴无台达对应）",
+    "CamBoxTracker.cs": "2026-09-07 随 ZMotion/ 删除；台达侧承接方案 OPEN（ECAM2/虚拟轴+GearIn/PVT）",
+    "RSIPositionBuffer.cs": "2026-09-07 随 ZMotion/ 删除",
+    "IMotionController.cs": "2026-09-07 随 API/ 删除；现役 MotionControl/IMotion/MontionControl.cs",
+    "MotionControllerBase.cs": "2026-09-07 随 API/ 删除；现役 MotionControl/IMotion/MontionControl.cs",
+    "IAxis.cs": "2026-09-07 随 API/ 删除；现役 MotionControl/IMotion/MontionAxis.cs",
+    "IIO.cs": "2026-09-07 随 API/ 删除；现役 MontionIO.cs / InputIO.cs / OutputIO.cs",
+    "MotionManager.cs": "2026-09-07 删除；现役 MotionControl/MontionManager.cs",
+    "MotionConfig.cs": "2026-09-07 删除（正运动专属配置，暂不新建）",
+    # 2026-09-07 UIDesign 重构：SubView/ 按业务域拆入 SubDialog/ 5 个子目录 + 8 个类型改名
+    "DataReviewPage.cs": "2026-09-07 改名；现役 UIDesign/ControlPage/DataReviewerPage.cs",
+    "ILAlgoPage.cs": "2026-09-07 改名；现役 UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs",
+    "ILParamPage.cs": "2026-09-07 改名；现役 UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs",
+    "ILScanDialog.cs": "2026-09-07 改名；现役 UIDesign/SubDialog/IntelligentLaserDialog/ILScanForm.cs",
+    "AlgorithmEditForm.cs": "2026-09-07 改名；现役 UIDesign/SubDialog/IntelligentLaserDialog/ILAlgorithmEditForm.cs",
+    "FormLogin.cs": "2026-09-07 改名；现役 UIDesign/SubDialog/UserManagerDialog/LoginForm.cs",
+    "UserEdit.cs": "2026-09-07 改名；现役 UIDesign/SubDialog/UserManagerDialog/UserEditForm.cs",
+    "InitWaitingPanel.cs": "2026-09-07 改名；现役 UIDesign/SubDialog/FormMainDialog/InitWaitingForm.cs",
+    # 2026-09-07 MotionControl 注册表重构 + PVT 命名统一
+    "IOParam.cs": "2026-09-07 删除（IO 起始编号与数量，业务层与 L3 均无引用）",
+    "IPvtMotion.cs": "2026-09-07 合并改名；现役 MotionControl/IMotion/IPVTMotion.cs",
+    "PvtPoint.cs": "2026-09-07 合并改名；现役 PVTPoint（定义在 IPVTMotion.cs 内）",
+    "PvtInformation.cs": "2026-09-07 合并改名；现役 PVTInformation（定义在 IPVTMotion.cs 内）",
 }
 
 # 3) 外部参考 / 第三方库内部 —— 静默
@@ -113,6 +144,10 @@ EXTERNAL = {
     "AssemblyProcess.cs": "外部参考实现（非本代码库）",
     "SvgDb.cs": "AntdUI 库内部类型",
     "Zmcaux.cs": "正运动官方 SDK 文件名（非本库文件），本项目对应 MotionControl/ZMotion/ZMotionNative.cs",
+    # 台达 EtherCAT 官方 SDK 文件名（2026-09-05）：位于 D:/Program Files (x86)/Delta Industrial Automation/
+    "EtherCAT_DLL.cs": "台达官方 SDK 头文件（非本库文件），见 guides/DeltaEtherCAT-DevGuide",
+    "EtherCAT_DLL_x64.cs": "台达官方 SDK 头文件 x64 版（非本库文件）",
+    "EtherCAT_DLL_Err.cs": "台达官方 SDK 错误码头文件（非本库文件）",
     "INIFile.cs": "大小写变体：现役 FileOperate/IniFile.cs",
     # 泛指设计器文件，非某个具体文件（真实文件形如 XxxForm.Designer.cs）
     "Designer.cs": "泛指设计器文件",
@@ -141,6 +176,15 @@ SPECULATIVE = {
     # people/ 专员页按职责域列举的设想文件（从未落地，需改写为现役结构而非改名）
     "WeldProcessData.cs", "AutoAdjust.cs", "SeamTracker.cs",
     "WeldParameterCalculator.cs", "QualityEvaluator.cs",
+    # 注：台达 EtherCAT 运动控制模块规划文件（原 12 个）已于 2026-09-07 全部落地
+    # （ADR-034），已从本集合移除并交回正常扫描：`EtherCATMasterNative.cs`、
+    # `EtherCATMotionNative.cs`、`EtherCATIONative.cs`、`EtherCATAdvancedNative.cs`、
+    # `DeltaErrorCode.cs`、`DeltaSlaveScanner.cs`、`DeltaMontionControl.cs`、
+    # `DeltaMontionAxis.cs`、`DeltaInputIO.cs`、`DeltaOutputIO.cs`、
+    # `MontionManager.cs`、`Cylinder.cs`。
+    # 注：`Type.cs` / `InputIO.cs` / `OutputIO.cs` 等通用名**故意不登记**——
+    # 它们在正文里以行内代码体出现（已被 mask_code 掩码，不会误报），
+    # 登记反而会掩盖将来同名真实文件的漂移。
 }
 
 # 占位/通配/示例文件名——正文里用来举例或泛指，不是真实文件引用。
@@ -189,7 +233,7 @@ def is_external_ref(line, fname):
 
     2026-09-03 修复：原判定为 `prefix + fname in line`，只匹配到一级目录，
     对 `PcomDeviceInterface/Work/Process/RollPressProcess.cs` 这类多级路径失效
-    （ADR-035 原档清单因此误报）。改为取出紧邻文件名的完整路径前缀再判前缀。
+    （ADR-029 原档清单因此误报）。改为取出紧邻文件名的完整路径前缀再判前缀。
     """
     for m in re.finditer(
             r"(?<![A-Za-z0-9_.])((?:[A-Za-z0-9_]+/)+)" + re.escape(fname)
@@ -242,12 +286,16 @@ for path in sorted(glob.glob(os.path.join(WIKI, "**", "*.md"), recursive=True)):
     with open(path, encoding="utf-8-sig") as fh:
         text = fh.read()
     lines = text.splitlines()
+    # 掩码必须按「整篇」计算：mask_code 的围栏正则 ```...``` 跨行配对，
+    # 按行调用时围栏永不匹配，导致围栏代码块（目录树、调用序列）内的文件名
+    # 被误判为「未登记的新漂移」。2026-09-05 修复（台达指导页目录树触发 8 处误报）。
+    masked = mask_code(text).splitlines()
     page_annotated = HISTORY_BANNER in text
     exempt = banner_lines(lines)
     for i, line in enumerate(lines, 1):
         if i in exempt:
             continue
-        for m in cs_ref_re.finditer(mask_code(line)):
+        for m in cs_ref_re.finditer(masked[i - 1]):
             fname = m.group(1)
             if (fname in PLACEHOLDER_CS or fname in code_files
                     or fname in RAW_SPEC_NAMES

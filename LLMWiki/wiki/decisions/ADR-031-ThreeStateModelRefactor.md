@@ -1,11 +1,12 @@
 ---
-title: ADR-034 主控设计三态模型重构（SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus）
+title: ADR-031 主控设计三态模型重构（SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus）
 date: 2026-09-02
-tags: [决策, 架构, 设备控制, 主控设计, 三态模型, 状态机, 重构, ADR-034]
+tags: [决策, 架构, 设备控制, 主控设计, 三态模型, 状态机, 重构, ADR-028]
 status: accepted
+previous_id: ADR-034
 ---
 
-> ⚠️ **枚举取值已更新（2026-09-03，ADR-036，C2）**：三态模型（三个正交枚举）本身**继续有效**，但 `SubDeviceWeldStatus` 按原档调整为——**删除 `Starting`，新增 `NoReset`（值 0）**，其余值顺延：`NoReset` 0 / `Standby` 1 / `PreWork` 2 / `Working` 3 / `Stopping` 4 / `ErrorAborted` 5 / `ManualStopped` 6。本页正文中的旧取值表已过时，以 [[architecture/DeviceControlArchitecture]] §1.2 为准。
+> ⚠️ **枚举取值已更新（2026-09-03，ADR-030，C2）**：三态模型（三个正交枚举）本身**继续有效**，但 `SubDeviceWeldStatus` 按原档调整为——**删除 `Starting`，新增 `NoReset`（值 0）**，其余值顺延：`NoReset` 0 / `Standby` 1 / `PreWork` 2 / `Working` 3 / `Stopping` 4 / `ErrorAborted` 5 / `ManualStopped` 6。本页正文中的旧取值表已过时，以 [[architecture/DeviceControlArchitecture]] §1.2 为准。
 > 另：`SubDeviceState` 维持 2 态（`Disconnected` / `Connected`），`MainDeviceStatus` 维持原档给定值（`Running` 0 / `Alarm` 1 / `EStop` 2 / `Stop` 3 / `NoReset` 4 / `Reseting` 5）。
 
 > ⚠️ 历史名称提示：本页为**历史决策记录**，正文中的下列文件名为决策当时的旧名，
@@ -16,9 +17,9 @@ status: accepted
 > - `WorkflowStateBase.cs` → 现役 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`
 >
 
-# ADR-034：主控设计三态模型重构
+# ADR-031 主控设计三态模型重构
 
-> **2026-09-02 接受**：用户提交新主控设计（`主控设计.xlsx`，原档约定见 [[decisions/ADR-035-ArchitectureRawSource]]），对设备控制层状态模型做根本性重定义。
+> **2026-09-02 接受**：用户提交新主控设计（`主控设计.xlsx`，原档约定见 [[decisions/ADR-032-ArchitectureRawSource]]），对设备控制层状态模型做根本性重定义。
 > 本 ADR 取代此前「设备四态 + 泛型 TStep 基类」的设计。
 > **原步骤驱动决策的机制沿用**（三件套由新基类承载，见 §3）；**原双流程决策部分取代**（已删除）（`FlowProcess` 唯一执行器沿用；`ManualOn`/`ManualOff` 契约由 `ConnectOn`/`ConnectOff` 取代，见 §3）。
 > 旧四态 `DeviceState` 枚举、泛型 `WorkflowStateBase<TStep>` / `DeviceWorkflowBase<TStep>`、`MainDeviceFlowState` 枚举均已删除。

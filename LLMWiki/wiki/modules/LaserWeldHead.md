@@ -98,10 +98,10 @@ flowchart LR
 ## 对外协作
 
 - → [[modules/Comm]]（异常/状态上报）
-- 被 `DeviceControlWork.InitializeMachine()` 上电初始化级联调用 `LaserWeldHeadController.Instance.Initialize()`（第 1 步，见 [[architecture/DeviceControlArchitecture]] §7.1，ADR-034）
+- 被 `DeviceControlWork.InitializeMachine()` 上电初始化级联调用 `LaserWeldHeadController.Instance.Initialize()`（第 1 步，见 [[architecture/DeviceControlArchitecture]] §7.1，ADR-028）
 - 输出进入追溯数据（本模块 `LaserWeldHeadData.cs`：`LaserHeadTemperatureData` / `AutoFocusPositionData` / `SafetyIOStatus`）
 - 状态由 `LaserWeldHeadWorkflow` 按三态模型输出：连接态 `SubDeviceState` + 焊接过程态 `SubDeviceWeldStatus`（经 `MapWeldStatus(phase)` 由私有阶段枚举映射，[[modules/DeviceControl]]）
-  > ⛔ **2026-09-03 更正**：此处旧写 ~~`SetStep` 映射~~ 不成立——`SetStep` 已在 ADR-036 完全重构中废止，改执行步唯一入口为 `RunStep` 赋值；私有枚举 → 对外焊接过程态的映射由 `MapWeldStatus(phase)` 承担。
+  > ⛔ **2026-09-03 更正**：此处旧写 ~~`SetStep` 映射~~ 不成立——`SetStep` 已在 ADR-030 完全重构中废止，改执行步唯一入口为 `RunStep` 赋值；私有枚举 → 对外焊接过程态的映射由 `MapWeldStatus(phase)` 承担。
 
 ## 相关文档
 

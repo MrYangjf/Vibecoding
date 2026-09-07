@@ -11,7 +11,7 @@ status: accepted
 > - `XMLEditor.cs` → 现役 `UIDesign/TabPage/FileEditorPage.cs`
 >
 
-# ADR-007：Config 文件夹按文件类型分层
+# ADR-007 Config 文件夹按文件类型分层
 
 ## 背景
 

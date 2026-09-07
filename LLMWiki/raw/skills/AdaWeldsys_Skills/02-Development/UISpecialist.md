@@ -84,7 +84,7 @@ UIDesign/
 ├── ControlPage/                     ← 控制页面
 │   ├── MainPage.cs                  ← 首页/仪表盘（GridPanel 嵌套布局）
 │   ├── NavPage.cs                   ← 统一导航页面（Menu + Tabs，实例化两次）
-│   └── DataReviewPage.cs            ← 数据回顾页面
+│   └── DataReviewerPage.cs            ← 数据回顾页面
 │
 ├── TabPage/                         ← 功能 Tab 页
 │   ├── LLCamWorkJob.cs              ← 线激光工作页面（核心）
@@ -97,18 +97,16 @@ UIDesign/
 │
 ├── ViewPage/                        ← 视图子页
 │   ├── EmguAlgoPage.cs              ← Emgu 算法编辑子页（UserControl）
-│   └── ILAlgoPage.cs                ← 英莱算法编辑子页（UserControl）
+│   └── ILAlgoForm.cs                ← 英莱算法编辑子页（UserControl）
 │
-└── SubView/                         ← 对话窗（Modal 承载的 UserControl）
-    ├── LLCameraSetting.cs           ← 线激光相机设置
-    ├── ConfigForm.cs                ← 系统配置弹窗
-    ├── AutoParamForm.cs             ← 自动参数弹窗
-    ├── FileTraceForm.cs             ← 文件追踪弹窗
-    ├── RecordConfigForm.cs          ← 记录配置弹窗
-    ├── RenderParamForm.cs           ← 渲染参数弹窗
-    ├── AlgorithmEditForm.cs         ← 算法编辑弹窗
-    ├── UserEdit.cs                  ← 用户编辑弹窗
-    └── FormLogin.cs                 ← 登录弹窗
+└── SubDialog/                       ← 对话窗（Modal 承载的 UserControl）
+                                      2026-09-07 由扁平 SubView/ 按业务域拆分为 5 个子目录，8 个类型改名；
+                                      完整旧→新对照见 wiki/modules/UIDesign §「2026-09-07 目录与命名对照」
+    ├── DataReviewerDialog/          ← 数据回溯域（FileTraceForm / HelixRenderForm / RecordConfigForm / RenderParamForm）
+    ├── FormMainDialog/              ← 主窗口域（InitWaitingForm ← 原 InitWaitingPanel）
+    ├── IntelligentLaserDialog/      ← 英莱域（ILAlgoForm / ILAlgorithmEditForm / ILParamForm / ILScanForm）
+    ├── ParamContolDialog/           ← 参数控制域（AutoParamForm / ConfigForm）
+    └── UserManagerDialog/           ← 用户管理域（LoginForm ← 原 FormLogin / UserEditForm ← 原 UserEdit）
 ```
 
 ## 技术要点

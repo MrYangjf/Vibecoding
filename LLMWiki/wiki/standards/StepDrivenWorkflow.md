@@ -1,7 +1,7 @@
 ---
 title: 步骤驱动工作流标准（已废弃）
 date: 2026-09-01
-tags: [规范, 工作流, 步骤驱动, 已废弃, ADR-036]
+tags: [规范, 工作流, 步骤驱动, 已废弃, ADR-030]
 status: deprecated
 ---
 
@@ -9,7 +9,7 @@ status: deprecated
 
 > ## ⛔ 本页已整页废弃，不再作为任何执行依据
 >
-> **废弃时间**：2026-09-03（用户裁定，见 [[decisions/ADR-036-RawDesignRefinement20260903]]）
+> **废弃时间**：2026-09-03（用户裁定，见 [[decisions/ADR-033-RawDesignRefinement20260903]]）
 > **废弃原因**：本页建立于 2026-09-01 的旧框架之上（命令变量三槽 + 常驻监听线程 + `WorkStep`/`GoStep`），
 > 该框架已由 2026-09-03 的架构原档（`主控设计.xlsx` + `激光焊接系统业务流程图.pdf`）
 > **整体重构并取代**。用户裁定：「新结构文档为全新设计和细化，不是对旧文档的补充，是完全的重构」。
@@ -61,6 +61,6 @@ status: deprecated
 ## 关联
 
 - 现行规范：[[architecture/DeviceControlArchitecture]]
-- 废弃依据：[[decisions/ADR-036-RawDesignRefinement20260903]]
+- 废弃依据：[[decisions/ADR-033-RawDesignRefinement20260903]]
 - 被部分取代的决策：步骤驱动工作流决策（已删除）
 - 相关教训：[[lessons/StepDrivenWorkflowPitfalls]]（已归档）

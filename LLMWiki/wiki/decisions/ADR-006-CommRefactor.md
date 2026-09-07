@@ -12,7 +12,7 @@ status: accepted
 > - `SystemStatus.cs` → 已移除（已并入 Comm/SystemComm.cs）
 >
 
-# ADR-006：Comm 模块重构决策
+# ADR-006 Comm 模块重构决策
 
 ## 背景
 

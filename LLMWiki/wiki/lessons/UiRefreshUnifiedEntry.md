@@ -14,7 +14,7 @@ source: AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs
 
 `ILCamPage` 曾同时存在三个"状态变更"函数：
 
-- `UpdateConnectionUi()` — 连接态标签/按钮唯一刷新（ADR-026 状态标签规范）
+- `UpdateConnectionUi()` — 连接态标签/按钮唯一刷新（ADR-022 状态标签规范）
 - `UpdateModeUi()` — 工作流态→手动按钮可用性 + 设 `IsManualMode`；**内部又调 `UpdateConnectionUi()`**
 - `SyncFromHardwareAfterConnect()` — 连接后从硬件同步激光/相机/Job/帧率
 
@@ -56,10 +56,10 @@ private void RefreshUi(RefreshUiScope scope)
 - UI 页面凡有多于 1 个"刷新状态"的函数，先判断是否可归并为一个 `RefreshXxx(scope)` 入口。
 - `scope` 用 `[Flags]` 枚举，避免"全量刷新"浪费（如仅连接态变更也去读硬件帧率）。
 - 调用方决定"刷新什么"（组合 scope），实现方决定"怎么刷"（*Core 内部），职责清晰、无隐式嵌套。
-- 与 ADR-026（状态标签唯一刷新）、ADR-028（代码精简）一致。
+- 与 ADR-022（状态标签唯一刷新）、ADR-023（代码精简）一致。
 
 ## 关联
 
 - [[modules/UIDesign]] — ILCamPage 状态刷新说明
-- [[decisions/ADR-026-LineLaserWorkflowRefactor]] — 状态机外发驱动刷新
+- [[decisions/ADR-024-LineLaserWorkflowRefactor]] — 状态机外发驱动刷新
 - [[guides/WinForms-UI-Threading]] — InvokeRequired 封送

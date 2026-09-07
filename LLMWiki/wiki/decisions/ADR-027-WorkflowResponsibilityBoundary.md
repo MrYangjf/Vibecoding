@@ -1,8 +1,9 @@
 ---
-title: ADR-030 — 流程与子设备对象权责边界（R1~R5）
+title: ADR-027 流程与子设备对象权责边界（R1~R5）
 date: 2026-08-31
 status: accepted
-tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-030]
+previous_id: ADR-030
+tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-027]
 ---
 
 > ⚠️ 历史名称提示：本页为**历史决策记录**，正文中的下列文件名为决策当时的旧名，
@@ -11,11 +12,11 @@ tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-030]
 > - `MainDeviceWorkflow.cs` → 现役 `MainDeviceControl/DeviceControlWork.cs`
 >
 
-# ADR-030 — 流程与子设备对象权责边界
+# ADR-027 流程与子设备对象权责边界
 
 > **唯一可执行细则见 [[standards/WorkflowResponsibilityBoundary]]**（由 `index.md` 路由，触发即读，免用户重复输入）。本 ADR 只记录"为什么这样决策"。
 >
-> **术语已更新（2026-09-02，ADR-034 三态模型）**：本 ADR 成文时的「流程态对外枚举 + `MapToDeviceState` 四态映射」已废止——各工作流的阶段枚举降为**私有**，对外只暴露 `SubDeviceState`（连接态）/ `SubDeviceWeldStatus`（焊接过程态）/ `MainDeviceStatus`（整机运行态）。文中 `MainDeviceWorkflow` 现为 `DeviceControlWork`、`SafetyWorkflow` 现为 `DeviceStatusWork`、泛型 `WorkflowStateBase<TStep>` 已删除（现为非泛型 `DeviceWorkflowBase`）。**R1~R5 五条规则本身继续有效**，仅承载者改名。
+> **术语已更新（2026-09-02，ADR-028 三态模型）**：本 ADR 成文时的「流程态对外枚举 + `MapToDeviceState` 四态映射」已废止——各工作流的阶段枚举降为**私有**，对外只暴露 `SubDeviceState`（连接态）/ `SubDeviceWeldStatus`（焊接过程态）/ `MainDeviceStatus`（整机运行态）。文中 `MainDeviceWorkflow` 现为 `DeviceControlWork`、`SafetyWorkflow` 现为 `DeviceStatusWork`、泛型 `WorkflowStateBase<TStep>` 已删除（现为非泛型 `DeviceWorkflowBase`）。**R1~R5 五条规则本身继续有效**，仅承载者改名。
 
 ## 背景
 

@@ -1,7 +1,7 @@
 ---
 title: DeviceControl 模块 — 设备控制（三态模型：SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus）
 date: 2026-09-02
-tags: [模块, 设备控制, 状态机, 连接态, 焊接过程态, 主设备运行态, 工作流, 步骤驱动, DeviceControlWork, DeviceStatusWork, ADR-034]
+tags: [模块, 设备控制, 状态机, 连接态, 焊接过程态, 主设备运行态, 工作流, 步骤驱动, DeviceControlWork, DeviceStatusWork, ADR-028]
 source: AdaWeldSystem/MainDeviceControl/ 模块源码
 ---
 
@@ -9,17 +9,17 @@ source: AdaWeldSystem/MainDeviceControl/ 模块源码
 
 > 位于 `AdaWeldSystem/MainDeviceControl/`，是全部设备状态管理与工作流编排的唯一归属地。
 > **架构规范页**：[[architecture/DeviceControlArchitecture]] — 详细的分层、映射规则、主控流程见该页。
-> **决策记录**：[[decisions/ADR-034-ThreeStateModelRefactor]]（现行唯一有效约束）。
+> **决策记录**：[[decisions/ADR-031-ThreeStateModelRefactor]]（现行唯一有效约束）。
 >
 > **⚠️ 2026-09-03 原档细化已裁定（改码前必读）**：用户更新 `raw/architecture/主控设计.xlsx`（成员级清单）与新增 `激光焊接系统业务流程图.pdf`（业务流 + 检查清单），**7 项冲突已由用户逐条裁定**。
 > 裁定要点：**完全重构**——新档是全新设计，不是对旧文档的补充。旧的基类常驻监听线程、`GoStep` 改步入口、命令三槽、const int 指令表、机器人 pose 监控**全部清除**，代之以 `DeviceControlWork` 7 条常驻线程 + `RunStep` bool 推进 + `CommandCore` const string 协议。
-> 落地清单见 [[architecture/DeviceControlArchitecture]] §15（架构页已按裁定整体重写）。决策记录：[[decisions/ADR-036-RawDesignRefinement20260903]]（**accepted**）。
+> 落地清单见 [[architecture/DeviceControlArchitecture]] §15（架构页已按裁定整体重写）。决策记录：[[decisions/ADR-033-RawDesignRefinement20260903]]（**accepted**）。
 
 ---
 
 ## 核心语义：三态模型（取代「设备四态 + 流程态」）
 
-> **2026-09-02（ADR-034）**：新主控设计明确「原流程态概念不再存在」。设备侧状态收敛为**两个正交枚举 + 一个主设备过程态**：
+> **2026-09-02（ADR-028）**：新主控设计明确「原流程态概念不再存在」。设备侧状态收敛为**两个正交枚举 + 一个主设备过程态**：
 
 | 枚举 | 取值 | 用途 | 命名空间 | 属性 |
 |---|---|---|---|---|
@@ -41,7 +41,7 @@ source: AdaWeldSystem/MainDeviceControl/ 模块源码
 
 > **禁止任何子类手工 `State = ...` / `WeldStatus = ...` 赋值**——一律走上述方法。
 
-> **2026-09-02 代码精简（ADR-028）**：删除 5 个无消费方死属性——`LineLaserWorkflow.IsInWorkflow` / `MaxConsecutiveFailures` / `MaxWeldLength` / `RealTimeAnalysisFps`、`MonitorCameraWorkflow.CurrentPhase`（违反 ADR-030 R5 对外名片约束，对应内部字段均保留）；`DeviceControlWork` 私有方法归位私有函数区。对外状态只暴露 `State` / `WeldStatus` / `WorkStep`。
+> **2026-09-02 代码精简（ADR-023）**：删除 5 个无消费方死属性——`LineLaserWorkflow.IsInWorkflow` / `MaxConsecutiveFailures` / `MaxWeldLength` / `RealTimeAnalysisFps`、`MonitorCameraWorkflow.CurrentPhase`（违反 ADR-027 R5 对外名片约束，对应内部字段均保留）；`DeviceControlWork` 私有方法归位私有函数区。对外状态只暴露 `State` / `WeldStatus` / `WorkStep`。
 
 ### 执行步层（⛔ 代码现状为旧机制，待批次 1/2 改造）
 
@@ -82,8 +82,8 @@ MainDeviceControl/
     ├── WeldParamControlWorkflow.cs 焊接工艺控制
     └── LaserWeldHeadWorkflow.cs    焊接头（骨架）
     ※ 2026-09-01 `FaultRecoveryManager.cs`（含 FaultCategory / FaultRecord）迁出至 [[modules/ProductFileManager]]，
-      本目录 7 个类为其消费方（ADR-033 §3）；模拟模式真相源为 `DeviceControlWork`（`*Simulation` API）
-    ※ 2026-09-04 ADR-036 批次 0~3 + 4.4 已落地；本页「旧机制」横幅仅作改造前后对照，
+      本目录 7 个类为其消费方（ADR-027 §3）；模拟模式真相源为 `DeviceControlWork`（`*Simulation` API）
+    ※ 2026-09-04 ADR-030 批次 0~3 + 4.4 已落地；本页「旧机制」横幅仅作改造前后对照，
       现行规范唯一出处 = [[architecture/DeviceControlArchitecture]]
 ```
 
@@ -104,10 +104,32 @@ MainDeviceControl/
 | `EmergencyStop()` | 急停 |
 | `CheckDeviceIOSafe()` | IO 安全检查 |
 | `OnStateSwitched(old,new)` / `OnWeldStatusChanged(old,new)` | 切换钩子，可重写 |
+| `BeginConnectAttempt()` | 发起连接尝试前调用，复位上次结果（`ConnectSettled`→false） |
+| `MarkConnectFailed(reason)` | 标记连接尝试**已失败**并置 `Disconnected`（异步连接线程拿到确定失败结果时调用） |
+| `ConnectSettled` | 连接尝试是否已出结果（成功或失败都置 true） |
+| `ConnectResult` | 最近一次连接尝试结果描述（成功为「已连接」，失败为失败原因） |
+
+#### 连接结果三态：为何不能只看 `State`（2026-09-07）
+
+`SubDeviceState` **只有两值**，`Disconnected` 同时表示「从未连过」「连接失败」「运行期掉线」三种情形，
+等待方（`WaitChildConnected`）无法区分，**只能一律空等到超时**——
+现场表现为「相机连接已明确失败返回，程序却仍等满 10 秒才报超时」。
+
+修法：连接结果独立于 `State` 表达——`ConnectSettled` 表示「本轮尝试已有结论」，
+`ConnectResult` 承载结论内容。等待逻辑改为**出结果即退出**，只有始终无反馈才走超时：
+
+| 情形 | `ConnectSettled` | `State` | 等待方行为 |
+|---|---|---|---|
+| 连接成功 | true | Connected | 立即返回 true |
+| 连接失败（已确认） | true | Disconnected | 立即返回 false，日志记 `连接失败 {ConnectResult}` |
+| 始终无反馈 | false | Disconnected | 等满超时，日志记 `连接等待超时（N 毫秒无反馈）` |
+
+> **纪律**：异步连接线程在失败分支**必须**调 `MarkConnectFailed`，
+> 只调 `SetState(Disconnected, ...)` 不足以让等待方收敛。
 
 ### DeviceStateApiCore/CommandCore.cs（ns ...DeviceState）
 
-> **✅ 2026-09-04 已落地（ADR-036 批次 0.3 / 0.4，裁定 C3）**：⛔ `CommandTable.cs` **已删除**，现役 **`CommandCore.cs`**——
+> **✅ 2026-09-04 已落地（ADR-030 批次 0.3 / 0.4，裁定 C3）**：⛔ `CommandTable.cs` **已删除**，现役 **`CommandCore.cs`**——
 > 指令载体由 `const int` + 三枚举（`RobotPose` / `RobotCommand` / `DeviceCommand`）改为 **`const string` 固定指令**，
 > **机器人指令按字符串解析**；`RobotPoseCode` / `SignalCode` / `InteractionTable` 一并删除；
 > **不再监控机器人 pose**（设备由机器人指令驱动，无权限管理机器人状态）。
@@ -124,7 +146,7 @@ MainDeviceControl/
 → `CommCommandWork` 线程 `DequeueCommand()` → `DispatchCommand(cmd)`。
 位姿类指令**仅记录不驱动流程**（裁定 C3），`RxAbort` 转 `EstopMachine`。
 
-### DeviceStateApiCore/DeviceWorkflowBase.cs（ns ...FlowState；非泛型，ADR-034）
+### DeviceStateApiCore/DeviceWorkflowBase.cs（ns ...FlowState；非泛型，ADR-028）
 
 > **✅ 2026-09-04 批次 1 已落地**。下表为**改造前后对照**（改造前成员 → 现行成员），不是现状描述。按 2026-09-03 原档与用户裁定：
 >
@@ -215,7 +237,7 @@ MainDeviceControl/
 
 ### DeviceControlWork
 
-`public class DeviceControlWork`（单例，**独立管控类，不继承任何基类**）——整机运行编排者，**2026-09-04 已按 ADR-036 重构落地**：
+`public class DeviceControlWork`（单例，**独立管控类，不继承任何基类**）——整机运行编排者，**2026-09-04 已按 ADR-030 重构落地**：
 
 - 7 条常驻线程（5 子设备驱动 `FlowProcess` + 心跳 + 指令）共用私有体 `SubDeviceWork(flow,name)` 五段式驱动，防空转 `Sleep(10)`/`Sleep(100)`
 - `Current`/`Last` 双 `MainDeviceStatus` 快照 + `IsReseting`/`IsWorking`/`IsAlarmstop`/`IsCloseWork` 标志位；`MachineStatusTrans` 校验迁移合法
@@ -224,7 +246,7 @@ MainDeviceControl/
 - 模拟模式由第 8 条按需线程 `thSimTestWork` 承载（2026-09-04 用户裁定），随 `EnableSimulation`/`DisableSimulation` 启停
 
 > ⛔ **本页下方原有「改造前」结构存档**（自带线程节拍 `BeatMs=10`、内部执行步 `_workStep`/`GetStepName`、命令三槽 `_pendingPose`>`_pendingCommand`>`_pendingAbort`、`RobotPose`/`RobotCommand` 指令消费、`EStopMachine`/`StartWork` 旧名）
-> **已全部清除**（ADR-036 裁定 C1/C3/C6 + §2 同源约束 + 2026-09-04 批次落地）。现行 API 见 [[api/DeviceControlWork]]，设计见 [[architecture/DeviceControlArchitecture]] §7；主设备运行态为 `MainDeviceStatus`（Running/Alarm/EStop/Stop/NoReset/Reseting）。
+> **已全部清除**（ADR-030 裁定 C1/C3/C6 + §2 同源约束 + 2026-09-04 批次落地）。现行 API 见 [[api/DeviceControlWork]]，设计见 [[architecture/DeviceControlArchitecture]] §7；主设备运行态为 `MainDeviceStatus`（Running/Alarm/EStop/Stop/NoReset/Reseting）。
 ### DeviceStatusWork
 
 `public class DeviceStatusWork`（单例），安全检查三合一（`IsSafe` / `CheckDeviceStates` / 故障记录）归并至此；监控未启动返回 `true`（不阻断整机）。API 详见 [[api/DeviceStatusWork]]（现述 DeviceStatusWork）。
@@ -247,7 +269,7 @@ MainDeviceControl/
 
 ### DeviceStatusWork — 安全/IO/状态管控
 
-`DeviceStatusWork.cs` 单文件承载：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（ADR-031 三合一 + ADR-034 归并）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
+`DeviceStatusWork.cs` 单文件承载：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（ADR-025 三合一 + ADR-028 归并）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
 
 **三线程（非步骤驱动，2026-09-04 对齐原档命名）**：`DeviceStatusWork` 是独立管控类，不继承 `DeviceWorkflowBase`，由三个常驻线程驱动（各 20Hz）——`thIOWork`（线程体 `IOWork()`，AboveNormal）周期互锁检查 → 失败 `ReportAlarm` + `RecordFault`，恢复 `ReportAlarmCleared`；`thEMGWork`（线程体 `EMGWork()`，Highest）急停轮询 → 按下 `EstopMachine`、释放 `EstopCancel`；`thLightStatusWork`（线程体 `LightStatusWork()`，Normal）反射 `DeviceControlWork.Status` 到三色灯。
 
@@ -288,7 +310,7 @@ return _initialized ? SubDeviceState.Connected : SubDeviceState.Disconnected;
 | 文件 | 职责 |
 |---|---|
 | `DeviceStatusWork.cs` | 安全检查流程（三合一）：互锁阈值与 PLC 地址 + 互锁判定 + 监控循环 |
-| `ProductFileManager/FaultRecoveryManager.cs` | **已迁出本模块（2026-09-01，ADR-033 §3）**：单例，故障恢复闭环 + `FaultCategory` / `FaultRecord` 数据载体；本目录 7 工作流为其消费方 |
+| `ProductFileManager/FaultRecoveryManager.cs` | **已迁出本模块（2026-09-01，ADR-027 §3）**：单例，故障恢复闭环 + `FaultCategory` / `FaultRecord` 数据载体；本目录 7 工作流为其消费方 |
 
 详见 [[modules/Safety]]、[[modules/ProductFileManager]]、[[api/DeviceStatusWork]]。
 
@@ -334,6 +356,7 @@ return _initialized ? SubDeviceState.Connected : SubDeviceState.Disconnected;
 
 - 本环境**无法编译**，改动后必须做静态编译安全自检（类型解析 / csproj 完整性 / 无未注册孤儿 / `Dispose(bool)` / 继承链）
 - C# 7.3（[[decisions/ADR-002-CS73-Constraint]]）：禁 switch 表达式、属性模式、nullable、record、range
-- 非 UI 类统一标准 `IDisposable.Dispose()`（[[decisions/ADR-001-DisposePattern]]、[[decisions/ADR-025-DisposePatternFullCoverage]]）
+- 非 UI 类统一标准 `IDisposable.Dispose()`（[[decisions/ADR-001-DisposePattern]]、[[decisions/ADR-023-DisposePatternFullCoverage]]）
 - 振镜摆幅 `CalcGalvoAmplitude` 为 TODO 占位返回 0.0，`WeaveWidth` 是查表项而非公式
 - 旧四态 `DeviceState` 枚举、泛型 `WorkflowStateBase<TStep>`/`DeviceWorkflowBase<TStep>`、`MainDeviceFlowState` 枚举均已删除，引用这些旧符号的代码/文档视为冲突，须改用三态模型
+- **线程问询范式（2026-09-07 用户裁定 + 参考基线合规核对）**：线程只判断「状态是否属于自己」，**只读 `Current` 决定执行/不执行，绝不修改状态**——状态变化只归 IO 动作链（`DoXxx` → `SetStatus`）专门管理；所有循环必须有节拍防快速空转（流程线程 100ms 空闲 / 10ms 工作，连接等待 100ms，IO 三线程 50ms）。落点：`SubDeviceWork` 每拍问询（`StopSubDeviceDrive` 只清计时+记一次日志）、`CascadeResetProcess` 每步问询 `Reseting`、`DoResetMachine`/`DoStartMachine` 走 `IsActionAborted`、初始化链走 `IsInitAborted`/`IsInitPreempted`、`ScanPulseIo(requireRunning)` 分派前问询。详见 [[api/DeviceControlWork]] 与 [[api/HonorMachineTest-IOReference]] §6.1

@@ -7,15 +7,15 @@ status: deprecated
 
 # FaultRecordManager API — 故障记录数据库管理器
 
-> ⛔ **整页废弃（2026-09-04）**：FaultRecordManager 已随 FaultRecoveryManager **整体从代码中移除**（[[decisions/ADR-038-ErrorReportingHierarchy]] D3）。历史存档见下文。
+> ⛔ **整页废弃（2026-09-04）**：FaultRecordManager 已随 FaultRecoveryManager **整体从代码中移除**（[[decisions/ADR-035-ErrorReportingHierarchy]] D3）。历史存档见下文。
 
-> **位置**：`SqlLiteDatabase/FaultRecordManager.cs`，命名空间 `AdaWeldSystem.SqlLiteDatabase`（2026-08-31 新增，ADR-033）。
+> **位置**：`SqlLiteDatabase/FaultRecordManager.cs`，命名空间 `AdaWeldSystem.SqlLiteDatabase`（2026-08-31 新增，ADR-027）。
 > FaultRecord 表的建表、插入与查询；继承 `DatabaseManagerBase`，数据库文件 `DataBase\FaultRecord.db`（首启自动建目录建表）。
 
 ## 定位
 
 - **只负责持久化**，故障恢复闭环逻辑（记录→重试→复位）见 [[api/FaultRecoveryManager]]。
-- **不依赖领域类型**：`FaultRecord`/`FaultCategory` 定义于 `ProductFileManager/FaultRecoveryManager.cs`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-033 §3），本类以字符串值数组为写入契约，保持 SqlLiteDatabase 层不反向依赖业务层。
+- **不依赖领域类型**：`FaultRecord`/`FaultCategory` 定义于 `ProductFileManager/FaultRecoveryManager.cs`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-027 §3），本类以字符串值数组为写入契约，保持 SqlLiteDatabase 层不反向依赖业务层。
 
 ## 公共接口
 
@@ -37,4 +37,4 @@ status: deprecated
 
 ## 相关
 
-- [[api/FaultRecoveryManager]] · [[modules/SqlLiteDatabase]] · [[decisions/ADR-033-ProductLifecycleRecordModule]] · [[decisions/ADR-031-SafetyCheckConsolidation]]
+- [[api/FaultRecoveryManager]] · [[modules/SqlLiteDatabase]] · [[decisions/ADR-030-ProductLifecycleRecordModule]] · [[decisions/ADR-028-SafetyCheckConsolidation]]

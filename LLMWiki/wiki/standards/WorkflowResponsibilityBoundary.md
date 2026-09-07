@@ -1,16 +1,16 @@
 ---
 title: 流程与子设备对象权责边界标准
 date: 2026-09-02
-tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-030, ADR-034]
+tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-027, ADR-028]
 ---
 
 # 流程与子设备对象权责边界标准（WorkflowResponsibilityBoundary）
 
-> **触发**：用户提出「流程与xx设备权责不清 / 流程里怎么这么多事件 / 这个事件该不该放流程」等权责类问题时，AI **直接读取本页执行**，无需用户重复输入权责要求。决策见 [[decisions/ADR-030-WorkflowResponsibilityBoundary]]。
+> **触发**：用户提出「流程与xx设备权责不清 / 流程里怎么这么多事件 / 这个事件该不该放流程」等权责类问题时，AI **直接读取本页执行**，无需用户重复输入权责要求。决策见 [[decisions/ADR-027-WorkflowResponsibilityBoundary]]。
 >
 > **适用范围**：`MainDeviceControl/DeviceWorkflow/` 下全部子设备工作流 + `DeviceControlWork` / `DeviceStatusWork` 两个整机管控类，以及所有被流程调用的子设备对象（相机 Run、运动控制器、跟踪引擎、焊接头等）。
 >
-> **2026-09-03（ADR-036 完全重构）机制更新**：本页 R1~R5 五条权责红线与「数据是设备的，进度是流程的」判据**继续有效**，仅术语与机制按新架构页对齐——
+> **2026-09-03（ADR-030 完全重构）机制更新**：本页 R1~R5 五条权责红线与「数据是设备的，进度是流程的」判据**继续有效**，仅术语与机制按新架构页对齐——
 >
 > | 本页旧表述 | 现行做法 |
 > |---|---|
@@ -21,7 +21,7 @@ tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-030, ADR-034]
 >
 > 唯一架构指导见 [[architecture/DeviceControlArchitecture]]。
 >
-> **2026-09-02（ADR-034 三态模型）术语对齐**：本页原有「流程态对外枚举 + `MapToDeviceState` 四态映射」表述已废止。现行形态为——各工作流持**私有阶段枚举**（`_phase`/`_flowState`，不对外），经 `MapWeldStatus(phase)` 映射为对外**焊接过程态** `SubDeviceWeldStatus`；连接态另有 `SubDeviceState`；整机运行态为 `MainDeviceStatus`。本页「流程态」一词一律指**私有阶段枚举**。
+> **2026-09-02（ADR-028 三态模型）术语对齐**：本页原有「流程态对外枚举 + `MapToDeviceState` 四态映射」表述已废止。现行形态为——各工作流持**私有阶段枚举**（`_phase`/`_flowState`，不对外），经 `MapWeldStatus(phase)` 映射为对外**焊接过程态** `SubDeviceWeldStatus`；连接态另有 `SubDeviceState`；整机运行态为 `MainDeviceStatus`。本页「流程态」一词一律指**私有阶段枚举**。
 
 ---
 
@@ -86,7 +86,7 @@ public CamBoxTracker Tracker { get { return _tracker; } }
 
 ### R3 状态通知统一
 
-启动 / 停止 / 终止 / 完成，一律由基类承载（ADR-034 三态）：
+启动 / 停止 / 终止 / 完成，一律由基类承载（ADR-028 三态）：
 
 ```csharp
 // 基类 DeviceStateBase 提供（非泛型 DeviceWorkflowBase 继承而来）
@@ -174,7 +174,7 @@ public enum MonitorCameraPhase { Unknown, PreWeldAlignment, WeldQuality }
 - [ ] **R3**：本流程是否自造了 Completed / ErrorAborted / ManualStopped 事件？私有 `SetStep` 里是否在转发基类 `WeldStatusChanged`？
 - [ ] **R4**：本流程是否有零订阅事件？该动作能否由流程直接执行、结果放只读属性？
 - [ ] **R5**：私有阶段枚举里是否有 Displaying / Saving / Uploading 等外部职责态？
-- [ ] **ADR-034**：是否有手工 `WeldStatus = ...` / `State = ...` / `Status = ...` 赋值？（必须走 `SetWeldStatus` / `SetState` / `SetStatus`）
+- [ ] **ADR-028**：是否有手工 `WeldStatus = ...` / `State = ...` / `Status = ...` 赋值？（必须走 `SetWeldStatus` / `SetState` / `SetStatus`）
 - [ ] **依赖**：子设备文件是否 `using` 了 `...MainDeviceControl.DeviceWorkflow`？
 - [ ] **死代码**：删事件时，配套 `EventArgs` 类、`private readonly XxxArgs _xxxArgs` 字段、Dispose 里的 `= null` 是否一并清理？
 - [ ] **region**：删除事件 region 后 `#region`/`#endregion` 是否仍配对？（易踩坑：连带删除 `#region` 行导致失衡）
@@ -198,7 +198,7 @@ public enum MonitorCameraPhase { Unknown, PreWeldAlignment, WeldQuality }
 // 1) 图像：订阅设备对象（R1）
 MonitorCameraRun.FrameCompletedEvent += OnFrameCompleted;
 
-// 2) 流程进度：订阅基类统一事件（R3，ADR-034 三态）
+// 2) 流程进度：订阅基类统一事件（R3，ADR-028 三态）
 MonitorCameraWorkflow.Instance.WeldStatusChanged += OnWeldStatusChanged;   // 焊接过程态
 MonitorCameraWorkflow.Instance.StateSwitched     += OnConnStateSwitched;   // 连接态
 DeviceControlWork.Instance.StatusChanged         += OnMainStatusChanged;   // 整机运行态
@@ -212,7 +212,7 @@ private void OnWeldStatusChanged(object sender, WeldStatusChangedEventArgs e)
 }
 ```
 
-> 私有阶段枚举（如 `MonitorWorkflowState`）**不出现在 UI 代码中**——UI 只认 `SubDeviceWeldStatus` 七态。需要更细进度时读 `RunStep` / `StepWorkTime`（⛔ 旧 `WorkStep` / `WorkStartTime` 已由 ADR-036 重构删除，勿再引用）。
+> 私有阶段枚举（如 `MonitorWorkflowState`）**不出现在 UI 代码中**——UI 只认 `SubDeviceWeldStatus` 七态。需要更细进度时读 `RunStep` / `StepWorkTime`（⛔ 旧 `WorkStep` / `WorkStartTime` 已由 ADR-030 重构删除，勿再引用）。
 
 配套：[[standards/UiStateSimplification]]（真相源唯一、刷新入口统一）、[[guides/WinForms-UI-Threading]]（`InvokeRequired` 封送）。
 
@@ -220,7 +220,7 @@ private void OnWeldStatusChanged(object sender, WeldStatusChangedEventArgs e)
 
 ## 关联
 
-- 决策：[[decisions/ADR-030-WorkflowResponsibilityBoundary]]
+- 决策：[[decisions/ADR-027-WorkflowResponsibilityBoundary]]
 - 架构：[[architecture/DeviceControlArchitecture]]
 - 模块：[[modules/DeviceControl]]、[[modules/MonitorCam]]
 - API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCameraRun]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]

@@ -6,7 +6,7 @@ tags: [教训, 代码精简, 范围, Designer.cs, UIDesign, 误解]
 
 # 代码精简范围裁定：强制排除仅 Designer.cs（P1 易误读）
 
-> ADR-028/[[standards/CodeSimplification]] 早期表述"除 UI 外的全部代码（即 `UIDesign/` 除外）"易被误读为 **UIDesign 整个目录都不做五维度精简**。2026-08-27 用户明确裁定：**强制排除的只有 `*.Designer.cs`（设计器自动生成文件），`UIDesign/` 下的非设计器 `.cs`（如 `FormMain.cs`/`MainPage.cs`）同样适用五维度**（成员排序/变量/枚举事件/逻辑/辅助函数 + XML 注释），仅状态判断与控制细则由 [[standards/UiStateSimplification]] 互补。
+> ADR-023/[[standards/CodeSimplification]] 早期表述"除 UI 外的全部代码（即 `UIDesign/` 除外）"易被误读为 **UIDesign 整个目录都不做五维度精简**。2026-08-27 用户明确裁定：**强制排除的只有 `*.Designer.cs`（设计器自动生成文件），`UIDesign/` 下的非设计器 `.cs`（如 `FormMain.cs`/`MainPage.cs`）同样适用五维度**（成员排序/变量/枚举事件/逻辑/辅助函数 + XML 注释），仅状态判断与控制细则由 [[standards/UiStateSimplification]] 互补。
 
 ## 误读根因
 
@@ -25,7 +25,7 @@ tags: [教训, 代码精简, 范围, Designer.cs, UIDesign, 误解]
 ## 已更正位置（2026-08-27）
 
 - [[standards/CodeSimplification]] 适用范围/扫描范围/边界表/执行清单/未覆盖段全部改为"仅 `*.Designer.cs` 除外"，`UIDesign/` 非设计器 `.cs` 纳入。
-- [[decisions/ADR-028-CodeSimplificationStandard]] 相关页面描述同步更正。
+- [[decisions/ADR-025-CodeSimplificationStandard]] 相关页面描述同步更正。
 - [[index/index]]「代码精简规范」分类摘要加注裁定。
 
 ## 影响案例

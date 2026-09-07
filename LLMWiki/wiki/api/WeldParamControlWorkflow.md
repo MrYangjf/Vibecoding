@@ -2,7 +2,7 @@
 title: WeldParamControlWorkflow API 参考（焊接工艺控制流程 · 三态模型）
 date: 2026-09-02
 updated: 2026-09-04
-tags: [API, 工作流, 焊接, 工艺, 功率, 送丝, 振镜, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-034, ADR-036]
+tags: [API, 工作流, 焊接, 工艺, 功率, 送丝, 振镜, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-028, ADR-030]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs
 ---
 
@@ -14,7 +14,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.
 > **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
 > 模块背景见 [[modules/WeldParamControl]]。
 
-> **✅ 2026-09-04 已落地（ADR-036 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`，`StepIdle` 内消费 `_pendingCompute` 触发变量）、`RunStep` 每 case 靠 bool 推进。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/`FailFlow`（基类自造）/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> **✅ 2026-09-04 已落地（ADR-030 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`，`StepIdle` 内消费 `_pendingCompute` 触发变量）、`RunStep` 每 case 靠 bool 推进。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/`FailFlow`（基类自造）/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
 ---
@@ -33,7 +33,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.
 下发：SendToRobot → KUKA 机器人（顶层 Comm 管控连接，此处只做数据下发）
 ```
 
-- **不入 `DeviceControlWork` 上电级联**（ADR-030 权责边界），由线激光在 Working 态逐帧触发（单一驱动源，见 [[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
+- **不入 `DeviceControlWork` 上电级联**（ADR-027 权责边界），由线激光在 Working 态逐帧触发（单一驱动源，见 [[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
 - `ConnectOn()` 语义为「工艺参数就绪」（置 `Connected`）。
 - 本流程是「被外部逐帧触发的一次性计算 + 下发」，**非自推进流程**：`ComputeAndOutput()` 只置 `_pendingCompute`，业务由编排线程按 10 计算 → 20 下发 → 800/900 收尾完成；**上一轮未跑完时新触发被丢弃**（`StepIdle` 才消费），天然节流不堆积。
 
@@ -119,7 +119,7 @@ public bool ComputeAndOutput()
 }
 ```
 
-**⚠️ 返回值语义（重要）**：计算被挪到编排线程（无自带线程）后，返回的是**上一轮 `_output.Success`**。调用方若需本轮结果，请在 `WeldStatusChanged` 收到 `Standby`/`ErrorAborted` 后读 `LastOutput.Success`（ADR-030 R4「推状态 + 拉数据」）。当前唯一调用方 `LineLaserWorkflow.RunAutoAdjust`（硬件 CAMBOX 未运行时）不使用返回值，无兼容问题。
+**⚠️ 返回值语义（重要）**：计算被挪到编排线程（无自带线程）后，返回的是**上一轮 `_output.Success`**。调用方若需本轮结果，请在 `WeldStatusChanged` 收到 `Standby`/`ErrorAborted` 后读 `LastOutput.Success`（ADR-027 R4「推状态 + 拉数据」）。当前唯一调用方 `LineLaserWorkflow.RunAutoAdjust`（硬件 CAMBOX 未运行时）不使用返回值，无兼容问题。
 
 **关键**：`WeldProcess.TriggerAdjustment()` 是**无参**方法，内部用 `OnAlgorithmCompleted` 暂存的 `_lastSeamFeature` / `_lastRobotX`——**不要给它加参数**。
 
@@ -223,4 +223,4 @@ var last = wf.LastOutput;              // 最近一轮结果（功率/送丝/速
 - [[api/WeldDataManager]] — 焊接数据管理器（参数载入/切换）
 - [[api/LineLaserWorkflow]] — 唯一触发方（Working 态逐帧 `ComputeAndOutput`）
 - [[decisions/ADR-011-WorkflowAsAdjustmentDriver]] — 单一驱动源决策
-- [[decisions/ADR-034-ThreeStateModelRefactor]]、[[decisions/ADR-036-RawDesignRefinement20260903]] — 三态模型与原档细化裁定
+- [[decisions/ADR-031-ThreeStateModelRefactor]]、[[decisions/ADR-033-RawDesignRefinement20260903]] — 三态模型与原档细化裁定

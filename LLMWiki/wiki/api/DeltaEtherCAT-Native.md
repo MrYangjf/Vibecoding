@@ -1,0 +1,1038 @@
+---
+title: 台达 EtherCAT 原生 API 速查（EtherCAT_DLL）
+date: 2026-09-05
+tags: [API, 运控, 台达, EtherCAT, P/Invoke, 速查]
+source: "D:/Program Files (x86)/Delta Industrial Automation/EtherCAT/inc/C#/EtherCAT_DLL.cs"
+---
+
+# 台达 EtherCAT 原生 API 速查（EtherCAT_DLL）
+
+> **章节导航**（本页为超长页，请先按章节定位再读）：
+>
+> - [调用约定](#调用约定)
+> - [1. 主站管理 Master](#1-主站管理-master)
+> - [2. 从站信息与状态](#2-从站信息与状态)
+> - [3. 运动基础 Motion](#3-运动基础-motion)
+> - [4. 回零 Home](#4-回零-home)
+> - [5. CSP 点位/速度/停止/变更](#5-csp-点位速度停止变更)
+> - [6. CSP 插补与多轴](#6-csp-插补与多轴)
+> - [7. CSP 齿轮/虚拟轴/软限位](#7-csp-齿轮虚拟轴软限位)
+> - [8. CSV / CST](#8-csv--cst-周期同步速度与扭矩)
+> - [9. PP / PV / PT / VL](#9-pp--pv--pt--vl-经典模式)
+> - [10. 电子凸轮 ECAM（一代）](#10-电子凸轮-ecam一代)
+> - [11. 电子凸轮 ECAM2（二代，推荐）](#11-电子凸轮-ecam2二代推荐)
+> - [12. 龙门同步 Gantry](#12-龙门同步-gantry)
+> - [13. 运动缓冲 MotionBuffer](#13-运动缓冲-motionbuffer)
+> - [14. 表运动 / PVT](#14-表运动-tablemotion--pvt)
+> - [15. 数字 IO（按从站 DIO）](#15-数字-io按从站-dio)
+> - [16. 数字 IO（全局位软元件，推荐）](#16-数字-io全局位软元件推荐)
+> - [17. AD / DA 与 PDO](#17-ad--da-与-pdo)
+> - [18. SDO 通讯](#18-sdo-通讯)
+> - [19. 位置锁存 TouchProbe / Compare / Latch](#19-位置锁存-touchprobe--compare--latch)
+> - [20. 其他](#20-其他配置安全日志模块专用)
+
+本页全部签名**由 SDK 头文件自动抽取**，非人工转写，故与官方 `EtherCAT_DLL.cs` 逐字一致。
+
+| 项 | 值 |
+|---|---|
+| SDK 安装根 | `D:/Program Files (x86)/Delta Industrial Automation/EtherCAT/` |
+| C# 头文件 | `inc/C#/EtherCAT_DLL.cs`（x86）、`inc/C#/EtherCAT_DLL_x64.cs`（x64） |
+| 错误码头文件 | `inc/C#/EtherCAT_DLL_Err.cs`（336 个常量，类 `CEtherCAT_DLL_Err`） |
+| 本机 DLL | `dll/EtherCAT_DLL.dll`（x86，169 MB）、`dll/EtherCAT_DLL_x64.dll`（x64，168 MB） |
+| C# 示例 | `sample/C#/` — 01 初始化 / 02 回零 / 03 PT / 04 PV / 05 PP / 06 CSP / 07 DI / 08 DO / 09 AD / 10 DA |
+| 官方手册 | `manual/API/DELTA_IA-GMC_EtherCAT_PM_TC_20250428.pdf`（12 MB，API 手册） |
+| API 总数 | **832 个**（本页全量覆盖） |
+
+## 调用约定
+
+官方 C# 头文件把封装放在 **两个不同命名空间**的平台类中，调用方用条件编译切换命名空间：
+
+```csharp
+#if X86
+using EtherCAT_DLL;        // 类 CEtherCAT_DLL，DllImport("EtherCAT_DLL.dll")
+#else
+using EtherCAT_DLL_x64;    // 类 CEtherCAT_DLL，DllImport("EtherCAT_DLL_x64.dll")
+#endif
+using EtherCAT_DLL_Err;    // 类 CEtherCAT_DLL_Err，错误码常量
+
+ushort ret = CEtherCAT_DLL.CS_ECAT_Master_Open(ref cardCount);
+if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
+```
+
+- 底层是**原生非托管 C DLL**，只能 P/Invoke，不能「添加引用」，与本仓其它 `Native/` 封装性质相同
+- 入口点统一带下划线前缀：`EntryPoint = "_ECAT_Master_Open"`（C 函数名修饰）
+- 返回值一律 `ushort` 错误码，`0` = 成功（`ERR_ECAT_NO_ERROR`）
+- 项目平台目标必须显式 `x86` 或 `x64`，**不能用 AnyCPU**（否则 `BadImageFormatException`）
+- 全量原始清单（含 EntryPoint 与参数）：`raw/delta/EtherCAT_DLL_API清单.txt`
+
+## 1. 主站管理 Master
+
+> 主站（PCI-L221 卡）的打开/初始化/关闭与全局信息查询。（共 75 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Master_Open` | `_ECAT_Master_Open` | `ushort` | `ref ushort existcard` |
+| `CS_ECAT_Master_Initial` | `_ECAT_Master_Initial` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Master_Reset` | `_ECAT_Master_Reset` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Master_Close` | `_ECAT_Master_Close` | `ushort` | `(无)` |
+| `CS_ECAT_Master_Get_CardSeq` | `_ECAT_Master_Get_CardSeq` | `ushort` | `ushort CardNo_seq, ref ushort CardNo` |
+| `CS_ECAT_Master_Get_SlaveNum` | `_ECAT_Master_Get_SlaveNum` | `ushort` | `ushort CardNo, ref ushort SlaveNum` |
+| `CS_ECAT_Master_Get_Local_SlaveNum` | `_ECAT_Master_Get_Local_SlaveNum` | `ushort` | `ushort CardNo, ref ushort SlaveNum` |
+| `CS_ECAT_Master_Get_Total_SlaveNum` | `_ECAT_Master_Get_Total_SlaveNum` | `ushort` | `ushort CardNo, ref ushort SlaveNum` |
+| `CS_ECAT_Master_Get_Total_Io_Num` | `_ECAT_Master_Get_Total_Io_Num` | `ushort` | `ushort CardNo, ref ushort TotalIn, ref ushort TotalOut` |
+| `CS_ECAT_Master_Get_Io_Num` | `_ECAT_Master_Get_Io_Num` | `ushort` | `ushort CardNo, ref ushort TotalIn, ref ushort TotalOut` |
+| `CS_ECAT_Master_Get_Slave_Info` | `_ECAT_Master_Get_Slave_Info` | `ushort` | `ushort CardNo, ushort SeqID, ref ushort NodeID, ref uint VendorID, ref uint ProductCode, ref uint RevisionNo, ref uint DCTime` |
+| `CS_ECAT_Master_Get_Slave_Device_Type` | `_ECAT_Master_Get_Slave_Device_Type` | `ushort` | `ushort CardNo, ushort SeqID, ref ushort Type` |
+| `CS_ECAT_Master_Get_DC_Status` | `_ECAT_Master_Get_DC_Status` | `ushort` | `ushort CardNo, ref uint State, ref int DCTime, ref int OffsetTime` |
+| `CS_ECAT_Master_Get_Connect_Status` | `_ECAT_Master_Get_Connect_Status` | `ushort` | `ushort CardNo, ref ushort Status` |
+| `CS_ECAT_Master_Get_Api_BufferLength` | `_ECAT_Master_Get_Api_BufferLength` | `ushort` | `ushort CardNo, ushort NodeID, ref ushort Length` |
+| `CS_ECAT_Master_Get_Cycle_SpendTime` | `_ECAT_Master_Get_Cycle_SpendTime` | `ushort` | `ushort CardNo, ref double Tx_Time, ref double Tx_MaxTime, ref double Rx_Time, ref double Rx_MaxTime` |
+| `CS_ECAT_Master_Check_Initial_Done` | `_ECAT_Master_Check_Initial_Done` | `ushort` | `ushort CardNo, ref ushort InitDone` |
+| `CS_ECAT_Master_Get_Initial_ErrorCode` | `_ECAT_Master_Get_Initial_ErrorCode` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Master_Check_Working_Counter` | `_ECAT_Master_Check_Working_Counter` | `ushort` | `ushort CardNo, ref ushort Abnormal_Flag, ref ushort Working_Slave_Cnt` |
+| `CS_ECAT_Master_Set_Working_Counter_Value` | `_ECAT_Master_Set_Working_Counter_Value` | `ushort` | `ushort CardNo, ushort Value` |
+| `CS_ECAT_Master_Get_Return_Code_Message` | `_ECAT_Master_Get_Return_Code_Message` | `ushort` | `ushort ReturnCode, string Message` |
+| `CS_ECAT_Master_Get_Hardware_ID` | `_ECAT_Master_Get_Hardware_ID` | `ushort` | `ushort CardNo, ref ushort DeviceID` |
+| `CS_ECAT_Master_Get_Working_Counter_ErrorCounter` | `_ECAT_Master_Get_Working_Counter_ErrorCounter` | `ushort` | `ushort CardNo, ref ushort Error_Cnt` |
+| `CS_ECAT_Master_Get_Frame_Counter` | `_ECAT_Master_Get_Frame_Counter` | `ushort` | `ushort CardNo, ref uint TxFrameCnt, ref uint RxFrameCnt, ref uint Frame_Error_Cnt` |
+| `CS_ECAT_Master_Set_Read_ESI_Mode` | `_ECAT_Master_Set_Read_ESI_Mode` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_Master_WatchDog_Enable` | `_ECAT_Master_WatchDog_Enable` | `ushort` | `ushort CardNo, double Sec, ushort Enable` |
+| `CS_ECAT_Master_WatchDog_Get_Time` | `_ECAT_Master_WatchDog_Get_Time` | `ushort` | `ushort CardNo, ref double Time` |
+| `CS_ECAT_Master_WatchDog_Clear` | `_ECAT_Master_WatchDog_Clear` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Master_Get_Frame_Error_Counter` | `_ECAT_Master_Get_Frame_Error_Counter` | `ushort` | `ushort CardNo, ref uint Frame_Error_Cnt` |
+| `CS_ECAT_Master_Get_Connect_Detect_Unusual_Info` | `_ECAT_Master_Get_Connect_Detect_Unusual_Info` | `ushort` | `ushort CardNo, ref ushort Mode, ref uint Param, ref ushort Status` |
+| `CS_ECAT_Master_Reference_System_Time` | `_ECAT_Master_Reference_System_Time` | `ushort` | `ushort CardNo, ushort Enable` |
+| `CS_ECAT_Master_Set_CycleTime` | `_ECAT_Master_Set_CycleTime` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_Master_Get_CycleTime` | `_ECAT_Master_Get_CycleTime` | `ushort` | `ushort CardNo, ref ushort CycleTime` |
+| `CS_ECAT_Master_Set_DCSyncShiftTime` | `_ECAT_Master_Set_DCSyncShiftTime` | `ushort` | `ushort CardNo, ushort ShiftTime_Percent` |
+| `CS_ECAT_Master_Get_DLL_SeqID` | `_ECAT_Master_Get_DLL_SeqID` | `ushort` | `ushort CardNo, ref ushort SeqID` |
+| `CS_ECAT_Master_Get_SerialNo` | `_ECAT_Master_Get_SerialNo` | `ushort` | `ushort CardNo, ref uint SerialNo` |
+| `CS_ECAT_Master_NodeID_Alias_Enable` | `_ECAT_Master_NodeID_Alias_Enable` | `ushort` | `ushort CardNo, ushort Enable` |
+| `CS_ECAT_Master_Virtual_NodeID_Alias_Enable` | `_ECAT_Master_Virtual_NodeID_Alias_Enable` | `ushort` | `ushort CardNo, ushort Enable` |
+| `CS_ECAT_Master_Record_TxRxPacket_Enable` | `_ECAT_Master_Record_TxRxPacket_Enable` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Master_Record_TxRxPacket_Close` | `_ECAT_Master_Record_TxRxPacket_Close` | `ushort` | `ushort CardNo, string FileName` |
+| `CS_ECAT_Master_MRAM_Write_Word_Data` | `_ECAT_Master_MRAM_Write_Word_Data` | `ushort` | `ushort CardNo, uint Index, uint DataNum, ref ushort Data` |
+| `CS_ECAT_Master_MRAM_Read_Word_Data` | `_ECAT_Master_MRAM_Read_Word_Data` | `ushort` | `ushort CardNo, uint Index, uint DataNum, ref ushort Data` |
+| `CS_ECAT_Master_MRAM_Write_DWord_Data` | `_ECAT_Master_MRAM_Write_DWord_Data` | `ushort` | `ushort CardNo, uint Index, uint DataNum, ref uint Data` |
+| `CS_ECAT_Master_MRAM_Read_DWord_Data` | `_ECAT_Master_MRAM_Read_DWord_Data` | `ushort` | `ushort CardNo, uint Index, uint DataNum, ref uint Data` |
+| `CS_ECAT_Master_RTX_Open_Rtss` | `_ECAT_Master_RTX_Open_Rtss` | `ushort` | `ushort CardNo, string FilePath, ref ushort Flag` |
+| `CS_ECAT_Master_RTX_Create_Shared_Memory` | `_ECAT_Master_RTX_Create_Shared_Memory` | `ushort` | `ushort CardNo, uint MaxSize, string SpaceName, ref IntPtr location, ref IntPtr Sharedmemory_Handle` |
+| `CS_ECAT_Master_RTX_Open_Shared_Memory` | `_ECAT_Master_RTX_Open_Shared_Memory` | `ushort` | `ushort CardNo, string SpaceName, ref IntPtr location, ref IntPtr Sharedmemory_Handle` |
+| `CS_ECAT_Master_RTX_Create_Event` | `_ECAT_Master_RTX_Create_Event` | `ushort` | `ushort CardNo, ushort ManualReset, ushort InitialState, string EventName, ref IntPtr Event_Handle` |
+| `CS_ECAT_Master_RTX_Open_Event` | `_ECAT_Master_RTX_Open_Event` | `ushort` | `ushort CardNo, string EventName, ref IntPtr Event_Handle` |
+| `CS_ECAT_Master_RTX_Set_Event` | `_ECAT_Master_RTX_Set_Event` | `ushort` | `ushort CardNo, IntPtr Event_Handle` |
+| `CS_ECAT_Master_RTX_Close_Handle` | `_ECAT_Master_RTX_Close_Handle` | `ushort` | `ushort CardNo, IntPtr A_Handle` |
+| `CS_ECAT_Master_Errorlog_API_Set_Enable` | `_ECAT_Master_Errorlog_API_Set_Enable` | `ushort` | `ushort CardNo, ushort Enable, ushort Mode, ushort Level` |
+| `CS_ECAT_Master_Errorlog_API_Get_Enable` | `_ECAT_Master_Errorlog_API_Get_Enable` | `ushort` | `ushort CardNo, ref ushort Enable, ref ushort Mode, ref ushort Level` |
+| `CS_ECAT_Master_Errorlog_API_Get_FunIDToString` | `_ECAT_Master_Errorlog_API_Get_FunIDToString` | `ushort` | `ushort CardNo, ushort FunID, string FunName` |
+| `CS_ECAT_Master_Errorlog_API_Clear` | `_ECAT_Master_Errorlog_API_Clear` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Master_Errorlog_API_Get_ErrorCnt` | `_ECAT_Master_Errorlog_API_Get_ErrorCnt` | `ushort` | `ushort CardNo, ref ushort ErrorCnt` |
+| `CS_ECAT_Master_Errorlog_API_Get_ErrorData` | `_ECAT_Master_Errorlog_API_Get_ErrorData` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotID, ref ushort FunID, ref ushort ErrorCode, ref double ErrorTime` |
+| `CS_ECAT_Master_Errorlog_API_Get_Single_ErrorData` | `_ECAT_Master_Errorlog_API_Get_Single_ErrorData` | `ushort` | `ushort CardNo, ushort Count, ref ushort NodeID, ref ushort SlotID, ref ushort FunID, ref ushort ErrorCode, ref double ErrorTime` |
+| `CS_ECAT_Master_Errorlog_API_DumpData` | `_ECAT_Master_Errorlog_API_DumpData` | `ushort` | `ushort CardNo, string FilePath` |
+| `CS_ECAT_Master_Errorlog_Status_Set_Enable` | `_ECAT_Master_Errorlog_Status_Set_Enable` | `ushort` | `ushort CardNo, ushort Enable, ushort RecordMask` |
+| `CS_ECAT_Master_Errorlog_Status_Get_Enable` | `_ECAT_Master_Errorlog_Status_Get_Enable` | `ushort` | `ushort CardNo, ref ushort Enable, ref ushort RecordMask` |
+| `CS_ECAT_Master_Errorlog_Status_Clear` | `_ECAT_Master_Errorlog_Status_Clear` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Master_Errorlog_Status_Get_ErrorCnt` | `_ECAT_Master_Errorlog_Status_Get_ErrorCnt` | `ushort` | `ushort CardNo, ref ushort ErrorCnt` |
+| `CS_ECAT_Master_Errorlog_Status_Get_ErrorData` | `_ECAT_Master_Errorlog_Status_Get_ErrorData` | `ushort` | `ushort CardNo, ref ushort ErrorCode, ref ushort ErrorData, ref double ErrorTime` |
+| `CS_ECAT_Master_Errorlog_Status_Get_Single_ErrorData` | `_ECAT_Master_Errorlog_Status_Get_Single_ErrorData` | `ushort` | `ushort CardNo, ushort Count, ref ushort ErrorCode, ref ushort ErrorData, ref double ErrorTime` |
+| `CS_ECAT_Master_Get_DLL_Path` | `_ECAT_Master_Get_DLL_Path` | `ushort` | `ref byte lpFilePath, uint nSize, ref uint nLength` |
+| `CS_ECAT_Master_Get_DLL_Version` | `_ECAT_Master_Get_DLL_Version` | `ushort` | `ref byte lpBuf, uint nSize, ref uint nLength` |
+| `CS_ECAT_Master_Get_DLL_ProductVersion` | `_ECAT_Master_Get_DLL_ProductVersion` | `ushort` | `ref byte lpBuf, uint nSize, ref uint nLength` |
+| `CS_ECAT_Master_Get_DLL_Path_Single` | `_ECAT_Master_Get_DLL_Path_Single` | `ushort` | `ushort CardNo, ref byte lpFilePath, uint nSize, ref uint nLength` |
+| `CS_ECAT_Master_Get_DLL_Version_Single` | `_ECAT_Master_Get_DLL_Version_Single` | `ushort` | `ushort CardNo, ref byte lpBuf, uint nSize, ref uint nLength` |
+| `CS_ECAT_Master_Get_DLL_ProductVersion_Single` | `_ECAT_Master_Get_DLL_ProductVersion_Single` | `ushort` | `ushort CardNo, ref byte lpBuf, uint nSize, ref uint nLength` |
+| `CS_ECAT_Master_GPIO_Set_Type` | `_ECAT_Master_GPIO_Set_Type` | `ushort` | `ushort CardNo, ushort PortNo, ushort Data` |
+| `CS_ECAT_Master_GPIO_Set_OutputValue` | `_ECAT_Master_GPIO_Set_OutputValue` | `ushort` | `ushort CardNo, ushort Data` |
+| `CS_ECAT_Master_GPIO_Get_OutputValue` | `_ECAT_Master_GPIO_Get_OutputValue` | `ushort` | `ushort CardNo, ref ushort Data` |
+| `CS_ECAT_Master_GPIO_Get_InputValue` | `_ECAT_Master_GPIO_Get_InputValue` | `ushort` | `ushort CardNo, ref ushort Data` |
+
+## 2. 从站信息与状态
+
+> 从站连接态、ESC 寄存器、紧急报文（EMCY）。OpState 语义：0=Init 1=PreOP 2=SafeOP 3=OP。（共 13 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_Get_EMCY_Data` | `_ECAT_Slave_Get_EMCY_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort ErrorCode, ref byte ErrorRegister, ref byte[] Data` |
+| `CS_ECAT_Slave_Get_Connect_Status` | `_ECAT_Slave_Get_Connect_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort OpState, ref ushort AlarmStatus` |
+| `CS_ECAT_Slave_Request_State` | `_ECAT_Slave_Request_State` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort OpState` |
+| `CS_ECAT_Slave_Get_ESC_Error_Counter` | `_ECAT_Slave_Get_ESC_Error_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Processing_Unit_Error_Counter, ref ushort PDI_Error_Counter` |
+| `CS_ECAT_Slave_Get_ESC_0x130` | `_ECAT_Slave_Get_ESC_0x130` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort ModuleInformation` |
+| `CS_ECAT_Slave_Get_ESC_0x134` | `_ECAT_Slave_Get_ESC_0x134` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort ModuleInformation` |
+| `CS_ECAT_Slave_Get_ESC_Port_Error_Counter` | `_ECAT_Slave_Get_ESC_Port_Error_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Port_Error_Counter` |
+| `CS_ECAT_Slave_Get_ESC_Reg` | `_ECAT_Slave_Get_ESC_Reg` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort RegAddr, ushort Len, ref byte Data` |
+| `CS_ECAT_Slave_Get_Module_Count` | `_ECAT_Slave_Get_Module_Count` | `ushort` | `ushort CardNo, ushort NodeID, ref ushort Count` |
+| `CS_ECAT_Slave_Get_Module_Ident` | `_ECAT_Slave_Get_Module_Ident` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SeqID, ref uint Ident` |
+| `CS_ECAT_Slave_Get_Module_Online_Status` | `_ECAT_Slave_Get_Module_Online_Status` | `ushort` | `ushort CardNo, ushort NodeID, ref UInt64 OnlineStatus` |
+| `CS_ECAT_Slave_Online_Generate_Dat` | `_ECAT_Slave_Online_Generate_Dat` | `ushort` | `ushort CardNo, string Folder` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Get_Slave_Info` | `_ECAT_Slave_CSP_Start_ECAM2_Get_Slave_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref short pi16_CurrentCamNo, ref int pi32_CurrentTablePos` |
+
+## 3. 运动基础 Motion
+
+> 模式切换、伺服使能、报警复位、位置/速度/扭矩读写、停止。（共 55 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_Motion_Get_MoveMode` | `_ECAT_Slave_Motion_Get_MoveMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref byte Mode` |
+| `CS_ECAT_Slave_Motion_Get_ControlWord` | `_ECAT_Slave_Motion_Get_ControlWord` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort ControllWord` |
+| `CS_ECAT_Slave_Motion_Get_StatusWord` | `_ECAT_Slave_Motion_Get_StatusWord` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort StatusWord` |
+| `CS_ECAT_Slave_Motion_Get_Command` | `_ECAT_Slave_Motion_Get_Command` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Command` |
+| `CS_ECAT_Slave_Motion_Get_Position` | `_ECAT_Slave_Motion_Get_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Position` |
+| `CS_ECAT_Slave_Motion_Get_Actual_Command` | `_ECAT_Slave_Motion_Get_Actual_Command` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int ActualCommand` |
+| `CS_ECAT_Slave_Motion_Get_Actual_Position` | `_ECAT_Slave_Motion_Get_Actual_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int ActualPosition` |
+| `CS_ECAT_Slave_Motion_Get_Mdone` | `_ECAT_Slave_Motion_Get_Mdone` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Mdone` |
+| `CS_ECAT_Slave_Motion_Get_Speed` | `_ECAT_Slave_Motion_Get_Speed` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Speed` |
+| `CS_ECAT_Slave_Motion_Get_Current_Speed` | `_ECAT_Slave_Motion_Get_Current_Speed` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Speed` |
+| `CS_ECAT_Slave_Motion_Get_Torque` | `_ECAT_Slave_Motion_Get_Torque` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref short Torque` |
+| `CS_ECAT_Slave_Motion_Get_Target_Command` | `_ECAT_Slave_Motion_Get_Target_Command` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int TargetCommand` |
+| `CS_ECAT_Slave_Motion_Get_Buffer_Length` | `_ECAT_Slave_Motion_Get_Buffer_Length` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort BufferLength` |
+| `CS_ECAT_Slave_Motion_Set_MoveMode` | `_ECAT_Slave_Motion_Set_MoveMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort OpMode` |
+| `CS_ECAT_Slave_Motion_Set_Simple_MoveMode` | `_ECAT_Slave_Motion_Set_Simple_MoveMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort OpMode` |
+| `CS_ECAT_Slave_Motion_Set_Svon` | `_ECAT_Slave_Motion_Set_Svon` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort On_Off` |
+| `CS_ECAT_Slave_Motion_Ralm` | `_ECAT_Slave_Motion_Ralm` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Motion_Set_Position` | `_ECAT_Slave_Motion_Set_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int Pos` |
+| `CS_ECAT_Slave_Motion_Set_Command` | `_ECAT_Slave_Motion_Set_Command` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int Cmd` |
+| `CS_ECAT_Slave_Motion_Emg_Stop` | `_ECAT_Slave_Motion_Emg_Stop` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Motion_Sd_Stop` | `_ECAT_Slave_Motion_Sd_Stop` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, double Tdec` |
+| `CS_ECAT_Slave_Motion_Set_Alm_Reaction` | `_ECAT_Slave_Motion_Set_Alm_Reaction` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Fault_Type, ushort WR_Type` |
+| `CS_ECAT_Slave_Motion_Set_Internal_Limit_Active_Reaction` | `_ECAT_Slave_Motion_Set_Internal_Limit_Active_Reaction` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Internal_Limit_Active_Type` |
+| `CS_ECAT_Slave_Motion_Set_Command_Wait_Target_Reach` | `_ECAT_Slave_Motion_Set_Command_Wait_Target_Reach` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Wait` |
+| `CS_ECAT_Slave_Motion_Ignore_Sd_Stop_Wrong_Value` | `_ECAT_Slave_Motion_Ignore_Sd_Stop_Wrong_Value` | `ushort` | `ushort CardNo, byte Ignore` |
+| `CS_ECAT_Slave_Motion_Get_Record_Axis_Unusual` | `_ECAT_Slave_Motion_Get_Record_Axis_Unusual` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` |
+| `CS_ECAT_Slave_Motion_Clear_Record_Axis_Unusual` | `_ECAT_Slave_Motion_Clear_Record_Axis_Unusual` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Slave_Motion_Reset_Record_Axis_Unusual` | `_ECAT_Slave_Motion_Reset_Record_Axis_Unusual` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_Motion_Set_Svon_All` | `_ECAT_Slave_Motion_Set_Svon_All` | `ushort` | `ushort CardNo, ushort Enable` |
+| `CS_ECAT_Slave_Motion_Ralm_All` | `_ECAT_Slave_Motion_Ralm_All` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_CycleMode_Data` | `_ECAT_Slave_CSP_Start_TableMotion_CycleMode_Data` | `ushort` | `ushort CardNo, ushort TableNo, ref int PositionData, int DataSize, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, int MaxVel, ushort FilterTime, ushort AMFNum, ushort CycleNum, ref int IOControl` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_CycleMode_Move` | `_ECAT_Slave_CSP_Start_TableMotion_CycleMode_Move` | `ushort` | `ushort CardNo, ushort TableNo` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_BufferMode_Move` | `_ECAT_Slave_CSP_Start_TableMotion_BufferMode_Move` | `ushort` | `ushort CardNo, ushort TableNo, ref int PositionData, int DataSize, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, int MaxVel, ushort FilterTime, ushort AMFNum, ref int IOControl` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_Get_Length` | `_ECAT_Slave_CSP_Start_TableMotion_Get_Length` | `ushort` | `ushort CardNo, ushort TableNo, ref int cnt` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_Get_CycleNum` | `_ECAT_Slave_CSP_Start_TableMotion_Get_CycleNum` | `ushort` | `ushort CardNo, ushort TableNo, ref int cycle` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_Feedrate_Overwrite` | `_ECAT_Slave_CSP_Start_TableMotion_Feedrate_Overwrite` | `ushort` | `ushort CardNo, ushort TableNo, int ratio, double sec` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_Feedhold` | `_ECAT_Slave_CSP_Start_TableMotion_Feedhold` | `ushort` | `ushort CardNo, ushort TableNo, ushort On_Off, double sec` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_Get_VectorSpeed` | `_ECAT_Slave_CSP_Start_TableMotion_Get_VectorSpeed` | `ushort` | `ushort CardNo, ushort TableNo, ref double vectorspeed` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_Set_Blending_Ratio` | `_ECAT_Slave_CSP_Start_TableMotion_Set_Blending_Ratio` | `ushort` | `ushort CardNo, ushort TableNo, uint Ratio` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Parameter` | `_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Parameter` | `ushort` | `ushort CardNo, ushort TableNo, int NanoSmoothDecectionLength, int RefTurnOnSpd, ushort CurveDecectionFlag, int CurveDecectionLength, double CurveDecectionAngle, int ArcRefSpeed, int ArcRefRadius` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Data` | `_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Data` | `ushort` | `ushort CardNo, ushort TableNo, ref int PositionData, int DataSize, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ref int MaxVel, ref int AccDec, double InitialVel_Ratio, ref int IOControl` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Data_Flying_Photography` | `_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Data_Flying_Photography` | `ushort` | `ushort CardNo, ushort TableNo, ref int PositionData, int DataSize, ref ushort AxisArray, ref ushort SlotArray, ref int MaxVel, ref int AccDecLimit, int Remain_Dist, int Stage2_Velocity, double InitialVel_Ratio, ref int IOControl` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Move` | `_ECAT_Slave_CSP_Start_TableMotion_ProfileMode_Move` | `ushort` | `ushort CardNo, ushort TableNo` |
+| `CS_ECAT_Slave_CSP_Start_TableMotion_IOControl_Mapping` | `_ECAT_Slave_CSP_Start_TableMotion_IOControl_Mapping` | `ushort` | `ushort CardNo, ushort TableNo, ushort IOControlNum, ushort NodeID, ushort SlotID, ushort BitNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Motion_Status` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Motion_Status` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort Status, ref int BlockNum, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Group_Motion_Stop` | `_ECAT_Slave_CSP_Group_Motion_Stop` | `ushort` | `ushort CardNo, ushort GroupNo, double Tdec, ushort Mode` |
+| `CS_ECAT_Slave_User_Motion_Control_Set_Type` | `_ECAT_Slave_User_Motion_Control_Set_Type` | `ushort` | `ushort CardNo, ushort GroupNo, ushort AxisNum, ref ushort AxisNo, ref ushort SlotNo, ushort MotionType` |
+| `CS_ECAT_Slave_User_Motion_Control_Set_Enable_Mode` | `_ECAT_Slave_User_Motion_Control_Set_Enable_Mode` | `ushort` | `ushort CardNo, ushort GroupNo, ushort Enable` |
+| `CS_ECAT_Slave_User_Motion_Control_Get_Enable_Mode` | `_ECAT_Slave_User_Motion_Control_Get_Enable_Mode` | `ushort` | `ushort CardNo, ushort GroupNo, ref ushort Enable` |
+| `CS_ECAT_Slave_User_Motion_Control_Set_Data` | `_ECAT_Slave_User_Motion_Control_Set_Data` | `ushort` | `ushort CardNo, ushort GroupNo, ref int CmdPulse` |
+| `CS_ECAT_Slave_User_Motion_Control_Get_DataCnt` | `_ECAT_Slave_User_Motion_Control_Get_DataCnt` | `ushort` | `ushort CardNo, ushort GroupNo, ref ushort Counter` |
+| `CS_ECAT_Slave_User_Motion_Control_Clear_Data` | `_ECAT_Slave_User_Motion_Control_Clear_Data` | `ushort` | `ushort CardNo, ushort GroupNo` |
+| `CS_ECAT_Slave_User_Motion_Control_Ralm` | `_ECAT_Slave_User_Motion_Control_Ralm` | `ushort` | `ushort CardNo, ushort GroupNo` |
+| `CS_ECAT_Slave_User_Motion_Control_Svon` | `_ECAT_Slave_User_Motion_Control_Svon` | `ushort` | `ushort CardNo, ushort GroupNo, ushort ON_OFF` |
+| `CS_ECAT_Slave_User_Motion_Control_Get_Alm` | `_ECAT_Slave_User_Motion_Control_Get_Alm` | `ushort` | `ushort CardNo, ushort GroupNo, ref ushort Alm` |
+
+## 4. 回零 Home
+
+> 回零配置与启动。注意：速度单位脉冲/s、加速时间单位 ms（与运动 API 的秒不同）。（共 23 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Start_TouchProb_Home_Move` | `_ECAT_Slave_CSP_Start_TouchProb_Home_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort TriggerSource, ushort TriggerEdge, ushort Direction, int Offset, int StrVel, int FirstVel, int SecondVel, int EndVel, double Tacc, double Tdec, ushort SCurve` |
+| `CS_ECAT_Slave_CSP_Start_TouchProb_Home_Status` | `_ECAT_Slave_CSP_Start_TouchProb_Home_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Start_Gantry_TouchProb_Home_Move` | `_ECAT_Slave_CSP_Start_Gantry_TouchProb_Home_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort TriggerSource, ushort TriggerEdge, ushort Direction, int StrVel, int FirstVel, int SecondVel, int EndVel, double Tacc, double Tdec, ushort SCurve` |
+| `CS_ECAT_Slave_CSP_Gantry_Set_Home_Config` | `_ECAT_Slave_CSP_Gantry_Set_Home_Config` | `ushort` | `ushort CardNo, ushort GantryNo, ushort Mode, int Offset, uint FirstVel, uint SecondVel, double Tacc, ushort Dir, int Shift` |
+| `CS_ECAT_Slave_CSP_Gantry_Home_Move` | `_ECAT_Slave_CSP_Gantry_Home_Move` | `ushort` | `ushort CardNo, ushort GantryNo` |
+| `CS_ECAT_Slave_CSP_Gantry_Disable_Home_Move` | `_ECAT_Slave_CSP_Gantry_Disable_Home_Move` | `ushort` | `ushort CardNo, ushort GantryNo` |
+| `CS_ECAT_Slave_CSP_Gantry_Home_Status` | `_ECAT_Slave_CSP_Gantry_Home_Status` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Gantry_Set_Home_Edge_Trigger_Level` | `_ECAT_Slave_CSP_Gantry_Set_Home_Edge_Trigger_Level` | `ushort` | `ushort CardNo, ushort GantryNo, ushort PositiveLimt, ushort NegativeLimit, ushort HomeSensor` |
+| `CS_ECAT_Slave_CSP_Gantry_Home_Single_Step_Mode` | `_ECAT_Slave_CSP_Gantry_Home_Single_Step_Mode` | `ushort` | `ushort CardNo, ushort GantryNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Gantry_Home_Next_Step` | `_ECAT_Slave_CSP_Gantry_Home_Next_Step` | `ushort` | `ushort CardNo, ushort GantryNo` |
+| `CS_ECAT_Slave_CSP_Gantry_Home_Fail_Status` | `_ECAT_Slave_CSP_Gantry_Home_Fail_Status` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Status, ref ushort Rt` |
+| `CS_ECAT_Slave_CSP_Touchprob_Home_Fail_Status` | `_ECAT_Slave_CSP_Touchprob_Home_Fail_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status, ref ushort Rt` |
+| `CS_ECAT_Slave_CSP_Home_Axis_Config` | `_ECAT_Slave_CSP_Home_Axis_Config` | `ushort` | `ushort CardNo, ushort HomeNo, ushort NodeID, ushort SlotID, ushort Mode, int Offset, uint FirstVel, uint SecondVel, double Tacc, ushort Dir, int Shift` |
+| `CS_ECAT_Slave_CSP_Home_Move` | `_ECAT_Slave_CSP_Home_Move` | `ushort` | `ushort CardNo, ushort HomeNo, ushort u16_LimitNo` |
+| `CS_ECAT_Slave_CSP_Home_Status` | `_ECAT_Slave_CSP_Home_Status` | `ushort` | `ushort CardNo, ushort HomeNo, ref ushort Status` |
+| `CS_ECAT_Slave_Home_Config` | `_ECAT_Slave_Home_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode, int Offset, uint FirstVel, uint SecondVel, uint Acceleration` |
+| `CS_ECAT_Slave_Home_Move` | `_ECAT_Slave_Home_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Home_Status` | `_ECAT_Slave_Home_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Status` |
+| `CS_ECAT_Slave_R1_EC5621_Set_Home_SpMode` | `_ECAT_Slave_R1_EC5621_Set_Home_SpMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC5621_Set_Home_Slow_Down` | `_ECAT_Slave_R1_EC5621_Set_Home_Slow_Down` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable, ushort SlowDoneTime, ushort WaitTime` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_Home_SpMode` | `_ECAT_Slave_R1_ECx62x_Set_Home_SpMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_Home_Slow_Down` | `_ECAT_Slave_R1_ECx62x_Set_Home_Slow_Down` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable, ushort SlowDoneTime, ushort WaitTime` |
+| `CS_ECAT_Slave_ESC5621_Set_Home_SpMode` | `_ECAT_Slave_ESC5621_Set_Home_SpMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+
+## 5. CSP 点位/速度/停止/变更
+
+> 周期同步位置模式（本项目主用）。全部为脉冲单位。（共 84 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Start_Move` | `_ECAT_Slave_CSP_Start_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int Dist, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_V_Move` | `_ECAT_Slave_CSP_Start_V_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Dir, int StrVel, int ConstVel, double Tacc, ushort SCurve` |
+| `CS_ECAT_Slave_CSP_Start_SuperImposed_Move` | `_ECAT_Slave_CSP_Start_SuperImposed_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Dist, int VelocityDiff, double Tacc, double Tdec` |
+| `CS_ECAT_Slave_CSP_Set_Turret_Mode_Parmeter` | `_ECAT_Slave_CSP_Set_Turret_Mode_Parmeter` | `ushort` | `ushort CardNo, ushort Axes, ref ushort NodeID, ref ushort SlotID, ref uint EncoderResolution` |
+| `CS_ECAT_Slave_CSP_Turret_Move` | `_ECAT_Slave_CSP_Set_Turret_Mode_Parmeter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Deg, ushort Dir, double StrVel, double MaxVel, double EndVel, double Tacc, double Tdec, ushort CurveMode, ushort AbsRel` |
+| `CS_ECAT_Slave_CSP_Start_HaltSuperImposed_Move` | `_ECAT_Slave_CSP_Start_HaltSuperImposed_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Tdec` |
+| `CS_ECAT_Slave_CSP_Start_Get_Superimposed_Status` | `_ECAT_Slave_CSP_Start_Get_Superimposed_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort State` |
+| `CS_ECAT_Slave_CSP_Start_G31_Move` | `_ECAT_Slave_CSP_Start_G31_Move` | `ushort` | `ushort CardNo, ushort Group, ushort Axes, ref ushort NodeID, ref ushort SlotID, ref int Dist, int StrVel, int MaxVel, int EndVel, double Tacc, double Tdec, ushort CurveMode, ushort AbsRel` |
+| `CS_ECAT_Slave_CSP_Start_G31_Set_Info` | `_ECAT_Slave_CSP_Start_G31_Set_Info` | `ushort` | `ushort CardNo, ushort Group, ushort DiNodeID, ushort DiSlotID, ushort DiPolarity, ushort BitNo, ushort FilterTime, double McDec` |
+| `CS_ECAT_Slave_CSP_Start_G31_Get_Fbk` | `_ECAT_Slave_CSP_Start_G31_Get_Fbk` | `ushort` | `ushort CardNo, ushort Group, ref ushort State, ref int Fbk` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_SmoothCurveVelocity` | `_ECAT_Slave_CSP_Start_MotionBuf_SmoothCurveVelocity` | `ushort` | `ushort CardNo, ushort TableNo, int CornerDetectMinL, int CurvatureDetectMinL, double LittleTurningAngle, ushort CurveSpeedModify` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_XYZ_Coordinate_Information` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_XYZ_Coordinate_Information` | `ushort` | `ushort CardNo, ushort TableNo, ushort XYZAxisNum, ref ushort AxisArray` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_Axis_CornerVelocityDifferenceLimit` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_Axis_CornerVelocityDifferenceLimit` | `ushort` | `ushort CardNo, ushort TableNo, ref int AxisVelocityDifferenceLimit, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_Axis_DecelerationLimit` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_Axis_DecelerationLimit` | `ushort` | `ushort CardNo, ushort TableNo, ref int AxisMaxDec, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Get_FifoSwitchPosition` | `_ECAT_Slave_CSP_Start_MotionBuf_Get_FifoSwitchPosition` | `ushort` | `ushort CardNo, ushort TableNo, ref int Position` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Lookahead_ManualMode` | `_ECAT_Slave_CSP_Start_MotionBuf_Lookahead_ManualMode` | `ushort` | `ushort CardNo, ushort TableNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Lookahead_Process` | `_ECAT_Slave_CSP_Start_MotionBuf_Lookahead_Process` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_PredictMachineTime_Mode` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_PredictMachineTime_Mode` | `ushort` | `ushort CardNo, ushort TableNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Get_PredictMachineTime` | `_ECAT_Slave_CSP_Start_MotionBuf_Get_PredictMachineTime` | `ushort` | `ushort CardNo, ushort TableNo, ref double PredictTime` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_CurrentPosition` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_CurrentPosition` | `ushort` | `ushort CardNo, ushort TableNo, ref int Position` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_ImageRatio` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_ImageRatio` | `ushort` | `ushort CardNo, ushort TableNo, ref uint Ratio` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_EvenTime` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_EvenTime` | `ushort` | `ushort CardNo, ushort TableNo, ushort EvenTime` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_AngleCalculateMinL` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_AngleCalculateMinL` | `ushort` | `ushort CardNo, ushort TableNo, int AngleCalculateMinL` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_ParameterGroupIndex` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_ParameterGroupIndex` | `ushort` | `ushort CardNo, ushort TableNo, ushort ParaGroupIndex` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Active_ParameterGroup` | `_ECAT_Slave_CSP_Start_MotionBuf_Active_ParameterGroup` | `ushort` | `ushort CardNo, ushort TableNo, ushort ParaGroupIndex, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Change_Mode` | `_ECAT_Slave_CSP_Start_MotionBuf_Change_Mode` | `ushort` | `ushort CardNo, ushort TableNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_MinimumBlockMotionTime` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_MinimumBlockMotionTime` | `ushort` | `ushort CardNo, ushort TableNo, double MotionTime` |
+| `CS_ECAT_Slave_CSP_Group_Info` | `_ECAT_Slave_CSP_Group_Info` | `ushort` | `ushort CardNo, ushort GroupNo, ushort Axes, ref ushort NodeID, ref ushort SlotID` |
+| `CS_ECAT_Slave_CSP_Group_Enable` | `_ECAT_Slave_CSP_Group_Enable` | `ushort` | `ushort CardNo, ushort GroupNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_Knife_Tool_Measure` | `_ECAT_Slave_CSP_Start_Knife_Tool_Measure` | `ushort` | `ushort CardNo, ushort MeasureNo, ushort NodeID, ushort SlotID, ushort TriggerEdge, int FirstVel, int SecondVel, double Tacc, double Tdec, int SafetyPosition, int LimitDistance, ushort Abs_Rel, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Get_Knife_Tool_Measure_Latch_Position` | `_ECAT_Slave_CSP_Get_Knife_Tool_Measure_Latch_Position` | `ushort` | `ushort CardNo, ushort MeasureNo, ref int LatchPosition` |
+| `CS_ECAT_Slave_CSP_Get_Knife_Tool_Measure_Status` | `_ECAT_Slave_CSP_Get_Knife_Tool_Measure_Status` | `ushort` | `ushort CardNo, ushort MeasureNo, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_2D_Compensation_Set_Parameters` | `_ECAT_Slave_CSP_2D_Compensation_Set_Parameters` | `ushort` | `ushort CardNo, ushort CmpNo, ref ushort NodeID, ref ushort SlotID, ref int BeginPos, ref int Spacing, ref int Count, ushort DataType, ref int Dx, ref int Dy, ushort Enable` |
+| `CS_ECAT_Slave_CSP_2D_Compensation_Get_Status` | `_ECAT_Slave_CSP_2D_Compensation_Get_Status` | `ushort` | `ushort CardNo, ushort CmpNo, ref ushort Enable` |
+| `CS_ECAT_Slave_CSP_2D_Compensation_Get_PreCompensationPos` | `_ECAT_Slave_CSP_2D_Compensation_Get_PreCompensationPos` | `ushort` | `ushort CardNo, ushort CmpNo, int CompensationPos1, int CompensationPos2, ref int PreCompensationPos1, ref int PreCompensationPos2, ref ushort OutOfRange` |
+| `CS_ECAT_Slave_CSP_TargetPos_Change` | `_ECAT_Slave_CSP_TargetPos_Change` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int NewPos` |
+| `CS_ECAT_Slave_CSP_Velocity_Change` | `_ECAT_Slave_CSP_Velocity_Change` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int NewSpeed, double Tsec` |
+| `CS_ECAT_Slave_CSP_TargetPos_Velocity_Change` | `_ECAT_Slave_CSP_TargetPos_Velocity_Change` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int NewPos, int NewSpeed, double Tsec` |
+| `CS_ECAT_Slave_CSP_Feedrate_Overwrite` | `_ECAT_Slave_CSP_Feedrate_Overwrite` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode, int NewSpeed, double Tsec` |
+| `CS_ECAT_Slave_CSP_Feedrate_Overwrite2` | `_ECAT_Slave_CSP_Feedrate_Overwrite2` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode, int NewSpeed` |
+| `CS_ECAT_Slave_CSP_Speed_Continue_Enable` | `_ECAT_Slave_CSP_Speed_Continue_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Speed_Continue_Set_Mode` | `_ECAT_Slave_CSP_Speed_Continue_Set_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Speed_Continue_Set_Combine_Ratio` | `_ECAT_Slave_CSP_Speed_Continue_Set_Combine_Ratio` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Ratio` |
+| `CS_ECAT_Slave_CSP_Scurve_Rate` | `_ECAT_Slave_CSP_Scurve_Rate` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Scurve_Rate` |
+| `CS_ECAT_Slave_CSP_Linear_Speed_Master` | `_ECAT_Slave_CSP_Linear_Speed_Master` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Mask_Axis` | `_ECAT_Slave_CSP_Mask_Axis` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotNoArray` |
+| `CS_ECAT_Slave_CSP_Sync_Config` | `_ECAT_Slave_CSP_Sync_Config` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Sync_Move` | `_ECAT_Slave_CSP_Sync_Move` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Slave_CSP_Abort_and_Change_Position` | `_ECAT_Slave_CSP_Abort_and_Change_Position` | `ushort` | `ushort CardNo, ushort Axes, ref ushort NodeID, ref ushort SlotID, ref int Dist, int MaxVel, int EndVel, double Tacc, double Tdec, ushort CurveMode` |
+| `CS_ECAT_Slave_CSP_Flying_Compensate_Move` | `_ECAT_Slave_CSP_Flying_Compensate_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Dist, int StrVel, int MaxVel, int EndVel, double Tacc, double Tdec, ushort AbsRel, ushort CompareChannel, int CompensateMaxVel, int CompensateOffset, double f64_Ratio` |
+| `CS_ECAT_Slave_CSP_Get_Flying_Compensate_Data` | `_ECAT_Slave_CSP_Get_Flying_Compensate_Data` | `ushort` | `ushort CardNo, ref int Velocity, ref int Offset, ushort DataNum` |
+| `CS_ECAT_Slave_CSP_Set_SingleAxis_NormalAMF_Enable` | `_ECAT_Slave_CSP_Set_SingleAxis_NormalAMF_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort FilterTime, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Set_NormalAMF_Enable` | `_ECAT_Slave_CSP_Set_NormalAMF_Enable` | `ushort` | `ushort CardNo, ushort FilterNum, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Set_DITrigger_Info` | `_ECAT_Slave_CSP_Set_DITrigger_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Polarity, ushort FilterTime` |
+| `CS_ECAT_Slave_CSP_Get_DITrigger_Status` | `_ECAT_Slave_CSP_Get_DITrigger_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort TriggerStatus, ref uint TriggerCount` |
+| `CS_ECAT_Slave_CSP_Set_SLD_Enable` | `_ECAT_Slave_CSP_Set_SLD_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Tdec, ushort SourceType, ushort DINodeID, ushort DISlotID, ushort SourceNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Set_TrSeg2_Enable` | `_ECAT_Slave_CSP_Set_TrSeg2_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Dist, int ConstVel, int EndVel, double Tacc, double Tdec, ushort Scurve, ushort SourceType, ushort DINodeID, ushort DISlotID, ushort SourceNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Set_Velocity_Change_Enable` | `_ECAT_Slave_CSP_Set_Velocity_Change_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int NewSpeed, double Tsec, ushort SourceType, ushort DINodeID, ushort DISlotID, ushort SourceNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Set_DITrigger_OD` | `_ECAT_Slave_CSP_Set_DITrigger_OD` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort OdIndex, ushort OdSubIndex` |
+| `CS_ECAT_Slave_CSP_Sld_Set_Time` | `_ECAT_Slave_CSP_Sld_Set_Time` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double DecTime` |
+| `CS_ECAT_Slave_CSP_Get_SoftLimit_Status` | `_ECAT_Slave_CSP_Get_SoftLimit_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Set_SoftTargetReach` | `_ECAT_Slave_CSP_Set_SoftTargetReach` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Window_Time, uint Position_Window, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Get_SoftTargetReach_Status` | `_ECAT_Slave_CSP_Get_SoftTargetReach_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Pitch_Set_InterVal` | `_ECAT_Slave_CSP_Pitch_Set_InterVal` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint InterVal` |
+| `CS_ECAT_Slave_CSP_Pitch_Set_Mode` | `_ECAT_Slave_CSP_Pitch_Set_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Pitch_Set_Org` | `_ECAT_Slave_CSP_Pitch_Set_Org` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Dir, int OrgPos` |
+| `CS_ECAT_Slave_CSP_Pitch_Set_Rel_Table` | `_ECAT_Slave_CSP_Pitch_Set_Rel_Table` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Dir, ref int Table, ushort Num` |
+| `CS_ECAT_Slave_CSP_Pitch_Set_Abs_Table` | `_ECAT_Slave_CSP_Pitch_Set_Abs_Table` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Dir, ref int Table, ushort Num` |
+| `CS_ECAT_Slave_CSP_Pitch_Set_Enable` | `_ECAT_Slave_CSP_Pitch_Set_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Slave_CSP_ZOT_Set_Parameters` | `_ECAT_Slave_CSP_ZOT_Set_Parameters` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort NodeID, ref ushort SlotID, int StartPosX, int StartPosY, int IntervalX, int IntervalY, int SegmentsX, int SegmentsY, int OffsetX, int OffsetY, ref int Table, ushort Mode, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Pitch_Reverse_Position` | `_ECAT_Slave_CSP_Pitch_Reverse_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Pos_After_Compensate, ref int Pos_Before_Compensate` |
+| `CS_ECAT_Slave_CSP_Backlash_Set_Info` | `_ECAT_Slave_CSP_Backlash_Set_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, short Backlash, ushort AccStep, ushort ConstStep, ushort DecStep` |
+| `CS_ECAT_Slave_CSP_Backlash_Enable` | `_ECAT_Slave_CSP_Backlash_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Follow_Enable` | `_ECAT_Slave_CSP_Follow_Enable` | `ushort` | `ushort CardNo, ushort GantryNo, ushort MasterNodeID, ushort MasterSlotID, ushort SlaveNodeID, ushort SlaveSlotID, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Set_Follow_Ratio` | `_ECAT_Slave_CSP_Set_Follow_Ratio` | `ushort` | `ushort CardNo, ushort GantryNo, double Ratio` |
+| `CS_ECAT_Slave_CSP_Get_Follow_Info` | `_ECAT_Slave_CSP_Get_Follow_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Enable, ref ushort MasterNodeID, ref ushort MasterSlotID` |
+| `CS_ECAT_Slave_CSP_Velocity_Compensate_Info` | `_ECAT_Slave_CSP_Velocity_Compensate_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Velcoity_Offset_Normalize, int Pulse_Normalize, int Podition_Threshold, double PID_Kp, double PID_Ki, double PID_Kd` |
+| `CS_ECAT_Slave_CSP_Velocity_Compensate_LPF_Info` | `_ECAT_Slave_CSP_Velocity_Compensate_LPF_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort LPF_Mode, double LPF_Time` |
+| `CS_ECAT_Slave_CSP_Velocity_Compensate_Forward_Info` | `_ECAT_Slave_CSP_Velocity_Compensate_Forward_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Forward_Mode, ushort Forward_Time, double Forward_Kp` |
+| `CS_ECAT_Slave_CSP_Velocity_Compensate_PIDAdv_Info` | `_ECAT_Slave_CSP_Velocity_Compensate_PIDAdv_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double PID_Output_Max, double PID_Output_Min, double PID_Ki_Max, double PID_Ki_Min` |
+| `CS_ECAT_Slave_CSP_Velocity_Compensate_Enable` | `_ECAT_Slave_CSP_Velocity_Compensate_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Remote_Limit_Config` | `_ECAT_Slave_CSP_Remote_Limit_Config` | `ushort` | `ushort CardNo, ushort LimitNo, ushort AxisNodeID, ushort AxisSlotID, ushort DINodeID, ushort DISlotID, ushort PELBitNo, ushort NELBitNo, ushort ORGBitNo` |
+| `CS_ECAT_Slave_CSP_Remote_Limit_Edge_Trigger_Level` | `_ECAT_Slave_CSP_Remote_Limit_Edge_Trigger_Level` | `ushort` | `ushort CardNo, ushort LimitNo, ushort PositiveLimt, ushort NegativeLimit, ushort HomeSensor` |
+| `CS_ECAT_Slave_CSP_Remote_Limit_Enable` | `_ECAT_Slave_CSP_Remote_Limit_Enable` | `ushort` | `ushort CardNo, ushort LimitNo, ushort Enable` |
+
+## 6. CSP 插补与多轴
+
+> 直线/圆弧/螺旋/多轴同步插补。（共 48 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Start_Arc_Move` | `_ECAT_Slave_CSP_Start_Arc_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotNo, ref int CenterPoint, double Angle, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Arc2_Move` | `_ECAT_Slave_CSP_Start_Arc2_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotNo, ref int EndPoint, double Angle, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Arc3_Move` | `_ECAT_Slave_CSP_Start_Arc3_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotNo, ref int CenterPoint, ref int EndPoint, ushort Dir, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Arc4_Move` | `_ECAT_Slave_CSP_Start_Arc4_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotNo, ref int MidPoint, ref int EndPoint, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_Spiral_Move` | `_ECAT_Slave_CSP_Start_Spiral_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotID, ref int CenterPoint, int Spiral_Interval, double Angle, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Spiral2_Move` | `_ECAT_Slave_CSP_Start_Spiral2_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotID, ref int CenterPoint, ref int EndPoint, ushort Dir, ushort CycleNum, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Sphere_Move` | `_ECAT_Slave_CSP_Start_Sphere_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotNo, ref int Target1Point, ref int Target2Point, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Heli_Move` | `_ECAT_Slave_CSP_Start_Heli_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotNo, ref int CenterPoint, int Depth, int Pitch, ushort Dir, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Msbrline_Move` | `_ECAT_Slave_CSP_Start_Msbrline_Move` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ushort ArcNodeBit, ref int Target1Point, ref int Target2Point, ushort Mode, double Parameter, double ArcAngle1, double ArcAngle2, double SpdRatio, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Mabrline_Move` | `_ECAT_Slave_CSP_Start_Mabrline_Move` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ref int Target1Point, ref int Target2Point, int StrVel, int FirstVel, int SecondVel, int EndVel, double Tacc_Step1, double Tacc_Step2, ushort Absflag` |
+| `CS_ECAT_Slave_CSP_Start_Multiaxes_Move` | `_ECAT_Slave_CSP_Start_Multiaxes_Move` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ref int Dist, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_2Segment_Move` | `_ECAT_Slave_CSP_Start_2Segment_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SegMode, int Dist, int Dist2, int StrVel, int MaxVel, int MaxVel2, int EndVel, double Tacc, double Tsec, double Tdec, ushort SCurve, ushort IsAbs` |
+| `CS_ECAT_Slave_CSP_Start_Helix_Multiaxes_Move` | `_ECAT_Slave_CSP_Start_Helix_Multiaxes_Move` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ref int CenterPoint, ref int Dist, int Depth, int Pitch, ushort Dir, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_Spiral_Helix_Move` | `_ECAT_Slave_CSP_Start_Spiral_Helix_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotID, ref int CenterPoint, int Spiral_Interval, double Angle, int Pitch, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_Spiral_Helix2_Move` | `_ECAT_Slave_CSP_Start_Spiral_Helix2_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotID, ref int CenterPoint, ref int EndPoint, ushort Dir, ushort CycleNum, int Pitch, int StrVel, int ConstVel, int EndVel, double Tacc, double Tdec, ushort SCurve, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_Tank_Helix_Move` | `_ECAT_Slave_CSP_Start_Tank_Helix_Move` | `ushort` | `ushort CardNo, ref ushort NodeID, ref ushort SlotID, ref int Point1, ref int Point2, ref int Point3, ref int Point4, int Depth, int Pitch, int MaxVel, ushort FilterTime, ushort AMFNum, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Multi_Single_Move2` | `_ECAT_Slave_CSP_Multi_Single_Move2` | `ushort` | `ushort CardNo, ushort Axes, ref ushort NodeID, ref ushort SlotID, ref int Dist, int StrVel, ref int MaxVel, int EndVel, ref double Tacc, ref double Tdec, ushort CurveMode, ushort AbsRel` |
+| `CS_ECAT_Slave_CSP_Multiaxes_Turret_Move` | `_ECAT_Slave_CSP_Set_Turret_Mode_Parmeter` | `ushort` | `ushort CardNo, ushort Axes, ref ushort NodeID, ref ushort SlotID, ref double Deg, ref uint Dir, double StrVel, double MaxVel, double EndVel, double Tacc, double Tdec, ushort CurveMode, ushort AbsRel` |
+| `CS_ECAT_Slave_CSP_Start_Multi_Segment_Measure_Move` | `_ECAT_Slave_CSP_Start_Multi_Segment_Measure_Move` | `ushort` | `ushort CardNo, ushort Group, ushort NodeID, ushort SlotID, int Dist, int StrVel, int MaxVel, int EndVel, double Tacc, double Tdec, ushort CurveMode, ushort AbsRel` |
+| `CS_ECAT_Slave_CSP_Start_Multi_Segment_Measure_Set_Info` | `_ECAT_Slave_CSP_Start_Multi_Segment_Measure_Set_Info` | `ushort` | `ushort CardNo, ushort Group, ushort DiNum, ref ushort DiNodeID, ref ushort DiSlotID, ref ushort DiPolarity, ref ushort BitNo, ref ushort FilterTime, double McDec` |
+| `CS_ECAT_Slave_CSP_Start_Multi_Segment_Measure_Get_Fbk` | `_ECAT_Slave_CSP_Start_Multi_Segment_Measure_Get_Fbk` | `ushort` | `ushort CardNo, ushort Group, ref ushort State, ref int Fbk` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Sphere` | `_ECAT_Slave_CSP_Start_MotionBuffer_Sphere` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort Sphere_Axis, ref int TargetPosition, ref int MidPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Sphere_Follow` | `_ECAT_Slave_CSP_Start_MotionBuffer_Sphere_Follow` | `ushort` | `ushort CardNo, ushort TableNo, ushort FollowAxesNum, ref ushort Axis_Array, ref int Sphere_TargetPosition, ref int Sphere_MidPosition, ref int Follow_TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort SpeedMode, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis` | `_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis` | `ushort` | `ushort CardNo, ushort TableNo, ref int TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis_G00` | `_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis_G00` | `ushort` | `ushort CardNo, ushort TableNo, ref int TargetPosition, int SynTargetVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc_Radius` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc_Radius` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort Arc_Axis, ref int TargetPosition, int Radius, ushort CircleDir, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc_CenterPos` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc_CenterPos` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort Arc_Axis, ref int TargetPosition, ref int CenterPos, ushort CircleDir, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc_F64CenterPos` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc_F64CenterPos` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort Arc_Axis, ref int TargetPosition, ref double CenterPos, ushort CircleDir, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Helix` | `_ECAT_Slave_CSP_Start_MotionBuffer_Helix` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort Helix_Axis, ref int CenterPos, int Depth, int Pitch, ushort HelixDir, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc_MidPos` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc_MidPos` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort Arc_Axis, ref int Arc_TargetPosition, ref int Arc_MidTargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc1` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc1` | `ushort` | `ushort CardNo, ushort TableNo, ushort FollowAxisNum, ref ushort Axis_Array, ref int CenterPos, double Angle, ushort CircleDir, ref int Follow_TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort SpeedMode, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_F64Arc1` | `_ECAT_Slave_CSP_Start_MotionBuffer_F64Arc1` | `ushort` | `ushort CardNo, ushort TableNo, ushort FollowAxisNum, ref ushort Axis_Array, ref double CenterPos, double Angle, ushort CircleDir, ref int Follow_TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort SpeedMode, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc2` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc2` | `ushort` | `ushort CardNo, ushort TableNo, ushort FollowAxisNum, ref ushort Axis_Array, ref int Arc_TargetPosition, double Angle, ushort CircleDir, ref int Follow_TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort SpeedMode, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc3` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc3` | `ushort` | `ushort CardNo, ushort TableNo, ushort FollowAxisNum, ref ushort Axis_Array, ref int Arc_TargetPosition, ref int CenterPos, ushort CircleDir, ref int Follow_TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort SpeedMode, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc4` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc4` | `ushort` | `ushort CardNo, ushort TableNo, ushort FollowAxisNum, ref ushort Axis_Array, ref int Arc_TargetPosition, ref int Arc_MidPosition, ref int Follow_TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort SpeedMode, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Arc_follow` | `_ECAT_Slave_CSP_Start_MotionBuffer_Arc_follow` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Axis_Array, ushort ArcMode, ref ushort Arc_Axis_Index, ushort Master_Axis_Index, ref int CenterPoint, ref int EndPoint, double Angle, ushort Dir, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis2` | `_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis2` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Line_Axis, ref int TargetPosition, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis2_G00` | `_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis2_G00` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Line_Axis, ref int TargetPosition, int SynTargetVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Advance_Arc_follow` | `_ECAT_Slave_CSP_Start_MotionBuffer_Advance_Arc_follow` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Axis_Array, ushort ArcMode, ref ushort Arc_Axis_Index, ref ushort Master_Axis_Index, ref int CenterPoint, ref int EndPoint, double Angle, ushort Dir, ushort FollowAxisNum, ref ushort FollowAxisArray, ref int Follow_TargetPosition, ushort SpeedMode, int SynTargetVel, int SynEndVel, int SynAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis_CheckPos_G00` | `_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis_CheckPos_G00` | `ushort` | `ushort CardNo, ushort TableNo, ref int TargetPos, ref int ErrorRage, ushort CheckTime, int SyncTargeVel, int SyncAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis_CheckPos2_G00` | `_ECAT_Slave_CSP_Start_MotionBuffer_Line_MultiAxis_CheckPos2_G00` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Line_Axis, ref int TargetPos, ref int ErrorRage, ushort CheckTime, int SyncTargeVel, int SyncAcc, ushort AbsMode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuf_Set_ArcReferenceVelocityData` | `_ECAT_Slave_CSP_Start_MotionBuf_Set_ArcReferenceVelocityData` | `ushort` | `ushort CardNo, ushort TableNo, ushort ArcRefVelDataNum, ref int ArcRefSpeed, ref int ArcRefRadius, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_ArcToLineNeedToCheckStandStill` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_ArcToLineNeedToCheckStandStill` | `ushort` | `ushort CardNo, ushort TableNo, double Angle, ushort Enable` |
+| `CS_ECAT_Slave_CSV_Multi_Start_Move` | `_ECAT_Slave_CSV_Multi_Start_Move` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort NodeID, ref ushort SlotNo, ref int Target_Velocity, ref double Acceleration, ushort Curve_Mode, ushort Acc_Type` |
+| `CS_ECAT_Slave_CST_Multi_Start_Move` | `_ECAT_Slave_CST_Multi_Start_Move` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort NodeID, ref ushort SlotNo, ref short Target_Torque, ref uint Slope, ushort Curve_Mode` |
+| `CS_ECAT_Slave_Record_Multi_Set_Enable` | `_ECAT_Slave_Record_Multi_Set_Enable` | `ushort` | `ushort CardNo, ushort NodeNum, ref ushort NodeIDArray, ref ushort SlotNoArray, ushort Enable` |
+| `CS_ECAT_Slave_Record_Multi_Clear_Data` | `_ECAT_Slave_Record_Multi_Clear_Data` | `ushort` | `ushort CardNo, ushort NodeNum, ref ushort NodeIDArray, ref ushort SlotNoArray` |
+| `CS_ECAT_Compare_Set_Channel_Trigger_Time_Multiple` | `_ECAT_Compare_Set_Channel_Trigger_Time_Multiple` | `ushort` | `ushort CardNo, ushort CompareChannel, ushort Multiple` |
+
+## 7. CSP 齿轮/虚拟轴/软限位
+
+> **虚拟轴是本项目 CAMBOX 主轴的对应物**；齿轮同步与软限位。（共 11 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Reference_Pos_Move_Config` | `_ECAT_Slave_CSP_Reference_Pos_Move_Config` | `ushort` | `ushort CardNo, ushort MasterNodeID, ushort MasterSlotID, ushort SlaveNodeID, ushort SlaveSlotID, int ReferencePos, short Dir` |
+| `CS_ECAT_Slave_CSP_CombineAxis` | `_ECAT_Slave_CSP_CombineAxis` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort MasterNodeID, ref ushort MasterSlotID, ref int GearRatioNumerator, ref int GearRatioDenominator, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_GearIn_Move` | `_ECAT_Slave_CSP_Start_GearIn_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort MasterNodeID, ushort MasterSlotID, ushort SourceType, ushort SourceNo, int RatioNumerator, uint RatioDenominator, double Acceleration, double Deceleration, ushort GearIn_Mode` |
+| `CS_ECAT_Slave_CSP_Start_GearOut_Move` | `_ECAT_Slave_CSP_Start_GearOut_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_CSP_Start_Get_GearIn_Status` | `_ECAT_Slave_CSP_Start_Get_GearIn_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort State` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_BufGear` | `_ECAT_Slave_CSP_Start_MotionBuffer_BufGear` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxisNo, ushort SlotNo, int Distance, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Set_Gear` | `_ECAT_Slave_CSP_Set_Gear` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, double Numerator, double Denominator, short Enable` |
+| `CS_ECAT_Slave_CSP_Set_Gear_Adv` | `_ECAT_Slave_CSP_Set_Gear_Adv` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Numerator, double Denominator, ushort Mode, short Enable` |
+| `CS_ECAT_Slave_CSP_Set_Softlimit` | `_ECAT_Slave_CSP_Set_Softlimit` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int PosiLimit, int NegaLimit, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Virtual_Set_Enable` | `_ECAT_Slave_CSP_Virtual_Set_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Virtual_Set_Command` | `_ECAT_Slave_CSP_Virtual_Set_Command` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Command` |
+
+## 8. CSV / CST 周期同步速度与扭矩
+
+> 周期同步速度 / 扭矩模式。（共 4 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSV_Start_Move` | `_ECAT_Slave_CSV_Start_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int Target_Velocity, double Acceleration, ushort Curve_Mode, ushort Acc_Type` |
+| `CS_ECAT_Slave_CSV_Output_Enable` | `_ECAT_Slave_CSV_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Slave_CST_Start_Move` | `_ECAT_Slave_CST_Start_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, short Target_Torque, uint Slope, ushort Curve_Mode` |
+| `CS_ECAT_Slave_CST_Output_Enable` | `_ECAT_Slave_CST_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+
+## 9. PP / PV / PT / VL 经典模式
+
+> 轮廓位置/速度/时间/速度-位置模式（兼容传统伺服模式）。（共 7 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_PP_Start_Move` | `_ECAT_Slave_PP_Start_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int TargetPos, uint ConstVel, uint Acceleration, uint Deceleration, ushort Abs_Rel` |
+| `CS_ECAT_Slave_PP_Advance_Config` | `_ECAT_Slave_PP_Advance_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort SetBit, uint End_Vel, int Min_Range_Limit, int Max_Range_Limit, int Min_Soft_Limit, int Max_Soft_Limit` |
+| `CS_ECAT_Slave_PV_Start_Move` | `_ECAT_Slave_PV_Start_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int TargetVel, uint Acceleration, uint Deceleration` |
+| `CS_ECAT_Slave_PV_Advance_Config` | `_ECAT_Slave_PV_Advance_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort SetBit, ushort Max_Torque, ushort Velocity_Window, ushort Velocity_Window_Time, ushort Velocity_Threshold, ushort Velocity_Threshold_Time` |
+| `CS_ECAT_Slave_VL_Start_Move` | `_ECAT_Slave_VL_Start_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int TargetVel, uint Acceleration, uint Deceleration` |
+| `CS_ECAT_Slave_PT_Start_Move` | `_ECAT_Slave_PT_Start_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, short Target_Torque, uint Slope` |
+| `CS_ECAT_Slave_PT_Advance_Config` | `_ECAT_Slave_PT_Advance_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort SetBit, ushort Max_Current, short Torque_Profile` |
+
+## 10. 电子凸轮 ECAM（一代）
+
+> 一代凸轮：表数据 + ECAM_Move 启动，支持飞剪、间歇印刷等工艺宏。（共 13 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Start_ECAM_Set_Engage_Parameters` | `_ECAT_Slave_CSP_Start_ECAM_Set_Engage_Parameters` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SourceType, ushort EngageNodeID, ushort EngageSlotID, ushort SourceNo, int Engage_PreLed, int Cycle_PreLead, ushort Engage_Mode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Set_Compensate_Parameters` | `_ECAT_Slave_CSP_Start_ECAM_Set_Compensate_Parameters` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SourceType, ushort CompensateNodeID, ushort CompensateSlotID, ushort SourceNo, int TargetPos, int Max_Compensate_Ratio, int Active_Range_Ratio, ushort CompensateTime, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Set_DisEngage_Parameters` | `_ECAT_Slave_CSP_Start_ECAM_Set_DisEngage_Parameters` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SourceType, ushort DisEngageNodeID, ushort DisEngageSlotID, ushort SourceNo, int DisEngage_Position, ushort DI_DisEngage, ushort DisEngage_TurnOff, ushort DisEngage_Mode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Set_SingleMove` | `_ECAT_Slave_CSP_Start_ECAM_Set_SingleMove` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Dist, int ConstVel, int EndVel, double Tacc, double Tdec, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Disable` | `_ECAT_Slave_CSP_Start_ECAM_Disable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Get_Status` | `_ECAT_Slave_CSP_Start_ECAM_Get_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Table_Data` | `_ECAT_Slave_CSP_Start_ECAM_Table_Data` | `ushort` | `ushort CardNo, ushort ECAMNo, int RegionNum, ref int DataArray, int Master_Pulse, double Slave_mm_Pulse, double Master_mm_Pulse` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Velocity_Data` | `_ECAT_Slave_CSP_Start_ECAM_Velocity_Data` | `ushort` | `ushort CardNo, ushort ECAMNo, int RegionNum, ref int[] Percent, int SCurveRegion, int TotalLength, int Master_Pulse_P, double Slave_mm_Pulse, double Master_mm_Pulse, ushort Construct_Mode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Flying_Shears_Data` | `_ECAT_Slave_CSP_Start_ECAM_Flying_Shears_Data` | `ushort` | `ushort CardNo, ushort ECAMNo, double GearNum_A, double GearNum_B, int KnifeNum, double SlaveDiameter, double EncoderDiameter, int EncoderPulseRev, int SlavePUURev, int CutLength, int RegionNum, ref int[] Region, int Slave_Prelead, int Master_Engage_Prelead, ushort PreLeadMode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Intermittence_Print_Data` | `_ECAT_Slave_CSP_Start_ECAM_Intermittence_Print_Data` | `ushort` | `ushort CardNo, ushort ECAMNo, int RegionNum, int PrintLength, int BlankLength, double GearNum_A, double GearNum_B, int SlavePUURev, double SlaveDiameter, int MasterPulseRev, double MasterDiameter, int HoldingAreaDeg, int SCurveDeg, int SynIncreaseDeg` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Move` | `_ECAT_Slave_CSP_Start_ECAM_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort ECAMNo, ushort MasterNodeID, ushort MasterSlotID, ushort SourceType, ushort SourceNo` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Move_ChangeTable` | `_ECAT_Slave_CSP_Start_ECAM_Move_ChangeTable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort ECAMNo` |
+| `CS_ECAT_Slave_CSP_Start_ECAM_Set_Scale` | `_ECAT_Slave_CSP_Start_ECAM_Set_Scale` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Percentage` |
+
+## 11. 电子凸轮 ECAM2（二代，推荐）
+
+> 二代凸轮：Profile 曲线建模 + CamIn/CamOut 进出，支持主轴源/周期/缩放/方向，是替代正运动 CAMBOX 的对应能力。（共 23 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Set_Engage_Parameters` | `_ECAT_Slave_CSP_Start_ECAM2_Set_Engage_Parameters` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SourceType, ushort EngageNodeID, ushort EngageSlotID, ushort SourceNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Set_Compensate_Parameters` | `_ECAT_Slave_CSP_Start_ECAM2_Set_Compensate_Parameters` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SourceType, ushort CompensateNodeID, ushort CompensateSlotID, ushort SourceNo, double TargetPos, double ActiveRangeRatio, double MaxVel, double Acceleration, double Deceleration, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Set_DisEngage_Parameters` | `_ECAT_Slave_CSP_Start_ECAM2_Set_DisEngage_Parameters` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SourceType, ushort DisEngageNodeID, ushort DisEngageSlotID, ushort SourceNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_RotaryCut_Initial` | `_ECAT_Slave_CSP_Start_ECAM2_RotaryCut_Initial` | `ushort` | `ushort CardNo, ushort RotCutNo, double RotaryAxisRadius, ushort RotaryAxisKnifeNum, double FeedAxisRadius, double CutLenth, double SyncStartPos, double SyncStopPos` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_RotaryCut_Move` | `_ECAT_Slave_CSP_Start_ECAM2_RotaryCut_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort RotCutNo, ushort MasterNodeID, ushort MasterSlotID, ushort SourceType, ushort SourceNo, int RotaryAxis_PulseRev, int FeedAxis_PulseRev, short RotaryAxis_Dir, short FeedAxis_Dir` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_FlyingShear_Initial` | `_ECAT_Slave_CSP_Start_ECAM2_FlyingShear_Initial` | `ushort` | `ushort CardNo, ushort FlyingShearNo, double MasterRadius, double SlaveRadius, double CutLength, double MasterStartPosition, double MasterSyncPosition, double SlaveSyncPosition, double SlaveEndPosition, double SlaveWaitPosition, double SlaveVelocity, double SlaveAcceleration, double SlaveDeceleration` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_FlyingShear_Move` | `_ECAT_Slave_CSP_Start_ECAM2_FlyingShear_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort FlyingShearNo, ushort MasterNodeID, ushort MasterSlotID, ushort SourceType, ushort SourceNo, int MasterAxis_PulseRev, int SlaveAxis_PulseRev, short MasterAxis_Dir, short SlaveAxis_Dir` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Disable` | `_ECAT_Slave_CSP_Start_ECAM2_Disable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Get_Status` | `_ECAT_Slave_CSP_Start_ECAM2_Get_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Phasing` | `_ECAT_Slave_CSP_Start_ECAM2_Phasing` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Dist, double MaxVel, double Acceleration, double Deceleration` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_CamSwitch` | `_ECAT_Slave_CSP_Start_ECAM2_CamSwitch` | `ushort` | `ushort CardNo, ushort CamNo, ushort SwitchNum, ref ushort Percent, ushort Cam_Mode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_CamSwitch_Status` | `_ECAT_Slave_CSP_Start_ECAM2_CamSwitch_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Profile_Data` | `_ECAT_Slave_CSP_Start_ECAM2_Profile_Data` | `ushort` | `ushort CardNo, ushort CamNo, ushort DataNum, ref double MasterPos_mm, ref double SlavePos_mm, ref ushort Curve_Type, ref double Velocity_Scale` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Delete_Profile_Data` | `_ECAT_Slave_CSP_Start_ECAM2_Delete_Profile_Data` | `ushort` | `ushort CardNo, ushort CamNo` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Profile_CamIn` | `_ECAT_Slave_CSP_Start_ECAM2_Profile_CamIn` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort MasterNodeID, ushort MasterSlotID, ushort SourceType, ushort SourceNo, ushort CamNo, ushort Periodic, ushort MasterAbsolute, ushort SlaveAbsolute, double MasterOffset, double SlaveOffset, double MasterScaling, double SlaveScaling, ushort StartMode, int MasterAxis_mm_Pulse, int SlaveAxis_mm_Pulse, double Slave_MaxVel_mm, double Slave_Acc_mm, double Slave_Dec_mm, short MasterAxis_Dir, short SlaveAxis_Dir, ushort BufferMode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Profile_CamIn_TimeMode` | `_ECAT_Slave_CSP_Start_ECAM2_Profile_CamIn_TimeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort CamNo, ushort Periodic, ushort SlaveAbsolute, double SlaveOffset, double SlaveScaling, ushort StartMode, int SlaveAxis_mm_Pulse, double Slave_MaxVel_mm, double Slave_Acc_mm, double Slave_Dec_mm, short SlaveAxis_Dir, ushort BufferMode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Profile_CamOut` | `_ECAT_Slave_CSP_Start_ECAM2_Profile_CamOut` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Profile_Modify` | `_ECAT_Slave_CSP_Start_ECAM2_Profile_Modify` | `ushort` | `ushort CardNo, ushort CamNo, ushort PointNo, ref double Parameters` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Profile_CamSet` | `_ECAT_Slave_CSP_Start_ECAM2_Profile_CamSet` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Profile_Auto_Smooth` | `_ECAT_Slave_CSP_Start_ECAM2_Profile_Auto_Smooth` | `ushort` | `ushort CardNo, ushort CamNo, ushort DataNum, ref double SlavePosUserUnit` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Master_Axis_Source_Unit_Type` | `_ECAT_Slave_CSP_Start_ECAM2_Master_Axis_Source_Unit_Type` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort SourceUnitType, int PerodicTime` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Set_Profile_Mode` | `_ECAT_Slave_CSP_Start_ECAM2_Set_Profile_Mode` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_ECAM2_Get_PreviewTable` | `_ECAT_Slave_CSP_Start_ECAM2_Get_PreviewTable` | `ushort` | `ushort CardNo, ushort CamNo, double MasterPosMm, double MasterOffset, double SlaveOffset, double MasterScaling, double SlaveScaling, ref double SlavePosMm` |
+
+## 12. 龙门同步 Gantry
+
+> 龙门双驱同步与保护。（共 23 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_AxesSync_Gantry_Info` | `_ECAT_Slave_CSP_AxesSync_Gantry_Info` | `ushort` | `ushort CardNo, ushort GantryNo, ushort Axes, ref ushort NodeID, ref ushort SlotID, ushort Mode` |
+| `CS_ECAT_Slave_CSP_AxesSync_Gantry_Enable` | `_ECAT_Slave_CSP_AxesSync_Gantry_Enable` | `ushort` | `ushort CardNo, ushort GantryNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_AxesSync_Gantry_Protect_Enable` | `_ECAT_Slave_CSP_AxesSync_Gantry_Protect_Enable` | `ushort` | `ushort CardNo, ushort GantryNo, int PositionError, ushort PassingCount, double Tdec, ushort Mode, ushort Enable` |
+| `CS_ECAT_Slave_CSP_AxesSync_Gantry_Protect_Get_PositionError` | `_ECAT_Slave_CSP_AxesSync_Gantry_Protect_Get_PositionError` | `ushort` | `ushort CardNo, ushort GantryNo, ref int PositionError` |
+| `CS_ECAT_Slave_CSP_AxesSync_Gantry_Protect_Get_Status` | `_ECAT_Slave_CSP_AxesSync_Gantry_Protect_Get_Status` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Status, ref ushort PassingLevel` |
+| `CS_ECAT_Slave_CSP_Gantry_Enable` | `_ECAT_Slave_CSP_Gantry_Enable` | `ushort` | `ushort CardNo, ushort GantryNo, ushort MasterNodeID, ushort MasterSlotID, ushort SlaveNodeID, ushort SlaveSlotID, int Motor_Pulse_Per_Turn, double Motor_MaxTorque, double K_I, double K_VI, double Filter_Frequency, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Gantry_Get_Enable` | `_ECAT_Slave_CSP_Gantry_Get_Enable` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Enable` |
+| `CS_ECAT_Slave_CSP_Velocity_Gantry_Info` | `_ECAT_Slave_CSP_Velocity_Gantry_Info` | `ushort` | `ushort CardNo, ushort GantryNo, ushort MasterNodeID, ushort MasterSlotID, ushort SlaveNodeID, ushort SlaveSlotID, int Velcoity_Offset_Normalize, int Pulse_Normalize, int Podition_Threshold, double PID_Kp, double PID_Ki, double PID_Kd` |
+| `CS_ECAT_Slave_CSP_Velocity_Gantry_LPF_Info` | `_ECAT_Slave_CSP_Velocity_Gantry_LPF_Info` | `ushort` | `ushort CardNo, ushort GantryNo, ushort LPF_Mode, double LPF_Time` |
+| `CS_ECAT_Slave_CSP_Velocity_Gantry_Forward_Info` | `_ECAT_Slave_CSP_Velocity_Gantry_Forward_Info` | `ushort` | `ushort CardNo, ushort GantryNo, ushort Forward_Mode, ushort Forward_Time, double Forward_Kp` |
+| `CS_ECAT_Slave_CSP_Velocity_Gantry_PIDAdv_Info` | `_ECAT_Slave_CSP_Velocity_Gantry_PIDAdv_Info` | `ushort` | `ushort CardNo, ushort GantryNo, double PID_Output_Max, double PID_Output_Min, double PID_Ki_Max, double PID_Ki_Min` |
+| `CS_ECAT_Slave_CSP_Velocity_Gantry_Enable` | `_ECAT_Slave_CSP_Velocity_Gantry_Enable` | `ushort` | `ushort CardNo, ushort GantryNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Gantry_Enable_PositionError` | `_ECAT_Slave_CSP_Gantry_Enable_PositionError` | `ushort` | `ushort CardNo, ushort GantryNo, ushort PositionErrorMode, int PositionError, ushort PassingCount, double Tdec, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Gantry_Get_PositionError` | `_ECAT_Slave_CSP_Gantry_Get_PositionError` | `ushort` | `ushort CardNo, ushort GantryNo, ref int PositionError` |
+| `CS_ECAT_Slave_CSP_Gantry_Get_Status` | `_ECAT_Slave_CSP_Gantry_Get_Status` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Status, ref ushort PassingLevel` |
+| `CS_ECAT_Slave_CSP_Gantry_Set_Position` | `_ECAT_Slave_CSP_Gantry_Set_Position` | `ushort` | `ushort CardNo, ushort GantryNo, int NewPosition` |
+| `CS_ECAT_Slave_CSP_Gantry_Ralm` | `_ECAT_Slave_CSP_Gantry_Ralm` | `ushort` | `ushort CardNo, ushort GantryNo, int Velocity, double Tacc, double Tdec` |
+| `CS_ECAT_Slave_CSP_Gantry_Ralm_Status` | `_ECAT_Slave_CSP_Gantry_Ralm_Status` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Gantry_Ralm_Info` | `_ECAT_Slave_CSP_Gantry_Ralm_Info` | `ushort` | `ushort CardNo, ushort GantryNo, int Velocity, double Tacc, double Tdec, ushort Type` |
+| `CS_ECAT_Slave_CSP_Gantry_Ralm_Fail_Status` | `_ECAT_Slave_CSP_Gantry_Ralm_Fail_Status` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Status, ref ushort Rt` |
+| `CS_ECAT_Slave_CSP_Gantry_Get_Protect_Status` | `_ECAT_Slave_CSP_Gantry_Get_Protect_Status` | `ushort` | `ushort CardNo, ushort GantryNo, ref ushort Enable, ref ushort Mode` |
+| `CS_ECAT_Slave_DeltaServo_AxesSync_Set_Info` | `_ECAT_Slave_DeltaServo_AxesSync_Set_Info` | `ushort` | `ushort CardNo, ushort GroupNo, ushort AxesNum, ref ushort NodeID, ref ushort SlotID, ushort OdNum, ref ushort OdIndex, ref ushort OdSubIndex` |
+| `CS_ECAT_Slave_DeltaServo_AxesSync_Enable` | `_ECAT_Slave_DeltaServo_AxesSync_Enable` | `ushort` | `ushort CardNo, ushort GroupNo, ushort Enable` |
+
+## 13. 运动缓冲 MotionBuffer
+
+> G 代码式运动缓冲队列（84 个 API，此处仅列关键项，全量见文末清单）。（共 61 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_Crd_Parameters` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_Crd_Parameters` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, int SycMaxVel, int SycMaxAcc, ushort S_Curve_Time, ushort Max_IO_Advance_Time, ushort SetOriginFlag, ref int OriginPos` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Crd_Parameters` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Crd_Parameters` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ref int SycMaxVel, ref int SycMaxAcc, ref ushort S_Curve_Time, ref ushort Max_IO_Advance_Time, ref ushort SetOriginFlag, ref int OriginPos` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_TargetVelocity_Mode` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_TargetVelocity_Mode` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Axis_Array, double Max_Modify_Ratio, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Suspend_Process` | `_ECAT_Slave_CSP_Start_MotionBuffer_Suspend_Process` | `ushort` | `ushort CardNo, ushort TableNo, int Suspend_No, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Resume_Process` | `_ECAT_Slave_CSP_Start_MotionBuffer_Resume_Process` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Suspend_Status` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Suspend_Status` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo, ref uint Suspend_Status, ref int Suspend_No` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_G00_Blending` | `_ECAT_Slave_CSP_Start_MotionBuffer_G00_Blending` | `ushort` | `ushort CardNo, ushort TableNo, ushort BlendingMode, double BlendParameter, ushort Enable, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Clear_Crd` | `_ECAT_Slave_CSP_Start_MotionBuffer_Clear_Crd` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_IOControl` | `_ECAT_Slave_CSP_Start_MotionBuffer_IOControl` | `ushort` | `ushort CardNo, ushort TableNo, ushort IO_Control_Num, ref MotionBuffer_IO_Set IO_Array, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Advanced_IOControl` | `_ECAT_Slave_CSP_Start_MotionBuffer_Advanced_IOControl` | `ushort` | `ushort CardNo, ushort TableNo, ushort IO_Control_Num, ref MotionBuffer_IO_Set IO_Array, ushort Time, ushort Mode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Advanced_IOControl_Distance` | `_ECAT_Slave_CSP_Start_MotionBuffer_Advanced_IOControl_Distance` | `ushort` | `ushort CardNo, ushort TableNo, ushort IO_Control_Num, ref MotionBuffer_IO_Set IO_Array, uint Distance, ushort Mode, ushort Option, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_SoftLimit_On` | `_ECAT_Slave_CSP_Start_MotionBuffer_SoftLimit_On` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxisNo, short LimitType, ushort Mode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_SoftLimit_Off` | `_ECAT_Slave_CSP_Start_MotionBuffer_SoftLimit_Off` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxisNo, short LimitType, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Delay` | `_ECAT_Slave_CSP_Start_MotionBuffer_Delay` | `ushort` | `ushort CardNo, ushort TableNo, double DelayTime, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Single_Step` | `_ECAT_Slave_CSP_Start_MotionBuffer_Single_Step` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Remain_Buffer_Size` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Remain_Buffer_Size` | `ushort` | `ushort CardNo, ushort TableNo, ref int RemainBufSize, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Clear_Buffer` | `_ECAT_Slave_CSP_Start_MotionBuffer_Clear_Buffer` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Start` | `_ECAT_Slave_CSP_Start_MotionBuffer_Start` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Stop` | `_ECAT_Slave_CSP_Start_MotionBuffer_Stop` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Feedrate_Override` | `_ECAT_Slave_CSP_Start_MotionBuffer_Feedrate_Override` | `ushort` | `ushort CardNo, ushort TableNo, double SynVelRatio` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_UserSegNum` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_UserSegNum` | `ushort` | `ushort CardNo, ushort TableNo, int SegNum, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_UserSegNum` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_UserSegNum` | `ushort` | `ushort CardNo, ushort TableNo, ref int SegNum, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_Stop_Deceleration` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_Stop_Deceleration` | `ushort` | `ushort CardNo, ushort TableNo, int DecSmoothStop, int DecAbruptStop` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Stop_Deceleration` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Stop_Deceleration` | `ushort` | `ushort CardNo, ushort TableNo, ref int DecSmoothStop, ref int DecAbruptStop` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Position` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Position` | `ushort` | `ushort CardNo, ushort TableNo, ref int Now_Position, ref int Now_Position_Org` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Velocity` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Velocity` | `ushort` | `ushort CardNo, ushort TableNo, ref int CurrentSpeed` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_BufMove` | `_ECAT_Slave_CSP_Start_MotionBuffer_BufMove` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxisNo, ushort SlotNo, int Distance, int TargetVel, int Acceleration, ushort AbsMode, ushort BufMove_Mode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_LookAhead_Parameters` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_LookAhead_Parameters` | `ushort` | `ushort CardNo, ushort TableNo, int RefSwerveSpd, ushort ArcSpdModify, int ArcRefSpeed, int ArcRefRadius, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Disable` | `_ECAT_Slave_CSP_Start_MotionBuffer_Disable` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_OD_Data` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_OD_Data` | `ushort` | `ushort CardNo, ushort TableNo, ushort NodeID, ushort SlotID, ushort Index, ushort SubIndex, int Data, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_OD_Single_Data_Time` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_OD_Single_Data_Time` | `ushort` | `ushort CardNo, ushort TableNo, ushort DataNum, ref ushort NodeID, ref ushort SlotID, ref ushort Index, ref ushort SubIndex, ref byte BitNo, ref byte Data, ushort Time, ushort Mode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_OD_Single_Data_Distance` | `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_OD_Single_Data_Distance` | `ushort` | `ushort CardNo, ushort TableNo, ushort DataNum, ref ushort NodeID, ref ushort SlotID, ref ushort Index, ref ushort SubIndex, ref byte BitNo, ref byte Data, uint Distance, ushort Mode, ushort Option, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Check_OD_Data` | `_ECAT_Slave_CSP_Start_MotionBuffer_Check_OD_Data` | `ushort` | `ushort CardNo, ushort TableNo, ushort NodeID, ushort SlotID, ushort Index, ushort SubIndex, int Data, ushort TimeOut_Mode, ushort TimeOut, ushort CheckMode, ushort BitNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Check_OD_Data_None_Stop` | `_ECAT_Slave_CSP_Start_MotionBuffer_Check_OD_Data_None_Stop` | `ushort` | `ushort CardNo, ushort TableNo, ushort NodeID, ushort SlotID, ushort Index, ushort SubIndex, int Data, ushort TimeOut_Mode, ushort TimeOut, ushort CheckMode, ushort BitNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Axis_Engage` | `_ECAT_Slave_CSP_Start_MotionBuffer_Axis_Engage` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Axis_Array, ref int ExpectedEngagePosition, ushort Mode, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_Check` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_Check` | `ushort` | `ushort CardNo, ushort TableNo, ushort CheckTime, ref int ErrorRange, ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_G00_Check` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_G00_Check` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort CheckTime, ref int ErrorRange, ref ushort Enable` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_G00_Check_Flag` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_G00_Check_Flag` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort CheckG00Flag` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_G00_Check_Match` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_G00_Check_Match` | `ushort` | `ushort CardNo, ushort TableNo, ref int Feedback` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_Record_DO_Control_Mode` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_Record_DO_Control_Mode` | `ushort` | `ushort CardNo, ushort TableNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Record_DO_Triggered_Count` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Record_DO_Triggered_Count` | `ushort` | `ushort CardNo, ushort TableNo, ref uint OutCount, ref uint TriggeredCount, ref uint PathCmdTriggerCount, ref uint PathTriggeredCount` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Record_DO_Triggered_Status` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Record_DO_Triggered_Status` | `ushort` | `ushort CardNo, ushort TableNo, ushort ushort_Seq, ref ushort NodeID, ref ushort SlotID, ref ushort BitNo, ref ushort Value` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Wait_DI_TimeOut_Status` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Wait_DI_TimeOut_Status` | `ushort` | `ushort CardNo, ushort TableNo, ref ushort CheckODTimeOutStatus, ref int CheckODTimeOutData` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Reset_Wait_DI_TimeOut_Status` | `_ECAT_Slave_CSP_Start_MotionBuffer_Reset_Wait_DI_TimeOut_Status` | `ushort` | `ushort CardNo, ushort TableNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Wait_DI` | `_ECAT_Slave_CSP_Start_MotionBuffer_Wait_DI` | `ushort` | `ushort CardNo, ushort TableNo, ushort NodeID, ushort SlotID, ushort TimeOut_Mode, ushort TimeOut, ushort BitNo, ushort Value, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_SD_Stop_Mode` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_SD_Stop_Mode` | `ushort` | `ushort CardNo, ushort TableNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_Sync_End_Vel_Mode` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_Sync_End_Vel_Mode` | `ushort` | `ushort CardNo, ushort TableNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_NormalAMF_Control` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_NormalAMF_Control` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxesNum, ref ushort Axis_Array, ref ushort Control_Array, ref ushort Filter_Num, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_MaxVel_And_MaxAcc` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_MaxVel_And_MaxAcc` | `ushort` | `ushort CardNo, ushort TableNo, int SyncMaxVel, int SyncMaxAcc` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_Feedrate_Override` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_G00_Feedrate_Override` | `ushort` | `ushort CardNo, ushort TableNo, double SyncVelRatio` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Pass_Current_CheckPos_G00` | `_ECAT_Slave_CSP_Start_MotionBuffer_Pass_Current_CheckPos_G00` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_AxisVelLimit_Parameters` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_AxisVelLimit_Parameters` | `ushort` | `ushort CardNo, ushort TableNo, ref int AxisMaxVel, ref int AxisMaxAcc` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_AxisVelLimit_Option` | `_ECAT_Slave_CSP_Start_MotionBuffer_AxisVelLimit_Option` | `ushort` | `ushort CardNo, ushort TableNo, ushort EnableAxisMaxVel, ushort EnableAxisMaxAcc` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Check_CamSwitch` | `_ECAT_Slave_CSP_Start_MotionBuffer_Check_CamSwitch` | `ushort` | `ushort CardNo, ushort TableNo, ushort NodeID, ushort SlotID, ushort TimeOut_Mode, ushort TimeOut, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_JumpStartAndStop` | `_ECAT_Slave_CSP_Start_MotionBuffer_JumpStartAndStop` | `ushort` | `ushort CardNo, ushort TableNo, int SynStartVel, int SynEndVel, ushort JumpStartMode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_G00_Independent_Interpolation` | `_ECAT_Slave_CSP_Start_MotionBuffer_G00_Independent_Interpolation` | `ushort` | `ushort CardNo, ushort TableNo, ushort Enable, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Lookahead_Energy_Accumulation_Option` | `_ECAT_Slave_CSP_Start_MotionBuffer_Lookahead_Energy_Accumulation_Option` | `ushort` | `ushort CardNo, ushort TableNo, ushort Enable, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Check_MotionDone` | `_ECAT_Slave_CSP_Start_MotionBuffer_Check_MotionDone` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_NormalLineControl_Parameters` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_NormalLineControl_Parameters` | `ushort` | `ushort CardNo, ushort TableNo, ushort ControlAxisIndex, double ThetaCancel, double ThetaGentle, int LengthCancel, int LengthGentle, int LengthLiftKnife, double ThetaOffset, int MaxNormalLineVelocity, int MaxNormalLineAccDec, double ControlAxisUnitToPulse` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_NormalLineControl` | `_ECAT_Slave_CSP_Start_MotionBuffer_NormalLineControl` | `ushort` | `ushort CardNo, ushort TableNo, ushort NormalLineControlMode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_ITP_Mode` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_ITP_Mode` | `ushort` | `ushort CardNo, ushort TableNo, ushort ItpMode` |
+
+## 14. 表运动 TableMotion / PVT
+
+> 轨迹表与 PVT（位置-速度-时间）插补。（共 10 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_CSP_Start_PVT_Move` | `_ECAT_Slave_CSP_Start_PVT_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int DataCnt, ref int TargetPos, ref int TargetTime, ref int TargetVel, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_PVTComplete_Move` | `_ECAT_Slave_CSP_Start_PVTComplete_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int DataCnt, ref int TargetPos, ref int TargetTime, int StrVel, int EndVel, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_PVT_Begin_Move` | `_ECAT_Slave_CSP_Start_PVT_Begin_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int DataCount, ref double Pos, ref double Time, ref double Vel, ushort TimeAbsMode, ushort Finial, ushort Retain, double SdStopTime` |
+| `CS_ECAT_Slave_CSP_Start_PVT_Continue_Move` | `CS_ECAT_Slave_CSP_Start_PVT_Continue_Move` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int DataCount, ref double Pos, ref double Time, ref double Vel, ushort Finial` |
+| `CS_ECAT_Slave_CSP_Start_PVT_Get_Information` | `_ECAT_Slave_CSP_Start_PVT_Get_Information` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref int TotalMcCount, ref int MdoneMcCount, ref int RemainBufSize, ref ushort Status` |
+| `CS_ECAT_Slave_CSP_Start_PVT_CycleStart` | `_ECAT_Slave_CSP_Start_PVT_CycleStart` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_CSP_Start_PVT_Config` | `_ECAT_Slave_CSP_Start_PVT_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int DataCnt, ref int TargetPos, ref int TargetTime, ref int TargetVel, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_PVTComplete_Config` | `_ECAT_Slave_CSP_Start_PVTComplete_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int DataCnt, ref int TargetPos, ref int TargetTime, int StrVel, int EndVel, ushort Abs` |
+| `CS_ECAT_Slave_CSP_Start_PVT_Sync_Move` | `_ECAT_Slave_CSP_Start_PVT_Sync_Move` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray` |
+| `CS_ECAT_Slave_CSP_PVT_Get_NowMotCount` | `_ECAT_Slave_CSP_PVT_Get_NowMotCount` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort NowMotCount` |
+
+## 15. 数字 IO（按从站 DIO）
+
+> 按 NodeID + SlotNo + BitNum 寻址的数字量读写。（共 29 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_DIO_Get_Input_Value` | `_ECAT_Slave_DIO_Get_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort value` |
+| `CS_ECAT_Slave_DIO_Get_Output_Value` | `_ECAT_Slave_DIO_Get_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort value` |
+| `CS_ECAT_Slave_DIO_Set_Output_Value` | `_ECAT_Slave_DIO_Set_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort value` |
+| `CS_ECAT_Slave_DIO_Get_Single_Input_Value` | `_ECAT_Slave_DIO_Get_Single_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort BitNum, ref ushort value` |
+| `CS_ECAT_Slave_DIO_Get_Single_Output_Value` | `_ECAT_Slave_DIO_Get_Single_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort BitNum, ref ushort value` |
+| `CS_ECAT_Slave_DIO_Set_Single_Output_Value` | `_ECAT_Slave_DIO_Set_Single_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort BitNum, ushort value` |
+| `CS_ECAT_Slave_DIO_Set_Output_Error_Mode` | `_ECAT_Slave_DIO_Set_Output_Error_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort BitMode` |
+| `CS_ECAT_Slave_DIO_Set_Output_Error_Value` | `_ECAT_Slave_DIO_Set_Output_Error_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort BitMode` |
+| `CS_ECAT_Slave_DIO_Input_Initial_Counter` | `_ECAT_Slave_DIO_Input_Initial_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode, ushort UpDown` |
+| `CS_ECAT_Slave_DIO_Input_Set_Counter_Edge` | `_ECAT_Slave_DIO_Input_Set_Counter_Edge` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Edge` |
+| `CS_ECAT_Slave_DIO_Input_Set_Counter_Enable` | `_ECAT_Slave_DIO_Input_Set_Counter_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Slave_DIO_Input_Get_Counter_Mode` | `_ECAT_Slave_DIO_Input_Get_Counter_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Mode` |
+| `CS_ECAT_Slave_DIO_Input_Set_Counter` | `_ECAT_Slave_DIO_Input_Set_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Value` |
+| `CS_ECAT_Slave_DIO_Input_Get_Counter` | `_ECAT_Slave_DIO_Input_Get_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref int Value` |
+| `CS_ECAT_Slave_DIO_Input_Set_Counter_Config` | `_ECAT_Slave_DIO_Input_Set_Counter_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort Mode, ushort Group, ushort UpDown, ushort Edge, ushort Enable` |
+| `CS_ECAT_Slave_DIO_Input_Get_Counter_ControlMode` | `_ECAT_Slave_DIO_Input_Get_Counter_ControlMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort Group, ref ushort Mode` |
+| `CS_ECAT_Slave_DIO_Input_Set_Counter_Value` | `_ECAT_Slave_DIO_Input_Set_Counter_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort Group, int Value` |
+| `CS_ECAT_Slave_DIO_Input_Get_Counter_Value` | `_ECAT_Slave_DIO_Input_Get_Counter_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort Group, ref int Value` |
+| `CS_ECAT_Slave_DIO_Get_Input_Value32` | `_ECAT_Slave_DIO_Get_Input_Value32` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref uint Value` |
+| `CS_ECAT_Slave_DIO_Get_Output_Value32` | `_ECAT_Slave_DIO_Get_Output_Value32` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref uint Value` |
+| `CS_ECAT_Slave_DIO_Set_Output_Value32` | `_ECAT_Slave_DIO_Set_Output_Value32` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint Value` |
+| `CS_ECAT_Slave_DIO_Set_Output_Error_Mode32` | `_ECAT_Slave_DIO_Set_Output_Error_Mode32` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint BitMode` |
+| `CS_ECAT_Slave_DIO_Set_Output_Error_Value32` | `_ECAT_Slave_DIO_Set_Output_Error_Value32` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint Value` |
+| `CS_ECAT_Slave_DIO_Set_Output_Enable` | `_ECAT_Slave_DIO_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Slave_DIO_Set_Digital_Filter` | `_ECAT_Slave_DIO_Set_Digital_Filter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Filter` |
+| `CS_ECAT_Slave_DIO_Get_Digital_Filter` | `_ECAT_Slave_DIO_Get_Digital_Filter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Filter` |
+| `CS_ECAT_Slave_DIO_Set_Input_Polarity` | `_ECAT_Slave_DIO_Set_Input_Polarity` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Inverse` |
+| `CS_ECAT_Slave_DIO_Set_Output_Mode_Select` | `_ECAT_Slave_DIO_Set_Output_Mode_Select` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode` |
+| `CS_ECAT_Slave_DIO_Get_Output_Mode_Select` | `_ECAT_Slave_DIO_Get_Output_Mode_Select` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Mode` |
+
+## 16. 数字 IO（全局位软元件，推荐）
+
+> 全局位编号寻址 + Info 反查从站拓扑。**契合本项目 IIO 契约（业务层只认 IO 号）**。（共 14 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Write_OutBit` | `_ECAT_Write_OutBit` | `ushort` | `ushort CardNo, ushort BitNo, ushort OnOff` |
+| `CS_ECAT_Read_OutBit` | `_ECAT_Read_OutBit` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort OnOff` |
+| `CS_ECAT_Read_InBit` | `_ECAT_Read_InBit` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort OnOff` |
+| `CS_ECAT_Write_OutBit_Ex` | `_ECAT_Write_OutBit_Ex` | `ushort` | `ushort CardNo, ushort BitNo, ushort OnOff` |
+| `CS_ECAT_Read_OutBit_Ex` | `_ECAT_Read_OutBit_Ex` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort OnOff` |
+| `CS_ECAT_Read_InBit_Ex` | `_ECAT_Read_InBit_Ex` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort OnOff` |
+| `CS_ECAT_Get_OutBit_Num` | `_ECAT_Get_OutBit_Num` | `ushort` | `ushort CardNo, ref ushort BitNum` |
+| `CS_ECAT_Get_InBit_Num` | `_ECAT_Get_InBit_Num` | `ushort` | `ushort CardNo, ref ushort BitNum` |
+| `CS_ECAT_Get_OutBit_Ex_Num` | `_ECAT_Get_OutBit_Ex_Num` | `ushort` | `ushort CardNo, ref ushort BitNum` |
+| `CS_ECAT_Get_InBit_Ex_Num` | `_ECAT_Get_InBit_Ex_Num` | `ushort` | `ushort CardNo, ref ushort BitNum` |
+| `CS_ECAT_Get_OutBit_Info` | `_ECAT_Get_OutBit_Info` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort NodeID, ref ushort SlotID, ref ushort ModBitNo` |
+| `CS_ECAT_Get_InBit_Info` | `_ECAT_Get_InBit_Info` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort NodeID, ref ushort SlotID, ref ushort ModBitNo` |
+| `CS_ECAT_Get_OutBit_Ex_Info` | `_ECAT_Get_OutBit_Ex_Info` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort NodeID, ref ushort SlotID, ref ushort ModBitNo` |
+| `CS_ECAT_Get_InBit_Ex_Info` | `_ECAT_Get_InBit_Ex_Info` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort NodeID, ref ushort SlotID, ref ushort ModBitNo` |
+
+## 17. AD / DA 与 PDO
+
+> 模拟量通过 PDO OD 数据读写。（共 8 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_PDO_Get_OD_Data` | `_ECAT_Slave_PDO_Get_OD_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort IOType, ushort ODIndex, ushort ODSubIndex, ushort ByteSize, ref byte Data` |
+| `CS_ECAT_Slave_PDO_Set_OD_Data` | `_ECAT_Slave_PDO_Set_OD_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort ODIndex, ushort ODSubIndex, ref byte Data` |
+| `CS_ECAT_Slave_PDO_Get_Information` | `_ECAT_Slave_PDO_Get_Information` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort IOType, ref ushort ODCnt, ref ushort StartIndex` |
+| `CS_ECAT_Slave_PDO_Get_Detail_Mapping` | `_ECAT_Slave_PDO_Get_Detail_Mapping` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort IOType, ushort ODSeqID, ref ushort ODIndex, ref ushort ODsubIndex, ref ushort ODBitSize, ref ushort ODStartIndex` |
+| `CS_ECAT_Slave_PDO_Get_Rx_Data` | `_ECAT_Slave_PDO_Get_Rx_Data` | `ushort` | `ushort CardNo, ref byte Data` |
+| `CS_ECAT_Slave_PDO_Get_Tx_Data` | `_ECAT_Slave_PDO_Get_Tx_Data` | `ushort` | `ushort CardNo, ref byte Data` |
+| `CS_ECAT_Slave_PDO_Set_Tx_Detail_Data` | `_ECAT_Slave_PDO_Set_Tx_Detail_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort ODStartIndex, ushort Bytesize, ref byte Data` |
+| `CS_ECAT_Slave_PDO_Set_Tx_Data` | `_ECAT_Slave_PDO_Set_Tx_Data` | `ushort` | `ushort CardNo, ref byte Data` |
+
+## 18. SDO 通讯
+
+> SDO 读写（非阻塞 Send/Read + 阻塞 QuickSend + Check_Done）。（共 8 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_SDO_Send_Message` | `_ECAT_Slave_SDO_Send_Message` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Index, ushort SubIndex, ushort Datasize, ref byte Data` |
+| `CS_ECAT_Slave_SDO_Read_Message` | `_ECAT_Slave_SDO_Read_Message` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Index, ushort SubIndex, ushort Datasize, ref byte Data` |
+| `CS_ECAT_Slave_SDO_Quick_Send_Message` | `_ECAT_Slave_SDO_Quick_Send_Message` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Index, ushort SubIndex, ushort Datasize, ref byte Data` |
+| `CS_ECAT_Slave_SDO_Quick_Read_Message` | `_ECAT_Slave_SDO_Quick_Read_Message` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Index, ushort SubIndex, ushort DataSize` |
+| `CS_ECAT_Slave_SDO_Read_Response` | `_ECAT_Slave_SDO_Read_Response` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Done, ref byte Data, ref uint ErrorCode` |
+| `CS_ECAT_Slave_SDO_Wait_All_Done` | `_ECAT_Slave_SDO_Wait_All_Done` | `ushort` | `ushort CardNo, ushort AxisNum, ref ushort NodeID, ref ushort SlotNo` |
+| `CS_ECAT_Slave_SDO_Check_Done` | `_ECAT_Slave_SDO_Check_Done` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Done` |
+| `CS_ECAT_Slave_SDO_Get_ErrorCode` | `_ECAT_Slave_SDO_Get_ErrorCode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref uint ErrorCode` |
+
+## 19. 位置锁存 TouchProbe / Compare / Latch
+
+> 高速位置锁存与比较输出（替代正运动的锁存/比较功能）。（共 100 个）
+
+| 方法 | EntryPoint | 返回值 | 参数 |
+|------|-----------|--------|------|
+| `CS_ECAT_Slave_Motion_Set_TouchProbe_Config` | `_ECAT_Slave_Motion_Set_TouchProbe_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort TriggerMode, ushort Signal_Source` |
+| `CS_ECAT_Slave_Motion_Set_TouchProbe_QuickStart` | `_ECAT_Slave_Motion_Set_TouchProbe_QuickStart` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Motion_Set_TouchProbe_QuickDone` | `_ECAT_Slave_Motion_Set_TouchProbe_QuickDone` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Motion_Set_TouchProbe_Disable` | `_ECAT_Slave_Motion_Set_TouchProbe_Disable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Motion_Get_TouchProbe_Status` | `_ECAT_Slave_Motion_Get_TouchProbe_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Status` |
+| `CS_ECAT_Slave_Motion_Get_TouchProbe_Position` | `_ECAT_Slave_Motion_Get_TouchProbe_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int LatchPosition` |
+| `CS_ECAT_Slave_Motion_Set_TouchProbe_Auto_Record` | `_ECAT_Slave_Motion_Set_TouchProbe_Auto_Record` | `ushort` | `ushort CardNo, ushort GroupNo, ushort Axes, ref ushort NodeID, ref ushort SlotID, ushort Od0x60B8, ushort Od0x60B9, ushort RecordNum, ref ushort IoType, ref ushort Index, ref ushort SubIndex, ushort ConfigOd0x60B8Delay, ushort Enable` |
+| `CS_ECAT_Slave_Motion_Get_TouchProbe_Auto_Record_Data_Count` | `_ECAT_Slave_Motion_Get_TouchProbe_Auto_Record_Data_Count` | `ushort` | `ushort CardNo, ushort GroupNo, ref uint DataCount` |
+| `CS_ECAT_Slave_Motion_Get_TouchProbe_Auto_Record_Data` | `_ECAT_Slave_Motion_Get_TouchProbe_Auto_Record_Data` | `ushort` | `ushort CardNo, ushort GroupNo, uint Index, ref uint NumOfData, ref uint Data` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Method0_To_2_Compare_Value` | `_ECAT_Slave_R1_EC5604_Set_Method0_To_2_Compare_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, uint Value` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Method3_Compare_Value` | `_ECAT_Slave_R1_EC5604_Set_Method3_Compare_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, uint FirstValue, uint SecondValue, uint ReloadValue` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Latch_Enable` | `_ECAT_Slave_R1_EC0624_Set_Latch_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Latch_Source` | `_ECAT_Slave_R1_EC0624_Set_Latch_Source` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Source` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Latch_Trigger_Edge` | `_ECAT_Slave_R1_EC0624_Set_Latch_Trigger_Edge` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Edge` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Latch_External_IO` | `_ECAT_Slave_R1_EC0624_Set_Latch_External_IO` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Select` |
+| `CS_ECAT_Slave_R1_EC0624_Get_Latch_Latest_Value` | `_ECAT_Slave_R1_EC0624_Get_Latch_Latest_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Value` |
+| `CS_ECAT_Slave_R1_EC0624_Get_Latch_FIFO_Counter` | `_ECAT_Slave_R1_EC0624_Get_Latch_FIFO_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Count` |
+| `CS_ECAT_Slave_R1_EC0624_Get_Latch_FIFO_Value` | `_ECAT_Slave_R1_EC0624_Get_Latch_FIFO_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Value` |
+| `CS_ECAT_Slave_R1_EC0624_Get_Latch_FIFO_Source` | `_ECAT_Slave_R1_EC0624_Get_Latch_FIFO_Source` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Source` |
+| `CS_ECAT_Slave_R1_EC0624_Reset_Latch_FIFO` | `_ECAT_Slave_R1_EC0624_Reset_Latch_FIFO` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Compare_Output_Mode` | `_ECAT_Slave_R1_EC0624_Set_Compare_Output_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Compare_GPIO_Output_Enable` | `_ECAT_Slave_R1_EC0624_Set_Compare_GPIO_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Compare_IO_Inverse` | `_ECAT_Slave_R1_EC0624_Set_Compare_IO_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Inverse` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Compare_Interval_Setting` | `_ECAT_Slave_R1_EC0624_Set_Compare_Interval_Setting` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int StartPos, ushort Dir, uint Interval, uint TriggetCount` |
+| `CS_ECAT_Slave_R1_EC0624_Reset_Compare_Trigger_Counter` | `_ECAT_Slave_R1_EC0624_Reset_Compare_Trigger_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Compare_One_Shot` | `_ECAT_Slave_R1_EC0624_Set_Compare_One_Shot` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Compare_Source` | `_ECAT_Slave_R1_EC0624_Set_Compare_Source` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Source` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Compare_Enable` | `_ECAT_Slave_R1_EC0624_Set_Compare_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Table_Compare_Level_Setting` | `_ECAT_Slave_R1_EC0624_Set_Table_Compare_Level_Setting` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Level` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Table_Compare_Data` | `_ECAT_Slave_R1_EC0624_Set_Table_Compare_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort DataNum, ref int TableData` |
+| `CS_ECAT_Slave_R1_EC0624_Get_Table_Compare_FIFO_Counter` | `_ECAT_Slave_R1_EC0624_Get_Table_Compare_FIFO_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Count` |
+| `CS_ECAT_Slave_R1_EC0624_Reset_Table_Compare_Counter` | `_ECAT_Slave_R1_EC0624_Reset_Table_Compare_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Compare_Set_Channel_One_Shot` | `_ECAT_Slave_Compare_Set_Channel_One_Shot` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_Compare_Set_Channel_Polarity` | `_ECAT_Slave_Compare_Set_Channel_Polarity` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Inverse` |
+| `CS_ECAT_Slave_Compare_Set_Ipulser_Mode` | `_ECAT_Slave_Compare_Set_Ipulser_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode` |
+| `CS_ECAT_Slave_Compare_Get_Channel_Position` | `_ECAT_Slave_Compare_Get_Channel_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref int Position` |
+| `CS_ECAT_Slave_Compare_Set_Channel_Position` | `_ECAT_Slave_Compare_Set_Channel_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Position` |
+| `CS_ECAT_Slave_Compare_Set_Channel_Trigger_Time` | `_ECAT_Slave_Compare_Set_Channel_Trigger_Time` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint TimeUs` |
+| `CS_ECAT_Slave_Compare_Get_Channel_Count` | `_ECAT_Slave_Compare_Get_Channel_Count` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref uint Count` |
+| `CS_ECAT_Slave_Compare_Reset_Channel_Count` | `_ECAT_Slave_Compare_Get_Channel_Count` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Slave_Compare_Set_Channel_Enable` | `_ECAT_Slave_Compare_Set_Channel_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Slave_Compare_Set_Channel_Interval` | `_ECAT_Slave_Compare_Set_Channel_Interval` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Start, ushort Dir, uint Interval, uint TriggerCount` |
+| `CS_ECAT_Slave_Compare_Set_Channel_Table` | `_ECAT_Slave_Compare_Set_Channel_Table` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref int PosTable, uint TableSize` |
+| `CS_ECAT_Slave_Compare_Set_Channel_Table_Level` | `_ECAT_Slave_Compare_Set_Channel_Table_Level` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref int PosTable, ref uint LevelTable, uint TableSize` |
+| `CS_ECAT_Slave_DeltaServo_Set_Compare_Enable` | `_ECAT_Slave_DeltaServo_Set_Compare_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable, ushort CompareSource, ushort SignalLength, ushort SignalPolarity` |
+| `CS_ECAT_Slave_DeltaServo_Get_Compare_Enable` | `_ECAT_Slave_DeltaServo_Get_Compare_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Enable, ref ushort CompareSource, ref ushort SignalLength, ref ushort SignalPolarity` |
+| `CS_ECAT_Slave_DeltaServo_Set_Compare_Config` | `_ECAT_Slave_DeltaServo_Set_Compare_Config` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort CompareNum, ref int ComparePos` |
+| `CS_ECAT_Compare_Set_Channel_Position` | `_ECAT_Compare_Set_Channel_Position` | `ushort` | `ushort CardNo, ushort CompareChannel, int Position` |
+| `CS_ECAT_Compare_Get_Channel_Position` | `_ECAT_Compare_Get_Channel_Position` | `ushort` | `ushort CardNo, ushort CompareChannel, ref int Position` |
+| `CS_ECAT_Compare_Set_Ipulser_Mode` | `_ECAT_Compare_Set_Ipulser_Mode` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_Compare_Set_Channel_Direction` | `_ECAT_Compare_Set_Channel_Direction` | `ushort` | `ushort CardNo, ushort CompareChannel, ushort Dir` |
+| `CS_ECAT_Compare_Set_Channel_Trigger_Time` | `_ECAT_Compare_Set_Channel_Trigger_Time` | `ushort` | `ushort CardNo, ushort CompareChannel, uint TimeUs` |
+| `CS_ECAT_Compare_Set_Channel_One_Shot` | `_ECAT_Compare_Set_Channel_One_Shot` | `ushort` | `ushort CardNo, ushort CompareChannel` |
+| `CS_ECAT_Compare_Set_Channel_Source` | `_ECAT_Compare_Set_Channel_Source` | `ushort` | `ushort CardNo, ushort CompareChannel, ushort Source` |
+| `CS_ECAT_Compare_Set_Channel_Enable` | `_ECAT_Compare_Set_Channel_Enable` | `ushort` | `ushort CardNo, ushort CompareChannel, ushort Enable` |
+| `CS_ECAT_Compare_Channel0_Position` | `_ECAT_Compare_Channel0_Position` | `ushort` | `ushort CardNo, int Start, ushort Dir, ushort Interval, uint TriggerCount` |
+| `CS_ECAT_Compare_Set_Channel0_Trigger_By_GPIO` | `_ECAT_Compare_Set_Channel0_Trigger_By_GPIO` | `ushort` | `ushort CardNo, ushort Dir, ushort Interval, int TriggerCount` |
+| `CS_ECAT_Compare_Set_Channel1_Output_Enable` | `_ECAT_Compare_Set_Channel1_Output_Enable` | `ushort` | `ushort CardNo, ushort OnOff` |
+| `CS_ECAT_Compare_Set_Channel1_Output_Mode` | `_ECAT_Compare_Set_Channel1_Output_Mode` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_Compare_Get_Channel1_IO_Status` | `_ECAT_Compare_Get_Channel1_IO_Status` | `ushort` | `ushort CardNo, ref ushort IOStatus` |
+| `CS_ECAT_Compare_Set_Channel1_GPIO_Out` | `_ECAT_Compare_Set_Channel1_GPIO_Out` | `ushort` | `ushort CardNo, ushort OnOff` |
+| `CS_ECAT_Compare_Set_Channel1_Position_Table` | `_ECAT_Compare_Set_Channel1_Position_Table` | `ushort` | `ushort CardNo, ref int PosTable, uint TableSize` |
+| `CS_ECAT_Compare_Set_Channel1_Position_Table_Level` | `_ECAT_Compare_Set_Channel1_Position_Table_Level` | `ushort` | `ushort CardNo, ref int PosTable, ref uint LevelTable, uint TableSize` |
+| `CS_ECAT_Compare_Get_Channel1_Position_Table_Count` | `_ECAT_Compare_Get_Channel1_Position_Table_Count` | `ushort` | `ushort CardNo, ref uint pCount` |
+| `CS_ECAT_Compare_Set_Channel_Polarity` | `_ECAT_Compare_Set_Channel_Polarity` | `ushort` | `ushort CardNo, ushort Inverse` |
+| `CS_ECAT_Compare_Reuse_Channel1_Position_Table` | `_ECAT_Compare_Reuse_Channel1_Position_Table` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Compare_Reuse_Channel1_Position_Table_Level` | `_ECAT_Compare_Reuse_Channel1_Position_Table_Level` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Compare_Channel0_Position_32Bit` | `_ECAT_Compare_Channel0_Position_32Bit` | `ushort` | `ushort CardNo, int Start, ushort Dir, uint Interval, uint TriggerCount` |
+| `CS_ECAT_Compare_Set_Channel0_Trigger_By_GPIO_32Bit` | `_ECAT_Compare_Set_Channel0_Trigger_By_GPIO_32Bit` | `ushort` | `ushort CardNo, ushort Dir, uint Interval, int TriggerCount` |
+| `CS_ECAT_Compare_Set_Channel_Position_Table` | `_ECAT_Compare_Set_Channel_Position_Table` | `ushort` | `ushort CardNo, ushort CompareChannel, ref int PosTable, uint TableSize` |
+| `CS_ECAT_Compare_Set_Channel_Position_Table_Level` | `_ECAT_Compare_Set_Channel_Position_Table_Level` | `ushort` | `ushort CardNo, ushort CompareChannel, ref int PosTable, ref uint LevelTable, uint TableSize` |
+| `CS_ECAT_Compare_Get_Channel_Position_Table_Count` | `_ECAT_Compare_Get_Channel_Position_Table_Count` | `ushort` | `ushort CardNo, ushort CompareChannel, ref uint Count` |
+| `CS_ECAT_Compare_Reuse_Channel_Position_Table` | `_ECAT_Compare_Reuse_Channel_Position_Table` | `ushort` | `ushort CardNo, ushort CompareChannel` |
+| `CS_ECAT_Compare_Reuse_Channel_Position_Table_Level` | `_ECAT_Compare_Reuse_Channel_Position_Table_Level` | `ushort` | `ushort CardNo, ushort CompareChannel` |
+| `CS_ECAT_Compare_Set_Control_Mode` | `_ECAT_Compare_Set_Control_Mode` | `ushort` | `ushort CardNo, ushort CompareChannel, ushort Mode` |
+| `CS_ECAT_Latch_Set_Source` | `_ECAT_Latch_Set_Source` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Source` |
+| `CS_ECAT_Latch_Get_Source` | `_ECAT_Latch_Get_Source` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Source` |
+| `CS_ECAT_Latch_Get_Position` | `_ECAT_Latch_Get_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref double Position` |
+| `CS_ECAT_Latch_Enable` | `_ECAT_Latch_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
+| `CS_ECAT_Latch_Trigger_Edge` | `_ECAT_Latch_Trigger_Edge` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Edge` |
+| `CS_ECAT_Latch_Status` | `_ECAT_Latch_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` |
+| `CS_ECAT_Latch_Flag_Clear` | `_ECAT_Latch_Flag_Clear` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_Compare_2D_Set_Range` | `_ECAT_Compare_2D_Set_Range` | `ushort` | `ushort CardNo, ushort CompareChannel, int Range` |
+| `CS_ECAT_Compare_2D_Set_Table` | `_ECAT_Compare_2D_Set_Table` | `ushort` | `ushort CardNo, ushort Group, ref int PosX, ref int PosY, uint TableSize` |
+| `CS_ECAT_Compare_2D_Set_Table_Level` | `_ECAT_Compare_2D_Set_Table_Level` | `ushort` | `ushort CardNo, ushort Group, ref int PosX, ref int PosY, ref uint LevelTable, uint TableSize` |
+| `CS_ECAT_Compare_2D_Set_Channel_Range` | `_ECAT_Compare_2D_Set_Channel_Range` | `ushort` | `ushort CardNo, ushort CompareChannel, int XRange, int YRange` |
+| `CS_ECAT_Compare_2D_Set_Channel_Table` | `_ECAT_Compare_2D_Set_Channel_Table` | `ushort` | `ushort CardNo, ushort CompareChannel, ushort Group, ref int PosX, ref int PosY, uint TableSize` |
+| `CS_ECAT_Compare_2D_Set_Channel_Table_Level` | `_ECAT_Compare_2D_Set_Channel_Table_Level` | `ushort` | `ushort CardNo, ushort CompareChannel, ushort Group, ref int PosX, ref int PosY, ref uint LevelTable, uint TableSize` |
+| `CS_ECAT_Compare_Get_Channel_Count` | `_ECAT_Compare_Get_Channel_Count` | `ushort` | `ushort CardNo, ushort CompareChannel, ref uint Count` |
+| `CS_ECAT_Compare_Reset_Channel_Count` | `_ECAT_Compare_Reset_Channel_Count` | `ushort` | `ushort CardNo, ushort CompareChannel` |
+| `CS_ECAT_Compare_2D_Set_Fail_Report_Enable` | `_ECAT_Compare_2D_Set_Fail_Report_Enable` | `ushort` | `ushort CardNo, ushort Enable` |
+| `CS_ECAT_Compare_2D_Get_Fail_Report_Data_Num` | `_ECAT_Compare_2D_Set_Fail_Report_Enable` | `ushort` | `ushort CardNo, ref ushort DataNum` |
+| `CS_ECAT_Compare_2D_Get_Fail_Report_Data` | `_ECAT_Compare_2D_Get_Fail_Report_Data` | `ushort` | `ushort CardNo, ref ushort DataIndex, ref int TrPosX, ref int TrPosY, ref int osX, ref int osY` |
+| `CS_ECAT_Compare_Set_Link_Output_To_GPIO` | `_ECAT_Compare_Set_Link_Output_To_GPIO` | `ushort` | `ushort CardNo, ushort Channel, ushort Enable` |
+| `CS_ECAT_Compare_Get_Link_Output_To_GPIO` | `_ECAT_Compare_Get_Link_Output_To_GPIO` | `ushort` | `ushort CardNo, ushort Channel, ref ushort Enable` |
+| `CS_ECAT_QEP_Fifo_Latch_Enable` | `_ECAT_QEP_Fifo_Latch_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort BitNo, ushort Enable` |
+| `CS_ECAT_QEP_Fifo_Latch_Edge_Select` | `_ECAT_QEP_Fifo_Latch_Edge_Select` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort TriggerEdge` |
+| `CS_ECAT_QEP_Fifo_Latch_Reset` | `_ECAT_QEP_Fifo_Latch_Reset` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID` |
+| `CS_ECAT_QEP_Fifo_Latch_Get_Count` | `_ECAT_QEP_Fifo_Latch_Get_Count` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Count` |
+| `CS_ECAT_QEP_Fifo_Latch_Read_Data` | `_ECAT_QEP_Fifo_Latch_Read_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref int Data` |
+
+## 20. 其他（配置/安全/日志/模块专用）
+
+> Autoconfig 配置、Security 授权、Record 采样、UART、Task、GPIO 急停、R1-EC 模块专用、第三方伺服绝对值等。共 223 个。
+
+| 方法 | 返回值 | 参数 |
+|------|--------|------|
+| `CS_ECAT_Autoconfig_Open_File` | `ushort` | `ushort CardNo, string FilePath` |
+| `CS_ECAT_Autoconfig_Save_File` | `ushort` | `ushort CardNo, string FilePath` |
+| `CS_ECAT_Autoconfig_Set_Slave_DCTime` | `ushort` | `ushort CardNo, ushort NodeID, ushort Mode` |
+| `CS_ECAT_Autoconfig_Clear_ConfigFile` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Autoconfig_Set_NodeID_Alias` | `ushort` | `ushort CardNo, ushort NodeID, ushort MapNodeID` |
+| `CS_ECAT_Autoconfig_Get_NodeID_Alias` | `ushort` | `ushort CardNo, ushort RealNodeID, ref ushort MapNodeID` |
+| `CS_ECAT_Autoconfig_Save_NodeID_Alias` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_Slave_Record_Set_Type` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort MonitorIndex, ushort IOType, ushort OD_Index, ushort OD_SubIndex` |
+| `CS_ECAT_Slave_Record_Set_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_Record_Get_Data_Cnt` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Cnt` |
+| `CS_ECAT_Slave_Record_Read_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref uint Data` |
+| `CS_ECAT_Slave_Record_Clear_Data` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_Record_Set_Sampling_Time` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort CaptureIndex, ushort CyclePeriod` |
+| `CS_ECAT_Slave_MR_J4_ABS_Set_Mode` | `ushort` | `ushort CardNo, ushort GroupNo, ushort AxisNum, ushort DI_NodeID, ushort DI_SlotID, ushort DO_NodeID, ushort DO_SlotID` |
+| `CS_ECAT_Slave_MR_J4_ABS_Set_Enable` | `ushort` | `ushort CardNo, ushort GroupNo, ushort Enable` |
+| `CS_ECAT_Slave_MR_J4_ABS_Get_State` | `ushort` | `ushort CardNo, ushort GroupNo, ref ushort State` |
+| `CS_ECAT_Slave_MR_J4_ABS_Get_Data` | `ushort` | `ushort CardNo, ushort GroupNo, ushort AxisIndex, ref int Data` |
+| `CS_ECAT_Slave_MR_J4_ABS_Reset` | `ushort` | `ushort CardNo, ushort GroupNo, ushort AxisIndex` |
+| `CS_ECAT_Slave_ESC0902_Get_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ref ushort Value` |
+| `CS_ECAT_Slave_ESC0902_Get_Single_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitNo, ref ushort Value` |
+| `CS_ECAT_Slave_ESC0902_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC0902_Get_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ref ushort Value` |
+| `CS_ECAT_Slave_ESC0902_Set_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort Value` |
+| `CS_ECAT_Slave_ESC0902_Get_Single_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitNo, ref ushort Value` |
+| `CS_ECAT_Slave_ESC0902_Set_Single_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitNo, ushort Value` |
+| `CS_ECAT_Slave_ESC0902_Set_Output_Error_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitMode` |
+| `CS_ECAT_Slave_ESC0902_Set_Output_Error_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort Value` |
+| `CS_ECAT_Slave_R2_EC0902_Get_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ref ushort Value` |
+| `CS_ECAT_Slave_R2_EC0902_Get_Single_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitNo, ref ushort Value` |
+| `CS_ECAT_Slave_R2_EC0902_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort Enable` |
+| `CS_ECAT_Slave_R2_EC0902_Get_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ref ushort Value` |
+| `CS_ECAT_Slave_R2_EC0902_Set_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort Value` |
+| `CS_ECAT_Slave_R2_EC0902_Get_Single_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitNo, ref ushort Value` |
+| `CS_ECAT_Slave_R2_EC0902_Set_Single_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitNo, ushort Value` |
+| `CS_ECAT_Slave_R2_EC0902_Set_Output_Error_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort BitMode` |
+| `CS_ECAT_Slave_R2_EC0902_Set_Output_Error_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort PortNo, ushort Value` |
+| `CS_ECAT_Slave_AIO_Get_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Value` |
+| `CS_ECAT_Slave_AIO_Set_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Value` |
+| `CS_ECAT_Slave_AIO_Get_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Value` |
+| `CS_ECAT_Slave_AIO_Set_Output_Error_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode` |
+| `CS_ECAT_Slave_AIO_Set_Output_Error_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Value` |
+| `CS_ECAT_Slave_AIO_Get_Channel_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort Value` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort RangeMode` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Input_ConvstFreqMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Mode` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Input_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Enable` |
+| `CS_ECAT_Slave_AIO_Get_Channel_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort RangeMode` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Input_AverageMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort AvgTimes` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Value` |
+| `CS_ECAT_Slave_AIO_Get_Channel_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort Value` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Output_Error_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Mode` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Output_Error_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Value` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Output_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort RangeMode` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Enable` |
+| `CS_ECAT_Slave_AIO_Get_Channel_Output_ReturnCode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort ReturnCode` |
+| `CS_ECAT_Slave_AIO_Get_Channel_Input_RealValue` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Type, ref double Value` |
+| `CS_ECAT_Slave_AIO_Set_Channel_Output_RealValue` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, double Value` |
+| `CS_ECAT_Slave_AIO_Get_Channel_Output_RealValue` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref double Value` |
+| `CS_ECAT_Slave_TS_Set_Channel_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort RangeMode` |
+| `CS_ECAT_Slave_TS_Set_Channel_Input_AverageMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort AvgTimes` |
+| `CS_ECAT_Slave_TS_Set_Channel_Input_DecimalPlaces` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Places` |
+| `CS_ECAT_Slave_TS_Set_Channel_Input_Unit` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort Unit` |
+| `CS_ECAT_Slave_TS_Set_Channel_Input_CJCFuncMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ushort CjcFunc` |
+| `CS_ECAT_Slave_TS_Set_Channel_Input_CJCFuncExtRealValue` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, double CjcFuncExtRealValue` |
+| `CS_ECAT_Slave_TS_Set_Channel_Input_TwoWireCompensation` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, double TwoWireCompesation` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref uint Value` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_RealValue` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref double Value` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_ErrorStatus` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort Value` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_WireBreak` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort Value` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort RangeMode` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_AverageMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort AvgTimes` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_DecimalPlaces` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort Places` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_Unit` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort Unit` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_CJCFuncMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref ushort CjcFunc` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_CJCFuncExtRealValue` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref double CjcFuncExtRealValue` |
+| `CS_ECAT_Slave_TS_Get_Channel_Input_TwoWireCompensation` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Channel, ref double TwoWireCompesation` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Counter_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC5604_Get_Counter_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref uint Value` |
+| `CS_ECAT_Slave_R1_EC5604_Reset_Counter_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_R1_EC5604_Get_Overflow_Times` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Times` |
+| `CS_ECAT_Slave_R1_EC5604_Get_Underflow_Times` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Times` |
+| `CS_ECAT_Slave_R1_EC5604_Reset_Overflow_Times` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Output_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Output_Pulse_Width` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Width` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Force_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Value` |
+| `CS_ECAT_Slave_R1_EC5604_Set_PWM_Frequency` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, uint Frequency` |
+| `CS_ECAT_Slave_R1_EC5604_Set_PWM_Duty_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Duty` |
+| `CS_ECAT_Slave_R1_EC5604_Set_Output_Error_Handle_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5614_Set_MJ_Config` | `ushort` | `ushort CardNo, ushort MJNo, ushort MJType, ushort NodeID, ushort SlotNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ref int MaxSpeed, ref double TAcc, ref double Ratio` |
+| `CS_ECAT_Slave_R1_EC5614_Set_MJ_Enable` | `ushort` | `ushort CardNo, ushort MJNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5614_Get_IO_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Status` |
+| `CS_ECAT_Slave_R1_EC5614_Get_MPG_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Counter` |
+| `CS_ECAT_Slave_R1_EC5614_Set_Mpg_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC5614_Set_MPG_AMF` | `ushort` | `ushort CardNo, ushort AMFNo, ushort AMFNum, ushort FilterNum, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5614_Clear_MPG_Counter` | `ushort` | `ushort u16_CardNo, ushort u16_NodeID, ushort u16_SlotID` |
+| `CS_ECAT_Slave_R1_EC5621_Set_Output_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC5621_Set_Input_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC5621_Set_ORG_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5621_Set_QZ_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5621_Set_MEL_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5621_Set_PEL_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5621_Set_Svon_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC5621_Get_IO_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort IOStatus` |
+| `CS_ECAT_Slave_R1_EC5621_Get_Single_IO_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort BitNo, ref ushort IOStatus` |
+| `CS_ECAT_Slave_R1_EC5621_Set_ALM_Clean_Time` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Ms` |
+| `CS_ECAT_Slave_R1_EC0624_Set_Trigger_Time` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Value` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_Output_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_Input_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_ORG_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_QZ_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_MEL_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_PEL_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_Svon_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_ECx62x_Get_IO_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort IOStatus` |
+| `CS_ECAT_Slave_R1_ECx62x_Get_Single_IO_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort BitNo, ref ushort IOStatus` |
+| `CS_ECAT_Slave_R1_ECx62x_Set_ALM_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC70E2_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Eanble` |
+| `CS_ECAT_Slave_R1_EC70X2_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Eanble` |
+| `CS_ECAT_Slave_R1_EC8124_Set_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC8124_Set_Input_ConvstFreq_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_R1_EC8124_Set_Input_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC8124_Get_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Mode` |
+| `CS_ECAT_Slave_R1_EC8124_Set_Input_AverageMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Avg_Times` |
+| `CS_ECAT_Slave_R1_EC8124_Get_Input_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort AIType, ref double Value` |
+| `CS_ECAT_Slave_R1_EC9144_Set_Output_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort RangeMode` |
+| `CS_ECAT_Slave_R1_EC9144_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_R1_EC9144_Get_Output_ReturnCode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort ReturnCode` |
+| `CS_ECAT_Slave_R1_EC9144_Set_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Value` |
+| `CS_ECAT_Slave_R1_EC9144_Get_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref double Value` |
+| `CS_ECAT_Slave_DeltaServo_Write_Parameter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, int WriteData` |
+| `CS_ECAT_Slave_DeltaServo_Read_Parameter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, ref int ReadData` |
+| `CS_ECAT_Slave_DeltaServo_Read_Parameter_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, ref ushort ParaType, ref ushort DataSize, ref ushort DataType` |
+| `CS_ECAT_Slave_DeltaServo_Set_Velocity_Limit` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, uint LimitValue` |
+| `CS_ECAT_Security_Check_Verifykey` | `ushort` | `ushort CardNo, ref uint VerifyKey` |
+| `CS_ECAT_Security_Get_Check_Verifykey_State` | `ushort` | `ushort CardNo, ref ushort State` |
+| `CS_ECAT_Security_Write_Verifykey` | `ushort` | `ushort CardNo, ref uint VerifyKey` |
+| `CS_ECAT_Security_Get_Write_Verifykey_State` | `ushort` | `ushort CardNo, ref ushort State` |
+| `CS_ECAT_Security_Check_UserPassword` | `ushort` | `ushort CardNo, ref uint UserPassword` |
+| `CS_ECAT_Security_Get_Check_UserPassword_State` | `ushort` | `ushort CardNo, ref ushort State` |
+| `CS_ECAT_Security_Write_UserPassword` | `ushort` | `ushort CardNo, ref uint UserPassword` |
+| `CS_ECAT_Security_Get_Write_UserPassword_State` | `ushort` | `ushort CardNo, ref ushort State` |
+| `CS_ECAT_GPIO_Set_Output` | `ushort` | `ushort CardNo, ushort OnOff` |
+| `CS_ECAT_GPIO_Get_Output` | `ushort` | `ushort CardNo, ref ushort OnOff` |
+| `CS_ECAT_GPIO_Get_Input` | `ushort` | `ushort CardNo, ref ushort OnOff` |
+| `CS_ECAT_GPIO_Set_Digital_Filter` | `ushort` | `ushort CardNo, ushort Filter` |
+| `CS_ECAT_GPIO_Get_Digital_Filter` | `ushort` | `ushort CardNo, ref ushort Filter` |
+| `CS_ECAT_GPIO_Set_Single_Output` | `ushort` | `ushort CardNo, ushort BitNo, ushort OnOff` |
+| `CS_ECAT_GPIO_Get_Single_Output` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort OnOff` |
+| `CS_ECAT_GPIO_Get_Single_Input` | `ushort` | `ushort CardNo, ushort BitNo, ref ushort OnOff` |
+| `CS_ECAT_GPIO_Set_Output_Control_Mode` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_GPIO_Emg_Enable` | `ushort` | `ushort CardNo, ushort Enable` |
+| `CS_ECAT_GPIO_Emg_Set_Input_Trigger_Level` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_GPIO_Emg_Soft_Clear` | `ushort` | `ushort CardNo` |
+| `CS_ECAT_GPIO_Emg_Get_Status` | `ushort` | `ushort CardNo, ref ushort Status` |
+| `CS_ECAT_GPIO_Set_Output32` | `ushort` | `ushort CardNo, uint OnOff` |
+| `CS_ECAT_GPIO_Get_Output32` | `ushort` | `ushort CardNo, ref uint OnOff` |
+| `CS_ECAT_GPIO_Get_Input32` | `ushort` | `ushort CardNo, ref uint OnOff` |
+| `CS_ECAT_GPIO_Set_Digital_Filter32` | `ushort` | `ushort CardNo, ushort Filter` |
+| `CS_ECAT_GPIO_Get_Digital_Filter32` | `ushort` | `ushort CardNo, ref ushort Filter` |
+| `CS_ECAT_GPIO_Set_High_Speed_Mode` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_GPIO_Get_High_Speed_Mode` | `ushort` | `ushort CardNo, ref ushort Mode` |
+| `CS_ECAT_GPIO_Set_Output_Mode_Select` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_GPIO_Get_Output_Mode_Select` | `ushort` | `ushort CardNo, ref ushort Mode` |
+| `CS_ECAT_GPIO_Set_Single_Output_Mode_Select` | `ushort` | `ushort CardNo, ushort GPIONo, ushort Mode` |
+| `CS_ECAT_GPIO_Get_Single_Output_Mode_Select` | `ushort` | `ushort CardNo, ushort GPIONo, ref ushort Mode` |
+| `CS_ECAT_PWM_CSP_VCTL_Config` | `ushort` | `ushort CardNo, ushort TableNo, ushort PwmNodeID, ushort PwmSlotID, ushort Axes, ref ushort NodeID, ref ushort SlotID, ref double Gear, ushort Mode, int InitData` |
+| `CS_ECAT_PWM_CSP_VCTL_Set_Table` | `ushort` | `ushort CardNo, ushort TableNo, ushort Type, ushort Interpolation, ref int PWMTable, double MaxVelocity` |
+| `CS_ECAT_PWM_CSP_VCTL_Follow` | `ushort` | `ushort CardNo, ushort TableNo, ushort Enable` |
+| `CS_ECAT_PWM_Set_Channel_Frequency` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint Freq` |
+| `CS_ECAT_PWM_Set_Channel_Duty` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint uDuty` |
+| `CS_ECAT_PWM_Set_Channel_Enable` | `ushort` | `ushort CardNo, ushort Nodeid, ushort Slotid, ushort enable` |
+| `CS_ECAT_PWM_Set_Frequency` | `ushort` | `ushort CardNo, uint Freq` |
+| `CS_ECAT_PWM_Set_Duty` | `ushort` | `ushort CardNo, uint Duty` |
+| `CS_ECAT_PWM_Set_Control_Mode` | `ushort` | `ushort CardNo, ushort Mode` |
+| `CS_ECAT_PWM_Soft_Enable` | `ushort` | `ushort CardNo, ushort OnOff` |
+| `CS_ECAT_PWM_VCTL_Config` | `ushort` | `ushort CardNo, ushort TableNo, ushort NodeID, ushort SlotID, ushort Mode, uint InitData` |
+| `CS_ECAT_PWM_VCTL_Set_DDA_Table` | `ushort` | `ushort CardNo, ushort TableNo, ushort Type, ushort Interpolation, ref int pi32_PWMTable, double f64_MaxVelocity` |
+| `CS_ECAT_PWM_VCTL_Follow_DDA` | `ushort` | `ushort CardNo, ushort TableNo, ushort DdaGroupNo, ref double pf64_Gear, ushort Enable` |
+| `CS_ECAT_Card_CE_Operate_Enable` | `ushort` | `ushort CardNo, ushort Enable` |
+| `CS_ECAT_Card_CE_Write_PC_Data` | `ushort` | `ushort CardNo, ushort Index, uint Data` |
+| `CS_ECAT_Card_CE_Read_PC_Data` | `ushort` | `ushort CardNo, ushort Index, ref uint Data` |
+| `CS_ECAT_Card_CE_Write_Device_Data` | `ushort` | `ushort CardNo, ushort Index, uint Data` |
+| `CS_ECAT_Card_CE_Read_Device_Data` | `ushort` | `ushort CardNo, ushort Index, ref uint Data` |
+| `CS_ECAT_Card_CE_Write_PC_Struct` | `ushort` | `ushort CardNo, ref uint AddrOfStruct, uint Size` |
+| `CS_ECAT_Card_CE_Read_PC_Struct` | `ushort` | `ushort CardNo, ref uint AddrOfStruct, uint Size` |
+| `CS_ECAT_Card_CE_Write_Device_Struct` | `ushort` | `ushort CardNo, ref uint AddrOfStruct, uint Size` |
+| `CS_ECAT_Card_CE_Read_Device_Struct` | `ushort` | `ushort CardNo, ref uint AddrOfStruct, uint Size` |
+| `CS_ECAT_Card_Get_OS_Type` | `ushort` | `ushort CardNo, ref byte[] pu8_Data` |
+| `CS_ECAT_Card_Get_Mac_Address` | `ushort` | `ushort CardNo, ushort Index, ref byte[] MacAddr` |
+| `CS_ECAT_Slave_ESC5614_Set_MJ_Config` | `ushort` | `ushort CardNo, ushort MJNo, ushort MJType, ushort NodeID, ushort SlotNo, ushort AxisNum, ref ushort AxisArray, ref ushort SlotArray, ref int MaxSpeed, ref double TAcc, ref double Ratio` |
+| `CS_ECAT_Slave_ESC5614_Set_MJ_Enable` | `ushort` | `ushort CardNo, ushort MJNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC5614_Get_IO_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Status` |
+| `CS_ECAT_Slave_ESC5614_Get_MPG_Counter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Counter` |
+| `CS_ECAT_Slave_ESC5621_Set_Output_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_ESC5621_Set_Input_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_ESC5621_Set_ORG_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC5621_Set_QZ_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC5621_Set_MEL_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC5621_Set_PEL_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC5621_Set_Svon_Inverse` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC70E2_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Eanble` |
+| `CS_ECAT_Slave_ESC8124_Set_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_ESC8124_Set_Input_ConvstFreq_Mode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode` |
+| `CS_ECAT_Slave_ESC8124_Set_Input_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC8124_Get_Input_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Mode` |
+| `CS_ECAT_Slave_ESC8124_Set_Input_AverageMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Avg_Times` |
+| `CS_ECAT_Slave_ESC9144_Set_Output_RangeMode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort RangeMode` |
+| `CS_ECAT_Slave_ESC9144_Set_Output_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Enable` |
+| `CS_ECAT_Slave_ESC9144_Get_Output_ReturnCode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort ReturnCode` |
+| `CS_ECAT_UART_Mode_Select` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Mode` |
+| `CS_ECAT_UART_Source_Select` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Source` |
+| `CS_ECAT_UART_Set_Opt` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, uint BaudRate, ushort DataBits, ushort Parity, ushort StopBits` |
+| `CS_ECAT_UART_Write` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Length, ref byte Data` |
+| `CS_ECAT_UART_Read` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort BufSize, ref byte Data, ref ushort Length` |
+| `CS_ECAT_Task_Load_Program` | `ushort` | `ushort CardNo, byte Type, ref char Filename` |
+| `CS_ECAT_Task_Run` | `ushort` | `ushort CardNo, byte Type, byte Run` |
+| `CS_ECAT_Task_Get_Varible_Offset_And_Size` | `ushort` | `ushort CardNo, byte Type, ref uint Offset, ref uint Size, ref char VarName` |
+| `CS_ECAT_Task_Read_Variables` | `ushort` | `ushort CardNo, byte Type, ushort DataNum, ref uint Offset, ref uint Size, ref UInt64 DataAddr` |
+| `CS_ECAT_Task_Write_Variables` | `ushort` | `ushort CardNo, byte Type, ushort DataNum, ref uint Offset, ref uint Size, ref UInt64 DataAddr` |
+| `CS_ECAT_Task_Load_Program_Bin` | `ushort` | `ushort CardNo, byte Type, ref char Data, uint DataLen` |
+| `CS_ECAT_Task_Set_Data` | `ushort` | `ushort CardNo, byte Type, uint Addr, uint Data` |
+| `CS_ECAT_Task_Get_Data` | `ushort` | `ushort CardNo, byte Type, uint Addr, ref uint Data` |
+| `CS_ECAT_Log_Api` | `ushort` | `ushort CardNo, ref char Filename, ushort Enable` |

@@ -1,11 +1,12 @@
 ---
-title: ADR-024 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+title: ADR-022 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 date: 2026-08-12
 tags: [决策, UI, AntdUI, GridPanel, FlowPanel, 布局]
 status: accepted
+previous_id: ADR-024
 ---
 
-# ADR-024：布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+# ADR-022 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 
 ## 背景
 
@@ -24,7 +25,7 @@ status: accepted
 2. **保留 AntdUI 整体风格**：项目 UI 主体仍为 AntdUI 风格（[[decisions/ADR-018-UIFrameworkMigration]] 的框架约束不因本 ADR 改变）。
 3. **控件回退规则**：AntdUI 缺失的控件，允许使用 **WinForms 原生控件**作为回退。
 4. **SunnyUI 控件一律禁止**使用（AntdUI 迁移的底层约束，sunnyUI 为 GPL 许可，见 [[decisions/ADR-018-UIFrameworkMigration]]）。
-5. **不重写已有页面**：已用 `GridPanel`/`FlowPanel` 实现的 9 个页面（MainPage / DataReviewPage / CommPage / MotionControlPage / ParamConfigPage / ILAlgoPage / HelixRenderForm / AutoParamForm 等）功能正常，**不强制重写**，由用户自行判断是否调整。
+5. **不重写已有页面**：已用 `GridPanel`/`FlowPanel` 实现的 9 个页面（MainPage / DataReviewerPage / CommPage / MotionControlPage / ParamConfigPage / ILAlgoForm / HelixRenderForm / AutoParamForm 等）功能正常，**不强制重写**，由用户自行判断是否调整。
 6. **若仍使用 `GridPanel`/`FlowPanel`**，必须遵守其各自的既布局规则（`GridPanel` 逆序入格、`FlowPanel` Align=Left+Gap+顺序 Add），这些规则是「使用该容器时的技术知识」，而非「强制使用该容器的理由」——见 [[guides/AntdUI-Reference]]、[[guides/AntdUI-Reference]]。
 
 ## 备选方案

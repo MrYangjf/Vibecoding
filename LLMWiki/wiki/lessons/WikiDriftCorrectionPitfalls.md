@@ -92,7 +92,7 @@ out = tail.join(lines)
 | 路径拼贴 | `Sub2UI/LLCamWorkJob.cs` | `Sub2UI/UIDesign/TabPage/ILCamPage.cs`（旧目录 + 新全路径） |
 | 外部项目被改 | `PcomDeviceInterface/MachineStatusWork.cs` | `PcomDeviceInterface/MainDeviceControl/DeviceStatusWork.cs` |
 | 自指 | `**已完全替代原 ILCamPage.cs**` | `**已完全替代原 UIDesign/TabPage/ILCamPage.cs**`（一句话里自己替代自己） |
-| 目录树塞全路径 | `├── LLCameraSetting.cs` | `├── UIDesign/SubView/ILParamPage.cs`（树结构被破坏） |
+| 目录树塞全路径 | `├── LLCameraSetting.cs` | `├── UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs`（树结构被破坏） |
 
 ### 规避
 
@@ -195,7 +195,7 @@ architecture/DeviceControlArchitecture.md:231  CommandCore.cs
 architecture/DeviceControlArchitecture.md:271  RollPressProcess.cs
 architecture/DeviceControlArchitecture.md:329~333  RollPressProcess.cs ×4
 architecture/DeviceControlArchitecture.md:964  CommandCore.cs
-decisions/ADR-035-ArchitectureRawSource.md:29  RollPressProcess.cs
+decisions/ADR-029-ArchitectureRawSource.md:29  RollPressProcess.cs
 ```
 
 但**这 9 处全部写在反引号代码体内**，是明确的历史名/原档名引用，不是真实引用。

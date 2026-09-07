@@ -1,21 +1,21 @@
 ---
 title: API — DeviceStatusWork 安全/IO/状态管控（+ SafetyFlow / SafetyInterlockChecker）
 date: 2026-09-02
-tags: [API, 安全检查, 安全互锁, 工作流, PLC, 日志, DeviceStatusWork, ADR-034]
+tags: [API, 安全检查, 安全互锁, 工作流, PLC, 日志, DeviceStatusWork, ADR-028]
 source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 ---
 
 # API — DeviceStatusWork 安全/IO/状态管控
 
-> **本页述 `DeviceStatusWork`（单例，安全/IO/状态管控）**，见 [[decisions/ADR-034-ThreeStateModelRefactor]]。
+> **本页述 `DeviceStatusWork`（单例，安全/IO/状态管控）**，见 [[decisions/ADR-031-ThreeStateModelRefactor]]。
 > 安全类**不对外暴露子设备状态**，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费。
 >
 > **位置**：`MainDeviceControl/DeviceStatusWork.cs`（命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`）
 > **继承**：**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**；由三个常驻监控线程驱动（`IOWork` / `EMGWork` / `LightStatusWork`，各 20Hz；EMGWork 置 Highest）。
 > **设计来源**：参考 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
-> **单文件承载**：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（[[decisions/ADR-031-SafetyCheckConsolidation]]）。故障恢复模块已于 2026-09-04 整体移除（ADR-038 D3），本类不再做故障落库。
+> **单文件承载**：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（[[decisions/ADR-028-SafetyCheckConsolidation]]）。故障恢复模块已于 2026-09-04 整体移除（ADR-032 D3），本类不再做故障落库。
 >
-> **✅ 2026-09-04 已落地（ADR-036 批次 3）**：本类线程与入口**以原档命名为准统一**：三线程 `thIOWork`（Running IO + Alarm IO）/ `thEMGWork`（Safe IO）/ **`thLightStatusWork`（status IO，三色灯）**，循环标志位 `IsIOWorking` / `IsEMGWorking` / `IsLightStatusWorking`，公共入口 **`MachineIOWorkOpen()`**（取代旧 `StartWork()`）；线程方法体统一为 `IOWork()` / `EMGWork()` / `LightStatusWork()`。
+> **✅ 2026-09-04 已落地（ADR-030 批次 3）**：本类线程与入口**以原档命名为准统一**：三线程 `thIOWork`（Running IO + Alarm IO）/ `thEMGWork`（Safe IO）/ **`thLightStatusWork`（status IO，三色灯）**，循环标志位 `IsIOWorking` / `IsEMGWorking` / `IsLightStatusWorking`，公共入口 **`MachineIOWorkOpen()`**（取代旧 `StartWork()`）；线程方法体统一为 `IOWork()` / `EMGWork()` / `LightStatusWork()`。
 > 原档未定义停止方法，补充 **`MachineIOWorkClose()`**（取代旧 `CloseWork()`）并保留——置 `_running = false` 后有限等待 `Join(1000)`，不 Abort。
 > 调用方：`DeviceControlWork.InitializeMachine` / `StartMachine` → `MachineIOWorkOpen()`；`StopMachine` / `Dispose` → `MachineIOWorkClose()`。
 > ⚠️ 真编译待 Visual Studio（沙盒无 C# 编译器，静态自检已通过）。见 [[architecture/DeviceControlArchitecture]] §9。
@@ -24,7 +24,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 
 ## `class DeviceStatusWork`
 
-单例，由**三个常驻监控线程**按 50ms（20Hz）轮询驱动。报警/急停处置统一经 `DeviceControlWork` 单一控制源变更主设备运行态（Alarm/EStop/NoReset），不自行维护子设备状态（ADR-030）。
+单例，由**三个常驻监控线程**按 50ms（20Hz）轮询驱动。报警/急停处置统一经 `DeviceControlWork` 单一控制源变更主设备运行态（Alarm/EStop/NoReset），不自行维护子设备状态（ADR-027）。
 
 > **日志出口（2026-09-04 回归直连）**：本类全部日志经私有 `Log(...)` → `GlobalCommData.ShowLog(_tag, ...)`，共 8 处（IOWork 异常 / 急停按钮按下 / 急停轮询异常 / 状态反射 / 状态反射异常 / 三色灯输出异常 / `MachineIOWorkOpen` / `MachineIOWorkClose`）。见 [[api/GlobalCommData]]。
 
@@ -54,6 +54,26 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 | 急停处置 | `thEMGWork` / `EMGWork()` | Highest | 轮询 PLC 急停位；按下 `EstopMachine("急停按钮按下")`，释放后 `EstopCancel()` + `ReportAlarmCleared` |
 | 状态反射 | `thLightStatusWork` / `LightStatusWork()` | Normal | 反射 `DeviceControlWork.Status`（MainDeviceStatus）到三色灯（`WriteBit`，地址待标定），状态切换才写 |
 
+### 动作线程（2026-09-07 新增，第四条）
+
+| 线程 | 字段 / 入口方法 | 职责 |
+|---|---|---|
+| 动作执行 | `thAction` / `DispatchAction(ioName)` | 承载 `ExecuteIo` 分派的 `DoXxx` 动作；**同一时刻只允许一个动作在跑**（`_actionBusy`），在跑时新命令记 Warning 后丢弃；**执行前后各问询一次运行态**，被急停/报警抢占记一次变更日志（2026-09-07） |
+
+> **扫描与动作必须分离**：`IOWork` 只做「取走 IO → 记日志 → 拉起动作线程 → 立即返回」，
+> 绝不直接执行 `DoXxx`。初始化链连接 4 个子设备需数十秒，若同步执行会独占扫描线程，
+> 期间急停等其它 IO 全部得不到响应（参考 `PcomDeviceInterface/MachineControlWork.ResetMachine`
+> 用 `new Task(...).Start()` 异步拉起的同款做法）。
+>
+> **例外**：急停 `IoEmg` 由 `EMGWork` **同步**执行 `ExecuteIo`——急停必须立即生效，异步会引入延迟。
+
+### Running IO 状态前置门控（2026-09-07）
+
+`ScanPulseIo(ioName, requireRunning)`：**子流程类 IO**（`IoSubPrework` / `IoSubWork` / `IoSubStop` /
+`IoSubManualStop` / `IoSubAlarmStop`）取走后先问询运行态，整机已非 `Running`（停机/报警/急停）则记
+Warning 丢弃、不分派——排队中的工作指令在停机后不再执行。命令类 IO（Init/Reset/Start/Stop/ClearAlarm）
+不门控（停机后仍须可收命令）。
+
 ### 检查内容（IOWork 的两类互锁，急停由 EMGWork 专责）
 
 1. **PLC 硬件项**（`SafetyInterlockChecker.CheckPlc`，经 `GlobalCommData.mCommunicationManager.PlcManager`）
@@ -70,7 +90,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 
 ### 行为约定
 
-- IOWork 检查失败时**首次**触发 `DeviceControlWork.ReportAlarm(reason)`（故障落库已于 2026-09-04 随模块移除删除，ADR-038）；报警/恢复各触发一次（轮询周期 50ms，`_alarmActive` 保证一个报警周期只触发一次）
+- IOWork 检查失败时**首次**触发 `DeviceControlWork.ReportAlarm(reason)`（故障落库已于 2026-09-04 随模块移除删除，ADR-032）；报警/恢复各触发一次（轮询周期 50ms，`_alarmActive` 保证一个报警周期只触发一次）
 - EMGWork 急停按下 → `DeviceControlWork.EstopMachine`（2026-09-04 由 `EStopMachine` 改名，对齐原档 §7.5）；释放且处于 EStop → `EstopCancel` + `ReportAlarmCleared`
 - 单次异常不中断循环（各线程 `while` 体内 try/catch）
 - 监控未启动/已停止时 `IsSafe` 返回 true，不阻断整机
@@ -153,7 +173,7 @@ cfg.StatusLampDb = 10;
 - [[modules/Safety]] — 模块职责与闭环说明
 - [[modules/DeviceControl]] — 工作流基类与三态模型
 - [[api/DeviceControlWork]] — 消费方：`DeviceControlWork` 焊前门控**直接读** `IsSafe`（⛔ 旧包装方法 ~~`DeviceControlWork.IsRobotPoseSafe`~~ 已于 2026-09-03 移除，裁定 C3）
-- ~~[[api/FaultRecoveryManager]] — 故障记录归口~~（⛔ 2026-09-04 模块整体移除，ADR-038）
-- [[decisions/ADR-031-SafetyCheckConsolidation]] — 三文件合并决策
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 归并重命名决策（现行有效）
+- ~~[[api/FaultRecoveryManager]] — 故障记录归口~~（⛔ 2026-09-04 模块整体移除，ADR-032）
+- [[decisions/ADR-028-SafetyCheckConsolidation]] — 三文件合并决策
+- [[decisions/ADR-031-ThreeStateModelRefactor]] — 归并重命名决策（现行有效）
 - [[lessons/FaultRecoveryDeviceKey]] — 故障记录设备键名陷阱

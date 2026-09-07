@@ -2,7 +2,7 @@
 title: 英莱 Job 参数离线缓存必须移除（设备为唯一真相源）
 date: 2026-08-24
 tags: [教训, 英莱, 线激光, Job参数, 离线缓存, 代码精简]
-source: AdaWeldSystem/LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs, AdaWeldSystem/UIDesign/SubView/ILAlgoPage.cs
+source: AdaWeldSystem/LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs, AdaWeldSystem/UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs
 ---
 
 # 英莱 Job 参数离线缓存必须移除（设备为唯一真相源）
@@ -23,8 +23,8 @@ source: AdaWeldSystem/LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun
 |------|------|
 | `IntelligentLaserCameraRun.cs` | 删 `_ilIniFile` / `LoadOfflineCache` / `SaveOfflineCache` / `HasJobParamCache` 及 3 处 `SaveOfflineCache` 调用；新增 `OnJobParamsChanged` 回调注册（`_cbJobParamsChanged`+GCHandle，遵循 GC 三层保护）、`JobParamsChangedCallback`（按名增量刷新 `_jobParams`）、`JobParamsChanged` 事件 |
 | `ILCamPage.cs` | `RefreshJobSelect` 连接同步时从设备读当前 Job 预填 `cmbJob`（保持原逻辑，删离线无关代码无影响） |
-| `ILAlgoPage.cs` | `InitIlModule` 删「拉取失败回退离线缓存」分支（未连接→空表）；订阅 `JobParamsChanged` → 重拉 `FetchAllJobParams` 刷新；`dgvILParams.CellEndEdit` 单元格级单条 `ApplyJobParams`（成功回读刷新该格、失败恢复原值），移除整表 `btnSet` 按钮 |
-| `ILAlgoPage.Designer.cs` | 删除 `btnSet` 控件声明/初始化/字段（CellEndEdit 取代批量下发） |
+| `ILAlgoForm.cs` | `InitIlModule` 删「拉取失败回退离线缓存」分支（未连接→空表）；订阅 `JobParamsChanged` → 重拉 `FetchAllJobParams` 刷新；`dgvILParams.CellEndEdit` 单元格级单条 `ApplyJobParams`（成功回读刷新该格、失败恢复原值），移除整表 `btnSet` 按钮 |
+| `ILAlgoForm.Designer.cs` | 删除 `btnSet` 控件声明/初始化/字段（CellEndEdit 取代批量下发） |
 
 ## 关联
 

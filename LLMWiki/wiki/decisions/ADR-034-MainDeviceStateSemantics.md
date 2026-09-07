@@ -1,11 +1,12 @@
 ---
-title: ADR-037 主设备状态机语义修正与初始化时序重构
+title: ADR-034 主设备状态机语义修正与初始化时序重构
 date: 2026-09-04
 tags: [决策, 状态机, 初始化, 时序, 报警语义]
 status: accepted
+previous_id: ADR-037
 ---
 
-# ADR-037 主设备状态机语义修正与初始化时序重构
+# ADR-034 主设备状态机语义修正与初始化时序重构
 
 ## 背景
 
@@ -46,6 +47,6 @@ status: accepted
 
 ## 相关
 
-- [[ADR-034-ThreeStateModelRefactor]]（三态模型本体）
-- [[ADR-038-ErrorReportingHierarchy]]（报错分层）
+- [[decisions/ADR-031-ThreeStateModelRefactor]]（三态模型本体）
+- [[decisions/ADR-035-ErrorReportingHierarchy]]（报错分层）
 - [[decisions/OPEN-ClearAlarmSemantics]]（已由 D1 关闭）

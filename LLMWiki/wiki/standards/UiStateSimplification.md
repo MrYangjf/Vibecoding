@@ -7,7 +7,7 @@ status: accepted
 
 # UI 状态判断与控制精简规范
 
-> **用途**：本页是「UI 状态判断与控制精简」需求的**唯一标准源**，与 [[standards/CodeSimplification]]（ADR-028，覆盖除 `*.Designer.cs` 外的全部业务源码、含 `UIDesign/` 非设计器 `.cs` 五维度）互补——ADR-028 已覆盖 `UIDesign/` 非设计器 `.cs` 的 ①②⑤ 维度（成员排序/变量/辅助函数）与 ③④（枚举事件/逻辑），本页专门补上 `UIDesign/` 的**状态判断与控制细则**（禁本地 bool 缓存设备态/单一控制函数/统一刷新入口/集中状态标签）。触发此类需求时，AI 直接读取本页执行。
+> **用途**：本页是「UI 状态判断与控制精简」需求的**唯一标准源**，与 [[standards/CodeSimplification]]（ADR-023，覆盖除 `*.Designer.cs` 外的全部业务源码、含 `UIDesign/` 非设计器 `.cs` 五维度）互补——ADR-023 已覆盖 `UIDesign/` 非设计器 `.cs` 的 ①②⑤ 维度（成员排序/变量/辅助函数）与 ③④（枚举事件/逻辑），本页专门补上 `UIDesign/` 的**状态判断与控制细则**（禁本地 bool 缓存设备态/单一控制函数/统一刷新入口/集中状态标签）。触发此类需求时，AI 直接读取本页执行。
 > **适用范围**：`UIDesign/` 全部 WinForms/AntdUI 代码。
 
 ---
@@ -53,9 +53,9 @@ status: accepted
 
 | 已有约束 | 关系 |
 |---|---|
-| [[standards/CodeSimplification]] / [[decisions/ADR-028-CodeSimplificationStandard]] | 互补：ADR-028 覆盖除 `*.Designer.cs` 外的全部业务源码（含 `UIDesign/` 非设计器 `.cs` 五维度），本页专补 `UIDesign/` 状态判断与控制细则 |
+| [[standards/CodeSimplification]] / [[decisions/ADR-025-CodeSimplificationStandard]] | 互补：ADR-023 覆盖除 `*.Designer.cs` 外的全部业务源码（含 `UIDesign/` 非设计器 `.cs` 五维度），本页专补 `UIDesign/` 状态判断与控制细则 |
 | [[decisions/ADR-002-CS73-Constraint]] | 精简后仍须 C# 7.3 语法 |
-| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-025-DisposePatternFullCoverage]] | 精简**不得**新增/重写 `Dispose(bool)` |
+| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-023-DisposePatternFullCoverage]] | 精简**不得**新增/重写 `Dispose(bool)` |
 | 公共接口契约 | 精简**不得**改变公共类型/方法签名 |
 
 ---
@@ -67,8 +67,8 @@ status: accepted
 | 2026-08-25 | `LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs` | 设备层状态本地化：`IsLaserOn()`/`IsCameraOn()` 改本地状态（连接时 `SyncHardwareStatus` 同步一次 + `SetLaser`/`SetSensor` 本地更新），删 `IlHardwareStatus` 快照/`_isRunning`/`_isOpened`；UI 读取无延迟 |
 | 2026-08-25 | `UIDesign/TabPage/ILCamPage.cs` | 连接态改 `_ilCamera.IsConnected` 设备真相源（独立调试页不依赖工作流状态机）；构造函数/连接成功/自动模式切换仅同步一次硬件 |
 | 2026-08-24 | `UIDesign/TabPage/ILCamPage.cs` | 删 `_isLaserOn`/`_isCameraOn`，激光/传感器按钮 text 收敛到 `UpdateLaserSensorUi()`；`RefreshUi(RefreshUiScope)` 统一刷新入口 |
-| 2026-08-24 | `UIDesign/ViewPage/ILAlgoPage.cs` | 删 `_ilConnected` 缓存，4 处改直读 `IsConnected` |
-| 2026-08-24 | `UIDesign/SubView/ILParamPage.cs` | 删 `_ilConnected` 缓存，`UpdateConnLabel`/`LoadParams`/按钮守卫改直读 `IsConnected` |
+| 2026-08-24 | `UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs` | 删 `_ilConnected` 缓存，4 处改直读 `IsConnected` |
+| 2026-08-24 | `UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs` | 删 `_ilConnected` 缓存，`UpdateConnLabel`/`LoadParams`/按钮守卫改直读 `IsConnected` |
 | 参照（好范式，保留） | `UIDesign/TabPage/MotionControlPage.cs` | `SetSimButtonMode()` 已集中控制按钮 text |
 | 参照（好范式，保留） | `UIDesign/MainWindow/FormMain.cs` | `UpdateDeviceStatus()` 已集中刷新状态标签 |
 | 保留（合理本地态，非真相源副本） | `MonitorCamPage._isMonitoring` / `EmguAlgoPage._loading` / `NavPage._syncing` / `CommPage._isLogVisible` / `FileTraceForm._selected` | 本地 UI 活动/选择/可见性标志，不重复外部真相源，保留 |

@@ -1,23 +1,24 @@
 ---
-title: ADR-036 原档 9-03 细化：主控设计完全重构与冲突裁定
+title: ADR-033 原档 9-03 细化：主控设计完全重构与冲突裁定
 date: 2026-09-03
-tags: [决策, 架构, 主控设计, 原档驱动, 已裁定, ADR-036, 三态模型, 线程模型, CommandCore]
+tags: [决策, 架构, 主控设计, 原档驱动, 已裁定, ADR-030, 三态模型, 线程模型, CommandCore]
 status: accepted
+previous_id: ADR-036
 ---
 
-# ADR-036：原档 9-03 细化——主控设计完全重构与冲突裁定
+# ADR-033 原档 9-03 细化——主控设计完全重构与冲突裁定
 
 > **状态：accepted（2026-09-03 用户逐条裁定）**。本 ADR 记录 2026-09-03 用户修订 `raw/architecture/` 原档后的**架构意图变更**，以及用户对 7 项冲突的**逐条裁定**。
 > 逐项落地表见 [[architecture/DeviceControlArchitecture]] §15；架构页已按本裁定**整体重写**。
 
 ## 背景
 
-2026-09-03 用户更新 `raw/architecture/` 原档（ADR-035 唯一修改入口）：
+2026-09-03 用户更新 `raw/architecture/` 原档（ADR-029 唯一修改入口）：
 
 1. `主控设计.xlsx` —— 从「一句话职责」细化为**成员级清单**（基类 17 项契约、5 子工作流差异化职责、两个独立管控类的线程/私有方法/公共方法全表），新增 `CommandCore` 与 `SubDeviceWeldStatus.NoReset`。
 2. `激光焊接系统业务流程图20260904.md`（2026-09-04 新增，**业务流主源**）—— 用户人工全量转写版（706 行），取代 `激光焊接系统业务流程图.pdf` 成为提取对象；在原 PDF 基础上补齐 §2 IO 统一触发架构、§3.4 双态映射、§10 共 21 条机器人命令设计。PDF 保留为图形备份。
 
-AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别出 7 项与现行「步骤驱动」「双流程」「三态模型」三项决策或代码冲突之处，按 ADR-035 §3 **提交用户裁定**（未裁定不得改码）。
+AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别出 7 项与现行「步骤驱动」「双流程」「三态模型」三项决策或代码冲突之处，按 ADR-029 §3 **提交用户裁定**（未裁定不得改码）。
 
 ## 决策
 
@@ -49,7 +50,7 @@ AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别
 |---|---|---|
 | 步骤驱动工作流决策（已删除） | **部分被取代** | 线程模型（基类监听线程）**已废**；步骤驱动思想保留但机制改为 `RunStep` + bool 推进，`GoStep` / `SetStep` / `FailFlow` / `FailReason` / `FailStep` 等基类成员**全部清除** |
 | 自动/手动双流程决策（已删除） | **需修正** | 「`FlowProcess` 唯一执行器」表述与新档不符——新档有 `FlowProcess` + `ResetProcess` 两个流程方法，**均**由 `RunStep` 驱动 |
-| [[decisions/ADR-034-ThreeStateModelRefactor]] | **模型保留，枚举更新** | 三态模型（三个正交枚举）不变；`SubDeviceWeldStatus` 按 C2 调整取值，`SubDeviceState` 维持 2 态 |
+| [[decisions/ADR-031-ThreeStateModelRefactor]] | **模型保留，枚举更新** | 三态模型（三个正交枚举）不变；`SubDeviceWeldStatus` 按 C2 调整取值，`SubDeviceState` 维持 2 态 |
 
 ### 4. 落地批次
 
@@ -106,8 +107,8 @@ AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别
 
 | 方案 | 说明 | 为何未采纳 |
 |---|---|---|
-| 直接按原档全量改码 | 一次性对齐 17 契约 + 7 线程 | 违反 ADR-035 §3「冲突须用户裁定」；C1/C2 一动全项目，未裁定即改不可回退 |
-| 维持现状不记录 | — | 违反 ADR-035「原档即唯一入口」，架构页会与原档持续漂移 |
+| 直接按原档全量改码 | 一次性对齐 17 契约 + 7 线程 | 违反 ADR-029 §3「冲突须用户裁定」；C1/C2 一动全项目，未裁定即改不可回退 |
+| 维持现状不记录 | — | 违反 ADR-029「原档即唯一入口」，架构页会与原档持续漂移 |
 | 在旧架构表述上追加新内容 | 保留旧框架，新增章节描述新设计 | **用户明确否决**——「不要带入老旧文档的设计思维，不是对旧文档的补充，是完全的重构」 |
 
 ## 后果
@@ -129,8 +130,8 @@ AI 重读原档、与 git HEAD 逐单元格 diff、提取 PDF 全文后，识别
 ## 相关页面
 
 - [[architecture/DeviceControlArchitecture]] —— 唯一真相源，已按本裁定整体重写；§15 为落地清单
-- [[decisions/ADR-035-ArchitectureRawSource]] —— 原档优先原则与同步流程
+- [[decisions/ADR-032-ArchitectureRawSource]] —— 原档优先原则与同步流程
 - 步骤驱动决策、双流程决策（均已删除）—— 受影响 / 部分被取代
-- [[decisions/ADR-034-ThreeStateModelRefactor]] —— 部分被取代的 ADR
+- [[decisions/ADR-031-ThreeStateModelRefactor]] —— 部分被取代的 ADR
 - [[lessons/StepDrivenWorkflowPitfalls]]（坑三：基类抽象成员连锁）、[[lessons/StepMemberNameCollision]]（CS0102）—— 改码门禁
 - [[modules/DeviceControl]]、[[api/DeviceControlWork]]、[[api/DeviceStatusWork]] —— 受影响页面（`api/DeviceLog` 页已随 `DeviceLog.cs` 于 2026-09-04 移除）

@@ -21,7 +21,7 @@ SqlLiteDatabase/
 ├── ConfigManager.cs                     ← 配置管理
 ├── AutoParamManager.cs                  ← 自动参数数据库管理
 ├── ProductDatabaseManager.cs            ← 产品数据库管理
-└── FaultRecordManager.cs                ← 故障记录数据库管理（2026-08-31 新增，ADR-033；已移除 2026-09-04，ADR-038 D3）
+└── FaultRecordManager.cs                ← 故障记录数据库管理（2026-08-31 新增，ADR-027；已移除 2026-09-04，ADR-032 D3）
 ```
 
 ## 核心文件
@@ -34,7 +34,7 @@ SqlLiteDatabase/
 | ConfigManager.cs | 配置管理（系统配置持久化） |
 | AutoParamManager.cs | 自动参数数据库管理（JSON 序列化） |
 | ProductDatabaseManager.cs | 产品数据库管理（Product.db 按日期分表） |
-| FaultRecordManager.cs | 故障记录持久化（`DataBase\FaultRecord.db` 表 FaultRecord，详见 [[api/FaultRecordManager]]；2026-08-31 自 FaultRecoveryManager 内联实现下沉而来；已移除 2026-09-04，ADR-038 D3） |
+| FaultRecordManager.cs | 故障记录持久化（`DataBase\FaultRecord.db` 表 FaultRecord，详见 [[api/FaultRecordManager]]；2026-08-31 自 FaultRecoveryManager 内联实现下沉而来；已移除 2026-09-04，ADR-032 D3） |
 
 ## 技术要点
 
@@ -50,7 +50,7 @@ SqlLiteDatabase/
 |----------|----------|
 | [[modules/WeldParamControl]] | AutoParamManager, ConfigManager |
 | [[modules/UIDesign]] | AuthManager, ConfigManager |
-| [[modules/ProductFileManager]] | **FaultRecordManager 的唯一调用方是 `FaultRecoveryManager`（2026-09-01 起驻本模块，ADR-033 §3）**；故障记录 DB 型数据归本模块，文件型记录（.pDat/.tmp）归 ProductFileManager 自身 |
+| [[modules/ProductFileManager]] | **FaultRecordManager 的唯一调用方是 `FaultRecoveryManager`（2026-09-01 起驻本模块，ADR-027 §3）**；故障记录 DB 型数据归本模块，文件型记录（.pDat/.tmp）归 ProductFileManager 自身 |
 | [[modules/Safety]] | 历史协作方；`FaultRecoveryManager` 已随 2026-09-01 归口迁出，安全检查侧仅作消费方 |
 
 ## 相关教训

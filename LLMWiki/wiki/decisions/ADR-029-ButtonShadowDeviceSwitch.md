@@ -1,11 +1,12 @@
 ---
-title: ADR-032 MainPage 硬件快捷开关 FloatButton→ButtonShadow
+title: ADR-029 MainPage 硬件快捷开关 FloatButton→ButtonShadow
 date: 2026-08-31
 tags: [决策, UI, AntdUI, MainPage, 快捷开关, ButtonShadow, FloatButton]
 status: accepted
+previous_id: ADR-032
 ---
 
-# ADR-032：MainPage 硬件快捷开关 FloatButton→ButtonShadow
+# ADR-029 MainPage 硬件快捷开关 FloatButton→ButtonShadow
 
 ## 背景
 
@@ -21,7 +22,7 @@ MainPage 底部 `panelfloatbutton` 面板原用 AntdUI `FloatButton.open(Config)
 - 6 个按钮在 `MainPage` 构造函数中代码后置创建（`InitDeviceSwitchButtons()`），直接 `Controls.Add` 进已有 `panelfloatbutton` 面板（不修改 Designer.cs）。
 - 按钮属 MainPage 控件树，页面切换显隐由 WinForms 宿主机制自动处理，**零事件同步代码**。
 - 连接态变色只改 `Type` 属性（Success/Error），由 `FormMain.uiMillisecondTimer1_Tick` → `RefreshDeviceSwitchUi()` 驱动，`_lastLlConnected` 去重避免每帧赋值。
-- 布局：96×34、Y=13 垂直居中、左对齐横排（ADR-024 布局自由化允许手动定位）；`Round=true` 胶囊形；纯文本无图标。
+- 布局：96×34、Y=13 垂直居中、左对齐横排（ADR-022 布局自由化允许手动定位）；`Round=true` 胶囊形；纯文本无图标。
 - 删除全部 FloatButton 注释遗骸（BuildFloatButtonConfig/InitDeviceFloatButton/RebuildFloatButton/CloseDeviceFloatButton 等）。
 
 ## 备选方案
@@ -51,12 +52,12 @@ MainPage 底部 `panelfloatbutton` 面板原用 AntdUI `FloatButton.open(Config)
 - **预留接口**：`SetDeviceIconSvg(idx, svg)`（替换按钮图标；**各按钮设备指向不同**，图标 SVG 经 `_deviceIconSvgs[]` 数组按设备逐个缓存+应用）、`SetDeviceBadgeSvg(idx, svg)`（映射原生 `BadgeSvg`，徽标 SVG 化后颜色仍随 BadgeBack）。
 - **版本核对**：本项目 `3rdDepend/AntdUI.dll` 已含 `BadgeBack/BadgeSvg/BadgeMode/BadgeAlign/IconRatio/SetTip/TooltipComponent` 元数据（字符串表验证），无需升级 DLL。
 - 教训沉淀：徽标渲染逻辑见 `Helper.GDI.PaintBadge`（`BadgeBack ?? Colour.Error` 兜底红），AntdUI 内置 SVG 图标名仅 24 个基础项（SvgDb.cs），业务图标须自备 SVG 字符串。
-- **布局改纵向（2026-08-31 15:04）**：用户将 `panelfloatbutton` 面板竖直摆放，按钮创建布局同步改为纵向堆叠——X=2 左对齐固定，Y 按 `btnTop + i*(btnHeight+gap)` 自上而下递增（按钮 52×52、gap=15；6 按钮总高 389px，面板需相应拉高）；ADR-024 手动定位允许。
+- **布局改纵向（2026-08-31 15:04）**：用户将 `panelfloatbutton` 面板竖直摆放，按钮创建布局同步改为纵向堆叠——X=2 左对齐固定，Y 按 `btnTop + i*(btnHeight+gap)` 自上而下递增（按钮 52×52、gap=15；6 按钮总高 389px，面板需相应拉高）；ADR-022 手动定位允许。
 - **面板标题（2026-08-31 15:10）**：面板最上方代码后置创建 `AntdUI.Label`（`Text="子设备状态"`、`AutoSizeMode=Width` 自适应文本宽、高 24 定值、局部变量随面板销毁），按钮起始 Y 下移至标题下方（`btnTop = top + 24 + gap`，整体面板高度需求 428px）。
 
 ## 相关页面
 
 - [[modules/UIDesign]] —— MainPage 硬件快捷开关章节
 - [[decisions/ADR-015-CameraConnectionStateDecoupled]] —— 连接态真相源判定（读工作流 Step 不读 ConnectionState）
-- [[decisions/ADR-024-LayoutContainerFreedom]] —— 布局容器自由化
+- [[decisions/ADR-022-LayoutContainerFreedom]] —— 布局容器自由化
 - [[guides/AntdUI-Reference]] —— AntdUI 控件范式

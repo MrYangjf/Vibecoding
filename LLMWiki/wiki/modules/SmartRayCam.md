@@ -65,7 +65,7 @@ interface ICameraRun : IDisposable {
 ```
 
 - `CameraRun` 改造：原 `public readonly AutoResetEvent` 字段改为后备字段 `_acquisitionCompletedSignal` + 属性包装；新增 `IsRunning`（映射 `isRun` 字段）以符合接口。
-- 状态显示仍直接读 `CameraRun.Instance.isRun`（显示用途，保留兼容）。⚠️ 此处原引 `LLCameraSetting.cs:183` / `LLCamWorkJob.cs:149`，两文件均已改名迁出，现役为 `UIDesign/SubView/ILParamPage.cs` / `UIDesign/TabPage/ILCamPage.cs`，行号已失效。
+- 状态显示仍直接读 `CameraRun.Instance.isRun`（显示用途，保留兼容）。⚠️ 此处原引 `LLCameraSetting.cs:183` / `LLCamWorkJob.cs:149`，两文件均已改名迁出，现役为 `UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs` / `UIDesign/TabPage/ILCamPage.cs`，行号已失效。
 
 ### CameraSelector 选择逻辑（实现已迁移至 [[modules/VirtualCam]]）
 

@@ -67,7 +67,7 @@ tags: [指导, UI, AntdUI, 参考手册, 汇总]
 
 ### 1.4 FlowPanel 表单布局范式（TableLayoutPanel 替代，可选）
 
-> **注意（ADR-024）**：本范式由"强制迁移"降级为**可选范式**。`FlowPanel`/`GridPanel` 会强制排序子控件，不再强制使用。表单布局可选用 `FlowPanel`、`Panel` 绝对定位、`Dock`/`Anchor` 或 WinForms 原生容器等任一方式按需实现。以下为**若选用 FlowPanel 时的**规范。
+> **注意（ADR-022）**：本范式由"强制迁移"降级为**可选范式**。`FlowPanel`/`GridPanel` 会强制排序子控件，不再强制使用。表单布局可选用 `FlowPanel`、`Panel` 绝对定位、`Dock`/`Anchor` 或 WinForms 原生容器等任一方式按需实现。以下为**若选用 FlowPanel 时的**规范。
 
 **适用场景**：参数配置页中的 label+input 表单区域，替代 WinForms 原生 `TableLayoutPanel`，实现自动流式排列。
 
@@ -107,7 +107,7 @@ tags: [指导, UI, AntdUI, 参考手册, 汇总]
 
 ## 2. 布局系统
 
-### 2.1 ADR-024：布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+### 2.1 ADR-022：布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 
 #### 背景
 
@@ -696,7 +696,7 @@ using (var form = new XxxForm())
 }
 
 // Window / Form 内调用（owner 用 this）
-using (var form = new UserEdit())
+using (var form = new UserEditForm())
 {
     AntdUI.Modal.open(new AntdUI.Modal.Config(this, "用户管理", form, TType.Info)
     {
@@ -978,7 +978,7 @@ AntdUI.Select 用 `.Items`（`AntdUI.SelectItem`）填充，无 WinForms `ComboB
 
 修复范式：
 ```csharp
-_ilPage = new ILAlgoPage(_ilCamera);
+_ilPage = new ILAlgoForm(_ilCamera);
 _ilPage.Dock = DockStyle.Fill;
 AntdUI.TabPage ilTab = new AntdUI.TabPage { Text = "英莱算法", Tag = _ilPage };
 ilTab.Controls.Add(_ilPage);
@@ -1066,7 +1066,7 @@ tabsAlgo.AddTabSelect(ilTab);
 1. `AntdUI-DesignParadigm.md` — 设计范式枢纽页（第 1 节）
 2. `AntdUI-GridPanel-Span-Syntax.md` — GridPanel.Span 语法（第 2.2 节）
 3. `AntdUI-SplitterToGridPanel-FixedRegion.md` — Splitter→GridPanel 改造（第 2.4 节）
-4. `decisions/ADR-024-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
+4. `decisions/ADR-022-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
 5. `AntdUI-Menu-Tabs-Navigation.md` — Menu + Tabs 导航（第 3.1 节）
 6. `AntdUI-Tabs-ControlsAndPages.md` — Tabs Controls.Add + Pages.Add（第 3.3 节）
 7. `AntdUI-TableColumns-DesignerSerialization.md` — Table 列与数据绑定（第 4.1 节）

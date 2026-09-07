@@ -1,8 +1,8 @@
-﻿---
+---
 title: LineLaserWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
 updated: 2026-09-04
-tags: [API, 工作流, 英莱, 线激光, SubDeviceWeldStatus, DeviceWorkflowBase, RunStep, ADR-034, ADR-036]
+tags: [API, 工作流, 英莱, 线激光, SubDeviceWeldStatus, DeviceWorkflowBase, RunStep, ADR-028, ADR-030]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 ---
 
@@ -14,7 +14,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 > **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
 > 架构背景见 [[modules/DeviceControl]]、[[architecture/DeviceControlArchitecture]]。
 
-> **✅ 2026-09-04 已落地（ADR-036 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、连接态 `State` / 焊接过程态 `WeldStatus` 由基类承载。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> **✅ 2026-09-04 已落地（ADR-030 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、连接态 `State` / 焊接过程态 `WeldStatus` 由基类承载。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
 ---
@@ -140,7 +140,7 @@ _lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();   // 
 
 - 有效结果缺失需**持续满 5s 超时窗口**才计一次失败（`FirstResultTimeoutSeconds`），且每次计时后 `ResetWorkTime()`——避免每拍累加瞬间打满。
 - `HandleFailure` 连续失败达 `_maxConsecutiveFailures`（默认 5）→ `Fail(reason)`：记录 `_failStep`/`_failReason` 后 `AdvanceStep(900)`。
-- 步 900 失败收尾：`SetWeldStatus(ErrorAborted)` + `IsAlarm=true` → 回 0 待机，等待人工复位。（故障落库已随模块移除删除，ADR-038）
+- 步 900 失败收尾：`SetWeldStatus(ErrorAborted)` + `IsAlarm=true` → 回 0 待机，等待人工复位。（故障落库已随模块移除删除，ADR-032）
 
 ### 待机安全默认态
 
@@ -180,7 +180,7 @@ _lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();   // 
 ## 事件与生命周期
 
 - 构造函数订阅 `GlobalCommData.CommunicationCommandReceived += OnCommunicationCommandReceived`（回调统一 `ShowCommunicationLog(Tag, message)` 记通信收发日志）。
-- `DisposeManaged()`（基类 `Dispose()` 钩子，ADR-025）：退订全局事件 → 退订相机事件 → `_ilCamera.Dispose()` → `CameraSelector.SetWorking(false)`。
+- `DisposeManaged()`（基类 `Dispose()` 钩子，ADR-023）：退订全局事件 → 退订相机事件 → `_ilCamera.Dispose()` → `CameraSelector.SetWorking(false)`。
 - 连接/断开线程（`ConnectWorker`/`DisconnectWorker`）为后台线程，`_isConnecting` 标志防重入。
 
 ---
@@ -219,6 +219,6 @@ var step   = wf.StepStatusText;  // "step:100 / 3.4s 工作中-焊接与自适�
 - [[modules/WeldParamControl]] / [[api/WeldParamControlWorkflow]] — 焊接工艺计算链路
 - [[api/MotionControlWorkflow]] — CAMBOX 硬件跟踪运行期间跳过软件调整
 - [[api/GlobalCommData]] — 日志与通讯底层出口
-- [[decisions/ADR-029-YinglaiDataFlow]] — 英莱数据流
-- [[decisions/ADR-034-ThreeStateModelRefactor]] — 三态模型决策
-- [[decisions/ADR-036-RawDesignRefinement20260903]] — 原档细化与完全重构裁定
+- [[decisions/ADR-026-YinglaiDataFlow]] — 英莱数据流
+- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型决策
+- [[decisions/ADR-033-RawDesignRefinement20260903]] — 原档细化与完全重构裁定

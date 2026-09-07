@@ -11,9 +11,9 @@ status: accepted
 已采纳（2026-07-15）｜**部分已被取代（2026-09-01 治理标注）**
 
 > **⚠️ 已被取代 —— 仅「归属目录 / 命名空间」一条失效**
-> - ❌ **失效**：决策 1「迁移至 `Workflow/WeldActionRecord.cs`，命名空间 `AdaWeldSystem.Workflow`」已被 [[decisions/ADR-033-ProductLifecycleRecordModule]] 推翻——`Workflow/` 目录已解散，记录类现位于 `ProductFileManager/`，命名空间 `AdaWeldSystem.ProductFileManager`。
-> - ✅ **仍然有效**：决策 2「11 字段」与决策 3「双记录入口 `RecordProcessFrame` / `RecordAdjustment`」——ADR-033 明确维持该核心设计。
-> - **当前真相源**：[[modules/ProductFileManager]]、[[decisions/ADR-033-ProductLifecycleRecordModule]]。编码前以真相源为准。
+> - ❌ **失效**：决策 1「迁移至 `Workflow/WeldActionRecord.cs`，命名空间 `AdaWeldSystem.Workflow`」已被 [[decisions/ADR-030-ProductLifecycleRecordModule]] 推翻——`Workflow/` 目录已解散，记录类现位于 `ProductFileManager/`，命名空间 `AdaWeldSystem.ProductFileManager`。
+> - ✅ **仍然有效**：决策 2「11 字段」与决策 3「双记录入口 `RecordProcessFrame` / `RecordAdjustment`」——ADR-027 明确维持该核心设计。
+> - **当前真相源**：[[modules/ProductFileManager]]、[[decisions/ADR-030-ProductLifecycleRecordModule]]。编码前以真相源为准。
 
 ## 背景
 `WeldActionRecord` 最初位于 `PointCloudData/RunFileRecord/`，但其语义是「焊接流程生成数据」，且需要与图像算法（EmguALG）、智能焊接调整（InteliWeld.WeldProcess）联动。原单记录入口无法区分「每帧过程数据」与「调整动作数据」，且 `DataReview` 需在一张折线图上同时展示过程曲线与红色调整点。

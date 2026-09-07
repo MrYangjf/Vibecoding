@@ -83,7 +83,7 @@ Comm/
 | `S7PLCCommunication` | `IDisposable.Dispose()` | PLC 连接（Disconnect → _plc.Close） |
 | `ModbusTCPCommunication` | `IDisposable.Dispose()` | 关闭 NetworkStream + TcpClient |
 
-**释放调用链**：`FormMain_FormClosed` → `DeviceControlWork.Instance.Dispose()` → 停止运行线程 + 关闭机器人连接 + Shutdown 焊接头 + `GlobalCommData.mCommunicationManager.Dispose()`（2026-08-19 级联补全；`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-034）。
+**释放调用链**：`FormMain_FormClosed` → `DeviceControlWork.Instance.Dispose()` → 停止运行线程 + 关闭机器人连接 + Shutdown 焊接头 + `GlobalCommData.mCommunicationManager.Dispose()`（2026-08-19 级联补全；`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-028）。
 
 ### 2026-08-03 重构要点
 

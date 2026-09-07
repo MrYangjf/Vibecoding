@@ -1,8 +1,8 @@
-# 英莱 ILAlgoPage Job 流面板：flowPanel 动态按钮 + Modal 内联弹窗（2026-08-24）
+# 英莱 ILAlgoForm Job 流面板：flowPanel 动态按钮 + Modal 内联弹窗（2026-08-24）
 
 ## 背景
 
-`ILAlgoPage` 重新布局：Job 选择从「下拉 Select」升级为「**按钮流**」（一个 Job 一个按钮，显示 Job 号+接头类型名），参数显示全部**事件触发**（删除手动「从设备读取」按钮）。
+`ILAlgoForm` 重新布局：Job 选择从「下拉 Select」升级为「**按钮流**」（一个 Job 一个按钮，显示 Job 号+接头类型名），参数显示全部**事件触发**（删除手动「从设备读取」按钮）。
 
 ## 范式
 
@@ -40,7 +40,7 @@ AntdUI.Modal.open(new AntdUI.Modal.Config(this.FindForm(), "新建JOB - 选择�
 { Width = 320, CloseIcon = true, BtnHeight = 0 });
 ```
 - **`BtnHeight = 0`**：Modal 不显示底部按钮，内容控件自管交互与关闭。
-- **关闭**：内容控件内 `flow.FindForm().DialogResult = DialogResult.OK`（同 ILScanDialog 范式）。
+- **关闭**：内容控件内 `flow.FindForm().DialogResult = DialogResult.OK`（同 ILScanForm 范式）。
 - **闭包陷阱**：循环变量 `jt` 必须拷贝到局部变量（`int type = jt.Int`），否则所有按钮共用最后一个值（C# 5+ foreach 变量已安全，但显式拷贝更稳）。
 
 ## 教训
