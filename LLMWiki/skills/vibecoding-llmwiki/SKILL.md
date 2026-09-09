@@ -132,7 +132,7 @@ Upon receiving `/vibeCoding` or equivalent intent, **do not** start coding direc
 14. **Never eat the newline when replacing a line range**: when a helper does `lines[start:end] = new` then rejoins, derive the joiner from the file (`"\r\n"` if `raw.endswith("\r\n")` else `"\n"`). Defaulting it to `""` collapsed `people/UISpecialist.md` into a single 3 KB line with zero newlines.
 15. **Retiring old guidance — triage into three tiers, never blanket-delete (2026-09-03)**: when a new architecture page supersedes older wiki content, do **not** mass-delete or mass-overwrite. Classify each hit page first, then apply the matching treatment:
     - **Tier 1 — conclusion fully superseded → whole-page `deprecated` + ⛔ banner**: mark `status: deprecated` in frontmatter, prepend a ⛔ banner with an "old mechanism → disposition → current practice" table, keep the body for history. (Previously applied to the since-deleted decisions on simulation mode / step-driven workflow / auto-manual dual workflow, and to `standards/StepDrivenWorkflow.md`.)
-    - **Tier 2 — only terminology/symbol names are stale → add a lineage banner, keep the conclusion**: the reasoning still holds, only the carrier was renamed/removed. (Applied to ADR-031 / ADR-034 / ADR-005 / ADR-027 / `guides/Namespace-Compilation`.)
+    - **Tier 2 — only terminology/symbol names are stale → add a lineage banner, keep the conclusion**: the reasoning still holds, only the carrier was renamed/removed. (Applied to ADR-025 / ADR-028 / ADR-005 / ADR-027 / `guides/Namespace-Compilation`.)
     - **Tier 3 — experience content (`lessons/` pitfalls) → judge each item ✅/⚠️/⛔**: a pitfall can outlive the mechanism that produced it. Keep the ideas that survive the mechanism change (e.g. "exit the step immediately after advancing", "command values must be globally unique", "never block inside a single step") and mark only the mechanism-specific parts as ⛔.
     - Then sweep the whole library for `[[links]]` to the retired page and rewrite each as **strikethrough old link → link to the new authority page**, so a reader never follows a dead standard.
 16. **Check for self-reference before any second batch replace (2026-09-03)**: two consecutive global replaces of `[[old]]` produced nested strikethrough garbage — `~~~~[[old]]~~ → [[new]]~~` — because the replacement string itself contained the search string. Before running a batch replace, confirm the new text does not contain the old text; if the damage is already done, repair with exact substring PAIRS and stop re-running global replaces.
@@ -160,14 +160,14 @@ The table above is the original short list; the repo now holds **40 ADRs**. Thes
 | ADR-019-DialogWindowToModalUserControl | Sub-pages/dialogs are `UserControl` shown via `AntdUI.Modal.open(...)`, not `AntdUI.Window` / `Form`. |
 | *(page deleted)* Code graph for code review | **Retired** (2026-08-19). Code-graph tools are banned; use Grep (Step 0.7 / 2.5). |
 | ADR-020-EnumDeduplication | No duplicate enum/event declarations across layers. |
-| ADR-024-LayoutContainerFreedom | Layout container choice is free (`GridPanel` / `FlowPanel` / `TableLayoutPanel`) — pick per AntdUI demo convention. |
-| ADR-025-DisposePatternFullCoverage | Every non-UI class implements `IDisposable` with `Dispose()` + `DisposeComponents()`; **never `Dispose(bool)`**. |
-| ADR-028-CodeSimplificationStandard | Member order (private → public variables → ctor → private → public methods); regions by Chinese type name; public members need XML docs, private ones do not. |
-| ADR-030-WorkflowResponsibilityBoundary | Data belongs to the device, progress belongs to the workflow. Sub-devices must not `using` the flow layer. |
-| ADR-031-SafetyCheckConsolidation | Safety/IO/status live in `MainDeviceControl/DeviceStatusWork.cs` (three threads). No separate safety files. |
+| ADR-022-LayoutContainerFreedom | Layout container choice is free (`GridPanel` / `FlowPanel` / `TableLayoutPanel`) — pick per AntdUI demo convention. |
+| ADR-023-DisposePatternFullCoverage | Every non-UI class implements `IDisposable` with `Dispose()` + `DisposeComponents()`; **never `Dispose(bool)`**. |
+| ADR-023-CodeSimplificationStandard | Member order (private → public variables → ctor → private → public methods); regions by Chinese type name; public members need XML docs, private ones do not. |
+| ADR-027-WorkflowResponsibilityBoundary | Data belongs to the device, progress belongs to the workflow. Sub-devices must not `using` the flow layer. |
+| ADR-025-SafetyCheckConsolidation | Safety/IO/status live in `MainDeviceControl/DeviceStatusWork.cs` (three threads). No separate safety files. |
 | *(page deleted)* Auto/manual dual workflow | Auto and manual are two entry paths into the same workflow; base class provides `ManualStart` / `ManualStop` / `ConnectOn` / `ConnectOff`. |
-| ADR-034-ThreeStateModelRefactor | Three-state model: `SubDeviceState` + `SubDeviceWeldStatus` + `MainDeviceStatus`. Write only via `SetState` / `SetWeldStatus` / `DeviceControlWork.SetStatus`. |
-| ADR-035-ArchitectureRawSource | Raw-design docs (`raw/architecture/`) outrank the architecture page, which outranks source comments, on conflict. |
+| ADR-028-ThreeStateModelRefactor | Three-state model: `SubDeviceState` + `SubDeviceWeldStatus` + `MainDeviceStatus`. Write only via `SetState` / `SetWeldStatus` / `DeviceControlWork.SetStatus`. |
+| ADR-029-ArchitectureRawSource | Raw-design docs (`raw/architecture/`) outrank the architecture page, which outranks source comments, on conflict. |
 
 ## Critical Lessons (Must Avoid Before Coding)
 
@@ -376,6 +376,8 @@ cd "Vicoding管理平台/LLMWiki" && python tools/lint_scan.py && python tools/d
   - **A `历史名称提示` banner block (`> ⚠️ 历史名称提示` …) is itself exempt** — its `>` lines deliberately enumerate old names, so judging them again is self-inflicted noise.
   - **Your change must introduce 0 new drift** — verify by grepping the output for the pages you touched.
   - If you must annotate by hand: keep the old name verbatim and append the note; **do not blind-substitute** the old name away (an earlier attempt produced broken text such as `Sub2UI/UIDesign/TabPage/ILCamPage.cs` and rewrote files in external projects).
+  - **⚠️ Deleting code files = register them in the `REMOVED` table first (2026-09-08)**: `drift_scan_precise.py` only applies the "already annotated" (行内已标注 / 页面历史横幅) test inside the `elif fname in REMOVED:` branch. A deleted-but-unregistered name falls through to the `else` branch and is reported as **「未登记的新漂移」** — and annotating the historical pages does **nothing** to clear it. So after physically deleting files: add every deleted `Xxx.cs` to `REMOVED` with a one-line reason, *then* re-run the scanner. (Case in point: ADR-038 deleted 15 files; 22 hand annotations across 4 pages still reported 21 pending until the names were registered → dropped to 0 immediately.)
+  - **⚠️ Pages moved into an archive dir are still scanned (2026-09-08)**: `wiki_audit.py` / `lint_scan.py` walk the whole wiki root, so a `_trash_YYYYMMDD/` folder's `[[...]]` links still count as red links and its pages still count as orphans. De-link (`[[X]]` → `X`) or delete the references before finishing.
 
 > **Tooling rule (2026-09-03)**: every script under `tools/` must derive its paths from `__file__` (see `wiki_audit.py`). Never hardcode an absolute path — after a machine migration a hardcoded path makes a scanner report "0 files" and look healthy.
 

@@ -21,7 +21,7 @@ SDK 由 **原生核心 DLL + C# 托管包装** 两部分组成，C# 侧只需引
 - **命名空间**：`IntelligentLaser_CSharp`（包装类统一在此命名空间）。
 - **核心静态类**：`IntelligentLaser_export` —— 所有 `Init/Connect/SetXxx/FetchXxx/RegisterCallBack` 方法都是它的 `public static` 方法。
 - **平台硬性要求**：原生 DLL 为 **x64**，托管进程必须 64 位。
-  - ⚠️ 原生 DLL 为 **x64**，托管进程必须 64 位：早期 `AdaWeldSystem.csproj` 的 `Release|AnyCPU` 为 `AnyCPU`（.NET Framework 默认 Prefer32Bit=true → 进程 32 位 → 加载 64 位 DLL 抛 `BadImageFormatException`）。**集成（2026-07-24，参见 [[api/IntelligentLaserCameraRun]] 构建与部署）已把 `Release|AnyCPU` 的 `PlatformTarget` 改为 `x64`**（Debug 早已是 x64），故 64 位原生 DLL 可正常加载。
+  - ⚠️ 原生 DLL 为 **x64**，托管进程必须 64 位：早期 `AdaWeldSystem.csproj` 的 `Release|AnyCPU` 为 `AnyCPU`（.NET Framework 默认 Prefer32Bit=true → 进程 32 位 → 加载 64 位 DLL 抛 `BadImageFormatException`）。**集成（2026-07-24，参见 [[api/IntelligentLaserCam]] 构建与部署）已把 `Release|AnyCPU` 的 `PlatformTarget` 改为 `x64`**（Debug 早已是 x64），故 64 位原生 DLL 可正常加载。
 - **所有包装对象均实现 `IDisposable`**（如 `IntelligentYUV` / `IntelligentMillionOutlineInspect` / `TIntelligentJobParam` …）。从回调拿到的实例，**[必须]** 在提取完数据后调用 `.Dispose()`，否则原生内存泄漏。
 - **回调跑在 SDK 原生线程上**，访问 WinForms 控件必须 `BeginInvoke/Invoke` 切回 UI 线程（呼应项目 [[guides/WinForms-UI-Threading]]）。
 
@@ -300,7 +300,7 @@ int ret = IntelligentLaser_export.SetJobParamter(new[]{p}, 1);
 ## 7. 与本项目的集成提示
 
 1. **不要引入 OpenCvSharp**：Demo 用它做 YUV→Bitmap，但你的项目统一用 **EmguCV**，请改写转换层（§3.2）。
-2. **命名空间/目录**：建议把该 SDK 封装为一个新模块（如 `LineLaserCam/IntelligentLaserCam/`），对外暴露与 `ICameraRun` 对齐的接口，纳入 `CameraSelector` 选择器（呼应 [[api/CameraSelector]]、[[decisions/ADR-016-CameraSelectorUnifiedToApi]]），而非在 UI 里直接调 `IntelligentLaser_export`。
+2. **命名空间/目录**：建议把该 SDK 封装为一个新模块（如 `LineLaserCam/IntelligentLaserCam/`），对外暴露与 `ICameraRun` 对齐的接口，纳入 `CameraSelector` 选择器（呼应 [[api/LineLaserManager]]、[[decisions/ADR-016-CameraSelectorUnifiedToApi]]），而非在 UI 里直接调 `IntelligentLaser_export`。
 3. **连接态映射**：`ConnectToSensor` 的位掩码结果应映射到 `ConnectionState`（呼应 [[decisions/ADR-015-CameraConnectionStateDecoupled]]）。
 4. **线程安全**：所有回调 → UI 的更新走 `BeginInvoke` + `InvokeRequired` 守卫（呼应 [[guides/WinForms-UI-Threading]]）。
 5. **x64 构建**：集成前先把 `Release` 配成 x64（当前 `Release|AnyCPU` 是 AnyCPU，会加载 64 位 DLL 失败）。

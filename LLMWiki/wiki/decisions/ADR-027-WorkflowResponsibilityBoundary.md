@@ -1,4 +1,4 @@
----
+﻿---
 title: ADR-027 流程与子设备对象权责边界（R1~R5）
 date: 2026-08-31
 status: accepted
@@ -112,5 +112,5 @@ tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-027]
 - 标准页（执行细则）：[[standards/WorkflowResponsibilityBoundary]]
 - 架构：[[architecture/DeviceControlArchitecture]]
 - 模块：[[modules/DeviceControl]]、[[modules/MonitorCam]]
-- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCameraRun]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]
+- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCamManager]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]
 - 互补规范：[[standards/CodeSimplification]]（死代码/过度属性）、[[standards/UiStateSimplification]]（UI 真相源唯一）

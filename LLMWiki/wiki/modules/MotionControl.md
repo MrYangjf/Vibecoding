@@ -250,7 +250,7 @@ X 坐标来源**已具备**：`Comm/Robot/KUKARobot/RSICommunication.cs`（RSI U
 | [[modules/DeviceControl]] | `MotionControlWorkflow` 承载运控启停编排；私有阶段枚举经 `MapWeldStatus` 映射为焊接过程态 `SubDeviceWeldStatus` |
 | [[modules/WeldParamControl]] | `WeldProcess.ComputeAndCacheHorizontalMove` 委派至 `MoveControlData`；`WeldProcess.CurrentRobotX` 供真实机器人X读取 |
 | [[modules/VirtualCam]] | `MotionControlWorkflow` 取图（`CameraSelector.Active`）+ 模拟轮廓驱动 |
-| [[modules/SmartRayCam]] | 共享 `ICameraRun`（`CameraRun` 真实相机）；`Comm/SystemComm` 枚举 |
+| [[modules/LineLaserCam]] | 共享 `ICameraRun`（`CameraRun` 真实相机）；`Comm/SystemComm` 枚举 |
 | [[modules/EmguALG]] | `PipelineManager.AlgorithmCompleted` / `SeamFeatureResult` |
 | [[modules/Comm]] | `GlobalCommData.ShowLog` 日志（L2 不使用，仅 L3/业务层） |
 | [[modules/UIDesign]] | `MotionControlPage`（标定/模拟/参数写入，位于 Sub2UI） |

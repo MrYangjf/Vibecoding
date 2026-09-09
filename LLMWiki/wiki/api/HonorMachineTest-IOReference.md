@@ -139,7 +139,7 @@ if (CommenData.CurrentStatus != MachineStatus.Alarm
 | 按钮边沿 + 长按 | `TakeVirtualIo` 取走即清位 | ✅ 更强（无触发窗口） |
 | 状态前置门控 | `IsSafe` + `CheckPreworkFailed` + `ScanPulseIo(requireRunning)` | ✅ 已有 / 2026-09-07 补齐 |
 | 复位中止检测 | `DoResetMachine` 每步前置问询（`IsActionAborted` / `IsInitAborted` / `IsInitPreempted`）+ `CascadeResetProcess` 每步问询 `Reseting` | ✅ 2026-09-07 落地 |
-| 运行态抢占即停 | `SubDeviceWork` 每拍问询 `Current`，非 Running 停止驱动（`StopSubDeviceDrive`，Interlocked 只记一次）；**线程不改状态**——状态只由 IO 动作链（DoXxx → SetStatus）管理 | ✅ 2026-09-07 落地（用户裁定：线程只判断不执行，不修改状态） |
+| 运行态抢占即停 | `SubDeviceWork` 每拍问询 `Current`，从 Running **真正跌出**才记「停止驱动」（`wasDriving` 门控 + `LogDriveStopped` Interlocked 只记一次；启动默认态 NoReset 从未 Running，不打日志）；**线程不改状态**——状态只由 IO 动作链（DoXxx → SetStatus）管理 | ✅ 2026-09-07 落地 / 2026-09-08 修启动误报（用户裁定：线程只判断不执行，不修改状态） |
 
 ### 6.1 线程问询范式（2026-09-07 合规核对沉淀）
 

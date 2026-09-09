@@ -3,13 +3,13 @@ title: ADR-015 相机连接状态与工作流程状态解耦
 date: 2026-07-21
 tags: [决策, 相机, 状态机, 状态栏]
 status: accepted
-source: 用户需求 + AdaWeldSystem/LineLaserCam/Api/CameraSelector.cs、AdaWeldSystem/Workflow/LineLaserWorkflow.cs、AdaWeldSystem/UIDesign/ParentUI/FormMain.cs
+source: 用户需求 + AdaWeldSystem/LineLaserCam/Api/CameraSelector.cs、AdaWeldSystem/Workflow/LineLaserWorkflow.cs、AdaWeldSystem/UIDesign/ParentUI/FormMain.cs （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam）
 ---
 
 # ADR-015 相机连接状态与工作流程状态解耦
 
 > 状态：已采纳（2026-07-21）
-> 关联：[[api/CameraSelector]]、[[api/LineLaserWorkflow]]、[[modules/LineLaserCam]]、[[modules/DeviceControl]]、[[modules/UIDesign]]
+> 关联：[[api/LineLaserManager]]、[[api/LineLaserWorkflow]]、[[modules/LineLaserCam]]、[[modules/DeviceControl]]、[[modules/UIDesign]]
 
 ## 背景与问题
 
@@ -24,7 +24,7 @@ source: 用户需求 + AdaWeldSystem/LineLaserCam/Api/CameraSelector.cs、AdaWel
 
 **将相机的连接态与工作流程态彻底解耦，由不同来源派生：**
 
-- 相机连接态由 `CameraSelector`（线激光相机选择器）**聚合派生**，定义在统一对外接口文件 `LineLaserCam/Api/ICameraRun.cs`：
+- 相机连接态由 `CameraSelector`（线激光相机选择器）**聚合派生**，定义在统一对外接口文件 `LineLaserCam/Api/ICameraRun.cs`： （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam）
   - 新增枚举 `LineLaserCameraConnectionState { Disconnected, Connected, Working }`
   - 新增枚举 `CameraKind { None=0, SmartRay=1, Hik=2, Virtual=3 }`
   - `CameraSelector.ConnectionState` 派生规则：
@@ -40,7 +40,7 @@ source: 用户需求 + AdaWeldSystem/LineLaserCam/Api/CameraSelector.cs、AdaWel
 - ✅ 状态栏设备状态区可同时显示「线激光连接状态（连接/断开/工作中）」与「工作流程状态（工作流程中/完成/手动停止/异常终止）」两个独立维度。
 - ✅ 相机只表达硬件事实，不感知工作流语义；工作流只驱动 `SetWorking`，不直接改连接态。
 - ✅ 虚拟相机（仅模拟启用）启动不检测；无相机显示「未连接」；SmartRay/Hik 启动连通性检测。
-- ⚠️ 启动检测 IP 当前硬编码（`192.168.178.200` SmartRay、`192.168.178.201` Hik），待从 `Config/INI/CameraPresets.ini` 读取（见 [[api/CameraSelector]] TODO）。
+- ⚠️ 启动检测 IP 当前硬编码（`192.168.178.200` SmartRay、`192.168.178.201` Hik），待从 `Config/INI/CameraPresets.ini` 读取（见 [[api/LineLaserManager]] TODO）。
 
 ## 设计要点
 

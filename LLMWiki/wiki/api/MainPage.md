@@ -68,7 +68,24 @@ source: AdaWeldSystem/UIDesign/ControlPage/MainPage.cs + .Designer.cs
 
 - 上游：`CameraSelector.Active`（英莱 `IntelligentLaserCameraRun`，[[modules/IntelligentLaserCam]]）、`GlobalCommData`（日志事件）、`ChartVar`（实时数据，WeldParamControl）。
 - 承载：由 `FormMain.LoadNavAndPages()` 实例化并 `AddTabSelect` 到 Tab0。
-- 状态联动：硬件开关 UI 由 `FormMain.uiMillisecondTimer1_Tick` 每周期调 `RefreshDeviceSwitchUi()` 刷新；整机状态/流程状态/系统时间由 `FormMain` 状态栏承载（底部状态栏已裁剪，仅保留此三项，设备级连接标签已移除）。
+- 状态联动：硬件开关 UI 由 `FormMain.uiMillisecondTimer1_Tick` 每周期调 `RefreshDeviceSwitchUi()` 刷新；流程状态/系统时间由 `FormMain` 状态栏承载；**整机状态由本页 `LabelStatus` 承载**（2026-09-08 自 FormMain 左下角迁移，原 `lbl_SystemStatus` 删除）。
+
+## 整机状态标签（LabelStatus，2026-09-08 迁移）
+
+订阅 `DeviceControlWork.Instance.StatusChanged`（ADR-028 三态模型整机状态）+ 构造时初渲染 `ApplyDeviceStatus(Instance.Status)`。文本固定为 **「设备状态：{状态值}」**，背景色按设备颜色映射（2026-09-08 用户二次定义）：
+
+| MainDeviceStatus | 文本 | 背景色 | 前景色 |
+|---|---|---|---|
+| `Running` | 设备状态：运行中 | 绿 `Green` | 白 |
+| `Reseting` | 设备状态：复位中 | 黄 `Yellow` | 黑 |
+| `Alarm` | 设备状态：报警 | 橙 `Orange` | 黑 |
+| `EStop`（急停） | 设备状态：急停 | **红闪**（0.5s 红↔白翻转，`_statusBlinkTimer` WinForms Timer） | 白 |
+| `Stop` | 设备状态：已停止 | 蓝 `Blue`（不闪） | 白 |
+| `NoReset` | 设备状态：未复位 | 灰 `Gray` | 白 |
+
+- 成员：`OnMainDeviceStatusChanged`（回调，`LabelStatus.InvokeRequired` → `BeginInvoke` 封送，UI 线程安全项目惯例）→ `ApplyDeviceStatus(state)`（查表映射 + 启停闪烁表）→ `StatusBlinkTimer_Tick`（仅 EStop 态翻转 `_blinkOn` 相位，Interval=500）。
+- 私有字段：`_statusBlinkTimer`/`_blinkOn`/`_currentStatus`（ADR-002：统一构造函数初始化）。
+- `DisposeComponents()`：退订 `StatusChanged` + 停表并 `Dispose()` 定时器（原 FormMain 侧退订随迁移移入）。
 
 ---
 

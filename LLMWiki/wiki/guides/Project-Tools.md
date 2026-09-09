@@ -225,7 +225,7 @@ $env:CRG_PARSE_EXECUTOR = "thread"
 | `query callers_of "PowerOnInitialize" --repo $repoPath` | 调用链追溯 | 2 个调用者：Start、FormMain 构造函数 |
 | `impact --repo $repoPath --files "Workflow/MainDeviceThread.cs"`（现役 `MainDeviceControl/DeviceStatusWork.cs`） | 影响半径 | ~318 个受影响节点 |
 | `dead-code --limit 3 --repo $repoPath` | 死代码检测 | 约 663 个死符号（含早期版本残留） |
-| `large-functions --limit 3 --repo $repoPath` | 大函数识别 | Sensor.cs 1466 行、LineLaserWorkflow.cs 1403 行 |
+| `large-functions --limit 3 --repo $repoPath` | 大函数识别 | Sensor.cs 1466 行、LineLaserWorkflow.cs 1403 行 （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
 
 ### 1.8 Windows 兼容性注意事项（标准执行方法）
 

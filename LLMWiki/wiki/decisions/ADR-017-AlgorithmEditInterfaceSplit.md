@@ -71,6 +71,6 @@ source: 用户需求「将我自有算法和英莱的相机算法分隔开，使
 - [[api/ILAlgorithmEditForm]]（本窗体接口与页切换说明）
 - [[modules/EmguALG]]（模块 A 算法，PipelineConfig）
 - [[modules/IntelligentLaserCam]]（模块 B 相机与接口）
-- [[api/IntelligentLaserCameraRun]]（IlJobParamInfo / IlInspectResult 接口）
+- [[api/IntelligentLaserCam]]（IlJobParamInfo / IlInspectResult 接口）
 - [[decisions/ADR-016-CameraSelectorUnifiedToApi]]（CameraSelector.Active 判定接口来源）
 - [[guides/WinForms-UI-Threading]]（定时器刷新结果）

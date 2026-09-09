@@ -558,7 +558,7 @@ EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 子设备�
 
 | 线程 | 归属 | 扫描内容 | 优先级 |
 |---|---|---|---|
-| `thEMGWork` | `DeviceStatusWork` | **急停**：虚拟 `IoEmg` + 物理急停位（**单线程**） | Highest |
+| `thEMGWork` | `DeviceStatusWork` | **急停**：物理急停位（反逻辑：无信号=急停；无虚拟 IO，2026-09-08 裁定，单线程） | Highest |
 | `thIOWork` | `DeviceStatusWork` | **Running IO + Alarm IO**：虚拟 IO + 物理 IO（**一个线程**） | AboveNormal |
 | `thLightStatusWork` | `DeviceStatusWork` | 三色灯反射（状态切换才写 PLC） | Normal |
 
@@ -577,7 +577,7 @@ EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 子设备�
 | `IoStart` | `IO_START` | Start_IO | `StartMachine` |
 | `IoStop` | `IO_STOP` | Stop_IO | `StopMachine` |
 | `IoClearAlarm` | `IO_CLEAR_ALARM` | ClearAlarm_IO | `ClearAlarm` |
-| `IoEmg` | `IO_EMG` | EMG_IO | `EstopMachine` |
+| `IoMotionBusFault` | `IO_MOTION_BUS_FAULT` | —— | `DoMotionBusFault`（电平型，IOWork 监督置位） |
 
 **子设备级 7 条**：`IoSubConnect` / `IoSubReset` / `IoSubPrework` / `IoSubWork` /
 `IoSubStop` / `IoSubManualStop` / `IoSubAlarmStop`。
@@ -1009,7 +1009,7 @@ UI 读取状态时须区分三个层级（ADR-028 三态模型）：
 
 | 属性/事件 | 含义 | 用途示例 |
 |---|---|---|
-| `DeviceControlWork.Instance.Status` / `StatusChanged` | **整机状态**（`MainDeviceStatus`：Running/Alarm/EStop/Stop/NoReset/Reseting） | 判断整机能否操作、状态栏整机标签 |
+| `DeviceControlWork.Instance.Status` / `StatusChanged` | **整机状态**（`MainDeviceStatus`：Running/Alarm/EStop/Stop/NoReset/Reseting） | 判断整机能否操作、MainPage 整机状态标签（LabelStatus，2026-09-08 自 FormMain 状态栏迁移） |
 | `Instance.WeldStatus` / `WeldStatusChanged` | **焊接过程态**（`SubDeviceWeldStatus`：NoReset/Standby/PreWork/Working/Stopping/ErrorAborted/ManualStopped） | 判断"是否在运行中"、显示分步进度 |
 | `Instance.State` / `StateChanged` | **连接态**（`SubDeviceState`：Disconnected/Connected） | 判断"能否操作"、销毁前是否需要断开 |
 

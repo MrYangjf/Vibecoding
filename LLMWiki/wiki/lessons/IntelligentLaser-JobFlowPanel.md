@@ -52,6 +52,6 @@ AntdUI.Modal.open(new AntdUI.Modal.Config(this.FindForm(), "新建JOB - 选择�
 
 ## 关联
 
-- 实现：[[api/IntelligentLaserCameraRun]]（`FetchJointTypes` / `GetJointTypeName` / `DeleteJob` / `CreateJob`）
+- 实现：[[api/IntelligentLaserCam]]（`FetchJointTypes` / `GetJointTypeName` / `DeleteJob` / `CreateJob`）
 - 模块：[[modules/IntelligentLaserCam]]
 - 数据源：[[lessons/IntelligentLaser-JobListJsonSources]]

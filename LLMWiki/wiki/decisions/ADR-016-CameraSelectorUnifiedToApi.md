@@ -16,7 +16,7 @@ Accepted（已采纳，2026-07-21 执行）
 - 经 [[decisions/ADR-015-CameraConnectionStateDecoupled]] 扩展后，`CameraSelector` 已演变为跨 **SmartRay / Hik / Virtual** 三套线激光相机的**族级编排器**：
   - 选择逻辑覆盖三种相机（`SelectReal`→SmartRay、`SelectVirtual`→Virtual、`Load` 依据 `Camera/Type` 还可能选 Hik）；
   - 聚合「相机连接态模型」：`Kind` / `ConnectionState` / `SetWorking` / `DetectConnection`（`CameraKind`、`LineLaserCameraConnectionState` 枚举已与 `ICameraRun` 同文件 `LineLaserCam/Api/ICameraRun.cs`）。
-- 此前 2026-07-21 已将 `ICameraRun` 由 `SmartRayCam/Api/` 上提至 `LineLaserCam/Api/`，作为「线激光相机族统一对外接口」（见 [[modules/LineLaserCam]]、[[api/ICameraRun]]）。`CameraSelector` 仍留在 `VirtualCam/` 与之割裂。
+- 此前 2026-07-21 已将 `ICameraRun` 由 `SmartRayCam/Api/` 上提至 `LineLaserCam/Api/`，作为「线激光相机族统一对外接口」（见 [[modules/LineLaserCam]]、[[api/LineLaserManager]]）。`CameraSelector` 仍留在 `VirtualCam/` 与之割裂。
 
 ## 决策（Decision）
 
@@ -36,8 +36,8 @@ Accepted（已采纳，2026-07-21 执行）
 
 ## 相关
 - [[decisions/ADR-015-CameraConnectionStateDecoupled]]（连接态模型，CameraSelector 已聚合）
-- [[api/CameraSelector]]（迁移后位置与用法）
-- [[api/ICameraRun]]（同处 Api/ 的统一契约）
+- [[api/LineLaserManager]]（迁移后位置与用法）
+- [[api/LineLaserManager]]（同处 Api/ 的统一契约）
 - [[modules/LineLaserCam]]（族级目录与统一对外接口层）
 - [[modules/VirtualCam]]（迁移后仅含 VirtualCameraRun）
 - [[guides/Namespace-Compilation]]（csproj 注册）

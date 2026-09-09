@@ -118,27 +118,33 @@ public class DeviceControlWork : IDisposable
 | `thCommCommandWork` | 通讯 | 机器人**指令交互**（队列消费 + 分派） | 空闲 100ms |
 | `thSimTestWork` | 模拟（按需） | `SimTick()` 发布模拟 robotX | 20ms |
 
-**5 条子设备线程共用**私有体 `SubDeviceWork(flow, name)`，严格执行五段式（范式 M1），**每拍前置问询运行态**（范式 M5，2026-09-07）：
+**5 条子设备线程共用**私有体 `SubDeviceWork(flow, name)`，严格执行五段式（范式 M1），**每拍前置问询运行态**（范式 M5，2026-09-07；2026-09-08 加 `wasDriving` 门控）：
 
 ```csharp
+bool wasDriving = false;            // 上一拍是否处于 Running 驱动中
 while (!IsCloseWork)
 {
     if (Current != MainDeviceStatus.Running)
     {
-        StopSubDeviceDrive(flow);   // 状态不对就不执行：只记一次 Warning，不改任何状态
+        flow.ResetWorkTime();       // 清步骤计时，防暂停时长被计入超时（每拍执行）
+        if (wasDriving) LogDriveStopped();  // 仅从 Running 真正跌出才记日志
+        wasDriving = false;
         Thread.Sleep(100);          // 非运行态：慢节拍
         continue;
     }
     if (_driveStopped != 0) Interlocked.Exchange(ref _driveStopped, 0);
+    wasDriving = true;
     flow.FlowProcess();             // 运行态：驱动一步
     Thread.Sleep(10);               // 运行态：快节拍防空转
 }
 ```
 
-> `StopSubDeviceDrive()` 内 `Interlocked.CompareExchange(_driveStopped, 1, 0)` 闭锁：运行态被改为非 Running 时
-> **整机只记一次**「子流程停止驱动」并每拍清步骤计时；**线程不修改任何状态**——
+> `LogDriveStopped()` 内 `Interlocked.CompareExchange(_driveStopped, 1, 0)` 闭锁：运行态从 Running **真正跌出**时
+> **整机只记一次**「子流程停止驱动」；**线程不修改任何状态**——
 > 参考基线裁定（HonorMachineTest）：线程只判断「状态不对就不执行」，
 > 状态一律由 IO 动作链（`DoXxx → SetStatus`）专门管理，`Stopping` 等焊接态迁移由停止命令链下发。
+> **启动默认态不打此日志**（2026-09-08 用户裁定）：程序打开即 NoReset、从未 Running，`wasDriving` 恒 false，
+> 不存在「状态变更」，不该出现「运行态已变更为 NoReset」的误导信息。
 > 单拍异常只记日志不退出，避免整条流程永久停摆。线程一律 `IsBackground = true`（M2）；
 > `MachineFlowWorkClose()` **只置 `IsCloseWork = true`，不 Abort 线程**（M3）。
 
@@ -341,7 +347,8 @@ bool robotOnline = main.IsRobotOnline;
 
 | 成员 | 签名 | 说明 |
 |---|---|---|
-| `IoInit` / `IoReset` / `IoStart` / `IoStop` / `IoClearAlarm` / `IoEmg` | `public const string` | 系统级 6 条（原档 §2.4） |
+| `IoInit` / `IoReset` / `IoStart` / `IoStop` / `IoClearAlarm` | `public const string` | 系统级 5 条（原档 §2.4；`IoEmg` 急停已删除——急停无虚拟 IO，2026-09-08 裁定） |
+| `IoMotionBusFault` | `public const string` | 运控总线故障（电平型报警源，2026-09-08；由 IOWork 总线监督置位，`DoMotionBusFault` 置 Alarm） |
 | `IoSubConnect` … `IoSubAlarmStop` | `public const string` | 子设备级 7 条（原档 §10.3） |
 | `SetVirtualIo(ioName)` | `void` | **三种触发源统一置位入口** |
 | `ClearVirtualIo(ioName)` | `void` | 清单个位 |
@@ -358,7 +365,7 @@ bool robotOnline = main.IsRobotOnline;
 | 类型 | 查询方式 | 消除时机 | 适用 |
 |---|---|---|---|
 | 脉冲型（命令） | `TakeVirtualIo` | **取走即清位**，动作执行前已完成 | `IoInit`/`IoReset`/`IoStart`/`IoStop`/`IoClearAlarm`/`IoSub*` |
-| 电平型（状态） | `IsVirtualIoSet` | 由触发方主动 `ClearVirtualIo` | `IoEmg` 急停 |
+| 电平型（状态） | `IsVirtualIoSet` | 由触发方主动 `ClearVirtualIo` | `IoMotionBusFault` 运控总线故障（IOWork 监督：状态离开 Alarm 自动解闭锁，NG 持续则重触发） |
 
 > **「IO 只能触发一次动作，进入动作后 IO 必须取消掉」**——这是虚拟 IO 的硬特性。
 > 脉冲型命令若不在动作开始前消除，扫描器下一拍会再次命中并重复进入动作，形成无限动作循环。
@@ -387,7 +394,8 @@ bool robotOnline = main.IsRobotOnline;
 | `StartMachine()` | `IoStart` | `DoStartMachine()` | §10.2-3 |
 | `StopMachine()` | `IoStop` | `DoStopMachine()` | §10.2-4 |
 | `ClearAlarm()` | `IoClearAlarm` | `DoClearAlarm()` | §10.2-5 |
-| `EstopMachine(reason)` | `IoEmg` | `DoEstopMachine()` | §10.2-6 |
+| `EstopMachine(reason)` | ——（无虚拟 IO） | `DoEstopMachine()` 直通同步执行（触发源：EMGWork 物理信号边沿 / 机器人 `RxAbort` 指令；急停必须立即生效，同属同步白名单，2026-09-08 裁定：急停无虚拟 IO、只有物理 IO） | §10.2-6 |
+| （无公共置位方法，IOWork 监督自动触发） | `IoMotionBusFault` | `DoMotionBusFault()`（2026-09-08，置 Alarm） | —— |
 
 **两条易错约束**：
 
@@ -460,8 +468,9 @@ bool robotOnline = main.IsRobotOnline;
 | 4 | `DoSubPrework` 链路 | Preworking 五项检查实值判定（批次 4.5） |
 | 5 | Working 四路子流程 | 工艺参数闭环（批次 4.6） |
 
-> ⚠️ **C3 待决**：`DoClearAlarm()` 的消报语义（回落 Stop 还是 NoReset）尚未最终裁定，
-> 当前按旧文档回落 Stop。详见 [[decisions/OPEN-ClearAlarmSemantics]]。
+> ✅ **C3 已由 [[decisions/ADR-034-MainDeviceStateSemantics]] D1 裁定关闭（2026-09-04）**：
+> `DoClearAlarm()` 消报**一律回落 `NoReset`**（不再区分 wasRunning 回 Stop），现行代码即此实现。
+> 沿革见 [[decisions/OPEN-ClearAlarmSemantics]]（已关闭）。
 
 ## 关联
 

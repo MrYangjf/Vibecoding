@@ -1,81 +1,135 @@
 ---
-title: LineLaserCam 模块组 — 线激光相机族
-date: 2026-07-21
-tags: [模块, 相机, 线激光, 目录]
+title: LineLaserCam 模块 — 线激光相机
+date: 2026-09-08
+tags: [模块, 相机, 线激光, 三层架构, 管理器, ADR-038]
 source: AdaWeldSystem/LineLaserCam/ 模块源码
 ---
 
-# LineLaserCam 模块组 — 线激光相机族
+# LineLaserCam 模块 — 线激光相机
 
-> 2026-07-21 将三个同类线激光相机模块统一归入 `AdaWeldSystem/LineLaserCam/` 父目录，使目录层级更准确。
-> 三个子模块均为 **3D 线激光（轮廓）相机**，共享 `ICameraRun` 抽象契约（位于 `LineLaserCam/Api/ICameraRun.cs`，即线激光相机族的**统一对外接口**），工作流与界面仅依赖接口，不关心具体相机实现。
+> **2026-09-08 三层重构（ADR-038）**：线激光族仿照 [[modules/MotionControl]] 的三层范式重排——
+> L2 抽象 `ILineLaser/` + L3 实现（`IntelligentLaserCam/` 英莱、`VirtualCam/` 虚拟）+ 业务层 `LineLaserManager` 单例。
+> 同时**删除 SmartRay 与海康机器人 3D 两套不再使用的实现**（`SmartRayCam/` 10 文件、`HikRobotCam/` 3 文件、旧 `Api/` 2 文件），
+> 并移除 `Mv3dLpNet` 引用；`CameraSelector` 与 `ICameraRun` 由 `LineLaserManager` 与 `LineLaserCameraBase` 取代。
+> 决策记录：[[decisions/ADR-038-LineLaserThreeLayerRefactor]]。
+>
+> **2026-09-08 二次分工（ADR-039）**：三层结构建成后业务仍留在实现层，故再次切分——
+> **实现层只做回调触发**（`RaiseResultReady` + `RaiseProfileReady`），
+> **业务全部上提 `LineLaserManager`**（结果侧算 Y 轴 PVT 点并下载、轮廓侧做产品记录/点缓冲/按需生成 Mat）。
+> 决策记录：[[decisions/ADR-039-LineLaserResponsibilitySplit]]。
 
-## 子模块
+## 目录结构（2026-09-08 现行）
 
-| 子模块 | 位置 | 相机类型 | SDK |
-|--------|------|----------|-----|
-| [[modules/SmartRayCam]] | `LineLaserCam/SmartRayCam/` | SmartRay 工业3D线激光 | SmartRay SRAPI |
-| [[modules/VirtualCam]] | `LineLaserCam/VirtualCam/` | 虚拟调试相机（模拟 SmartRay 线激光） | 自生成轮廓（无外部 SDK） |
-| [[modules/HikRobotCam]] | `LineLaserCam/HikRobotCam/` | 海康机器人3D线激光 | Mv3dLpNet（MV3D-LP） |
-| [[modules/IntelligentLaserCam]] | `LineLaserCam/IntelligentLaserCam/` | 英莱(IntelligentLaser) 工业3D线激光 | IntelligentLaser_CSharp（CppSharp 生成，.Net Framework） |
+```
+LineLaserCam/
+├── ILineLaser/                        ← L2 抽象层（零厂商依赖）
+│   ├── LineLaserType.cs               ← LineLaserKind / LineLaserConnectionState 枚举
+│   ├── LineLaserCalibration.cs        ← LineLaserCalibration 中性校准数据（2026-09-08 新增）
+│   ├── LineLaserEventArgs.cs          ← LineLaserSeamResult / Result / Profile / Mat / State 事件参数
+│   └── LineLaserCameraBase.cs         ← 相机抽象基类（键名 + 连接态派生 + 三个事件 + 日志出口）
+├── IntelligentLaserCam/               ← L3 英莱实现（只做回调触发）
+│   └── IntelligentLaserCam.cs   ← 英莱 SDK 封装（继承 LineLaserCameraBase）
+├── VirtualCam/                        ← L3 虚拟实现（只做回调触发）
+│   └── VirtualCam.cs            ← 自生成轮廓（继承 LineLaserCameraBase）
+├── CameraRegistry.cs                  ← 相机注册表（按名登记与查询）
+├── LineLaserConfig.cs                 ← 配置实体（Config/XML/LineLaserConfig.xml）
+└── LineLaserManager.cs                ← 业务层单例（对外唯一入口 + 全部业务处理）
+       ├─ 同文件内嵌 ProfileSnapshot / ProfileMatRenderer / SeamPvtFeeder
+       └─ 三个业务辅助类（2026-09-08 归并，不再单独立文件，ADR-040）
+```
 
-## 设计要点
+> **命名空间**：`ILineLaser/` → `AdaWeldSystem.LineLaserCam.ILineLaser`；
+> `IntelligentLaserCam/` → `AdaWeldSystem.LineLaserCam.IntelligentLaserCam`；
+> `VirtualCam/` → `AdaWeldSystem.LineLaserCam.VirtualCam`；模块根 → `AdaWeldSystem.LineLaserCam`。
+> ⛔ 已删除命名空间 `AdaWeldSystem.LineLaserCamApi`（旧 `Api/` 层）。
 
-- 命名空间：**Api 层统一对外接口**（`ICameraRun.cs` 与 `CameraSelector.cs`）命名空间为 `AdaWeldSystem.LineLaserCamApi`（与目录对齐）；其余子模块保留原命名空间：`AdaWeldSystem.SmartRayCameraRun`（CameraRun/CameraPresetManager，位于 SmartRayCam）、`AdaWeldSystem.VirtualCam`（VirtualCameraRun，位于 VirtualCam）、`AdaWeldSystem.HikRobotCam` / `Smartray.Sample`（ApiCore）。
-- `CameraSelector`（`LineLaserCam/Api/CameraSelector.cs`，与 `ICameraRun` 同处统一对外接口层）在真实(SmartRay)/虚拟/Hik 三套相机间切换并聚合连接态模型；`ICameraRun` 使三者可互换。
-- **统一对外接口目录 `LineLaserCam/Api/`**：`ICameraRun.cs` 与 `CameraSelector.cs` 共同构成线激光相机族统一对外接口层。2026-07-21 将 `ICameraRun` 由 `SmartRayCam/Api/`、`CameraSelector` 由 `VirtualCam/` 上提至此目录，二者命名空间**统一为 `AdaWeldSystem.LineLaserCamApi`**（与 Api 目录对齐，不再遵循「命名空间与目录解耦」惯例）；`ICameraRun` 由 `CameraRun`（SmartRayCam，命名空间 `AdaWeldSystem.SmartRayCameraRun`）与 `VirtualCameraRun`（VirtualCam，命名空间 `AdaWeldSystem.VirtualCam`）实现。详见 [[decisions/ADR-016-CameraSelectorUnifiedToApi]]。
-- 与 [[modules/MonitorCam]]（监控 2D 相机）区分：MonitorCam 不参与线激光工作流，独立模块。
+## 依赖铁律（仿运控）
 
-## 线激光设备状态（当前事实：三态模型）
+| 铁律 | 内容 |
+|------|------|
+| L2 零依赖 | `ILineLaser/` 内不得出现 `IntelligentLaser_export`、`SmartRayCam`、`DllImport` 等厂商类型 |
+| L3 实现抽象 | 英莱与虚拟均继承 `LineLaserCameraBase`，硬件 SDK 调用只出现在 L3 |
+| **L3 只做回调触发** | 产帧回调末尾只调 `RaiseResultReady` + `RaiseProfileReady`，不得生成 Mat、写产品记录、按模式分支（ADR-039 D1） |
+| 业务层只认抽象 | 具体类型（`IntelligentLaserCam` / `VirtualCam`）仅在 `LineLaserManager` 内 `new` 一次 |
+| **取实例一律走管理器** | 需要厂商特化能力时取 `Instance.IntelligentLaser` / `Instance.VirtualCamera`，**禁止** `Active as Xxx` 转型（ADR-040） |
+| **外设经管理器代理** | 连接 / 激光 / 传感器开关一律 `LineLaserManager.Connect/SetLaser/SetSensor/ShutdownPeripherals`，工作流不持有相机对象（ADR-040） |
+| **业务层只认能力抽象** | 跨模块依赖只取 `IPVTMotion` 一类能力接口，禁止持有 `MontionManager` / `MontionControl` / `Delta*`（ADR-039 D6） |
+| 唯一入口 | 工作流与 UI 一律经 `LineLaserManager.Instance`，禁止直接持有相机实例做装配 |
 
-> 独立的线激光相机状态机文件**不存在**：`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 基类、`LineLaserCameraStateMachine` 均已删除。线激光的状态由工作流承载——对外只暴露**连接态 `SubDeviceState`** 与**焊接过程态 `SubDeviceWeldStatus`**，内部分支用**私有阶段枚举**（不对外）。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
+## 抽象层契约 `LineLaserCameraBase`
 
-**职责分工**：
+| 成员 | 类型 | 说明 |
+|------|------|------|
+| `CameraName` | 具体属性 | 相机键名，同时作为日志标签（英莱=「英莱线激光」、虚拟=「虚拟线激光」） |
+| `Kind` / `IsConnected` / `IsRunning` | 抽象属性 | 种类与运行态 |
+| `LastAcquisitionSuccess` / `ScanRateHz` | 抽象属性 | 取帧契约 |
+| `CurrentMat` | 具体属性 | 最近显示帧；由业务层生成后经 `UpdateDisplayMat` 回写，实现层不主动生成 |
+| `AcquisitionCompletedSignal` | 抽象属性 | 回调等待信号（ADR-005） |
+| `Calibration` | 虚属性 | 中性校准数据，厂商实现层捕获存储，业务层绘制时读取 |
+| `ConnectionState` | 具体属性 | 由 `IsConnected` 派生「已连接 / 未连接」（「工作中」由管理器派生） |
+| `ResultReady` / `ProfileReady` / `StateChanged` | 事件 | 派生类产帧 / 状态变化时调用 `RaiseResultReady` / `RaiseProfileReady` / `RaiseStateChanged` |
+| `SensorRunContinue` / `SensorStop` / `Dispose` / `UpdateDisplayMat` | 方法 | 采集、释放、显示帧回写 |
+| `ConnectManual` / `DisconnectManual` / `ConfigureDefaultCommPeriod` | 虚方法 | 连接类外设契约，基类给默认实现（不支持则告警返回 false / 空操作 / 返回 true），派生类按需 `override` |
+| `IsCameraOn` / `IsLaserOn` / `SetSensor` / `SetLaser` | 虚方法 | 激光与传感器开关，基类给默认实现；英莱与虚拟各自 `override`（ADR-040） |
+
+> 事件声明在基类 → 派生类只能 `+=` / `-=`，不可赋值清空（[[lessons/CSharp-Language-Pitfalls]] §3.4）。
+> 派生类**不得**再声明私有 `Tag` / `Log`（会遮蔽基类成员触发 CS0108，见 [[lessons/DeviceControlWorkInheritanceBypass]] 坑一）。
+
+## 业务层入口 `LineLaserManager`
+
+见 [[api/LineLaserManager]]。要点：
+
+- 单例（`Lazy<T>`），持有 `Cameras`（`CameraRegistry`）+ `Config`（`LineLaserConfig`）；
+- `Register(name, camera)` 登记即订阅 `ResultReady` / `ProfileReady` / `StateChanged` 并**就地做业务处理**；
+- **结果处理**（`OnCameraResultReady`）：缓存中性结果 → `SeamPvtFeeder` 换算 Y 轴 PVT 点 → B 套流式下载 → 对外转发 `ResultReady`；
+- **轮廓处理**（`OnCameraProfileReady`）：产品记录 `RunRecordManager.AddFrame` → 更新 `ProfileSnapshot` 点缓冲 → 按开关生成 Mat 并触发 `MatUpdated`；
+- 显示处理默认关闭，接口先行：`SetDisplayOptions(enabled, fps, convertMat)` + `Config.DisplayEnabled/DisplayFps/ConvertMatEnabled`；
+- Y 轴经 `AttachYAxis(IPVTMotion)` 注入（由 `MotionControlWorkflow` 初始化成功后按 `Config.SeamTrackAxisName` 装配）；
+- `SelectIntelligentLaser()` / `SelectVirtual()` / `Select(name)` 切换当前相机，`Active` 惰性按 `Config.DefaultKind` 创建；
+- `ConnectionState` 由 `_working`（工作流经 `SetWorking` 驱动）+ 选中相机派生，延续 ADR-015 的「相机态与流程态解耦」；`SetWorking(false)` 同时收尾 PVT 段；
+- 配置由 `Config`（XML）承载：`DefaultKind` / `AutoConnectOnStart` / `SensorIp` / 虚拟模拟参数 / **PVT 四项** / **DISPLAY 三项**；`LoadConfig` / `SaveConfig` 无参。
+
+## 两条数据链路（ADR-039 核心）
+
+```
+英莱/虚拟 SDK 回调
+   ├─ RaiseResultReady(LineLaserSeamResult) ──► Manager 结果处理
+   │        └─ SeamPvtFeeder.Feed → 攒批 → BeginMove/ContinueMove（IPVTMotion）
+   │        └─ 转发 ResultReady → LineLaserWorkflow（触发焊接工艺计算）
+   └─ RaiseProfileReady(PointCloudData) ────► Manager 轮廓处理
+            ├─ RunRecordManager.AddFrame（产品记录）
+            ├─ ProfileSnapshot 双缓冲 → MainPage 轮询（版本号比对）
+            └─ 显示开关开启时 → ProfileMatRenderer.Render → MatUpdated → ILCamPage
+```
+
+## 线激光设备状态（三态模型）
+
+> 独立的线激光相机状态机文件**不存在**：状态由工作流承载——对外只暴露连接态 `SubDeviceState` 与焊接过程态 `SubDeviceWeldStatus`，内部分支用私有阶段枚举。详见 [[architecture/DeviceControlArchitecture]]、[[modules/DeviceControl]]。
 
 | 关注点 | 承载者 | 位置 |
 |---|---|---|
-| 相机种类选择与连接态 | `CameraSelector` | `LineLaserCam/Api/CameraSelector.cs`（[[decisions/ADR-015-CameraConnectionStateDecoupled]]） |
-| 连接态 + 焊接过程态 + 执行步 | `LineLaserWorkflow`（继承**非泛型** `DeviceWorkflowBase`） | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` |
+| 相机注册 / 选中 / 连接态派生 / 配置 | `LineLaserManager` | `LineLaserCam/LineLaserManager.cs` |
+| 结果 → Y 轴 PVT 点计算与下载 | `LineLaserManager` + `SeamPvtFeeder` | `LineLaserCam/LineLaserManager.cs`（同文件内嵌类） |
+| 轮廓 → 产品记录 / 点缓冲 / Mat 生成 | `LineLaserManager` + `ProfileMatRenderer` | `LineLaserCam/LineLaserManager.cs`（同文件内嵌类） |
+| 连接态 + 焊接过程态 + 执行步 | `LineLaserWorkflow`（继承非泛型 `DeviceWorkflowBase`） | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` |
+| 焊缝跟踪轴装配（注入 `IPVTMotion`） | `MotionControlWorkflow` | `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` |
 
-**内部执行流（私有阶段枚举，不对外）**：
+## 设计决策
 
-```
-Uninitialized → Initializing → Standby(待机，传感器/激光均关闭)
-Standby → PreWork(启动前准备) → Starting(开激光+开传感器+等待数据稳定) → Working
-Working → Stopping(关激光+关传感器+清理) → Standby
-任意态 → ErrorAborted(异常终止) / ManualStopped(手动停止)
-```
+- 线激光族采用**抽象层 + 实现层 + 业务层**三层，业务层只面向抽象编程（仿 [[modules/MotionControl]] 的 L1/L2/L3 铁律，本模块无 Native 层）。
+- 相机选择、事件订阅、连接态与配置统一归口 `LineLaserManager`，`CameraSelector` 随之删除。
+- **业务一律归业务层**：实现层只发两个中性回调，跨模块依赖只取 `IPVTMotion` 一类能力抽象（ADR-039）。
+- 详阅 [[decisions/ADR-038-LineLaserThreeLayerRefactor]]、[[decisions/ADR-039-LineLaserResponsibilitySplit]]、[[decisions/ADR-015-CameraConnectionStateDecoupled]]、[[decisions/ADR-016-CameraSelectorUnifiedToApi]]（后两条为历史决策）。
 
-> 私有阶段 → `SubDeviceWeldStatus` 的映射表见 [[architecture/DeviceControlArchitecture]] §6（**唯一维护点**，本页不复制，避免两处漂移）。
+## 协作关系
 
-> **易误判点**：`LineLaserWorkflow` 文件里 grep 不到 `State` / `SetState` / `WeldStatus` / `SetWeldStatus` / `StateSwitched` / `WeldStatusChanged` 是正常的，它们由基类 `DeviceStateBase` 提供。
-
-## 状态标签规范（2026-08-19，ADR-022）
-
-> 设备状态标签统一规范：**子设备（线激光）是状态主体，厂商硬件（英莱/SmartRay 等）是实例化实现**。详见 [[modules/DeviceControl]]。
-
-- **线激光默认使用英莱相机**（`CameraSelector._kind` 默认 `IntelligentLaser`；`Active` 未显式选择时惰性 `SelectIntelligentLaser()`；`Load()` 无配置/异常回退英莱）。
-- **英莱手动连接/断开同步驱动线激光状态机**：连接发起 → `Initializing`；成功 → `Standby`；失败/断开 → `Offline`（ILCamPage.btnConnect_Click 两跳转换）。
-- **UI 状态标签只从线激光状态机识别**（`LineLaserWorkflow.Instance.StateMachine`），单函数 `UpdateConnectionUi()` 刷新，订阅 `StateMachine.StateChanged` 外发驱动（ILCamPage 已落地）。
-- 自动流程状态由 `LineLaserWorkflow` 驱动状态机（Initializing/Working/Standby/Alarm），与手动连接共用同一状态机。
-
-## 相机连接状态模型（2026-07-21 新增）
-
-> 线激光相机自身状态（连接 / 断开 / 工作中）**与工作流程状态相互独立**，由 `CameraSelector` 聚合派生。详见 [[decisions/ADR-015-CameraConnectionStateDecoupled]]。
-
-- 枚举定义于统一对外接口文件 `LineLaserCam/Api/ICameraRun.cs`（与 `ICameraRun` 同文件）：
-  - `LineLaserCameraConnectionState { Disconnected, Connected, Working }` — 相机自身三态。
-  - `CameraKind { None=0, SmartRay=1, Hik=2, Virtual=3, IntelligentLaser=4 }` — 当前配置的相机种类（用于启动检测与状态显示）。
-- `CameraSelector`（[[api/CameraSelector]]）新增：
-  - `Kind`：当前相机种类。
-  - `ConnectionState`：派生连接态——`_working==true`→`Working`（仅由工作流 `SetWorking` 驱动）；否则按 `Kind` 派生（Virtual 恒 `Connected`、SmartRay 按 `CameraRun.Instance.IsConnected`、Hik 按 `HikCameraRun.Instance.IsCameraInitialized`、IntelligentLaser 按 `_intelligentInstance.IsConnected`、None→`Disconnected`）。
-  - `SetWorking(bool)`：工作流 `Start()` 置 true、`WorkflowLoopWorker.finally` 置 false，驱动「工作中」态。
-  - `DetectConnection()`：启动后按上次配置做连通性检测（Virtual/None 跳过；SmartRay→`OpenSensor("192.168.178.200","40")`；Hik→`OpenSensorByIP("192.168.178.201")`，IP 待从 `CameraPresets.ini` 读取；IntelligentLaser→`OpenSensor("192.168.178.210")`，IP 同样待从 `CameraPresets.ini` 读取）。
-
-## 迁移背景
-
-- 初版将 `VirtualCameraRun`/`CameraSelector` 误挂 `SmartRayCam/` 下，2026-07-16 抽出为平级 `VirtualCam`（见 [[decisions/ADR-012-MotionControlModule]]）。
-- 2026-07-21 将 SmartRayCam / VirtualCam / HikRobotCam 三者统一迁入 `LineLaserCam/` 父目录（仅移动物理目录，命名空间与 `.csproj` Compile 路径同步更新，无语义改动）。
+| 协作对象 | 数据接口 |
+|----------|----------|
+| [[modules/DeviceControl]] | `LineLaserWorkflow` 经 `LineLaserManager.Instance` 订阅 `ResultReady`、驱动 `SetWorking` |
+| [[modules/MotionControl]] | `MoveControlData` 消费线激光特征；模拟模式共用虚拟相机；**Y 轴以 `IPVTMotion` 注入线激光管理器** |
+| [[modules/EmguALG]] | `ImageAlgorithm.ConvertContourToMat` / `PipelineManager` |
+| [[modules/UIDesign]] | `ILCamPage`（英莱相机页）、`MainPage`（轮廓曲线）经管理器取相机 |
+| [[modules/Comm]] | `GlobalCommData.ShowLog` 日志（抽象层与业务层共用） |
 
 ---
 

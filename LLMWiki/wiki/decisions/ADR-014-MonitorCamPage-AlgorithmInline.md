@@ -1,4 +1,4 @@
----
+﻿---
 title: ADR-014 监控相机页面命名与算法参数内联
 date: 2026-07-17
 tags: [决策, 监控相机, UI, 命名, 算法编辑]
@@ -18,14 +18,14 @@ source: 用户需求「MonitorCamWorkJob 命名修改，没有 workjob」「界�
 
 ## 背景
 
-原监控相机 UI 页命名为 `MonitorCamWorkJob`，但监控相机只做焊缝检查、无多种类、也没有 JOB 切换概念（算法配置已由 [[api/MonitorAlgorithmManager]] 单一可配置 Profile 承担，见 [[decisions/ADR-013-WorkflowAsHub]]）。`WorkJob` 后缀与项目 `Sub2UI` 既有的 `XxxPage` 命名约定（`MotionControlPage` / `ParamConfigPage` / `CommPLCPage`）不符，且语义误导。
+原监控相机 UI 页命名为 `MonitorCamWorkJob`，但监控相机只做焊缝检查、无多种类、也没有 JOB 切换概念（算法配置已由 [[api/AlgorithmManager]] 单一可配置 Profile 承担，见 [[decisions/ADR-013-WorkflowAsHub]]）。`WorkJob` 后缀与项目 `Sub2UI` 既有的 `XxxPage` 命名约定（`MotionControlPage` / `ParamConfigPage` / `CommPLCPage`）不符，且语义误导。
 
 同时，监控算法仅有 4 个参数（对中容差 X / Y / 角度、质量合格分），内容少、无需独立编辑弹窗。用户要求去掉贴合算法的流程与独立编辑界面，将算法编辑直接放在右侧 `panelRight`。
 
 ## 决策
 
 1. **页面重命名 `MonitorCamWorkJob` → `MonitorCamPage`**（位于 `UIDesign/Sub2UI/`，继承 `UIPage`，由 `Sub1UI/ImagePage.cs`「监控画面」节点承载）。与 `Sub2UI` 的 `XxxPage` 约定一致，明确「这是监控相机页面、非作业」。
-2. **算法参数内联于右侧 `panelRight`**：新增 `UIGroupBox uiGroupBoxAlgorithm`（标题「算法参数」）→ 嵌套 `TableLayoutPanel`，4 行「标签 + `UITextBox`」承载 `AlignmentConfig.ToleranceX/Y/Angle` 与 `QualityConfig.PassScore`，底部「保存算法参数」按钮（`btnSaveAlgorithm`）写回 [[api/MonitorAlgorithmManager]] 单例并调用 `Save()` 持久化到 `Config/INI/MonitorAlgorithm.ini`。**不引入独立算法编辑弹窗**。
+2. **算法参数内联于右侧 `panelRight`**：新增 `UIGroupBox uiGroupBoxAlgorithm`（标题「算法参数」）→ 嵌套 `TableLayoutPanel`，4 行「标签 + `UITextBox`」承载 `AlignmentConfig.ToleranceX/Y/Angle` 与 `QualityConfig.PassScore`，底部「保存算法参数」按钮（`btnSaveAlgorithm`）写回 [[api/AlgorithmManager]] 单例并调用 `Save()` 持久化到 `Config/INI/MonitorAlgorithm.ini`。**不引入独立算法编辑弹窗**。
 
 ## 关键设计
 

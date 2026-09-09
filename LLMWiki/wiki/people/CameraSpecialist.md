@@ -19,8 +19,8 @@ source: raw/skills/AdaWeldsys_Skills/02-Development/CameraSpecialist.md
 
 SmartRayCam/
 ├── ApiCore.cs
-├── CameraRun.cs
-├── CameraPresetManager.cs
+├── CameraRun.cs （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam）
+├── CameraPresetManager.cs （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam）
 ├── DeviceDiscovery.cs
 ├── FrameBuffer.cs
 ├── ImageConverter.cs
@@ -30,8 +30,8 @@ SmartRayCam/
 └── ConnectionManager.cs
 
 HikRobotCam/
-├── HikCameraManager.cs
-├── HikCameraDevice.cs
+├── HikCameraManager.cs （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam）
+├── HikCameraDevice.cs （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam）
 └── ImageAcquisition.cs
 
 ## 技术要点

@@ -36,6 +36,6 @@
 
 ## 关联
 
-- 实现：[[api/IntelligentLaserCameraRun]]（`FetchJobList` / `GetJointTypeName` / `GetCurrentJobInfo`）
+- 实现：[[api/IntelligentLaserCam]]（`FetchJobList` / `GetJointTypeName` / `GetCurrentJobInfo`）
 - 模块：[[modules/IntelligentLaserCam]]
 - 兄弟教训：[[lessons/IntelligentLaser-JobParamNoOfflineCache]]

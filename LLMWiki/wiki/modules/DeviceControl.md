@@ -271,7 +271,7 @@ MainDeviceControl/
 
 `DeviceStatusWork.cs` 单文件承载：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（ADR-025 三合一 + ADR-028 归并）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
 
-**三线程（非步骤驱动，2026-09-04 对齐原档命名）**：`DeviceStatusWork` 是独立管控类，不继承 `DeviceWorkflowBase`，由三个常驻线程驱动（各 20Hz）——`thIOWork`（线程体 `IOWork()`，AboveNormal）周期互锁检查 → 失败 `ReportAlarm` + `RecordFault`，恢复 `ReportAlarmCleared`；`thEMGWork`（线程体 `EMGWork()`，Highest）急停轮询 → 按下 `EstopMachine`、释放 `EstopCancel`；`thLightStatusWork`（线程体 `LightStatusWork()`，Normal）反射 `DeviceControlWork.Status` 到三色灯。
+**三线程（非步骤驱动，2026-09-04 对齐原档命名）**：`DeviceStatusWork` 是独立管控类，不继承 `DeviceWorkflowBase`，由三个常驻线程驱动（各 20Hz）——`thIOWork`（线程体 `IOWork()`，AboveNormal）周期互锁检查 → 失败 `ReportAlarm` + `RecordFault`，恢复 `ReportAlarmCleared`；`thEMGWork`（线程体 `EMGWork()`，Highest）**只看物理急停位（反逻辑：无信号=急停，IO 上电=设备通知安全才允许 `EstopCancel`；无虚拟 IO，`EstopMachine` 直通同步执行，2026-09-08 裁定）**；`thLightStatusWork`（线程体 `LightStatusWork()`，Normal）反射 `DeviceControlWork.Status` 到三色灯。
 
 **主设备门控（⛔ 旧写法，裁定 C3 已移除）**：~~`DeviceControlWork.IsRobotPoseSafe()` 读 `DeviceStatusWork.Instance.IsSafe`~~ → 新方法名与 pose 语义一并删除，**直接读 `DeviceStatusWork.Instance.IsSafe`**（本机安全 IO，与机器人 pose 无关）。监控未启动时不门控（返回 true）。
 
@@ -359,4 +359,5 @@ return _initialized ? SubDeviceState.Connected : SubDeviceState.Disconnected;
 - 非 UI 类统一标准 `IDisposable.Dispose()`（[[decisions/ADR-001-DisposePattern]]、[[decisions/ADR-023-DisposePatternFullCoverage]]）
 - 振镜摆幅 `CalcGalvoAmplitude` 为 TODO 占位返回 0.0，`WeaveWidth` 是查表项而非公式
 - 旧四态 `DeviceState` 枚举、泛型 `WorkflowStateBase<TStep>`/`DeviceWorkflowBase<TStep>`、`MainDeviceFlowState` 枚举均已删除，引用这些旧符号的代码/文档视为冲突，须改用三态模型
-- **线程问询范式（2026-09-07 用户裁定 + 参考基线合规核对）**：线程只判断「状态是否属于自己」，**只读 `Current` 决定执行/不执行，绝不修改状态**——状态变化只归 IO 动作链（`DoXxx` → `SetStatus`）专门管理；所有循环必须有节拍防快速空转（流程线程 100ms 空闲 / 10ms 工作，连接等待 100ms，IO 三线程 50ms）。落点：`SubDeviceWork` 每拍问询（`StopSubDeviceDrive` 只清计时+记一次日志）、`CascadeResetProcess` 每步问询 `Reseting`、`DoResetMachine`/`DoStartMachine` 走 `IsActionAborted`、初始化链走 `IsInitAborted`/`IsInitPreempted`、`ScanPulseIo(requireRunning)` 分派前问询。详见 [[api/DeviceControlWork]] 与 [[api/HonorMachineTest-IOReference]] §6.1
+- **线程问询范式（2026-09-07 用户裁定 + 参考基线合规核对）**：线程只判断「状态是否属于自己」，**只读 `Current` 决定执行/不执行，绝不修改状态**——状态变化只归 IO 动作链（`DoXxx` → `SetStatus`）专门管理；所有循环必须有节拍防快速空转（流程线程 100ms 空闲 / 10ms 工作，连接等待 100ms，IO 三线程 50ms）。落点：`SubDeviceWork` 每拍问询（局部 `wasDriving` 门控，仅从 Running 真正跌出才经 `LogDriveStopped` 记一次日志；**启动默认态 NoReset 不打日志**，2026-09-08 用户裁定）、`CascadeResetProcess` 每步问询 `Reseting`、`DoResetMachine`/`DoStartMachine` 走 `IsActionAborted`、初始化链走 `IsInitAborted`/`IsInitPreempted`、`ScanPulseIo(requireRunning)` 分派前问询。详见 [[api/DeviceControlWork]] 与 [[api/HonorMachineTest-IOReference]] §6.1
+- **报警源虚拟 IO 化（2026-09-08 用户裁定）**：控制器状态变量注册成**电平型**虚拟 IO（`IoMotionBusFault`），由 `IOWork.ScanMotionBusFault()` 每 200ms 非阻塞监督（`MontionControl.CheckBusOK` L2 virtual 契约）；**普通 Alarm 走 IOWork，EMGWork 专责急停**；NG→OK 不自动消警（归 ClearAlarm 链）；`DoMotionBusFault` 纯状态迁移 µs 级，与急停同属「同步执行白名单」（报警不允许被 `DispatchAction` 忙丢弃）。WKC 错误计数（掉线前兆）v1 未纳入，见 [[api/MontionManager]] 总线健康检查契约

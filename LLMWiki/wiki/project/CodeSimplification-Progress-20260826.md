@@ -4,7 +4,7 @@
 > 规范正文见 [[standards/CodeSimplification]]；表中计数与当前代码已不同步，仅作历史追溯。
 
 date: 2026-08-26
-说明：按「顶层文件夹扫描」基线（task LwV0UC：112 文件 / 1089 警告 / 1315 提示 / 0 异常）。用户于 13:15 重定向优先级为**线激光英莱相机 + 英莱相关 UI**（`IntelligentLaserCameraRun.cs` 等 `LineLaserCam` 模块 + 4 个 `IL*` UI 文件），优先于原 Top4 轨道。每修复一个文件/文件夹后复跑 `scripts/scan_by_folder.sh <文件夹>` 或单文件脚本取当前计数，更新本表。
+说明：按「顶层文件夹扫描」基线（task LwV0UC：112 文件 / 1089 警告 / 1315 提示 / 0 异常）。用户于 13:15 重定向优先级为**线激光英莱相机 + 英莱相关 UI**（`IntelligentLaserCam.cs` 等 `LineLaserCam` 模块 + 4 个 `IL*` UI 文件），优先于原 Top4 轨道。每修复一个文件/文件夹后复跑 `scripts/scan_by_folder.sh <文件夹>` 或单文件脚本取当前计数，更新本表。
 
 关联标准：[[standards/CodeSimplification]] · 扫描脚本：`scripts/scan_by_folder.sh` · 单文件：`scripts/csharp_review.py`（均位于 `Vicoding管理平台/LLMWiki/scripts/`，非 wiki 页面）
 
@@ -14,27 +14,27 @@ date: 2026-08-26 · 范围：LineLaserCam 模块(17) + IL* UI(4) = 20 文件 / 1
 
 | 文件 | 基线警告 | 基线提示 | 当前警告 | 当前提示 | 状态 | 备注 |
 |---|---|---|---|---|---|---|
-| LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs | 64 | 56 | 2 | 56 | 已修复 | 英莱相机核心；剩2=Log参数误报+B类Thread.Sleep(留业务确认) |
-| LineLaserCam/SmartRayCam/ApiCore/SensorHelper.cs | 9 | 0 | 9 | 0 | 待修复 | |
-| LineLaserCam/SmartRayCam/CameraRun.cs | 7 | 15 | 7 | 15 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/SensorImageData.cs | 6 | 2 | 6 | 2 | 待修复 | |
-| LineLaserCam/Api/CameraSelector.cs | 5 | 10 | 5 | 10 | 待修复 | |
-| LineLaserCam/HikRobotCam/HikCameraRun.cs | 4 | 17 | 4 | 17 | 待修复 | |
-| LineLaserCam/VirtualCam/VirtualCameraRun.cs | 4 | 16 | 4 | 16 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/PackagedImage.cs | 4 | 0 | 4 | 0 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloudMSR.cs | 3 | 1 | 3 | 1 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloud.cs | 3 | 1 | 3 | 1 | 待修复 | |
+| LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs | 64 | 56 | 2 | 56 | 已修复 | 英莱相机核心；剩2=Log参数误报+B类Thread.Sleep(留业务确认) |
+| LineLaserCam/SmartRayCam/ApiCore/SensorHelper.cs | 9 | 0 | 9 | 0 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/CameraRun.cs | 7 | 15 | 7 | 15 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorImageData.cs | 6 | 2 | 6 | 2 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/Api/CameraSelector.cs | 5 | 10 | 5 | 10 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/HikRobotCam/HikCameraRun.cs | 4 | 17 | 4 | 17 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/VirtualCam/VirtualCam.cs | 4 | 16 | 4 | 16 | 待修复 | |
+| LineLaserCam/SmartRayCam/ApiCore/PackagedImage.cs | 4 | 0 | 4 | 0 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloudMSR.cs | 3 | 1 | 3 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloud.cs | 3 | 1 | 3 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs | 2 | 8 | 1 | 9 | 已修复(留1误报) | UI·A类已清；CheckRange(double/long)为合法重载误报，留业务确认 |
-| LineLaserCam/HikRobotCam/ApiCore/HikCameraDevice.cs | 2 | 29 | 2 | 29 | 待修复 | |
+| LineLaserCam/HikRobotCam/ApiCore/HikCameraDevice.cs | 2 | 29 | 2 | 29 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs | 2 | 28 | 0 | 21 | 已修复 | UI·A类已清（本次修复断裂的嵌套类 IlJobParamRow + 区域错乱） |
-| LineLaserCam/SmartRayCam/CameraPresetManager.cs | 2 | 25 | 2 | 25 | 待修复 | |
+| LineLaserCam/SmartRayCam/CameraPresetManager.cs | 2 | 25 | 2 | 25 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/TabPage/ILCamPage.cs | 2 | 22 | 0 | 22 | 已修复 | UI·A类已清（功能型 region 保留，info 级） |
-| LineLaserCam/HikRobotCam/ApiCore/HikCameraManager.cs | 1 | 7 | 1 | 7 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/SensorState.cs | 1 | 5 | 1 | 5 | 待修复 | |
+| LineLaserCam/HikRobotCam/ApiCore/HikCameraManager.cs | 1 | 7 | 1 | 7 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorState.cs | 1 | 5 | 1 | 5 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILScanForm.cs | 1 | 4 | 0 | 5 | 已修复 | UI·A类已清 |
-| LineLaserCam/Api/ICameraRun.cs | 1 | 2 | 1 | 2 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/SensorManager.cs | 0 | 1 | 0 | 1 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/Sensor.cs | 0 | 1 | 0 | 1 | 待修复 | |
+| LineLaserCam/Api/ICameraRun.cs | 1 | 2 | 1 | 2 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorManager.cs | 0 | 1 | 0 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/Sensor.cs | 0 | 1 | 0 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
 | **合计** | **122** | **250** | **54** | **245** | | 英莱5文件已修复（仅留误报/业务确认项） |
 
 | 文件夹 | 文件数 | 基线警告 | 基线提示 | 当前警告 | 当前提示 | 状态 | 备注 |

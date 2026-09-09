@@ -63,7 +63,7 @@ PointCloudViewer.cs (HelixToolkit.Wpf.SharpDX)
 
 ## 协作关系
 
-- [[modules/SmartRayCam]] → 提供原始点云数据
+- [[modules/LineLaserCam]] → 提供原始点云数据
 - [[modules/EmguALG]] → 接收处理后的深度图用于图像算法
 - [[modules/WeldParamControl]]（WeldProcess）→ 调用 `RunRecordManager` 记录 WeldActionRecord（见 [[modules/DeviceControl]]）
 - [[modules/UIDesign]]/Helix3Drender → 3D可视化界面

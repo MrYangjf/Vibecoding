@@ -9,7 +9,7 @@ tags: [索引, 决策, ADR, 编号体系, 知识库治理]
 # ADR 编号总表
 
 > **2026-09-07 全库重排**：删除正运动（ZMotion）三项决策后，为保持编号连续，后续 ADR 编号整体前移，
-> 现为 **001~037 连续无断号**。本表是编号换算的**唯一准绳**。
+> 现为 **001~040 连续无断号**（2026-09-08 新增 ADR-040 线激光访问收口）。本表是编号换算的**唯一准绳**。
 >
 > - 各 ADR 页 frontmatter 保留 `previous_id` 字段，页面内标题编号已与文件名对齐。
 > - `logs/` 工作日志、`raw/` 原档与 `AdaWeldSystem/**/*.cs` 代码注释中的编号**已同步为新编号**。
@@ -35,7 +35,7 @@ tags: [索引, 决策, ADR, 编号体系, 知识库治理]
 > ⚠️ 上表三个旧编号在重排后**已被其它决策占用**（022=布局容器自由化、023=Dispose 全覆盖、027=权责边界），
 > 检索历史文本时务必区分，避免张冠李戴。
 
-## 全部 ADR（001~037）
+## 全部 ADR（001~040）
 
 | 现行编号 | 旧编号 | 主题 | 状态 | 日期 |
 |---|---|---|---|---|
@@ -76,6 +76,9 @@ tags: [索引, 决策, ADR, 编号体系, 知识库治理]
 | [[decisions/ADR-035-ErrorReportingHierarchy]] | 038 | ADR-035 报错分层与状态切换零日志 | accepted | 2026-09-04 |
 | [[decisions/ADR-036-MotionControllerDeltaReplacement]] | 039 | ADR-036 运动控制器采用台达 EtherCAT（全新模块，结构与对外消费按原档） | accepted | 2026-09-06 |
 | [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]] | 040 | ADR-037 移除正运动（ZMotion）并全面落地台达 EtherCAT + 消费方全量对接 | accepted | 2026-09-07 |
+| [[decisions/ADR-038-LineLaserThreeLayerRefactor]] | —（新增） | ADR-038 线激光三层重构（ILineLaser + 英莱/虚拟 + LineLaserManager）与 SmartRay/海康 3D 移除 | accepted | 2026-09-08 |
+| [[decisions/ADR-039-LineLaserResponsibilitySplit]] | —（新增） | ADR-039 线激光职责再分工（实现层只回调 · Manager 做业务 · 显示处理可开关）与焊缝跟踪 PVT 以 IPVTMotion 注入 | accepted | 2026-09-08 |
+| [[decisions/ADR-040-LineLaserManagerSingleEntry]] | —（新增） | ADR-040 线激光相机访问统一收口（Manager 持有实例 + 外设代理 + 三辅助类归并 + 类名回归文件名） | accepted | 2026-09-08 |
 
 ---
 

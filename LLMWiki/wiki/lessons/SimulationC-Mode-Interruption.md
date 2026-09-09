@@ -42,7 +42,7 @@ source: AdaWeldSystem/Workflow/Device/LineLaserWorkflow.cs, AdaWeldSystem/UIDesi
 
 - 模拟驱动：[[api/DeviceControlWork]]
 - 工作流分步：[[modules/DeviceControl]] / [[decisions/ADR-024-LineLaserWorkflowRefactor]]
-- 相机选择：[[api/CameraSelector]]（`SelectReal()` 选 SmartRay 占位、`SelectIntelligentLaser()` 选英莱）
+- 相机选择：[[api/LineLaserManager]]（`SelectReal()` 选 SmartRay 占位、`SelectIntelligentLaser()` 选英莱）
 - 主界面轮廓显示：[[modules/UIDesign]] MainPage（`AddContourLineChart()` 须在 FormMain 初始化时显式调用，订阅英莱相机 `ContourDataReady` 事件）
 
 ## 延伸：主界面轮廓未传导（2026-08-26）

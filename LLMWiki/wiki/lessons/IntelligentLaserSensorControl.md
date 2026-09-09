@@ -2,7 +2,7 @@
 title: 英莱传感器控制与激光/传感器按钮 UI 统一
 date: 2026-08-24
 tags: [教训, 英莱, 线激光, 传感器, UI, 代码精简]
-source: AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs, LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs
+source: AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs, LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs
 ---
 
 # 英莱传感器控制与激光/传感器按钮 UI 统一
@@ -45,7 +45,7 @@ private void UpdateLaserSensorUi()
 | `UpdateConnectionUiCore` 断开分支 | 断开后统一刷 text | ✅ |
 
 ## 关联
-- [[api/IntelligentLaserCameraRun]] — `SetSensor`/`SetCaptureCamera`/`IsCameraOn`/`IsLaserOn`/`DetectHardwareStatus` 契约
+- [[api/IntelligentLaserCam]] — `SetSensor`/`SetCaptureCamera`/`IsCameraOn`/`IsLaserOn`/`DetectHardwareStatus` 契约
 - [[lessons/IntelligentLaser-Pitfalls]] — 三层控制解耦（SetSensorEnable 触发回调、SetLaser 仅物理激光、SetCaptureCamera 仅预览）
 - [[lessons/UiRefreshUnifiedEntry]] — UI 状态刷新统一入口 `RefreshUi(RefreshUiScope)`
 - [[decisions/ADR-025-CodeSimplificationStandard]] — 代码精简规范（去冗余副本、合并重复逻辑）

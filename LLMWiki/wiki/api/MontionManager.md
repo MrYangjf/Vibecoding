@@ -74,6 +74,18 @@ MontionManager.Instance.Close();
 - 气缸由 `IMotion/Cylinder.cs` 承载（Builder 链式装配），`Cylinder.GetAllIO()` 枚举其占用的全部 IO。
 - 日志直连 `GlobalCommData.ShowLog`，标签为「运动管理器」，纯文本无符号（[[standards/CodeSimplification]]）。
 
+## 总线健康检查契约（2026-09-08）
+
+`MontionControl.CheckBusOK(out string faultDesc)`（**L2 virtual 默认实现**，沿 IPVTMotion 契约范式：未覆写返回 false +「未实现」描述）；
+L3 `DeltaMontionControl` 覆写：逐从站读 `CS_ECAT_Slave_Get_Connect_Status`（opState + 报警位，共享内存级非阻塞），
+首个非就绪从站给出「从站 N 非运行态或存在报警」。消费方：`DeviceStatusWork.ScanMotionBusFault()`
+（IOWork 每 200ms 监督，OK→NG 置 `IoMotionBusFault` 电平型虚拟 IO → `DoMotionBusFault` 置 Alarm，详见 [[api/DeviceStatusWork]]）。
+
+> **WKC 计数说明**（v1 未纳入，预留观测点）：EtherCAT 每个报文经从站处理后递增 Working Counter，
+> 主站比对「预期 vs 实际」不一致即丢帧——`CS_ECAT_Master_Get_Working_Counter_ErrorCounter` 读累计错误数。
+> 台达无应用层心跳，WKC 由 ESC 硬件维护，是**最早的掉线前兆**（先于 opState 变化）；因阈值与启动期噪声特性
+> 需现场数据标定，v1 只做连接态检查，WKC 计数可在同一监督点后续增量纳入。
+
 ## 关联
 
 - 三层架构与铁律：[[modules/MotionControl]] §台达 EtherCAT 运动控制（现行）

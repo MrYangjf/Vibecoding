@@ -64,7 +64,7 @@ status: accepted
 
 | 日期 | 文件 | 改动 |
 |------|------|------|
-| 2026-08-25 | `LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs` | 设备层状态本地化：`IsLaserOn()`/`IsCameraOn()` 改本地状态（连接时 `SyncHardwareStatus` 同步一次 + `SetLaser`/`SetSensor` 本地更新），删 `IlHardwareStatus` 快照/`_isRunning`/`_isOpened`；UI 读取无延迟 |
+| 2026-08-25 | `LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs` | 设备层状态本地化：`IsLaserOn()`/`IsCameraOn()` 改本地状态（连接时 `SyncHardwareStatus` 同步一次 + `SetLaser`/`SetSensor` 本地更新），删 `IlHardwareStatus` 快照/`_isRunning`/`_isOpened`；UI 读取无延迟 |
 | 2026-08-25 | `UIDesign/TabPage/ILCamPage.cs` | 连接态改 `_ilCamera.IsConnected` 设备真相源（独立调试页不依赖工作流状态机）；构造函数/连接成功/自动模式切换仅同步一次硬件 |
 | 2026-08-24 | `UIDesign/TabPage/ILCamPage.cs` | 删 `_isLaserOn`/`_isCameraOn`，激光/传感器按钮 text 收敛到 `UpdateLaserSensorUi()`；`RefreshUi(RefreshUiScope)` 统一刷新入口 |
 | 2026-08-24 | `UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs` | 删 `_ilConnected` 缓存，4 处改直读 `IsConnected` |

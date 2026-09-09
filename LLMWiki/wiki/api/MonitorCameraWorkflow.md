@@ -1,4 +1,4 @@
----
+﻿---
 title: MonitorCameraWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
 updated: 2026-09-04
@@ -22,8 +22,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 
 | 内容 | 归属 | 通道 |
 |---|---|---|
-| 图像 / 实时帧 | [[api/MonitorCameraRun]] | `MonitorCameraRun.FrameCompletedEvent` |
-| 相机连接态与**健康巡检** | [[api/MonitorCameraRun]] | `MonitorCameraRun.StatusChanged` + 只读属性（巡检由相机自启停） |
+| 图像 / 实时帧 | [[api/MonitorCamManager]] | `MonitorCamManager.FrameCompletedEvent` |
+| 相机连接态与**健康巡检** | [[api/MonitorCamManager]] | `MonitorCamManager.StatusChanged` + 只读属性（巡检由相机自启停） |
 | 流程进度 | 本流程（基类提供） | `WeldStatusChanged`（`WeldStatusChangedEventArgs`） |
 | 检测结果 | 本流程**只读持有** | `LastResult` / `LastOverlay` 属性，订阅方在流程态转 Completed 后按需拉取 |
 
@@ -115,8 +115,8 @@ switch (RunStep) {
 
 ## 状态转换与关键行为
 
-- `Start(phase, continuous)`：要求 `_flowState == Standby`（否则抛 `InvalidOperationException`，`RequireStandby`）→ 记 `_phase`/`_continuous` → `MonitorCameraRun.StartSupervision()`（健康巡检由相机自启停）→ `SetPhase(Acquiring)`。
-- `Stop()`：`MonitorCameraRun.StopSupervision()` → 若未处于 `ManualStopped` 则 `SetPhase(ManualStopped)`。
+- `Start(phase, continuous)`：要求 `_flowState == Standby`（否则抛 `InvalidOperationException`，`RequireStandby`）→ 记 `_phase`/`_continuous` → `MonitorCamManager.StartSupervision()`（健康巡检由相机自启停）→ `SetPhase(Acquiring)`。
+- `Stop()`：`MonitorCamManager.StopSupervision()` → 若未处于 `ManualStopped` 则 `SetPhase(ManualStopped)`。
 - `ResetProcess()`：`Stop()` → 置 `SetPhase(Standby)` → `SetWeldStatus(Standby)`（线性阻塞链，非步控）。
 - `ClearStatus()`：清报警与失败字段 → `SetPhase(Uninitialized)`（映射 `NoReset`）→ 执行步归 0。
 - 连续监测（`continuous=true`）：每轮完成经步 800 `SetPhase(Acquiring)` 回步 10，`WeldStatus` 恒为 `Working`——单轮完成信号不经 `WeldStatusChanged` 透出，UI 按定时器节拍拉 `LastResult`/`LastOverlay` 刷新。
@@ -137,7 +137,7 @@ switch (RunStep) {
 | `ResetWorkTime()` | `ResetStepTime()`（基类） | — |
 | `WeldStatusTrans()` | `NoReset` return；`ManualStopped`/`ErrorAborted` 且非 Standby → `SetPhase(Standby)` | — |
 
-> `EnsureConnected()`：未连接时用 `MonitorCameraRun.Config` 的 IP/Port 打开，配置为空则用 `DefaultIp`/`DefaultPort`。
+> `EnsureConnected()`：未连接时用 `MonitorCamManager.Config` 的 IP/Port 打开，配置为空则用 `DefaultIp`/`DefaultPort`。
 
 ---
 
@@ -181,9 +181,9 @@ using AdaWeldSystem.MonitorCam;
 using AdaWeldSystem.MonitorCam.Api;
 
 // 1) 图像来自相机，不来自流程（R1）
-MonitorCameraRun.FrameCompletedEvent += OnFrameCompleted;
+MonitorCamManager.FrameCompletedEvent += OnFrameCompleted;
 // 2) 健康状态来自相机（R1）
-MonitorCameraRun.Instance.StatusChanged += OnCamStatusChanged;
+MonitorCamManager.Instance.StatusChanged += OnCamStatusChanged;
 // 3) 流程进度来自基类（R3）
 MonitorCameraWorkflow.Instance.WeldStatusChanged += OnWorkflowStatusChanged;
 
@@ -205,8 +205,8 @@ private void ShowResult()
 
 - [[modules/DeviceControl]] — 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
-- [[api/MonitorCameraRun]] — 采集运行控制与健康巡检（图像/连接态/巡检的归属）
-- [[api/MonitorAlgorithmManager]] — 算法配置管理器（`AlignmentConfig` / `QualityConfig`）
+- [[api/MonitorCamManager]] — 采集运行控制与健康巡检（图像/连接态/巡检的归属）
+- [[api/AlgorithmManager]] — 算法配置管理器（`AlignmentConfig` / `QualityConfig`）
 - [[decisions/ADR-027-WorkflowResponsibilityBoundary]] — 权责边界决策
 - [[decisions/ADR-005-CallbackAcquisition]] — 回调采集（有界可失败语义）
 - [[decisions/ADR-009-MonitorCameraModule]]、[[decisions/ADR-031-ThreeStateModelRefactor]]、[[decisions/ADR-033-RawDesignRefinement20260903]]

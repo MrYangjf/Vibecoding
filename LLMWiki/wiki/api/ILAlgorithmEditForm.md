@@ -18,7 +18,7 @@ tags: [API, UI, 算法, 配置, SubDialog, Modal]
 | 基类 | `AntdUI.Window`（窗体对话框，AntdUI 无 UIForm2 基类） |
 | 文件 | `UIDesign/SubDialog/IntelligentLaserDialog/ILAlgorithmEditForm.cs` + `.Designer.cs` |
 | 调用方 | `Sub2UI/LLCamWorkJob.cs`（现役 `UIDesign/TabPage/ILCamPage.cs`） 的 `btnEditJob_Click`（经 `ShowDialog(this)`），**替代原 TODO** |
-| 关联模块 | [[modules/EmguALG]]、[[modules/UIDesign]]、[[modules/IntelligentLaserCam]]、[[api/IntelligentLaserCameraRun]] |
+| 关联模块 | [[modules/EmguALG]]、[[modules/UIDesign]]、[[modules/IntelligentLaserCam]]、[[api/IntelligentLaserCam]] |
 
 ## 构造函数
 
@@ -93,4 +93,4 @@ public ILAlgorithmEditForm(PipelineConfig config)
 
 ---
 
-*来源：2026-07-17 初版（`Sub3UI/ILAlgorithmEditForm.cs` + `.Designer.cs` + `LLCamWorkJob.btnEditJob_Click` 接线）；2026-07-26 扩展模块 B（英莱相机参数 + 实时识别结果，见 [[api/IntelligentLaserCameraRun]] 与 [[modules/IntelligentLaserCam]]）；2026-07-27 改为 `UITabControl` + 两 `UIPage` 子页接口分隔（[[decisions/ADR-017-AlgorithmEditInterfaceSplit]]），条件 `AddPage` 按相机接口显示对应页；2026-07-30 经 [[decisions/ADR-019-DialogWindowToModalUserControl]] 由 `AntdUI.Window` 改为 `UserControl` 迁入 `SubView/`，调用点改 `AntdUI.Modal.open`、`FormClosing`→`HandleDestroyed`（见 [[guides/AntdUI-Reference]]）。*
+*来源：2026-07-17 初版（`Sub3UI/ILAlgorithmEditForm.cs` + `.Designer.cs` + `LLCamWorkJob.btnEditJob_Click` 接线）；2026-07-26 扩展模块 B（英莱相机参数 + 实时识别结果，见 [[api/IntelligentLaserCam]] 与 [[modules/IntelligentLaserCam]]）；2026-07-27 改为 `UITabControl` + 两 `UIPage` 子页接口分隔（[[decisions/ADR-017-AlgorithmEditInterfaceSplit]]），条件 `AddPage` 按相机接口显示对应页；2026-07-30 经 [[decisions/ADR-019-DialogWindowToModalUserControl]] 由 `AntdUI.Window` 改为 `UserControl` 迁入 `SubView/`，调用点改 `AntdUI.Modal.open`、`FormClosing`→`HandleDestroyed`（见 [[guides/AntdUI-Reference]]）。*

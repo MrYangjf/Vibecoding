@@ -145,7 +145,7 @@ Uninitialized → Initializing → Standby → Starting → Running
 - [[modules/IntelligentLaserCam]] — 英莱相机模块
 - [[modules/DeviceControl]] — 线激光工作流
 - [[modules/UIDesign]] — 主页面 ScottPlot
-- [[api/IntelligentLaserCameraRun]] — ContourDataReady 事件
+- [[api/IntelligentLaserCam]] — ContourDataReady 事件
 - [[api/LineLaserWorkflow]] — Running 单态工作流 API
 - [[guides/WinForms-UI-Threading]] — 跨线程 UI 更新规范
 - [[guides/Project-Tools]] — ScottPlot.FormsPlot 用法

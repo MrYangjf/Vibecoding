@@ -23,23 +23,21 @@ source: AdaWeldSystem/UIDesign/MainWindow/FormMain.cs + .Designer.cs
 
 | Region | 成员 |
 |--------|------|
-| 私有变量 | `mainPage`/`navPageParam`/`navPageImage`/`dataPage`（子页面）、`HidePage`、`_hiddenItem1~3`（SegmentedItem 引用）、`lbl_SystemStatus`/`sep_SystemStatus`（整机状态标签，动态添加） |
+| 私有变量 | `mainPage`/`navPageParam`/`navPageImage`/`dataPage`（子页面）、`HidePage`、`_hiddenItem1~3`（SegmentedItem 引用）、`_initWaiting`（初始化等待面板） |
 | 构造函数 | `FormMain()` |
-| 私有函数 | `FormMain_FormClosing`/`LoadNavAndPages`/`InitializeSystemStatusLabel`/`OnMainDeviceStatusChanged`/`UpdateSystemStatusLabel`/`OnWorkflowStateChanged`/`UpdateStatusLabel`/`ShowStatus`/`OperateLevelControl`/`ShowTreeNode`/`uiMillisecondTimer1_Tick`/`FormMain_FormClosed`/`buttonSZ_Click` |
+| 私有函数 | `FormMain_FormClosing`/`LoadNavAndPages`/`OnWorkflowStateChanged`/`UpdateStatusLabel`/`ShowStatus`/`OperateLevelControl`/`ShowTreeNode`/`uiMillisecondTimer1_Tick`/`FormMain_FormClosed`/`buttonSZ_Click` |
 
 ## 关键方法
 
 | 方法 | 说明 |
 |------|------|
-| `FormMain()` | 设计器模式早退；加载配置（MontionManager.Instance.MoveData/SimulationController/MonitorAlgorithmManager）→ UI 主题 → 实例化 4 子页 → `LoadNavAndPages()` → 订阅线激光状态、初始化整机状态标签、关闭前询问、设备初始化（`DeviceControlWork.Instance.InitializeMachine()` + `StartMachine()`，ADR-028） |
+| `FormMain()` | 设计器模式早退；加载配置（MontionManager.Instance.MoveData/SimulationController/MonitorAlgorithmManager）→ UI 主题 → 实例化 4 子页 → `LoadNavAndPages()` → 订阅线激光状态、关闭前询问、设备初始化（`DeviceControlWork.Instance.InitializeMachine()` + `StartMachine()`，ADR-028） |
 | `LoadNavAndPages()` | 构建顶部 4 项 Segmented（主页面/参数设置/相机设置/数据追溯）+ 4 个 Tabs，建立 Segmented↔Tabs 双向联动（重入守卫 `syncing`）；Tab0 主页面内 `AddContourLineChart()`/`AddNewDataLineChart()` 初始化图表并订阅英莱轮廓事件 |
-| `InitializeSystemStatusLabel()` | 动态向 `toolStrip1.Items` 索引 0 处插入整机状态 `ToolStripLabel`（原锚点 `toolStripSeparator2` 已随状态栏裁剪删除），订阅 `DeviceControlWork.Instance.StatusChanged`（ADR-028 三态模型整机状态）并初渲染 `UpdateSystemStatusLabel(Instance.Status)` |
-| `OnMainDeviceStatusChanged(object, MainDeviceStatusChangedEventArgs)` | 整机状态变更回调，`BeginInvoke` 封送后调 `UpdateSystemStatusLabel` |
-| `UpdateSystemStatusLabel(MainDeviceStatus)` | 按整机状态（Running/Alarm/EStop/Stop/NoReset/Reseting）更新标签文本与颜色（绿/红/红/灰/橙等） |
+| ~~`InitializeSystemStatusLabel`/`OnMainDeviceStatusChanged`/`UpdateSystemStatusLabel`~~ | **2026-09-08 整页删除**：整机状态显示迁移至 `MainPage.LabelStatus`（文本「设备状态：{状态值}」+ 设备颜色映射，见 [[api/MainPage]]） |
 | `OnWorkflowStateChanged(object, WeldStatusChangedEventArgs)` | 线激光焊接过程态变更回调（订阅 `LineLaserWorkflow.Instance.WeldStatusChanged`，ADR-028），`BeginInvoke` 封送后调 `UpdateStatusLabel` |
 | `UpdateStatusLabel(SubDeviceWeldStatus)` | 线激光焊接过程态映射为状态栏文本（NoReset/Standby/PreWork/Working/Stopping/ErrorAborted/ManualStopped） |
 | `uiMillisecondTimer1_Tick` | 每周期驱动顶部状态刷新：`ShowStatus()` 更新整机/流程/系统时间标签，并调 `mainPage.RefreshDeviceSwitchUi()` 刷新 MainPage 硬件快捷开关（`UpdateDeviceStatus()` 旧方法已于 2026-08-27 状态栏裁剪时删除，设备级连接标签改由 MainPage `ButtonShadow` 常驻按钮表征，ADR-026） |
-| `FormMain_FormClosed(object, FormClosedEventArgs)` | 退订单例事件（`LineLaserWorkflow.WeldStatusChanged` / `DeviceControlWork.StatusChanged`）+ `DeviceControlWork.Instance.Dispose()` + `LineLaserWorkflow.Instance.Dispose()`（设计器 Dispose 不覆盖单例事件订阅，须显式退订） |
+| `FormMain_FormClosed(object, FormClosedEventArgs)` | 退订单例事件（`LineLaserWorkflow.WeldStatusChanged`）+ `DeviceControlWork.Instance.Dispose()` + `LineLaserWorkflow.Instance.Dispose()`（设计器 Dispose 不覆盖单例事件订阅，须显式退订；整机状态订阅退订已随迁移移入 `MainPage.DisposeComponents()`） |
 | `FormMain_FormClosing(object, FormClosingEventArgs)` | 关闭前询问：运行中设备确认强制关闭，否则确认退出；`AntdUI.Modal.open` 非 OK 则 `e.Cancel=true` |
 | `buttonSZ_Click(object, EventArgs)` | 登录按钮：弹 `LoginForm` 模态 |
 
@@ -54,7 +52,7 @@ source: AdaWeldSystem/UIDesign/MainWindow/FormMain.cs + .Designer.cs
 ## 协作
 
 - 子页面：`MainPage`（主页面，Sub1UI）、`NavPage`（参数/相机设置，Sub2UI）、`DataReviewerPage`（数据追溯）。
-- 状态源：`DeviceControlWork`（整机状态 `MainDeviceStatus`，ADR-028 三态模型）、`LineLaserWorkflow`（焊接过程态 `SubDeviceWeldStatus`）；设备连接态现由 `MainPage` `ButtonShadow` 常驻按钮表征（ADR-026），状态栏仅承载整机/流程/系统时间三项。
+- 状态源：`DeviceControlWork`（整机状态 `MainDeviceStatus`，ADR-028 三态模型）、`LineLaserWorkflow`（焊接过程态 `SubDeviceWeldStatus`）；设备连接态现由 `MainPage` `ButtonShadow` 常驻按钮表征（ADR-026），状态栏仅承载流程状态/系统时间两项；整机状态显示已迁移至 `MainPage.LabelStatus`（2026-09-08，`lbl_SystemStatus` 删除）。
 
 ---
 

@@ -1,3 +1,105 @@
+﻿## [2026-09-09 14:05:40] coding | 修复 MvApi.CameraSdkInit NullReferenceException：MVSDK 原生 DLL 未部署到输出目录
+
+**来源**：用户 VS 运行报 `MvApi.CameraSdkInit(0)` NullReferenceException。
+
+**根因**：`MVSDK.cs` 无 DllImport，`MvApi.CameraSdkInit` 是 static 委托字段，由静态构造 `LoadLibrary("MVCAMSDK_X64.dll")` + `GetProcAddress` 填充；LoadLibrary 失败不抛异常静默返回 IntPtr.Zero，全部委托为 null。DLL 已落 `3rdDepend/MecaVision/` 但 csproj `CopyNative3rdDependToOutput` 漏列 → 输出目录无 DLL → 首次调用即 NRE。
+
+**修复**：① csproj 拷贝清单补 4 文件（MVCAMSDK_X64.dll / MVImageProcess_X64.DLL / GiGeCamera_X64.Interface / Usb3Camera0_X64.Interface）；② MVSDK.cs 静态构造加 2 道守卫（hSdkDll==Zero → DllNotFoundException；CameraSdkInit==null → EntryPointNotFoundException，防误部署例程 bin 旧互操作组件）；③ MecaVisionCam.Connect catch 日志改取内层异常（TypeInitializationException 包装致外层 Message 无诊断价值）。
+
+**校验**：Python 静态校验 11/11 PASS（守卫 4 要素 / 花括号平衡 / 内层异常日志 / csproj 4 项 / MvApi 消费方仅 MecaVisionCam）；**真编译待 Visual Studio**。备份 `AdaWeldSystem_backup_20260909_135845.tar.gz`。
+
+**知识沉淀**：新增 `lessons/MecaVision-NativeDllLoadNRE`；更新 `guides/MecaVision-DevGuide` §2.4 部署增补；index.md 教训表 +1（16→17）。
+
+---
+
+## [2026-09-09 13:42:19] coding | 真编译修复：算子枚举漏迁（EmguALG）+ CS0118 命名空间/类名同形（MonitorCam）
+
+**来源**：用户 VS 编译报 4 个错误——`MorphologyOperation`/`FilterOperation`/`FeatureExtractionOperation`（编译器顺序截断，实际含 `EdgeDetectionOperation` 共 4 枚举）找不到 + `MecaVisionCam` 命名空间被当类型使用。
+
+**根因 1（枚举漏迁）**：4 个算子枚举原定义在已删的 `EmguConfiger/AlgorithmManager.cs`（PipelineManager 文件）命名空间级，ADR-042 删文件时未清单化迁移；Python 静态校验按符号点查抓不住「类型定义整体丢失」。修复：恢复至新文件 `EmguALG/Core/AlgorithmOperations.cs`（命名空间 `AdaWeldSystem.EmguALG`——Stages 与 Core/* 直接可见，零 using 变更，ADR-020 单一定义点），csproj 注册。
+**根因 2（CS0118）**：实现层命名空间 `AdaWeldSystem.MonitorCam.MecaVisionCam` 与类名同形，`MonitorCamManager:154` 裸名 `new MecaVisionCam()` 被解析为子命名空间。修复：`new MecaVisionCam.MecaVisionCam()`（线激光 `new IntelligentLaserCam.IntelligentLaserCam()` 先例同构写法）。
+
+**校验**：git 基线差集法（HEAD 有定义、现役无定义的 54 类型逐一查引用）——仅 `ConnectionState`/`PointCloud` 两项命中且均为成员名误报（非类型引用），已删类型零类型位残留。
+
+**教训（记入 ADR-042 补注 + modules/MonitorCam 规约）**：① 删除代码文件前必须清单化其全部命名空间级类型（class/enum/struct/delegate）逐一迁移或确认消亡，枚举最易漏；② 命名空间与类名同形时实例化必须「命名空间.类名」限定。
+
+---
+## [2026-09-09 11:40:05] doc | 工艺控制模块（WeldParamControl）数据流与处理逻辑可视化 HTML
+
+**来源**：用户 @skill:vibecoding-llmwiki 要求「将工艺控制模块设计一版 Html，能直观看到数据结构和数据流向、处理逻辑」。
+
+**产出**：`AdaWeldSystem_工艺控制模块_数据流与处理逻辑.html`（workspace 根，自包含单文件，Ant 蓝浅色风格与既有流程图 HTML 一致）。8 个章节：①模块地图（三命名空间五文件）②数据结构（AutoParam/WeldParamOutput/RobotWeldData/SeamCalData/ChartVar 字段级）③数据流向全景 ④AutoAction 自适应决策分支图 ⑤RunStep 步控 0/10/20/800/900 + 相位映射 ⑥持久化装配（INI/Config.db/AutoParamValue.db/XML）⑦ADR 硬约束 + OPEN 清单 ⑧源码定位速查表（精确到 文件:行号）。
+
+**核验亮点**：以源码为准（引用精确到行号），纠正 wiki 旧链路（PipelineManager→OnAlgorithmCompleted 已随 ADR-039/042 删除，现行触发=LineLaserManager.ResultReady→ManagerResultReady）；**发现 6 项 OPEN 现状断点**——①RobotWeldData.PosX 无写入者（真机 X 恒 0）②_lastRobotX 无赋值点 ③SeamCalData.AddSeamWidth 全库无调用方（AutoAction 恒走基准分支，突变触发/查表更新不生效）④CalcGalvoAmplitude TODO 恒 0 ⑤MainPage 曲线喂入源待复核 ⑥ConsecutiveFailureCount 递增点待确认。未改任何 C# / wiki 页面（纯文档交付，无备份与 .csproj 需求）。
+
+---
+## [2026-09-08 21:14:21] code+wiki | MonitorCam 三层重构 + 切换麦格威（ADR-041 accepted）+ EmguALG 三层改造（ADR-042）——Phase 2 编码落地
+
+**来源**：用户要求按既定 PLAN 执行 Phase 2 编码（MonitorCam 层级改为 IMonitorCam / MecaVisionCam / MonitorCamManager 参照 MotionControl；EmguALG 算法改造方案一并实施）。
+
+**Stage A：MonitorCam 三层重构（ADR-041 proposed → accepted）**
+- 新建 `MonitorCam/IMonitorCam/`（MonitorCamType / MonitorCamEventArgs / IMonitorCamApi）+ `MonitorCam/MecaVisionCam/`（MecaVisionCam 实现 + Native/MVSDK.cs 官方 6885 行原样拷入）+ `MonitorCam/MonitorCamManager.cs`（原 MonitorCameraRun 改名承接，Lazy 单例业务中枢）。
+- 实现：Live=`SetCallbackFunction`+`Play`（回调 Clone Mat 后 `FrameReceived` 上行）；PIL=`GetImageBuffer`+`ImageProcess`+`Release`；断联回调→普通 Alarm（非急停）。
+- 删除 `Api/HikvisionCameraApi.cs`（280 行）+ `Api/IMonitorCameraApi.cs`（迁走）+ `MonitorCameraRun.cs`；csproj 移除 `MvCameraControl.Net` 引用；原生 DLL 部署 `3rdDepend/MecaVision/`（x64：MVCAMSDK_X64/MVImageProcess_X64/两份 .Interface）。
+- 消费方改写：`MonitorCameraWorkflow`（~15 处）+ `MonitorCamPage` + `FormMain`（sed 批量改名 + using 更新）。
+
+**Stage B：EmguALG 三层改造（新 ADR-042 accepted）**
+- 新建 `Abstractions/`（IAlgorithm / IConfigurableAlgorithm / IResultStore）+ `WireFeedDistance/` + `WeldQuality/`（算法类包装 ImageAlgorithm 第 8 区算子，强类型 Config/Result 从 ImageAlgorithm 外迁）+ `Manager/`（AlgorithmManager 统一调度 + AlgorithmResultStore 池化快照版本号 + AlgorithmCompletedEventArgs）。
+- 删除：`EmguConfiger/AlgorithmManager.cs`（类名 PipelineManager）/ `JobManager.cs` / `AlgorithmJob.cs` / `Core/ProfileTransform.cs` / `SeamRecognition/` 整目录；`ImageAlgorithm` 中 PreWeldAlignment/WeldQuality 四类型外迁（改名 WireFeed*）；`AlgorithmBase` 点云 mm↔px 段删除。
+- **焊缝特征上报链整删（用户裁定：焊缝特征由线激光直接获取）**：`LineLaserWorkflow` ReportExternalResult 上报段 + `WeldProcess` `_lastSeamFeature`/`_lastRobotX`/`OnAlgorithmCompleted` 订阅/`ComputeAndCacheHorizontalMove` 委派 + `MoveControlData.ComputeAndCacheHorizontalMove(SeamFeatureResult,...)` + 相关 using 全部清理。
+- 保留裁决：`RealtimeMonitor/RealtimeMonitorAlgorithm.cs`（0 消费方，迁移源留档不删）、`Stages.cs`（PipelineConfig 供 ILAlgorithmEditForm 占位）。
+- 消费方改写：`MonitorCameraWorkflow` 改调 `AlgorithmManager.DetectWireFeed/DetectWeldQuality`；`MonitorCamPage`/`FormMain` 配置面板对接新 Manager。
+
+**校验**：Stage A 静态校验 14/14 通过；Stage B 校验通过（旧符号零残留/委托持引用防 GC/Dispose 规约）。**真编译待 Visual Studio**。
+
+**Wiki 回灌**：ADR-041 修订为三层落地版（accepted）+ 新建 ADR-042；`modules/MonitorCam` 重写、`modules/EmguALG` 重写；新增 `api/MonitorCamManager`（继任 MonitorCameraRun 页）+ `api/AlgorithmManager`（继任 MonitorAlgorithmManager 页）；删除 `api/MonitorCameraRun` / `api/MonitorAlgorithmManager` / `api/HikvisionCameraSDK`（海康代码已删，按规范整页删除）；全库链接替换（12 文件）；index.md 更新 8 处；`guides/MecaVision-DevGuide` §3/§9 改落地实录；drift REMOVED 登记 10 个删除文件。
+
+---
+## [2026-09-08 18:17:24] wiki | 麦格威 MecaVision SDK 核验沉淀到知识库 + 监控相机切换实施 plan（ADR-041 proposed）
+
+**来源**：用户提供 MecaVision SDK 包（`M4/7_MecaVision_SDK例程及说明文档.zip`）+ 两份二手指导文档（放入 `raw/knowledge/`），要求理解资料、沉淀知识库、形成代码实施 plan。
+
+**核验（vendor-sdk-wiki-ingest 流程，脚本化）**：SDK 原档解压归档 `raw/mecavision/`（Demo×12 语言 / SDK+SDK/X64 原生 DLL / Document CHM / Drivers）。真相源 = `Demo/C#/MVSDK/MVSDK.cs`（**6885 行**，静态类 `MvApi`，**无 DllImport**——`IntPtr.Size==8` 动态加载 `MVCAMSDK_X64.dll`/`MVCAMSDK.dll`）。比对结果：二手文档 33 个 API 名 / 13 个错误码**数值** / 9 结构体 / 4 回调委托**全部与原文一致，零臆造**（区别于台达原档 6 个臆造名的教训）。⚠️ 例程 bin 的 `MVSDK.dll`（107KB, 2019）为旧版互操作组件，禁用。
+
+**关键裁决**：二手文档按「另一项目」风格设计平行架构（新建 `MonitorCamera/` + `IVisionCamera` + `MonitorCameraManager` + `CameraFrameStore`），与 ADR-009 现状（`MonitorCam/` + `IMonitorCameraApi` + `MonitorCameraRun` + `MonitorCameraWorkflow`）冲突——**不照抄**，改为 `MecaVisionCameraApi` 实现现有契约，`MonitorCameraRun` 构造处切换，业务/UI 零改动；线程模型/帧缓存/踩坑结论保留复用。
+
+**新增 Wiki 页面**：`api/MecaVisionMVSDK-Native`（33 API 速查 + 加载机制 + 错误码真值 + 核验配方）、`guides/MecaVision-DevGuide`（SDK 资产/工程配置/例程实录流程/**二手文档订正表 8 条**/契约适配映射/踩坑 11 条/**落地 9 步实施 plan**/OPEN 5 项）、`decisions/ADR-041-MecaVisionMonitorCamera`（**proposed，待用户确认 plan 后转 accepted**）。
+
+**更新 Wiki 页面**：`modules/MonitorCam`（新增麦格威接入规划章节）、`index`（路由行 + MonitorCam 摘要 + API 行 + guides 行 + ADR-041 行 + 来源索引 2 行；⚠️ 同文件并行 Edit 再现互相覆盖/EBUSY，7 处分 3 轮串行补齐并逐项 Grep 核实）。
+
+**未改代码**：本任务只做知识沉淀与 plan，Phase 2 编码待用户确认。
+
+**OPEN**：① GigE IP 枚举期不可查（`tSdkCameraDevInfo` 无 IP 字段，init 后 `CameraGigeGetIp` 比对或改 SN 匹配）② 平台目标 x86/x64 待核对 ③ 连接形态 USB3/GigE 待确认 ④ PixelMmScale 标定联动 ⑤ 管理员权限 manifest 实测。
+
+---
+
+
+## [2026-09-08 17:34:03] code+wiki | 线激光三层职责二次分工：实现层只发回调、Manager 做业务、Y 轴只注入 IPVTMotion（ADR-039）
+
+**起因（用户）**：①英莱实现层只做回调触发，不做业务处理——轮廓回调中触发「结果处理」与「轮廓处理」；②Manager 做业务：一个事件算 Y 轴 PVT 点下载，一个事件做 UI 显示 Mat / ScottPlot 最后帧（**可配置帧率与是否转换，先预留接口**）；③主页面 ScottPlot **线程轮询**取点，手动 UI 页订阅 Manager 的 Mat 更新事件；④问「Manager 需要持有 Y 轴吗？PVT 链路怎么走？需要就用依赖注入，不要整个台达控制器引用」。
+
+**三项裁定**（AskUserQuestion）：校准数据**存英莱实现层**，Manager 生成 Mat 时读取；轮询接口用**池化快照 + 版本号**；PVT 走**B 套流式**。
+
+**需求②判断结论**：Manager **需要**持有 Y 轴，但**只注入 `IPVTMotion`**（L2 能力抽象）。理由：PVT 下载只需 `BeginMove`/`ContinueMove`/`GetInformation` 三个入口；`MontionAxis : IPVTMotion` 的四入口是 `virtual` 默认实现，未实现轴返回 `PVTResult.NotSupported` 不抛异常、不连坐编译；注入 `MontionManager`（业务层）或 `DeltaMontionControl`（L3）违反 ADR-038「业务层只认抽象」。装配点 `MotionControlWorkflow.InitializeOn` 成功后 `AttachSeamTrackAxis()`（轴名取 `Config.SeamTrackAxisName`，默认「Y轴」）。
+
+**代码改动**：新建 4 文件——`ILineLaser/LineLaserCalibration.cs`（中性校准载体）、`LineLaserCam/ProfileSnapshot.cs`（双缓冲 + `Version`，`MaxPoints=2048`）、`ProfileMatRenderer.cs`（英莱 250 行 GDI 绘制上提，画布一次分配终身复用）、`SeamPvtFeeder.cs`（B 套流式下载，攒批 16 点 + 查 `RemainBufferSize` 水位 + `MaxPending=8000` 防膨胀）。重写 `ILineLaser/LineLaserEventArgs.cs`（删 `LineLaserFrameEventArgs`，新增中性 `LineLaserSeamResult` struct 与三个事件参数）；`LineLaserCameraBase` 承载 `ResultReady`/`ProfileReady` 与 `CurrentMat`/`UpdateDisplayMat`。英莱 `IntelligentLaserCameraRun` 删 `IlInspectResult`/`IlCalibrationInfo`/`ContourDataReady`/`ContourFrameReady`/`IsManualMode`/GDI 全部（**1746 → 1324 行**），回调尾部只留 `RaiseResultReady` + `RaiseProfileReady`；虚拟相机同构改造。`LineLaserManager` 升为业务中枢（`OnCameraResultReady` → PVT 下载 + 转发；`OnCameraProfileReady` → 记录 + 快照 + 按需 Mat）；新增 `AttachYAxis`/`SetDisplayOptions`/`Profile`/`LastResult`/`MatUpdated`。`LineLaserConfig` 增 `PVT` 与 `DISPLAY` 两节 6 项。消费方：`LineLaserWorkflow` 订阅 `Manager.ResultReady`、`MainPage` 改 33ms 轮询线程 + 版本号、`ILCamPage` 订阅 `MatUpdated`。
+
+**校验**：Python 静态校验 **50 项全 PASS**（实现层无业务残留 / 两个回调各 1 处 / Manager 两条业务链 / 注入面最小 / csproj 注册 / C# 8+ 语法 0 / 无 `Dispose(bool)` / 无用 using 0）。**真编译待 VS。**
+
+**wiki**：新建 `decisions/ADR-039-LineLaserResponsibilitySplit`、`api/ProfileMatRenderer`、`api/SeamPvtFeeder`；重写 `api/LineLaserManager`；更新 `modules/LineLaserCam`、`modules/IntelligentLaserCam`、`api/IntelligentLaserCam`、`decisions/ADR-Index`（扩至 001~039）、`index`（新增 2 个 API 行 + ADR-039 行 + 路由行）、`lessons/IntelligentLaser-Pitfalls` §3.1（**标注「回调驱动显示非轮询」仅适用于低频手动页，主页面改轮询快照**）。备份 `AdaWeldSystem_backup_20260908_164907.tar.gz`。
+
+**待办**：PVT 时间基准（相邻帧实测间隔）与速度前馈（位置一阶差分）**需现场实测标定**；配置项已预留（`PVT/FRAME_SECONDS` 等）。
+
+## [2026-09-08 15:41:44] code+wiki | 线激光三层重构（ILineLaser + LineLaserManager）+ 移除 SmartRay/海康 3D（ADR-038）
+
+**起因（用户）**：要求仿照 MotionControl 的目录方式重排 LineLaserCam——抽象接口 `ILineLaser`、`IntelligentLaserCam`（英莱）、`VirtualCam`（虚拟）、`LinelaserMananger.cs`（管理器：注册选中相机、订阅事件管理、状态管理、配置持久化，对外唯一入口）；删除 SmartRay 与 HikRobot 实现。三项待决经确认：管理器用规范拼写 `LineLaserManager`、配置走 XML（仿 `DeltaMotionConfig`）、`Mv3dLpNet` 引用一并移除。
+
+**代码改动**：新建 6 文件——`ILineLaser/LineLaserType.cs`（`LineLaserKind` / `LineLaserConnectionState`）、`ILineLaser/LineLaserEventArgs.cs`、`ILineLaser/LineLaserCameraBase.cs`（抽象基类：键名 + 连接态派生 + `FrameReady`/`StateChanged` + `RaiseFrameReady`/`RaiseStateChanged`/`Log`）、`CameraRegistry.cs`、`LineLaserConfig.cs`（`Config/XML/LineLaserConfig.xml`，无参 `LoadConfig`/`SaveConfig`）、`LineLaserManager.cs`（Lazy 单例 + 注册即订阅转发 + `SetWorking` + `Select*` + `Dispose`）。英莱与虚拟改为继承基类（删派生类私有 `Tag`/`Log` 防 CS0108），埋 `RaiseFrameReady`/`RaiseStateChanged`；英莱 `LoadSavedIp`/`SaveSensorIp` 移除，改 `SensorIp` 属性由配置下发。删除 `SmartRayCam/`10 + `HikRobotCam/`3 + `Api/`2 文件与 `Mv3dLpNet` 引用；csproj 删 15 项增 6 项；消费方 5 文件 21 处 `CameraSelector.X` → `LineLaserManager.Instance.X`。
+
+**校验**：Python 静态校验 18 项全过（旧符号残留 0 / 抽象成员覆盖完整 / 派生类无 Tag·Log 遮蔽 / 抽象层零厂商依赖 / 具体类型只在 Manager new / csproj 双向一致）。**真编译待 VS。** 备份 `AdaWeldSystem_backup_20260908_151317.tar.gz`。
+
+**wiki**：重写 `modules/LineLaserCam`、`modules/VirtualCam`，更新 `modules/IntelligentLaserCam`、`api/VirtualCameraRun`、`api/IntelligentLaserCam`、`project/overview`、`index`；新建 `api/LineLaserManager`、`decisions/ADR-038-LineLaserThreeLayerRefactor`；删除 5 页（`modules/SmartRayCam`、`modules/HikRobotCam`、`api/CameraRun`、`api/ICameraRun`、`api/CameraSelector`，移入 `_trash_20260908/`）并全库改链；`ADR-Index` 扩至 001~038。
+
 ## [2026-09-07 19:49:33] code+wiki | 启动日志四项缺陷修复（参考 HonorMachineTest 的 IO 模式）：连接结果可表达 / IO 取走即记日志 / 动作剥离 IO 线程 / 运控报错去重
 
 **起因（用户）**：贴出 06:17 启动日志提三个问题——①相机连接已失败返回却仍等满超时；②`Init_IO` 命中后未消除（用户指出「IO 只能触发一次动作，进入动作后 IO 要取消掉」）；③运控失败同类报错连报三次。另追加④初始化链同步阻塞 IO 线程 20 秒。并要求先参考 `E:\SoftwareGit\HonorMachineTest\PcomDeviceInterface` 的 IO 方式。
@@ -1293,7 +1395,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   5. `LineLaserWorkflow.cs`：模拟模式自驱动——`InitializeWorker` 开头 C 模式显式 `SelectIntelligentLaser()`（根因：Enable(C) 的 SelectReal() 选 SmartRay 占位）；`ExecutePreWork` 完成模拟分支自驱动转 Starting；`ExecuteStarting` 虚拟相机（`_ilCamera==null`）跳过开外设、数据稳定默认通过、模拟分支自驱动转 Working；`ExecuteWorking` 虚拟相机识别有效性默认通过不累计失败
 - 修改代码文件：`LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`、`UIDesign/TabPage/ILCamPage.cs`、`UIDesign/SubView/ILAlgoPage.cs`、`UIDesign/TabPage/MotionControlPage.cs`、`Workflow/Device/LineLaserWorkflow.cs`
 - 新增 Wiki 页面：`lessons/SimulationC-Mode-Interruption.md`
-- 更新 Wiki 页面：`modules/IntelligentLaserCam.md`、`modules/Workflow.md`、`api/IntelligentLaserCameraRun.md`、`lessons/IntelligentLaser-JobFlowPanel.md`、`wiki/index/index.md`
+- 更新 Wiki 页面：`modules/IntelligentLaserCam.md`、`modules/Workflow.md`、`api/IntelligentLaserCam.md`、`lessons/IntelligentLaser-JobFlowPanel.md`、`wiki/index/index.md`
 - 备份：`AdaWeldSystem_backup_20260825_172135.tar.gz`
 - 矛盾检测：无（三态精简与 2026-08-24 UiStateSimplification 案例一致；`IsCameraOn`=DwCameraEnable 语义按用户澄清保留）
 
@@ -1322,7 +1424,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **第三部分 - 日志截断与备份**：见本次截断记录条目
 - **修复统计**：修复 ADR 编号冲突 1 处、孤儿页面 1 个、红链 1 处、路径/命名空间漂移约 22 处（覆盖 6 个 wiki 页面）
 - **新增 Wiki 页面**：无
-- **更新 Wiki 页面**：`decisions/ADR-033-YinglaiDataFlow.md`（重命名）、`index/index.md`（新增 ADR-033 条目）、`api/LineLaserWorkflow.md`、`modules/Workflow.md`、`modules/UIDesign.md`、`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCameraRun.md`、`lessons/IntelligentLaserSensorControl.md`、`modules/Comm.md`、`modules/SmartRayCam.md`
+- **更新 Wiki 页面**：`decisions/ADR-033-YinglaiDataFlow.md`（重命名）、`index/index.md`（新增 ADR-033 条目）、`api/LineLaserWorkflow.md`、`modules/Workflow.md`、`modules/UIDesign.md`、`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCam.md`、`lessons/IntelligentLaserSensorControl.md`、`modules/Comm.md`、`modules/SmartRayCam.md`
 - **矛盾检测**：修复后复检无新增矛盾
 - **代码漂移**：关键漂移已修复，非关键漂移待后续迭代
 
@@ -1338,7 +1440,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 
 - **需求（用户澄清）**：① 传感器是否启动必须用 `StCtrl.DwCameraEnable`（=`IsCameraOn()`）判断；② `SetSensor()` 才是线激光启停传感器的方式，`SetCaptureCamera()` 非线激光工作方式、舍弃；③ btnLaser/btnCaptureCamera/SyncFromHardwareCore/UpdateConnectionUiCore 在 text 与状态判断上重复多块，需精简为一个函数控制按钮状态与 text。
 - **改动**（`UIDesign/TabPage/ILCamPage.cs`）：移除本地 `_isLaserOn`/`_isCameraOn` 副本（改由 `IsLaserOn()`/`IsCameraOn()` 真相源）；`btnCaptureCamera_Click` 改用 `SetSensor(!IsCameraOn())`、删 `SetCaptureCamera` 调用；`btnLaser_Click` 改用 `SetLaser(!IsLaserOn())`；`SyncFromHardwareCore`、`UpdateConnectionUiCore` 断开分支的重复 text 块收敛到新增单一函数 `UpdateLaserSensorUi()`（基于硬件真相源统一设置 btnLaser/btnCaptureCamera 的 text 与 ExtraMouseDown）。
-- **Wiki**：`api/IntelligentLaserCameraRun.md` 修正 `SetSensor/SetCaptureCamera` 说明 + `DetectHardwareStatus` 返回字段（`SensorRunning` 已注释移除）；新建 `lessons/IntelligentLaserSensorControl.md`；`index.md` 教训表 + `modules/UIDesign.md` ILCamPage 行 + 本日志同步。
+- **Wiki**：`api/IntelligentLaserCam.md` 修正 `SetSensor/SetCaptureCamera` 说明 + `DetectHardwareStatus` 返回字段（`SensorRunning` 已注释移除）；新建 `lessons/IntelligentLaserSensorControl.md`；`index.md` 教训表 + `modules/UIDesign.md` ILCamPage 行 + 本日志同步。
 - **自检**：5 个受影响符号全在 ILCamPage.cs，无外部调用；`SetCaptureCamera` 仅从页面移除、后端 `LineLaserWorkflow` 仍保留合法使用；C# 7.3 合规；备份 `AdaWeldSystem_backup_20260824_133438.tar.gz`。未在 VS 实编（本环境无法编译）。
 
 ## [2026-08-24 10:39:22] refactor | ILCamPage UI 状态刷新统一入口
@@ -1520,7 +1622,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **影响文件**：
   - `IntelligentLaserCameraRun.cs`：回调重构 + IsManualMode 属性 + SetSensorCommPeriod 配置
   - `ILCamPage.cs`：IsManualMode 设置 + RefreshDisplay 帧率标签前置
-- **Wiki 更新**：modules/IntelligentLaserCam.md、api/IntelligentLaserCameraRun.md、lessons/IntelligentLaser-Pitfalls.md（新增 §3.7 回调周期、§5.8 回调模式分流）
+- **Wiki 更新**：modules/IntelligentLaserCam.md、api/IntelligentLaserCam.md、lessons/IntelligentLaser-Pitfalls.md（新增 §3.7 回调周期、§5.8 回调模式分流）
 
 ## [2026-08-20 13:45:49] fix | 英莱 SDK dwInstanceId 参数统一修复（0u→1u），解决帧率读取失败问题
 
@@ -1536,7 +1638,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **关于回调帧率 ~30fps**：需待 dwInstanceId 修复后，通过正确读取的 `ScanRateHz` 判断传感器实际运行帧率，再进一步排查（若传感器帧率也 ~30 则是档位未切换成功，若传感器帧率远高于 30 则是回调/网络/处理瓶颈）
 - **修改代码文件**：`LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`
 - **新增 Wiki 页面**：无
-- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`（新增 dwInstanceId 修复记录）、`api/IntelligentLaserCameraRun.md`（ScanRateHz 补充 dwInstanceId 注意事项）、`lessons/IntelligentLaser-Pitfalls.md`（新增 §5.7 dwInstanceId 参数陷阱）
+- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`（新增 dwInstanceId 修复记录）、`api/IntelligentLaserCam.md`（ScanRateHz 补充 dwInstanceId 注意事项）、`lessons/IntelligentLaser-Pitfalls.md`（新增 §5.7 dwInstanceId 参数陷阱）
 - **矛盾检测**：无
 
 ---
@@ -1548,7 +1650,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **修复 2（FetchFpsModel 日志）**：`FetchFpsModel()` 从静默失败（`catch { }`）改为输出 warning 日志，记录 SDK 返回码和异常信息，方便排查「帧率下拉显示不对」的根因
 - **修改代码文件**：`LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`
 - **新增 Wiki 页面**：无
-- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCameraRun.md`（ScanRateHz 说明更新）、`lessons/IntelligentLaser-Pitfalls.md`（§5.6 补充运行时刷新策略）
+- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCam.md`（ScanRateHz 说明更新）、`lessons/IntelligentLaser-Pitfalls.md`（§5.6 补充运行时刷新策略）
 - **矛盾检测**：无
 
 ---
@@ -1575,7 +1677,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **修复 3（数据流分离）**：`ILCamPage.RefreshDisplay()` 仅手动/空闲模式下绘制 Mat+结果表；自动模式直接返回，数据通过 `ContourDataReady` 外传（ScottPlot + 自动调整）；移除 `swDisplay` Switch 及相关逻辑
 - **修改代码文件**：`LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`、`UIDesign/TabPage/ILCamPage.cs`
 - **新增 Wiki 页面**：无
-- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCameraRun.md`、`lessons/IntelligentLaser-Pitfalls.md`（新增 §3.5 §3.6 §5.5）、`wiki/index/index.md`
+- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCam.md`、`lessons/IntelligentLaser-Pitfalls.md`（新增 §3.5 §3.6 §5.5）、`wiki/index/index.md`
 - **矛盾检测**：无
 
 ---
@@ -1640,7 +1742,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **问题 3 — 回调释放竞态（第四层防御）**：新增 `_activeCallbacks` 引用计数器（`Interlocked.Increment/Decrement` + `try/finally`），三个回调均参与计数；新增 `WaitForCallbacksToFinish()` 自旋等待归零（超时 2s，超时记警告仍继续释放避免死锁）；`DisconnectManual` / `ReleaseNativeResources` 在关传感器+反初始化 SDK 后、释放委托 GCHandle 前等待回调归零 + `Thread.Sleep(50)`。根治「关传感器→释放委托」之间在途回调触发 CallbackOnCollectedDelegate 的竞态窗口（高帧率下更易复现）。
 - **修改代码文件**：`LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`、`UIDesign/TabPage/ILCamPage.cs`、`UIDesign/TabPage/ILCamPage.Designer.cs`
 - **新增 Wiki 页面**：无
-- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`（新增 UI 同步+应用按钮+回调竞态修复条目）、`api/IntelligentLaserCameraRun.md`（新增第四层防御条目）、`lessons/IntelligentLaser-Pitfalls.md`（第 6 章新增 6.6 释放竞态小节）
+- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`（新增 UI 同步+应用按钮+回调竞态修复条目）、`api/IntelligentLaserCam.md`（新增第四层防御条目）、`lessons/IntelligentLaser-Pitfalls.md`（第 6 章新增 6.6 释放竞态小节）
 - **矛盾检测**：无
 
 ---
@@ -1811,7 +1913,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - **需求 4 — 实测 FPS 标签（首帧剔除）**：`MillionOutlineCallback` 内用 `1000ms/帧间隔(ms)` 计算实时帧率，`_firstFrameSkipped` 标志控制首帧剔除；`ResetMeasuredFps()` 重置计数器，`SetSensor(true)` 自动调用；`MeasuredFps` 公共属性供读取；`ILCamPage.Designer.cs` 新增 `lblMeasuredFps` 标签（轮廓点右侧，12px 宋体），`RefreshDisplay()` 每帧更新显示（保留 1 位小数）。
 - **需求 5 — 算法编辑页展开当前 Job 实时参数**：`ILAlgoPage.InitIlModule` 连接时优先 `FetchAllJobParams()` 从设备拉取当前 JOB 实时参数，失败才回退 `LoadOfflineCache()` 离线缓存；旧逻辑相反（优先离线缓存），可能显示过时/默认参数。
 - **修改代码文件**：`LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`、`UIDesign/TabPage/ILCamPage.cs`、`UIDesign/TabPage/ILCamPage.Designer.cs`、`UIDesign/ViewPage/ILAlgoPage.cs`
-- **Wiki 更新**：[[modules/IntelligentLaserCam]] 关键事实补一条；[[api/IntelligentLaserCameraRun]] 成员表增 7 项；[[lessons/IntelligentLaser-Pitfalls]] 新增 §5 UI 与状态管理（4 条教训）；`wiki/index/index.md` 模块与 API 条目更新摘要。
+- **Wiki 更新**：[[modules/IntelligentLaserCam]] 关键事实补一条；[[api/IntelligentLaserCam]] 成员表增 7 项；[[lessons/IntelligentLaser-Pitfalls]] 新增 §5 UI 与状态管理（4 条教训）；`wiki/index/index.md` 模块与 API 条目更新摘要。
 - **ADR 检查**：无新决策，遵循 ADR-001（Dispose 模式）、ADR-002（C#7.3）、ADR-019（命名空间解耦）。
 
 ---
@@ -1848,7 +1950,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   5. 结果显示合并：移除 `ILAlgoPage` 的结果面板及回调，`ILCamPage` 结果从纯文本 Label 升级为 `AntdUI.Table` 表格形式
 - **修改代码文件**：`LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`、`UIDesign/TabPage/ILCamPage.cs`、`UIDesign/TabPage/ILCamPage.Designer.cs`、`UIDesign/ViewPage/ILAlgoPage.cs`、`UIDesign/ViewPage/ILAlgoPage.Designer.cs`
 - **新增 Wiki 页面**：`lessons/IntelligentLaser-ReconnectCallback.md`
-- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCameraRun.md`、`wiki/index/index.md`
+- **更新 Wiki 页面**：`modules/IntelligentLaserCam.md`、`api/IntelligentLaserCam.md`、`wiki/index/index.md`
 - **矛盾检测**：无
 
 ---
@@ -1884,7 +1986,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 **知识沉淀**：
 - `lessons/IntelligentLaser-SensorCallback-LaserIndependence.md`：新建——传感器使能=回调触发源头，激光=仅照射控制，三层完全解耦
 - `modules/IntelligentLaserCam.md`：新增关键事实条目
-- `api/IntelligentLaserCameraRun.md`：数据链路末补充解耦说明
+- `api/IntelligentLaserCam.md`：数据链路末补充解耦说明
 - `wiki/index/index.md`：新增 lesson 索引条目 + 近期变更行
 
 **代码状态**：无需修改——当前代码已正确反映此逻辑（`OpenSensor` 中 `SetSensor/SetLaser/SetCaptureCamera` 为独立并列调用，`MillionOutlineCallback` 内不检查激光状态）
@@ -1949,7 +2051,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 **自审**：仅改私有绘制方法，唯一调用处 `IntelligentLaserCameraRun.cs:903`（MillionOutline 回调内），爆炸半径隔离本文件；无公共接口/Designer/Dispose/.csproj 变更；ADR-001/002 与 Lessons 门禁无违反。备份 `AdaWeldSystem_backup_20260818_103630.zip`。
 
 **Wiki 更新**：
-- `api/IntelligentLaserCameraRun.md`：绘图段更新居中方式
+- `api/IntelligentLaserCam.md`：绘图段更新居中方式
 - `modules/IntelligentLaserCam.md`：校准框条目补 02-18 居中修正
 - `lessons/IntelligentLaser-DemoCenterOriginAssumption.md`：新建教训
 - `index/index.md`：新增索引条目+近期变更行
@@ -1968,7 +2070,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 - 参数页面正常显示（`InitJobParamsCallback` 在连接时触发，`_jobParams` 缓存填充）
 
 **Wiki 更新**：
-- `api/IntelligentLaserCameraRun.md`：更新 `ConnectCore` 描述与关键设计节
+- `api/IntelligentLaserCam.md`：更新 `ConnectCore` 描述与关键设计节
 - `modules/IntelligentLaserCam.md`：新增回调注册顺序修正条目
 - `lessons/IntelligentLaser-OneTimeCallbackOrder.md`：新建教训文件
 - `index/index.md`：新增索引条目+近期变更行
@@ -1983,7 +2085,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 
 **Wiki 更新**：
 - `modules/IntelligentLaserCam.md`：校准回调 + 校准框/十字架绘制
-- `api/IntelligentLaserCameraRun.md`：IlCalibrationInfo/CalibrationInfo/CalibrationCallback
+- `api/IntelligentLaserCam.md`：IlCalibrationInfo/CalibrationInfo/CalibrationCallback
 
 ## [2026-08-17 16:24:17] fix | 编译修复：PointCloudData 无参构造 + EmguCV BitmapToMat
 
@@ -2005,7 +2107,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 
 **Wiki 更新**：
 - `modules/IntelligentLaserCam.md`：数据链路 + 回调节流 + 新增 60FPS/demo画法/布局修正条目
-- `api/IntelligentLaserCameraRun.md`：数据链路流程图 + ScanRateHz/OpenSensor 描述
+- `api/IntelligentLaserCam.md`：数据链路流程图 + ScanRateHz/OpenSensor 描述
 
 ---
 
@@ -2017,7 +2119,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   3. `UIDesign/ViewPage/ILAlgoPage.cs`：删除 `_refreshTimer`（150ms 轮询），改订阅 `ContourFrameReady` 刷新实时识别结果表；`StopTimer()` 改名 `StopRefresh()`（退订事件）
   4. `UIDesign/SubView/AlgorithmEditForm.cs`：`HandleDestroyed` 调 `_ilPage.StopRefresh()`（原 StopTimer）
 - 修改代码文件：IntelligentLaserCameraRun.cs、ILCamPage.cs、ILAlgoPage.cs、AlgorithmEditForm.cs
-- 更新 Wiki 页面：api/IntelligentLaserCameraRun、modules/IntelligentLaserCam、wiki/index/index.md
+- 更新 Wiki 页面：api/IntelligentLaserCam、modules/IntelligentLaserCam、wiki/index/index.md
 - 新增 Wiki 页面：lessons/IntelligentLaser-CallbackDisplay-NotPolling
 - 矛盾检测：无
 
@@ -2030,7 +2132,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   2. `UIDesign/TabPage/ILCamPage.cs`：新增「自动显示」`AntdUI.Switch` 逻辑——订阅 `LineLaserWorkflow.StateChanged`，用状态机 `State` 判断自动运行中（Starting/Acquiring/Analyzing/Display/Adjusting/Completed）；运行中禁用全部手动按钮 + switch 控制 imageBox 轮廓刷新；空闲恢复按钮；`InvokeRequired` 守卫
   3. `UIDesign/TabPage/ILCamPage.Designer.cs`：新增 `swDisplay`/`lblAutoDisplay` 控件；顺带修复 `btnParamEdit` 缺 `new` 实例化的既有 bug（对应 lesson DesignerCs-ControlInstantiation）
 - 修改代码文件：IntelligentLaserCameraRun.cs、ILCamPage.cs、ILCamPage.Designer.cs
-- 更新 Wiki 页面：api/IntelligentLaserCameraRun、modules/IntelligentLaserCam、modules/UIDesign、wiki/index/index.md
+- 更新 Wiki 页面：api/IntelligentLaserCam、modules/IntelligentLaserCam、modules/UIDesign、wiki/index/index.md
 - 新增 Wiki 页面：无
 - 矛盾检测：无
 
@@ -2052,7 +2154,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   2. `UIDesign/SubView/ILParamPage.cs` — 重写：由「Job Parameter 编辑」改为「相机参数编辑」，Table 三行（曝光时间/激光强度/抗弧光）+ 名称/当前值/单位/说明列，SetEditable+DoubleClick+CellEndEdit 校验（抗弧光 float，曝光/强度 uint），复用 FetchCameraParams/ApplyCameraParams
 - 关键确证（dnfile 反编译 DLL）：相机参数结构 `IntelligentSensorBaseParams`（Exptime=曝光 uint / Gama=伽马·抗弧光 float / Power=激光强度 uint / FTempCpu=温度只读），方法 `FetchSensorBaseParam`/`SetSensorBaseParam`；Job 参数结构 `TIntelligentJobParam`（FetchJobParamter/SetJobParamter）——两套独立 API
 - 修改代码文件：IntelligentLaserCameraRun.cs、ILParamPage.cs
-- 更新 Wiki 页面：api/IntelligentLaserCameraRun（新增相机参数 vs Job 参数对比表）、modules/IntelligentLaserCam、modules/UIDesign
+- 更新 Wiki 页面：api/IntelligentLaserCam（新增相机参数 vs Job 参数对比表）、modules/IntelligentLaserCam、modules/UIDesign
 - 矛盾检测：无（修正了原「Job Parameter 含曝光」的错误表述）
 
 ---
@@ -2094,7 +2196,7 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
   - `modules/MonitorCam.md` 引用已删除的 `MonitorCam/Api/MonitorCameraStateMachine.cs`（find 确认不存在）；`Workflow/MonitorCameraWorkflow.cs` 路径过期；第 21 行「健康巡检并入工作流线程」与第 32/38 行「健康巡检下沉 MonitorCameraRun」自相矛盾。三处一并修正。
   - `modules/Comm.md` 删除「V2 架构规划：NetworkPort 层（未实装）」「V2 新增：机器人连接状态机」两整节（`INetworkPort`/`NetworkPortBase`/`RobotConnectionStateMachine` 均 find 确认不存在），压缩为「已取消的规划（勿再当作待办）」表。
   - `modules/KUKARobot.md` §7 整章去代际化；「V3 代码实现将在后续阶段执行」改为实装状态说明；§7.7 按 find 实况修正（`RSICommunication`/`EKICommunication`/`KUKADataTypes` 三文件**均存在**，「RSICommunication 已降级删除」为误述）。
-  - `api/CamBoxTracker`/`api/EncoderAxis`/`api/RSIPositionBuffer`/`api/LaserWeldHeadController`/`modules/LaserWeldHead` tags 与页首「架构版本 V2/V3」去代际化；`api/IntelligentLaserCameraRun`、`modules/IntelligentLaserCam`、`modules/UIDesign`（英莱轮廓误标 V3，实为 ADR-033 数据流）同步。
+  - `api/CamBoxTracker`/`api/EncoderAxis`/`api/RSIPositionBuffer`/`api/LaserWeldHeadController`/`modules/LaserWeldHead` tags 与页首「架构版本 V2/V3」去代际化；`api/IntelligentLaserCam`、`modules/IntelligentLaserCam`、`modules/UIDesign`（英莱轮廓误标 V3，实为 ADR-033 数据流）同步。
   - `guides/WinForms-UI-Threading.md` §3 去代际化，并把 `MainDeviceThread.DisposeComponents()` 更新为 `MainDeviceWorkflow.Dispose()`（ADR-041 更名 + ADR-001 释放入口）。
   - `decisions/`：ADR-027 加「当前状态 有效 + 命名澄清」横幅（本 ADR 描述的 CAMBOX 就是**当前架构本身**，V3 仅为当时叫法，防后人去找已删的 V3 架构页）；ADR-031/ADR-027/ADR-023 修正引用已删除实体的表述。
 - ⑤`modules/Workflow.md` 由已废弃模块页改为 `status: deleted-placeholder` 重定向存根（含「内容去向」表 + 三个「请改读」链接），避免 26 处入链变红链。
@@ -2263,3 +2365,44 @@ ADR 表由平铺改为**三组**：现行有效(35) / 待决 proposed(1) / 已�
 **范围**：对照 `HonorMachineTest/PcomDeviceInterface`（`MachineControlWork.cs` / `MachineStatusWork.cs`）只读核查 AdaWeldSystem 线程问询方式，零代码改动。
 **结论**：合规范。①状态归属判断：线程只读 `Current` 决定执行/不执行，状态赋值只在 IO 动作链（参考 `ResetMachine` 的 `while(CurrentStatus==Reseting)` 门控 + WaitAll 后复查，与 `CascadeResetProcess` 每步问询同范式）；②防空调节拍：`BeatIdleMs=100`/`BeatWorkMs=10` 与参考同值，`WaitChildPollMs=100`，IO 三线程 50ms；参考 `LineWork`（无 Sleep 空转）与 `RunControl`（`while(true)`）属不借鉴项。
 **wiki**：`api/HonorMachineTest-IOReference.md` 新增 §6.1 线程问询范式（两条铁律 + 逐点比对结论）。
+
+## 2026-09-08 11:08 整机状态标签迁移（FormMain → MainPage.LabelStatus）
+**范围**：`FormMain.cs` 删 `lbl_SystemStatus`/`sep_SystemStatus` 字段 + `InitializeSystemStatusLabel`/`OnMainDeviceStatusChanged`/`UpdateSystemStatusLabel` 三方法 + 构造调用 + `FormMain_FormClosed` 内残留退订（静态校验揪出，处理器已删会编译报错）；`MainPage.cs` 新增「整机状态标签」region（订阅 `StatusChanged` + `ApplyDeviceStatus` 颜色映射 + `_statusBlinkTimer` 0.5s 绿闪）。
+**颜色映射（用户定义）**：Running=绿 / Reseting=黄 / Stop=绿闪(0.5s 绿↔白) / Alarm·EStop=红 / NoReset=灰；文本「设备状态：{状态值}」。
+**wiki**：api/FormMain.md（删 3 方法行+迁移注记）、api/MainPage.md（新增整机状态标签章节+颜色表）、modules/UIDesign.md（状态栏裁剪节补迁移）、architecture/DeviceControlArchitecture.md（展示位置改 MainPage）、index/index.md（FormMain 摘要）。备份 AdaWeldSystem_backup_20260908_110152.tar.gz；真编译待 VS。
+
+## 2026-09-08 11:20 修「停止驱动」启动误报
+**现象（用户运行日志）**：程序启动 1 秒内打出「运行态已变更为 NoReset 子流程停止驱动」——启动默认态就是 NoReset、从未 Running，不存在状态变更，日志误导且不该展示。
+**根因**：`SubDeviceWork` 首拍问询 `Current != Running` 即调 `StopSubDeviceDrive`，Interlocked 门首次放行必打日志，不区分「启动默认态」与「真实被抢占」。
+**修复**：`SubDeviceWork` 加局部 `wasDriving`（上一拍是否真在 Running 驱动），仅真正跌出才调 `LogDriveStopped()`（原 `StopSubDeviceDrive` 删除，ResetWorkTime 内联至空闲分支每拍执行）；Interlocked 闭锁语义不变（整机一次/每次跌出）。
+**wiki**：api/DeviceControlWork.md（范式代码块重写）、api/HonorMachineTest-IOReference.md（映射表）、modules/DeviceControl.md（线程问询范式条）。备份 AdaWeldSystem_backup_20260908_111508.tar.gz；真编译待 VS。
+
+## 2026-09-08 13:22 运控总线监督虚拟 IO 化落地
+**用户裁定（三点）**：①轮询放 EMGWork → 修正为 **EMGWork 专责急停，普通 Alarm 走 IOWork**；②询问 WKC 计数作用（见 api/MontionManager.md 新节：EtherCAT 报文 Working Counter 预期/实际不一致即丢帧，ESC 硬件维护、无应用层心跳下的最早掉线前兆；v1 因阈值需现场数据未纳入）；③报警动作链置整机 Alarm。
+**代码（4 文件）**：L2 `MontionControl` 加 `virtual bool CheckBusOK(out faultDesc)`（默认未实现，IPVTMotion 契约范式）；L3 `DeltaMontionControl` 覆写（替换原无参版，0 调用方，逐从站读连接态+报警位）；`DeviceControlWork` 加 `IoMotionBusFault` 常量 + `ExecuteIo` case + `DoMotionBusFault()`（仅 SetStatus(Alarm)，同步执行白名单——报警不允许被 DispatchAction 忙丢弃）；`DeviceStatusWork` 加 `ScanMotionBusFault()`（IOWork 每 4 拍=200ms，电平闭锁：NG 期间 IO 常置不重复报，状态离开 Alarm 自动解闭锁，NG→OK 不自动消警，未初始化跳过）。
+**静态校验**：4 文件括号平衡/C#8+ 0/符号计数逐点核对通过；真编译待 VS。
+**wiki**：api/DeviceStatusWork.md（线程表+同步例外白名单+新节）、api/DeviceControlWork.md（常量表/电平型表/动作映射表 + 顺手修 C3 待决横幅为 ADR-034 已裁定）、api/MontionManager.md（总线健康检查契约+WKC 说明）、modules/DeviceControl.md（报警源虚拟 IO 化条）、index.md。备份 AdaWeldSystem_backup_20260908_131448.tar.gz。
+
+## 2026-09-08 13:56 急停机制明确（无虚拟 IO）+ 状态颜色二次定义
+**范围（用户裁定）**：①急停无虚拟 IO、只有物理 IO——`IoEmg` 常量/`ExecuteIo` case/映射表全部删除，`EstopMachine(reason)` 改为记录原因后**直通同步执行** `DoEstopMachine()`；机器人 `RxAbort` 在 `MapCommandToIo` 就地同步 `EstopMachine` 并返回 null（调用方补区分日志）。②`EMGWork` 重写为纯物理两段式：反逻辑（无电平信号=急停，按下/断线均信号消失，故障安全）；信号消失上升沿急停，**IO 上电（设备通知上位机安全）且处于 EStop 才 `EstopCancel`**——未检测到取消前 EStop 状态无法清除。③MainPage 颜色二次定义：EStop=红闪(0.5s 红↔白)/Alarm=橙/Stop=蓝不闪（闪烁通道由 Stop 迁至 EStop）。
+**过程**：中途发现同消息多 Edit 并行仅末条落盘的老坑复发（DeviceControlWork/MainPage 各漏 2~4 处），逐项 Grep 核实后串行重做，复跑静态校验全过。
+**wiki**：api/MainPage（颜色表二次定义）、api/DeviceControlWork（常量表/电平型表/映射表三处 IoEmg 清除）、api/DeviceStatusWork（线程表反逻辑/同步白名单直通/状态源）、architecture/DeviceControlArchitecture（thEMGWork 行+IO 映射表）、modules/UIDesign + modules/DeviceControl + index。备份 AdaWeldSystem_backup_20260908_134619.tar.gz；真编译待 VS。
+
+
+## [2026-09-08 18:10:51] coding | ADR-040 线激光相机访问统一收口（Manager 持有实例 + 外设代理 + 三辅助类归并）
+
+**触发**：编译报错 `LineLaserResultEventArgs 未包含 HasValidResult`；用户指出「对线激光对象的访问都应从 LineLaserManager 走」，实现层应对齐运控台达实现层（无实例、实例注册进 Manager）；并要求 `ProfileMatRenderer` / `ProfileSnapshot` / `SeamPvtFeeder` 不单独建文件、归并到 `LineLaserManager`。
+
+**代码**：
+- `ILineLaser/LineLaserCameraBase.cs`：新增「外设虚契约」7 个 `public virtual`（`ConnectManual` / `DisconnectManual` / `ConfigureDefaultCommPeriod` / `IsCameraOn` / `IsLaserOn` / `SetSensor` / `SetLaser`），默认实现按「不支持则告警 / 空操作 / 返回 true」给，派生类可暂不实现（对齐运控加契约法）。
+- `IntelligentLaserCam/IntelligentLaserCam.cs`：类名 `IntelligentLaserCameraRun` → `IntelligentLaserCam`（与文件/目录同名），7 个外设方法加 `override`。
+- `VirtualCam/VirtualCam.cs`：`override` 5 个外设契约；新增模拟节拍 `System.Threading.Timer`(33ms ≈ 30Hz)，`SensorRunContinue` 起表、`SensorStop`/`Dispose` 停表（此前每次调用只出一帧）。
+- `LineLaserManager.cs`：内嵌 `ProfileSnapshot` / `ProfileMatRenderer` / `SeamPvtFeeder` 三类；新增 `IntelligentLaser` / `VirtualCamera` 类型访问器与 `Connect` / `Disconnect` / `ConfigureDefaultCommPeriod` / `IsCameraOn` / `IsLaserOn` / `SetSensor` / `SetLaser` / `ShutdownPeripherals` 八个外设代理；`Unregister` 同步清实例引用。
+- 删除 `LineLaserCam/ProfileSnapshot.cs`、`ProfileMatRenderer.cs`、`SeamPvtFeeder.cs` 并撤下 .csproj 登记（现役 9 个 .cs）。
+- `LineLaserWorkflow.cs`：删字段 `_ilCamera` 与 `using ...IntelligentLaserCam`；`InitializeInternal` 改走 `Manager.Connect/ConfigureDefaultCommPeriod`；`e.HasValidResult` → `e.Result.Valid`；**`DoPreWorkOn` 补 `StartAcquisition()`**（此前工作流从不启动采集，相机连上也不出图，PreWork 必然超时）；`SafeShutdownPeripherals` / 断开 / 初始化断开改走 Manager；`DisposeManaged` 不再自行 Dispose 相机（生命周期归 Manager）。
+- `DeviceControlWork.cs`：`Active as VirtualCam` → `Instance.VirtualCamera`（并加 `IsVirtual` 门禁避免无谓创建）。
+- `ILCamPage.cs` / `ILAlgorithmEditForm.cs`：`Active as IntelligentLaserCam` → `Instance.IntelligentLaser`。
+
+**校验（无编译器，静态）**：8 个改动文件括号 / #region 平衡全 0 偏差；7 条虚契约 IL 全部 override、虚拟实现 5 条；残留符号 `HasValidResult` / `as IntelligentLaserCam` / `as VirtualCam` / `IntelligentLaserCameraRun` 全仓 0 命中；`Dispose(bool)` 仅出现在注释中（ADR-001 无违反）；csproj 与磁盘一致。**真编译待 Visual Studio 执行。**
+
+**wiki**：新建 `decisions/ADR-040-LineLaserManagerSingleEntry`；`ADR-Index` 扩至 001~040；页面 `api/IntelligentLaserCameraRun.md` 改名 `api/IntelligentLaserCam.md` 并全库改链 19 页；`api/ProfileMatRenderer` / `api/SeamPvtFeeder` 的 source 指向 `LineLaserManager.cs` 并加归并横幅；更新 `api/LineLaserManager`（新增 8 个 API 行 + 约束条）、`modules/LineLaserCam`（目录树/铁律/职责/抽象契约表）、`modules/VirtualCam`（模拟节拍横幅）、`index`（ADR-040 行 + 类名备注）；`tools/drift_scan_precise.py` 的 REMOVED 登记 3 个归并文件并修正英莱现役路径。

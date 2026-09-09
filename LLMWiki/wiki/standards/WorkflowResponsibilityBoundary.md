@@ -1,4 +1,4 @@
----
+﻿---
 title: 流程与子设备对象权责边界标准
 date: 2026-09-02
 tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-027, ADR-028]
@@ -223,5 +223,5 @@ private void OnWeldStatusChanged(object sender, WeldStatusChangedEventArgs e)
 - 决策：[[decisions/ADR-027-WorkflowResponsibilityBoundary]]
 - 架构：[[architecture/DeviceControlArchitecture]]
 - 模块：[[modules/DeviceControl]]、[[modules/MonitorCam]]
-- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCameraRun]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]
+- API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCamManager]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]
 - 互补：[[standards/CodeSimplification]]、[[standards/UiStateSimplification]]

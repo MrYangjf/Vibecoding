@@ -43,7 +43,7 @@ UIDesign/
     ├── IntelligentLaserDialog/  ← 英莱线激光域（命名空间 Sub3UI）
     │   ├── ILAlgoForm.cs        ← **英莱算法参数编辑子页**（原 `ILAlgoPage`，2026-09-07 改名；UserControl，由 ILAlgorithmEditForm 承载；2026-08-07 GridPanel改造：三行布局（45px工具栏 / fill参数区 / fill结果区），左右分栏（左参数面板350px / 右结果区），结果区40px标题栏+fill图像区；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，连接判断与标签统一直读 `_ilCamera.IsConnected` 真相源；**2026-08-24 Job 流面板重构**：顶部 JOB 按钮流+切换/新建/删除操作+参数表+接头类型显示）
     │   ├── ILAlgorithmEditForm.cs ← 算法编辑弹窗（原 `AlgorithmEditForm`，2026-09-07 改名；UserControl + AntdUI.Tabs + UserControl 子页，Modal 承载；见 [[api/ILAlgorithmEditForm]]）
-    │   ├── ILParamForm.cs       ← **英莱相机参数编辑页**（原 `ILParamPage`，2026-09-07 改名；UserControl + AntdUI.Table 单元格编辑，Modal 承载；表头 参数名/当前值(SetEditable+DoubleClick)/单位/说明；编辑**相机参数**：曝光/激光强度/抗弧光，复用 [[api/IntelligentLaserCameraRun]] 的 FetchCameraParams/ApplyCameraParams；**与 Job 参数（算法参数）分离**）；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，`UpdateConnLabel`/`LoadParams`/按钮守卫统一直读 `IsConnected` 真相源
+    │   ├── ILParamForm.cs       ← **英莱相机参数编辑页**（原 `ILParamPage`，2026-09-07 改名；UserControl + AntdUI.Table 单元格编辑，Modal 承载；表头 参数名/当前值(SetEditable+DoubleClick)/单位/说明；编辑**相机参数**：曝光/激光强度/抗弧光，复用 [[api/IntelligentLaserCam]] 的 FetchCameraParams/ApplyCameraParams；**与 Job 参数（算法参数）分离**）；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，`UpdateConnLabel`/`LoadParams`/按钮守卫统一直读 `IsConnected` 真相源
     │   └── ILScanForm.cs        ← **英莱相机扫描结果弹窗**（原 `ILScanDialog`，2026-09-07 改名；UserControl + AntdUI.Table，Modal 承载；表头 No.+选取(ColumnCheck 单选互斥)+IP+序列号+软件版本+传感器类型；`SelectedIp` 属性 + 确定回填；见 [[guides/AntdUI-Reference]]）
     ├── ParamContolDialog/       ← 参数控制域（命名空间 Sub3UI）
     │   ├── AutoParamForm.cs     ← 自动参数弹窗（UserControl）
@@ -149,9 +149,9 @@ UIDesign/
 - **仅线激光实现真实连接/断开切换**：`ToggleLineLaserConnection()` 仅向 `LineLaserWorkflow.Instance` 发起 `Start()`(Standby→启动)/`Stop()`(运行态→停机)/`Reset()`(ManualStopped/ErrorAborted→重新初始化回 Standby)，实际连接/开激光在实例自身后台线程执行；其余 5 个硬件暂未接入，点击 `Message.info` 提示「暂未接入，无法操作」。
 - 实施位置：全部在 `MainPage.cs` 代码层（构造函数调用 `InitDeviceSwitchButtons()`；按钮随宿主销毁自动释放，Tooltip 组件在 `DisposeComponents()` 显式释放）；不涉及任何 Designer.cs 修改。
 
-### FormMain 状态栏裁剪（2026-08-27）
+### FormMain 状态栏裁剪（2026-08-27）+ 整机状态标签迁移（2026-09-08）
 
-底部 `ToolStrip`(`toolStrip1`) 已裁剪：**仅保留 3 项**——`lbl_SystemStatus`(整机状态，动态插入最左) + `lbl_Status`(流程状态/线激光工作流) + `lbl_SystemTime`(系统时间，右对齐)。已移除线激光连接/监控相机连接/运动控制器/操作级别及对应静态标签（`toolStripLabel1/2/5/6/7`、`lbl_OperateLevel`、`lbl_LineLaserConn`、`lbl_MonitorConn`、`lbl_MotionCtrl`、`toolStripSeparator1/2/3`）。`InitializeSystemStatusLabel` 锚点由已删的 `toolStripSeparator2` 改为插入索引 0；`OperateLevelControl` 移除操作级别标签写入（权限驱动导航显隐逻辑保留）；原 `UpdateDeviceStatus`（写已删标签）移除，改由 `mainPage.RefreshDeviceSwitchUi()` 驱动悬浮硬件开关。
+底部 `ToolStrip`(`toolStrip1`) 2026-08-27 裁剪后曾保留 3 项（`lbl_SystemStatus` 整机状态 + `lbl_Status` 流程状态 + `lbl_SystemTime` 系统时间），其余连接/操作级别静态标签已移除。**2026-09-08：`lbl_SystemStatus`/`sep_SystemStatus` 及 `InitializeSystemStatusLabel`/`OnMainDeviceStatusChanged`/`UpdateSystemStatusLabel` 三方法整页删除，整机状态显示迁移至 `MainPage.LabelStatus`（文本「设备状态：{状态值}」+ 设备颜色映射 Running=绿/Reseting=黄/Alarm=橙/EStop=红闪0.5s/Stop=蓝不闪/NoReset=灰，2026-09-08 二次定义，详见 [[api/MainPage]]）**；状态栏现仅保留 `lbl_Status` + `lbl_SystemTime`。
 
 ## UI 类资源释放规范（2026-08-19，ADR-001/034 落地）
 

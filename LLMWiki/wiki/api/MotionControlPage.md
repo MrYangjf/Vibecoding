@@ -60,7 +60,7 @@ source: AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs
 
 ## 协作
 
-- 上游：标定数据 → [[api/MoveControlData]]；模拟/轮廓 → [[api/DeviceControlWork]] + [[api/VirtualCameraRun]]。
+- 上游：标定数据 → [[api/MoveControlData]]；模拟/轮廓 → [[api/DeviceControlWork]] + [[api/VirtualCam]]。
 - 容器：[[modules/UIDesign]] 的 `NavPage` 参数界面实例（ControlPage）。
 
 ---

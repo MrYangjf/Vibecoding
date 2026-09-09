@@ -88,6 +88,23 @@ RENAMED = {
 
 # 2) 已移除：无现役对应物，历史 ADR 可保留旧名但须加注「（已移除）」
 REMOVED = {
+    # 2026-09-08 线激光三份辅助文件归并进 LineLaserManager.cs（ADR-040）
+    "ProfileSnapshot.cs": "2026-09-08 归并进 LineLaserCam/LineLaserManager.cs（同文件内嵌类，不再单独立文件）",
+    "ProfileMatRenderer.cs": "2026-09-08 归并进 LineLaserCam/LineLaserManager.cs（同文件内嵌类，不再单独立文件）",
+    "SeamPvtFeeder.cs": "2026-09-08 归并进 LineLaserCam/LineLaserManager.cs（同文件内嵌类，不再单独立文件）",
+    # 2026-09-08 监控相机三层重构 + 麦格威替换海康（ADR-041）
+    "IMonitorCameraApi.cs": "2026-09-08 抽象层重构改名；现役 MonitorCam/IMonitorCam/IMonitorCamApi.cs（接口同步改名）",
+    "HikvisionCameraApi.cs": "2026-09-08 海康实现删除（用户裁定）；现役 MonitorCam/MecaVisionCam/MecaVisionCam.cs",
+    "MonitorCameraRun.cs": "2026-09-08 业务中枢改名承接；现役 MonitorCam/MonitorCamManager.cs",
+    "MonitorCameraConfig.cs": "2026-09-08 改名；现役 MonitorCam/MonitorCamConfig.cs（类名 MonitorCamConfig）",
+    "MonitorAlgorithmManager.cs": "2026-09-08 算法参数并入 EmguALG/Manager/AlgorithmManager.cs（强类型配置 + INI 持久化）",
+    # 2026-09-08 EmguALG 三层改造 + 点云/焊缝上报链删除（ADR-042）
+    "AlgorithmManager.cs": "2026-09-08 旧 PipelineManager 所在文件删除；现役 EmguALG/Manager/AlgorithmManager.cs（统一调度）",
+    "JobManager.cs": "2026-09-08 旧流水线 Job 体系删除（0 消费方且依赖已删 PipelineManager）；两检测配置由 AlgorithmManager 持有",
+    "AlgorithmJob.cs": "2026-09-08 随 JobManager 删除；两检测改用 WireFeedConfig / WeldQualityConfig",
+    "ProfileTransform.cs": "2026-09-08 点云链路删除（无点云输入）",
+    "SeamModel.cs": "2026-09-08 线激光不再依赖算法模块，SeamRecognition 整目录删除",
+    "SeamRecognitionAlgorithm.cs": "2026-09-08 线激光不再依赖算法模块，SeamRecognition 整目录删除",
     "SafetyFlow.cs": "ADR-025 合并进 DeviceStatusWork",
     "SafetyInterlock.cs": "ADR-025 合并进 DeviceStatusWork",
     "FaultRecoveryManager.cs": "2026-09-04 用户裁定整体移除（架构无故障恢复定义，ADR-032 D3）",
@@ -136,6 +153,23 @@ REMOVED = {
     "IPvtMotion.cs": "2026-09-07 合并改名；现役 MotionControl/IMotion/IPVTMotion.cs",
     "PvtPoint.cs": "2026-09-07 合并改名；现役 PVTPoint（定义在 IPVTMotion.cs 内）",
     "PvtInformation.cs": "2026-09-07 合并改名；现役 PVTInformation（定义在 IPVTMotion.cs 内）",
+    # 2026-09-08 线激光三层重构（ADR-038）：ILineLaser + LineLaserManager，
+    # 同时删除 SmartRayCam/（10）、HikRobotCam/（3）、Api/（2）
+    "CameraSelector.cs": "2026-09-08 随 Api/ 删除；现役 LineLaserCam/LineLaserManager.cs（对外唯一入口）",
+    "ICameraRun.cs": "2026-09-08 随 Api/ 删除；现役 LineLaserCam/ILineLaser/LineLaserCameraBase.cs",
+    "CameraRun.cs": "2026-09-08 随 SmartRayCam/ 删除；现役 LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs",
+    "CameraPresetManager.cs": "2026-09-08 随 SmartRayCam/ 删除（相机预设管理，现役无对应）",
+    "Sensor.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay SDK 封装）；现役 LineLaserCam/ILineLaser/LineLaserCameraBase.cs",
+    "SensorHelper.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay SDK 助手类）",
+    "SensorImageData.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay 图像数据结构）",
+    "SensorManager.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay 设备管理）",
+    "SensorPointCloud.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay 点云结构）",
+    "SensorPointCloudMSR.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay MSR 点云）",
+    "SensorState.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay 状态枚举）",
+    "PackagedImage.cs": "2026-09-08 随 SmartRayCam/ 删除（SmartRay 图像包结构）",
+    "HikCameraRun.cs": "2026-09-08 随 HikRobotCam/ 删除（海康 3D 相机实现）",
+    "HikCameraManager.cs": "2026-09-08 随 HikRobotCam/ 删除（海康相机管理）",
+    "HikCameraDevice.cs": "2026-09-08 随 HikRobotCam/ 删除（海康设备封装）",
 }
 
 # 3) 外部参考 / 第三方库内部 —— 静默
@@ -148,6 +182,9 @@ EXTERNAL = {
     "EtherCAT_DLL.cs": "台达官方 SDK 头文件（非本库文件），见 guides/DeltaEtherCAT-DevGuide",
     "EtherCAT_DLL_x64.cs": "台达官方 SDK 头文件 x64 版（非本库文件）",
     "EtherCAT_DLL_Err.cs": "台达官方 SDK 错误码头文件（非本库文件）",
+    # 麦格威 MecaVision 官方 SDK 封装文件（2026-09-08）：现位于 raw/mecavision/（SDK 原档），
+    # 规划落地路径 MonitorCam/Native/MVSDK.cs（ADR-041 proposed，实施后可改判 RENAMED）
+    "MVSDK.cs": "麦格威官方 SDK C# 封装文件（现 raw/mecavision/，规划 MonitorCam/Native/）",
     "INIFile.cs": "大小写变体：现役 FileOperate/IniFile.cs",
     # 泛指设计器文件，非某个具体文件（真实文件形如 XxxForm.Designer.cs）
     "Designer.cs": "泛指设计器文件",

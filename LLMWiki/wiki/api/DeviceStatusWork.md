@@ -50,8 +50,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 
 | 线程 | 字段 / 入口方法 | 优先级 | 职责 |
 |---|---|---|---|
-| IO 轮询 | `thIOWork` / `IOWork()` | AboveNormal | 周期调用 `SafetyInterlockChecker.Check()`（急停除外）；失败首次 `ReportAlarm(reason)`，恢复 `ReportAlarmCleared` |
-| 急停处置 | `thEMGWork` / `EMGWork()` | Highest | 轮询 PLC 急停位；按下 `EstopMachine("急停按钮按下")`，释放后 `EstopCancel()` + `ReportAlarmCleared` |
+| IO 轮询 | `thIOWork` / `IOWork()` | AboveNormal | 周期调用 `SafetyInterlockChecker.Check()`（急停除外）；失败首次 `ReportAlarm(reason)`，恢复 `ReportAlarmCleared`；**运控总线监督** `ScanMotionBusFault()`（2026-09-08，每 4 拍节流） |
+| 急停处置 | `thEMGWork` / `EMGWork()` | Highest | **只看物理急停位（反逻辑：无电平信号=急停，有信号=不急停，按下/断线均表现为信号消失，故障安全）**；信号消失上升沿 `EstopMachine("急停按钮按下")`（内部直通 `DoEstopMachine`，无虚拟 IO）；**IO 上电（设备通知上位机安全）才允许取消**——信号恢复且处于 EStop → `EstopCancel()` + `ReportAlarmCleared`，未检测到取消前 EStop 状态无法清除。**急停专责**：普通 Alarm 不在此处置（用户 2026-09-08 裁定） |
 | 状态反射 | `thLightStatusWork` / `LightStatusWork()` | Normal | 反射 `DeviceControlWork.Status`（MainDeviceStatus）到三色灯（`WriteBit`，地址待标定），状态切换才写 |
 
 ### 动作线程（2026-09-07 新增，第四条）
@@ -65,7 +65,21 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 > 期间急停等其它 IO 全部得不到响应（参考 `PcomDeviceInterface/MachineControlWork.ResetMachine`
 > 用 `new Task(...).Start()` 异步拉起的同款做法）。
 >
-> **例外**：急停 `IoEmg` 由 `EMGWork` **同步**执行 `ExecuteIo`——急停必须立即生效，异步会引入延迟。
+> **例外（同步执行白名单）**：①急停 `EstopMachine` **直通同步执行**（无虚拟 IO，2026-09-08 裁定）——急停必须立即生效，异步会引入延迟；
+> ②运控总线报警 `IoMotionBusFault` 由 `IOWork` **同步**执行——纯状态迁移（`SetStatus(Alarm)`，µs 级无阻塞），
+> 且**报警不允许被 `DispatchAction` 的忙丢弃机制拒绝**。
+
+### 运控总线监督（2026-09-08，用户裁定：控制器状态注册成虚拟 IO）
+
+`ScanMotionBusFault()`：**普通 Alarm 走 IOWork**（EMGWork 专责急停），每 4 拍（50ms×4=200ms）非阻塞采样一次：
+
+1. 闭锁检查：`IsVirtualIoSet(IoMotionBusFault)` 已置位 → 若整机已离开 `Alarm`（消警/急停解除回 NoReset）
+   则 `ClearVirtualIo` 解除闭锁后返回；仍处 Alarm 持续闭锁
+2. `!MontionManager.Instance.IsInitialized` 跳过（避免启动阶段误报，同「启动默认态误报」教训）
+3. `MontionManager.Instance.MontionControl.CheckBusOK(out desc)`（L2 virtual 契约，L3 台达逐从站读
+   `CS_ECAT_Slave_Get_Connect_Status`，共享内存级非阻塞）
+4. **OK→NG 上升沿**：根因归口记一次 Error（ADR-035 D1）→ `SetVirtualIo(IoMotionBusFault)` →
+   同步 `ExecuteIo` → `DoMotionBusFault()` → `SetStatus(Alarm)`；**NG→OK 不自动消警**，归 ClearAlarm 链
 
 ### Running IO 状态前置门控（2026-09-07）
 
@@ -91,7 +105,7 @@ Warning 丢弃、不分派——排队中的工作指令在停机后不再执行
 ### 行为约定
 
 - IOWork 检查失败时**首次**触发 `DeviceControlWork.ReportAlarm(reason)`（故障落库已于 2026-09-04 随模块移除删除，ADR-032）；报警/恢复各触发一次（轮询周期 50ms，`_alarmActive` 保证一个报警周期只触发一次）
-- EMGWork 急停按下 → `DeviceControlWork.EstopMachine`（2026-09-04 由 `EStopMachine` 改名，对齐原档 §7.5）；释放且处于 EStop → `EstopCancel` + `ReportAlarmCleared`
+- EMGWork 急停（反逻辑物理 IO：信号消失=急停）→ `DeviceControlWork.EstopMachine`（2026-09-04 由 `EStopMachine` 改名，对齐原档 §7.5）；信号上电（设备通知安全）且处于 EStop → `EstopCancel` + `ReportAlarmCleared`
 - 单次异常不中断循环（各线程 `while` 体内 try/catch）
 - 监控未启动/已停止时 `IsSafe` 返回 true，不阻断整机
 

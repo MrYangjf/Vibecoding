@@ -36,12 +36,12 @@ tags: [教训, 相机, 英莱, IntelligentLaser, 汇总]
 
 **影响**
 
-- 若实际生成代码成员名与推断不符（如 union 字段命名、嵌套路径），`IntelligentLaserCameraRun.cs` 的 `InitJobParamsCallback`/`FetchAllJobParams`/`ApplyJobParams` 将**编译失败**（CS1061 找不到成员）。
+- 若实际生成代码成员名与推断不符（如 union 字段命名、嵌套路径），`IntelligentLaserCam.cs` 的 `InitJobParamsCallback`/`FetchAllJobParams`/`ApplyJobParams` 将**编译失败**（CS1061 找不到成员）。
 - 定长 64 字节缓冲（`Make64Bytes`/`Read64Bytes`）处理 `SzParamName`/`SzValue` 是硬约束，封送越界会运行时崩溃。
 
 **修复 / 规避**
 
-- 在 `IntelligentLaserCameraRun.cs` 相关代码处标注 `// QA P0`：所有 `TIntelligentJobParam`/`TIntelligentJobParamsGroup` 成员的字段名与 union 布局**必须以 VS x64 构建确认为准**（首次使用此类类型）。
+- 在 `IntelligentLaserCam.cs` 相关代码处标注 `// QA P0`：所有 `TIntelligentJobParam`/`TIntelligentJobParamsGroup` 成员的字段名与 union 布局**必须以 VS x64 构建确认为准**（首次使用此类类型）。
 - 确认方式：在 VS 中「转到定义」查看 `IntelligentLaser_CSharp` 生成的 `TIntelligentJobParam`/`TIntelligentJobParamsGroup` 真实成员，必要时按生成代码微调字段路径。
 - 始终保持全限定 `System.Runtime.InteropServices.Marshal.SizeOf(typeof(TIntelligentJobParamsGroup.__Internal))` 步进数组回调（规避 SDK 同名 `Marshal` 遮蔽，见下文 §1.2）。
 - 64 字节缓冲务必用 `Make64Bytes`/`Read64Bytes` ASCII 处理（不足补 0、超长截断、遇 NUL 终止）。
@@ -54,7 +54,7 @@ tags: [教训, 相机, 英莱, IntelligentLaser, 汇总]
 
 **现象**
 
-`IntelligentLaserCameraRun.cs` 编译报错：*"Marshal"未包含"ReadFloat"的定义*（或 `ReadSingle`）。
+`IntelligentLaserCam.cs` 编译报错：*"Marshal"未包含"ReadFloat"的定义*（或 `ReadSingle`）。
 
 **根因**
 
@@ -280,6 +280,15 @@ if (!_intelligentInstance.IsConnected)
 - 英莱 SDK 的数据链路本身**已经是回调**（`MillionOutlineInspect` → 换帧），UI 显示应顺势**订阅事件**，而不是再起一个 Timer 去拉取回调产出的数据——这是「回调产数据、轮询再消费」的双重浪费，且频率/时序与相机帧流脱节。
 - 节流应在**产帧侧**（相机回调）做（50ms → 20fps），而非在 UI 侧 Timer 里模拟。
 - 遵循本项目既有范式：`LLCamWorkJob` 早已用 `Workflow_DisplayEvent`（事件驱动）推帧显示，英莱页面应与之一致。
+
+> ⚠️ **2026-09-08 部分推翻（ADR-039）**：本条结论**只对「低频、同进程手动调试页面」成立**。
+> 相机以 60Hz 出帧时，把每一帧都封送到 UI 线程会让消息队列被刷新请求淹没（产帧侧 20fps 节流只是把问题减半，且节流逻辑混进了采集实现层）。
+> ADR-039 据此重新分工：
+> - **实现层不再发显示事件**：`ContourFrameReady` / `ContourDataReady` 已删除，回调只触发 `ResultReady` + `ProfileReady` 两个中性事件。
+> - **手动 UI 页（`ILCamPage`）**仍走事件：订阅 `LineLaserManager.Instance.MatUpdated`；是否生成 Mat 由 `SetDisplayOptions(enabled, fps, convert)` 开关控制，**默认关闭**——节流责任从采集侧移到业务侧。
+> - **主页面（`MainPage`）轮廓改为线程轮询**：独立线程每 33ms 读 `LineLaserManager.Instance.Profile` 快照，用递增 `Version` 判断是否有新帧，无新帧直接跳过。
+>   **关键差别**：轮询的是**预先填好的池化快照**（双缓冲，数组一次分配终身复用），不是「回调产数据、UI 再回头拉」，因此没有本条担心的双重浪费；且刷新节拍由 UI 自己掌握，相机帧率再高也不会压垮界面。
+> - 判断准则：**事件 = 必须帧帧响应且低频；轮询 = 允许丢帧且高频。** 见 [[decisions/ADR-039-LineLaserResponsibilitySplit]] D5。
 
 ### 3.2 一次性回调必须在连接前注册
 
@@ -632,7 +641,7 @@ UI 层（`UIDesign/` 目录下）代码直接 `using IntelligentLaser_CSharp;` �
 
 **修复 / 规避**
 
-1. **托管枚举**：在 `IntelligentLaserCameraRun.cs` 同命名空间下定义 `IlFpsModel` 托管枚举（STANDERD=1/FAST_SPEED=2/HIGH_SPEED=3），UI 层只使用此托管枚举。
+1. **托管枚举**：在 `IntelligentLaserCam.cs` 同命名空间下定义 `IlFpsModel` 托管枚举（STANDERD=1/FAST_SPEED=2/HIGH_SPEED=3），UI 层只使用此托管枚举。
 2. **公共方法重载**：`ApplyFrameRateModel(IlFpsModel)` 做 UI 层入口，内部映射到 SDK 枚举后调用私有 `ApplyFrameRateModel(EmIntelligentFpsModel)` 实现。SDK 原生枚举版本降为 `private`。
 3. **UI 移除 SDK using**：`ILCamPage.cs` 移除 `using IntelligentLaser_CSharp;`，整个 `UIDesign/` 目录零 SDK 引用（已 `grep` 全量验证）。
 4. **状态查询方法化**：`IsCaptureCameraOn()` / `IsSensorRunning()` / `FetchFpsModel()` / `DetectHardwareStatus()` 等方法封装所有 SDK 状态查询，UI 只调用方法、不触碰 SDK 类型。
@@ -1205,7 +1214,7 @@ private void WaitForCallbacksToFinish()
 ## 相关页面
 
 - [[modules/IntelligentLaserCam]] — 英莱相机模块文档
-- [[api/IntelligentLaserCameraRun]] — 相机运行控制 API
+- [[api/IntelligentLaserCam]] — 相机运行控制 API
 
 ---
 
@@ -1226,4 +1235,4 @@ private void WaitForCallbacksToFinish()
 - `IntelligentLaser-UiNoSdkReference.md` — UI 层禁止直接引用 SDK 原生类型
 - `IntelligentLaser-ConnectDetectStatus.md` — 连接后必须检测硬件实际状态
 
-源码主要出处：`AdaWeldSystem/LineLaserCam/IntelligentLaserCam/IntelligentLaserCameraRun.cs`
+源码主要出处：`AdaWeldSystem/LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs`
