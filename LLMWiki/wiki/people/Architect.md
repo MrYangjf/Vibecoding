@@ -1,4 +1,4 @@
----
+﻿---
 title: 架构开发员
 date: 2026-07-01
 tags: [专员, 架构]
@@ -27,7 +27,7 @@ source: raw/skills/AdaWeldsys_Skills/01-Team/Architect.md
 ## 技术要点
 
 - .NET Framework 4.8 + C# 7.3 约束
-- WinForms + AntdUI + HelixToolkit 技术栈（原 SunnyUI 已迁出，见 [[decisions/ADR-018-UIFrameworkMigration]]）
+- WinForms + AntdUI + HelixToolkit 技术栈（原 SunnyUI 已迁出，见 [[decisions/ADR-015-UIFrameworkMigration]]）
 - 各模块依赖关系管理
 - 跨模块数据流：相机→图像算法→焊接工艺→运动控制
 - 事件总线模式：GlobalCommData 全局事件通信

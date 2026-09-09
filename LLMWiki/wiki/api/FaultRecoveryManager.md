@@ -1,4 +1,4 @@
----
+﻿---
 title: API — FaultRecoveryManager 故障恢复管理器（+ FaultRecord / FaultCategory）
 date: 2026-08-31
 tags: [API, 故障恢复, SQLite, 单例, Safety, FaultRecord, 已废弃]
@@ -8,11 +8,11 @@ status: deprecated
 
 # API — FaultRecoveryManager 故障恢复管理器
 
-> ⛔ **整页废弃（2026-09-04）**：FaultRecoveryManager / FaultRecordManager / FaultRecord / FaultCategory 已随架构裁定**整体从代码中移除**（用户裁定：架构上无「故障恢复」定义，见 [[decisions/ADR-035-ErrorReportingHierarchy]] D3）。报警语义由 `DeviceControlWork.ReportAlarm` / `ReportAlarmCleared` 承载。下文仅作历史存档，代码中不得再引用任何同名实体。
+> ⛔ **整页废弃（2026-09-04）**：FaultRecoveryManager / FaultRecordManager / FaultRecord / FaultCategory 已随架构裁定**整体从代码中移除**（用户裁定：架构上无「故障恢复」定义，见 [[decisions/ADR-031-ErrorReportingHierarchy]] D3）。报警语义由 `DeviceControlWork.ReportAlarm` / `ReportAlarmCleared` 承载。下文仅作历史存档，代码中不得再引用任何同名实体。
 
 > **位置**：`ProductFileManager/FaultRecoveryManager.cs`（命名空间 `AdaWeldSystem.ProductFileManager`）
 > **2026-09-01 迁址**：自 `MainDeviceControl/DeviceWorkflow/` 迁入 `ProductFileManager/`，成为故障恢复数据的归口使用方（ADR-027 §3）。**调用方需 `using AdaWeldSystem.ProductFileManager`**，API 签名与行为零变化。
-> **2026-08-31**：`FaultCategory` 与 `FaultRecord` 由已删除的 `SafetyInterlock.cs` 迁入本文件（安全检查三文件合并，见 [[decisions/ADR-028-SafetyCheckConsolidation]]）。
+> **2026-08-31**：`FaultCategory` 与 `FaultRecord` 由已删除的 `SafetyInterlock.cs` 迁入本文件（安全检查三文件合并，见 [[decisions/ADR-024-SafetyCheckConsolidation]]）。
 
 ---
 
@@ -106,5 +106,5 @@ FaultRecoveryManager.Instance.RecordFault("Safety", new FaultRecord
 - [[modules/Safety]] — 安全检查与故障恢复链路
 - [[api/DeviceStatusWork]] — 安全检查流程，故障产生的上游
 - [[modules/DeviceControl]] — 三态模型与非泛型工作流基类
-- [[decisions/ADR-028-SafetyCheckConsolidation]] — 三文件合并决策
+- [[decisions/ADR-024-SafetyCheckConsolidation]] — 三文件合并决策
 - [[lessons/FaultRecoveryDeviceKey]] — 设备键名匹配陷阱

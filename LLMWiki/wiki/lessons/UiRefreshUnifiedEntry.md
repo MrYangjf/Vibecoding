@@ -1,4 +1,4 @@
----
+﻿---
 title: UI 状态刷新统一入口
 date: 2026-08-24
 tags: [教训, UI, 状态刷新, 代码精简, 重构]
@@ -61,5 +61,5 @@ private void RefreshUi(RefreshUiScope scope)
 ## 关联
 
 - [[modules/UIDesign]] — ILCamPage 状态刷新说明
-- [[decisions/ADR-024-LineLaserWorkflowRefactor]] — 状态机外发驱动刷新
+- [[decisions/ADR-021-LineLaserWorkflowRefactor]] — 状态机外发驱动刷新
 - [[guides/WinForms-UI-Threading]] — InvokeRequired 封送

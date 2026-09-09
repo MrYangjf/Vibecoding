@@ -1,4 +1,4 @@
----
+﻿---
 title: MainPage 主页面
 date: 2026-08-27
 tags: [API, UI, 主页面, ScottPlot, 英莱, 轮廓, 实时曲线]
@@ -7,7 +7,7 @@ source: AdaWeldSystem/UIDesign/ControlPage/MainPage.cs + .Designer.cs
 
 # MainPage — 主页面
 
-> 主显示页面（Sub1UI `UserControl`），承载英莱线激光轮廓 ScottPlot Signal 图 + 4 条实时数据曲线（焊缝宽度/机器人运动速度/送丝速度/激光功率）+ 全局日志框。2026-08-27 经五维度代码精简（删未用字段/死函数、内联 LoadComponent、补 5 #region、public 方法归集、XML 注释补全）。2026-08-31 改用 **AntdUI `ButtonShadow` 常驻按钮**（[[decisions/ADR-029-ButtonShadowDeviceSwitch]]，替代已废弃的 FloatButton 覆盖层方案）：6 个硬件快捷开关（焊接头/线激光/监控相机/运动控制器/机器人通讯/PLC通讯；徽标红=断开 绿=连接；仅线激光实现真实连接/断开切换，其余硬件暂未接入，点击提示「暂未接入」），构造函数中代码后置创建并直接放入 **`panelfloatbutton` 面板**（MainPage 底部 54px 全宽条，tableLayoutPanel2 第 3 行），随页面显隐自动生效。**同日风格迭代（形态对齐 AntdUI Demo `buttonShadow1`）**：50×50 阴影按钮**仅显示 SVG 图标**（默认 poweroff 电源 SVG）、设备名经 **`TooltipComponent` 顶部提示**（`ArrowAlign=TAlign.Top`）、连接态由**原生徽标属性** `Badge=""`+`BadgeMode=true`+`BadgeBack` 红/绿承载；预留接口 `SetDeviceIconSvg`/`SetDeviceBadgeSvg`。
+> 主显示页面（Sub1UI `UserControl`），承载英莱线激光轮廓 ScottPlot Signal 图 + 4 条实时数据曲线（焊缝宽度/机器人运动速度/送丝速度/激光功率）+ 全局日志框。2026-08-27 经五维度代码精简（删未用字段/死函数、内联 LoadComponent、补 5 #region、public 方法归集、XML 注释补全）。2026-08-31 改用 **AntdUI `ButtonShadow` 常驻按钮**（[[decisions/ADR-025-ButtonShadowDeviceSwitch]]，替代已废弃的 FloatButton 覆盖层方案）：6 个硬件快捷开关（焊接头/线激光/监控相机/运动控制器/机器人通讯/PLC通讯；徽标红=断开 绿=连接；仅线激光实现真实连接/断开切换，其余硬件暂未接入，点击提示「暂未接入」），构造函数中代码后置创建并直接放入 **`panelfloatbutton` 面板**（MainPage 底部 54px 全宽条，tableLayoutPanel2 第 3 行），随页面显隐自动生效。**同日风格迭代（形态对齐 AntdUI Demo `buttonShadow1`）**：50×50 阴影按钮**仅显示 SVG 图标**（默认 poweroff 电源 SVG）、设备名经 **`TooltipComponent` 顶部提示**（`ArrowAlign=TAlign.Top`）、连接态由**原生徽标属性** `Badge=""`+`BadgeMode=true`+`BadgeBack` 红/绿承载；预留接口 `SetDeviceIconSvg`/`SetDeviceBadgeSvg`。
 
 ## 基本信息
 
@@ -28,7 +28,7 @@ source: AdaWeldSystem/UIDesign/ControlPage/MainPage.cs + .Designer.cs
 | 构造函数 | `MainPage()` |
 | 私有函数 | `MainPage_HandleDestroyed`/`SubscribeContourCamera`/`IlCamera_ContourDataReady`/`UpdateChartUI`/`BindChartVar`/`AfterInitializeUI`/`SetupChart`/`CommenData_EventInfoHandler`/`inputLog_TextChanged`/`MainPage_Shown` |
 | 公共函数 | `DisposeComponents`/`AddContourLineChart`/`AddNewDataLineChart`/`LogAppend` |
-| 硬件快捷开关（AntdUI ButtonShadow，ADR-026） | `InitDeviceSwitchButtons`(构造函数创建 6 个 ButtonShadow 常驻 `panelfloatbutton` 面板，50×50 仅 SVG 图标 + Tooltip + 原生徽标)/`OnDeviceSwitchClick`(点击分发)/`IsLineLaserRunning`(依 `LineLaserWorkflow.Instance.Step` 判定 Starting/Working 运行中)/`ToggleLineLaserConnection`(线激光 Start/Stop/Reset，驱动 LineLaserWorkflow 状态机)/`RefreshDeviceSwitchUi`(public 单一刷新入口，仅改线激光按钮 BadgeBack 属性)/`SetDeviceIconSvg`(public 预留接口：替换按钮图标 SVG)/`SetDeviceBadgeSvg`(public 预留接口：设置徽标 SVG) |
+| 硬件快捷开关（AntdUI ButtonShadow，ADR-025） | `InitDeviceSwitchButtons`(构造函数创建 6 个 ButtonShadow 常驻 `panelfloatbutton` 面板，50×50 仅 SVG 图标 + Tooltip + 原生徽标)/`OnDeviceSwitchClick`(点击分发)/`IsLineLaserRunning`(依 `LineLaserWorkflow.Instance.Step` 判定 Starting/Working 运行中)/`ToggleLineLaserConnection`(线激光 Start/Stop/Reset，驱动 LineLaserWorkflow 状态机)/`RefreshDeviceSwitchUi`(public 单一刷新入口，仅改线激光按钮 BadgeBack 属性)/`SetDeviceIconSvg`(public 预留接口：替换按钮图标 SVG)/`SetDeviceBadgeSvg`(public 预留接口：设置徽标 SVG) |
 
 > 2026-08-27 将 4 个 public 方法由散落位置归集到末尾 `公共函数` region，强制成员顺序：私有变量→公共变量→构造函数→私有函数→公共函数。
 
@@ -58,11 +58,11 @@ source: AdaWeldSystem/UIDesign/ControlPage/MainPage.cs + .Designer.cs
 
 ## 设计约束
 
-- [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-023-DisposePatternFullCoverage]]：UI 类按需 `DisposeComponents()`，未重写 `Dispose(bool)`；`HandleDestroyed` 触发。
+- [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-020-DisposePatternFullCoverage]]：UI 类按需 `DisposeComponents()`，未重写 `Dispose(bool)`；`HandleDestroyed` 触发。
 - [[decisions/ADR-002-CS73-Constraint]]：字段声明处不初始化（统一 ctor 内），无 switch 表达式等。
-- [[decisions/ADR-026-YinglaiDataFlow]]：英莱数据流（CamRun 分发 + Signal 高性能显示）+ imageBox/ScottPlot 坐标系区分（两者仅朝向一致，ScottPlot 直绘原始坐标不平移）。
+- [[decisions/ADR-035-LineLaserResponsibilitySplit]]：英莱数据流（CamRun 分发 + Signal 高性能显示）+ imageBox/ScottPlot 坐标系区分（两者仅朝向一致，ScottPlot 直绘原始坐标不平移）。
 - 2026-08-27 代码精简：删 4 未用字段（robotDataRefresh/laserDataRefresh/ClinkTimes/StartTest）+ 死函数 `ResetChartLineData()` + 内联 `LoadComponent()`；补 5 `#region`；public 方法归集；XML 注释补全。`csharp_review.py` 扫描 23→2 项（0 error/0 warn/2 info）。
-- 2026-08-31 硬件快捷开关由 FloatButton 覆盖层改为 **AntdUI `ButtonShadow` 常驻按钮**（[[decisions/ADR-029-ButtonShadowDeviceSwitch]]）：构造函数代码后置创建 6 个按钮直接放入 `panelfloatbutton` 面板，随页面显隐自动生效；线激光连接态真相源统一走 `LineLaserWorkflow.Instance.Step`（经 `IsLineLaserRunning()` 判定 Starting/Working，不读 `CameraSelector.ConnectionState`——初始化已连 socket 但激光关闭，避免误判，ADR-015 精神），线激光手动 Start/Stop/Reset 同步驱动 `LineLaserWorkflow` 状态机，不本地缓存连接布尔。**同日风格迭代（buttonShadow1 形态）**：删按钮 Text 改 50×50 仅 SVG 图标（默认 poweroff 电源 SVG），设备名经 `TooltipComponent`（`ArrowAlign=TAlign.Top`）顶部提示，连接态配色由 `Type`（TTypeMini）改为**原生徽标** `Badge=""`+`BadgeMode=true`+`BadgeBack` 红/绿（按钮保持中性态）；新增预留接口 `SetDeviceIconSvg`/`SetDeviceBadgeSvg`；`DisposeComponents()` 增加 `_tooltip` 释放。
+- 2026-08-31 硬件快捷开关由 FloatButton 覆盖层改为 **AntdUI `ButtonShadow` 常驻按钮**（[[decisions/ADR-025-ButtonShadowDeviceSwitch]]）：构造函数代码后置创建 6 个按钮直接放入 `panelfloatbutton` 面板，随页面显隐自动生效；线激光连接态真相源统一走 `LineLaserWorkflow.Instance.Step`（经 `IsLineLaserRunning()` 判定 Starting/Working，不读 `CameraSelector.ConnectionState`——初始化已连 socket 但激光关闭，避免误判，ADR-015 精神），线激光手动 Start/Stop/Reset 同步驱动 `LineLaserWorkflow` 状态机，不本地缓存连接布尔。**同日风格迭代（buttonShadow1 形态）**：删按钮 Text 改 50×50 仅 SVG 图标（默认 poweroff 电源 SVG），设备名经 `TooltipComponent`（`ArrowAlign=TAlign.Top`）顶部提示，连接态配色由 `Type`（TTypeMini）改为**原生徽标** `Badge=""`+`BadgeMode=true`+`BadgeBack` 红/绿（按钮保持中性态）；新增预留接口 `SetDeviceIconSvg`/`SetDeviceBadgeSvg`；`DisposeComponents()` 增加 `_tooltip` 释放。
 
 ## 协作
 

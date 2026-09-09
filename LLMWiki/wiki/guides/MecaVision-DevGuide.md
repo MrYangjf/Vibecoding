@@ -8,11 +8,11 @@ source: raw/knowledge/监控相机开发指导_MecaVision版.md（二手，已�
 # MecaVision 监控相机开发指导
 
 > **结论先行**：麦格威（MecaVision）MVSDK 作为监控相机新 SDK，**不新建平行模块**——以
-> `MecaVisionCameraApi` 实现**现有** `IMonitorCameraApi` 契约（[[modules/MonitorCam]]、[[decisions/ADR-009-MonitorCameraModule]]），
+> `MecaVisionCameraApi` 实现**现有** `IMonitorCameraApi` 契约（[[modules/MonitorCam]]、[[decisions/ADR-007-MonitorCameraModule]]），
 > 在 `MonitorCamManager` 处替换/切换海康实现，业务层（`MonitorCameraWorkflow`）与 UI（`MonitorCamPage`）**零改动**。
 > 二手文档《监控相机开发指导_MecaVision版》的**线程模型/帧缓存/踩坑清单可复用**；其**目录树与类名不可照抄**（见 §5 订正表）。
 > SDK 原文核验：33 个声称 API **零臆造**（2026-09-08 脚本核对，见 [[api/MecaVisionMVSDK-Native]]）。
-> 架构决策见 [[decisions/ADR-041-MecaVisionMonitorCamera]]。
+> 架构决策见 [[decisions/ADR-037-MecaVisionMonitorCamera]]。
 
 ## 章节导航
 
@@ -193,6 +193,6 @@ CameraEnumerateDevice → CameraGrabber_Create / CreateFromDevicePage
 ## 相关页面
 
 - [[api/MecaVisionMVSDK-Native]] —— 原生 API 速查（核验过的签名与错误码）
-- [[decisions/ADR-041-MecaVisionMonitorCamera]] —— 架构决策
-- [[modules/MonitorCam]] / [[api/MonitorCamManager]] / [[decisions/ADR-009-MonitorCameraModule]] —— 现役模块
+- [[decisions/ADR-037-MecaVisionMonitorCamera]] —— 架构决策
+- [[modules/MonitorCam]] / [[api/MonitorCamManager]] / [[decisions/ADR-007-MonitorCameraModule]] —— 现役模块
 - [[guides/Project-Tools]] —— 原生 DLL 部署心智（海康同款问题）

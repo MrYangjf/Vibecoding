@@ -1,4 +1,4 @@
----
+﻿---
 title: GlobalCommData API 参考
 date: 2026-07-02
 tags: [API, 通讯, 全局状态, 事件总线]
@@ -109,7 +109,7 @@ EventInfoHandler → MainPage.inputLog（AntdUI.Input，受 ShowCommLog 开关�
 | `MessageLevel.Error` | `MachineLog.Error` | 红色 |
 - 高频事件参数已类级复用，避免每次调用 `new MessageArgs` 产生 GC 压力
 - 所有 static 字段在 static 构造函数中集中初始化（ADR-002）
-- 通讯 XML 结构已扩展为 7 个，按设备类型分离：Server/Client/Send/Recive（通用 TCP）+ RobotServer/RobotClient（机器人）+ PLC（PLC 通讯），详见 [[decisions/ADR-008-CommXmlSeparation]]
+- 通讯 XML 结构已扩展为 7 个，按设备类型分离：Server/Client/Send/Recive（通用 TCP）+ RobotServer/RobotClient（机器人）+ PLC（PLC 通讯），详见 [[decisions/ADR-006-CommXmlSeparation]]
 - 通用 TCP 通讯实例 `TcpIpComm` 由 `mCommunicationManager` 持有和管理，访问路径为 `GlobalCommData.mCommunicationManager.TcpIpComm`
 - 通讯日志显示开关已扩展为 3 个：`ShowCommLog` / `ShowRobotCommLog` / `ShowPlcCommLog`，各通讯页面独立控制
 - 三个通讯页面均订阅 `EventInfoHandler` 事件，在 `chkShowCommLog` 勾选时将通讯日志显示到页面 `txtLog`

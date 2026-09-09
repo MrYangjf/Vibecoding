@@ -1,9 +1,9 @@
----
+﻿---
 title: SunnyUI 历史归档
 date: 2026-07-28
 tags: [归档, UI, SunnyUI, 历史参考, 迁移]
 status: archived
-superseded_by: decisions/ADR-018-UIFrameworkMigration
+superseded_by: decisions/ADR-015-UIFrameworkMigration
 ---
 
 # SunnyUI 历史归档文档
@@ -12,10 +12,10 @@ superseded_by: decisions/ADR-018-UIFrameworkMigration
 >
 > **归属变更（2026-09-01）**：`archive/` 分类已取消（与 `architecture/` 同是全库最小分类且名字易混），本页迁入 `project/`。内容未变，仅位置变更。
 >
-> AdaWeldSystem 项目已于 **2026-07-28** 完成 UI 框架从 SunnyUI 到 AntdUI 的全面迁移（详见 [[decisions/ADR-018-UIFrameworkMigration]]）。迁移后项目使用 **AntdUI**（MIT 许可），SunnyUI（GPL v3 许可）相关代码已全部移除。本文档汇总了 SunnyUI 时期的设计决策、迁移教训与完成状态，留作技术追溯之用。
+> AdaWeldSystem 项目已于 **2026-07-28** 完成 UI 框架从 SunnyUI 到 AntdUI 的全面迁移（详见 [[decisions/ADR-015-UIFrameworkMigration]]）。迁移后项目使用 **AntdUI**（MIT 许可），SunnyUI（GPL v3 许可）相关代码已全部移除。本文档汇总了 SunnyUI 时期的设计决策、迁移教训与完成状态，留作技术追溯之用。
 >
 > - 当前生效框架：**AntdUI** + **ScottPlot.FormsPlot 4.1.74**（图表）
-> - 迁移决策：[[decisions/ADR-018-UIFrameworkMigration]]
+> - 迁移决策：[[decisions/ADR-015-UIFrameworkMigration]]
 > - 迁移追踪：[[guides/AntdUI-Reference]]
 
 ---
@@ -339,7 +339,7 @@ private bool ShowInputStringDialog(ref string value, string prompt)
 
 ## 4. 迁移状态追踪
 
-**来源**：[[guides/AntdUI-Reference]] + [[decisions/ADR-018-UIFrameworkMigration]]
+**来源**：[[guides/AntdUI-Reference]] + [[decisions/ADR-015-UIFrameworkMigration]]
 
 ### 4.1 总体完成状态（2026-07-28 确认）
 
@@ -381,7 +381,7 @@ private bool ShowInputStringDialog(ref string value, string prompt)
 | [[guides/WinForms-Designer]] | resx 孤儿类型引用 |
 | [[guides/AntdUI-Reference]] | ToolStrip 替代 |
 | [[guides/AntdUI-Reference]] | 对话窗 Modal 承载 |
-| [[decisions/ADR-019-DialogWindowToModalUserControl]] | 对话窗承载方式决策 |
+| [[decisions/ADR-016-DialogWindowToModalUserControl]] | 对话窗承载方式决策 |
 
 ---
 
@@ -389,7 +389,7 @@ private bool ShowInputStringDialog(ref string value, string prompt)
 
 以下是本归档文档的信息来源，原始文档仍保留在 wiki 中：
 
-- [[decisions/ADR-018-UIFrameworkMigration]] — UI 框架迁移决策
+- [[decisions/ADR-015-UIFrameworkMigration]] — UI 框架迁移决策
 - 本页 §2.1 — UILight 属性规范（已废弃）
 - 本页 §2.2 — Purple 主题决策（已废弃）
 - [[guides/AntdUI-Reference]] — 迁移追踪表

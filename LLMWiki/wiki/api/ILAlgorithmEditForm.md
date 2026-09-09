@@ -1,4 +1,4 @@
----
+﻿---
 title: ILAlgorithmEditForm 算法编辑弹窗
 date: 2026-07-17
 tags: [API, UI, 算法, 配置, SubDialog, Modal]
@@ -8,7 +8,7 @@ tags: [API, UI, 算法, 配置, SubDialog, Modal]
 
 > 配置当前 Job 各算法阶段的「方法（Operation）」与「参数（Parameters）」的 UI 编辑器（**模块 A：EmguALG**）。
 > 另含 **模块 B：英莱相机参数 (IntelligentLaser)** —— 编辑英莱设备侧 Job Parameter 并实时显示 `IlInspectResult` 识别结果（仅当前激活相机为英莱时可用）。
-> 仅做配置编辑，**不实现任何图像处理算法**（符合 [[decisions/ADR-003-SingleAlgorithmFile]]）。
+> 仅做配置编辑，**不实现任何图像处理算法**（符合 [[decisions/ADR-038-EmguALGThreeLayer]]）。
 
 ## 基本信息
 
@@ -30,7 +30,7 @@ public ILAlgorithmEditForm(PipelineConfig config)
 
 ## 界面控件
 
-> **容器（2026-07-27 按 [[decisions/ADR-017-AlgorithmEditInterfaceSplit]] 做接口分隔；2026-07-28 随 [[decisions/ADR-018-UIFrameworkMigration]] 迁移为 AntdUI）**：`GroupBox`(`panelMain`，标题由 `.Text` 承载) → 主 `TableLayoutPanel`（2 行：Tab + 底部按钮）→ `AntdUI.Tabs`(`tabsAlgo`)。两个子页 `EmguAlgoPage`("项目算法 (EmguALG)") / `ILAlgoForm`("英莱相机算法 (IntelligentLaser)") 均为 `UserControl`，构造期按 `CameraSelector.Active` 类型经 `tabsAlgo.AddTabSelect(UserControl)` **仅挂载匹配的那一页**（另一页根本不创建），实现「隐藏不使用的那一个」。底部 `tableLayoutPanelButtons`(确定/取消) 常驻、置于 `Tabs` 之外。
+> **容器（2026-07-27 按 [[decisions/ADR-014-AlgorithmEditInterfaceSplit]] 做接口分隔；2026-07-28 随 [[decisions/ADR-015-UIFrameworkMigration]] 迁移为 AntdUI）**：`GroupBox`(`panelMain`，标题由 `.Text` 承载) → 主 `TableLayoutPanel`（2 行：Tab + 底部按钮）→ `AntdUI.Tabs`(`tabsAlgo`)。两个子页 `EmguAlgoPage`("项目算法 (EmguALG)") / `ILAlgoForm`("英莱相机算法 (IntelligentLaser)") 均为 `UserControl`，构造期按 `CameraSelector.Active` 类型经 `tabsAlgo.AddTabSelect(UserControl)` **仅挂载匹配的那一页**（另一页根本不创建），实现「隐藏不使用的那一个」。底部 `tableLayoutPanelButtons`(确定/取消) 常驻、置于 `Tabs` 之外。
 
 | 控件 | 类型（AntdUI） | 说明 |
 |------|------|------|
@@ -56,12 +56,12 @@ public ILAlgorithmEditForm(PipelineConfig config)
 
 ## 页切换（接口分隔，2026-07-27）
 
-构造期 `_ilCamera = CameraSelector.Active as IntelligentLaserCameraRun;` 之后**条件性挂载子页**（AntdUI 下经 `tabsAlgo.AddTabSelect(UserControl)`，非 `RemovePage`；原 SunnyUI 时代用 `UITabControl.AddPage(UIPage)`，见 [[decisions/ADR-017-AlgorithmEditInterfaceSplit]]）：
+构造期 `_ilCamera = CameraSelector.Active as IntelligentLaserCameraRun;` 之后**条件性挂载子页**（AntdUI 下经 `tabsAlgo.AddTabSelect(UserControl)`，非 `RemovePage`；原 SunnyUI 时代用 `UITabControl.AddPage(UIPage)`，见 [[decisions/ADR-014-AlgorithmEditInterfaceSplit]]）：
 
 - `_ilCamera != null`（当前激活相机为英莱）→ 仅 `tabsAlgo.AddTabSelect(new ILAlgoForm(_ilCamera))`，显示「英莱相机算法」页；`EmguAlgoPage` 根本不创建；
 - 否则（EmguALG / SmartRay / 虚拟等）→ 仅 `tabsAlgo.AddTabSelect(new EmguAlgoPage(config))`，显示「项目算法」页；`ILAlgoForm` 根本不创建。
 
-由于未匹配的页从不实例化，天然实现「隐藏不使用的那一个」且零 `RemovePage`/`SelectedTab` 操作。窗口生命周期内激活相机不变，故仅构造期执行一次，无需运行中动态切换。详见 [[decisions/ADR-017-AlgorithmEditInterfaceSplit]]、[[decisions/ADR-018-UIFrameworkMigration]]。
+由于未匹配的页从不实例化，天然实现「隐藏不使用的那一个」且零 `RemovePage`/`SelectedTab` 操作。窗口生命周期内激活相机不变，故仅构造期执行一次，无需运行中动态切换。详见 [[decisions/ADR-014-AlgorithmEditInterfaceSplit]]、[[decisions/ADR-015-UIFrameworkMigration]]。
 
 ## 模块 B：英莱相机参数（IntelligentLaser）
 
@@ -71,7 +71,7 @@ public ILAlgorithmEditForm(PipelineConfig config)
 2. **读取**（`btnFetch_Click`）：调 `_ilCamera.FetchAllJobParams()` → `LoadIlParamsToGrid`，异常记 `Error` 日志。
 3. **下发**（`btnSet_Click`）：从 `dgvILParams` 回读编辑值 → 按 `HasRange` 做 float/int 范围校验（类型解析失败或超界 → 记 `Warning` 日志并**阻止下发**）→ `_ilCamera.ApplyJobParams(edited)`，ret==0 记 `Info` 否则 `Error`。
 4. **结果刷新**（`RefreshTimer_Tick`→`RefreshResult`）：`System.Windows.Forms.Timer`(150ms) 在 UI 线程触发，故直接读 `LastInspectResult` 无需 `BeginInvoke`；无结果时显示「状态/无识别结果」。
-5. **回收**（`AlgorithmEditForm_HandleDestroyed`，订阅 `this.HandleDestroyed`）：经 `ILAlgoForm.StopTimer()` 停止 `_refreshTimer`（2026-07-30 经 [[decisions/ADR-019-DialogWindowToModalUserControl]] 由 `FormClosing` 改 `HandleDestroyed`——UserControl 无 `FormClosing`；遵循 [[decisions/ADR-001-DisposePattern]]：`.cs` 不重写 `Dispose(bool)`，Timer 由 Designer `Dispose` 释放）。
+5. **回收**（`AlgorithmEditForm_HandleDestroyed`，订阅 `this.HandleDestroyed`）：经 `ILAlgoForm.StopTimer()` 停止 `_refreshTimer`（2026-07-30 经 [[decisions/ADR-016-DialogWindowToModalUserControl]] 由 `FormClosing` 改 `HandleDestroyed`——UserControl 无 `FormClosing`；遵循 [[decisions/ADR-001-DisposePattern]]：`.cs` 不重写 `Dispose(bool)`，Timer 由 Designer `Dispose` 释放）。
 
 > 模块 B 所有 SDK 交互均经 `IntelligentLaserCameraRun` 封装（`FetchAllJobParams`/`ApplyJobParams`/`HasJobParamCache`/`LoadOfflineCache`），UI **不直连 `IntelligentLaser_export`**（呼应 [[api/IntelligentLaserSDK_CSharp_DevManual]] §7）。
 
@@ -80,8 +80,8 @@ public ILAlgorithmEditForm(PipelineConfig config)
 - 遵循 [[decisions/ADR-001-DisposePattern]]：`.cs` 未重写 `Dispose(bool)`，标准 Designer `Dispose` 不变。
 - 遵循 [[guides/WinForms-Designer]]：控件声明于 `.Designer.cs`，`InitializeComponent()` 不含 `for`/`while`/`if`/`switch`/`foreach`。
 - 遵循 [[guides/Namespace-Compilation]]：已注册至 `AdaWeldSystem.csproj`。
-- 符合 [[decisions/ADR-003-SingleAlgorithmFile]]：本窗体只编辑 `PipelineConfig`，不新增任何算法实现（算法集中于 `ImageAlgorithm.cs`）。
-- **布局范式（2026-07-27 按 [[decisions/ADR-017-AlgorithmEditInterfaceSplit]] 做接口分隔；2026-07-28 随 [[decisions/ADR-018-UIFrameworkMigration]] 迁移为 AntdUI）**：本窗体作为**单独个例**采用 `AntdUI.Tabs` + 两 `UserControl` 子页（EmguALG / IntelligentLaser，`AntdUI.Tabs` 经 `AddTabSelect(UserControl)` 挂载子页），按激活相机接口条件 `AddTabSelect` 匹配页；底部确定/取消按钮常驻于 `Tabs` 之外。此为本项目「弃 Tab」惯例下**仅记录的特例**，不推翻 2026-07-17 项目级决定（见 ADR-017）。主题由 AntdUI `Config.IsLight` 控制（原 SunnyUI Purple 主题见 [[project/SunnyUI-Legacy]]，已 deprecated）。
+- 符合 [[decisions/ADR-038-EmguALGThreeLayer]]：本窗体只编辑 `PipelineConfig`，不新增任何算法实现（算法集中于 `ImageAlgorithm.cs`）。
+- **布局范式（2026-07-27 按 [[decisions/ADR-014-AlgorithmEditInterfaceSplit]] 做接口分隔；2026-07-28 随 [[decisions/ADR-015-UIFrameworkMigration]] 迁移为 AntdUI）**：本窗体作为**单独个例**采用 `AntdUI.Tabs` + 两 `UserControl` 子页（EmguALG / IntelligentLaser，`AntdUI.Tabs` 经 `AddTabSelect(UserControl)` 挂载子页），按激活相机接口条件 `AddTabSelect` 匹配页；底部确定/取消按钮常驻于 `Tabs` 之外。此为本项目「弃 Tab」惯例下**仅记录的特例**，不推翻 2026-07-17 项目级决定（见 ADR-017）。主题由 AntdUI `Config.IsLight` 控制（原 SunnyUI Purple 主题见 [[project/SunnyUI-Legacy]]，已 deprecated）。
 - **模块 B 后端 `TIntelligentJobParam.CurValue`/`value_Range` 字段名待 VS x64 构建确认**（QA P0，首次使用此类类型）。
 
 ## 已知限制
@@ -93,4 +93,4 @@ public ILAlgorithmEditForm(PipelineConfig config)
 
 ---
 
-*来源：2026-07-17 初版（`Sub3UI/ILAlgorithmEditForm.cs` + `.Designer.cs` + `LLCamWorkJob.btnEditJob_Click` 接线）；2026-07-26 扩展模块 B（英莱相机参数 + 实时识别结果，见 [[api/IntelligentLaserCam]] 与 [[modules/IntelligentLaserCam]]）；2026-07-27 改为 `UITabControl` + 两 `UIPage` 子页接口分隔（[[decisions/ADR-017-AlgorithmEditInterfaceSplit]]），条件 `AddPage` 按相机接口显示对应页；2026-07-30 经 [[decisions/ADR-019-DialogWindowToModalUserControl]] 由 `AntdUI.Window` 改为 `UserControl` 迁入 `SubView/`，调用点改 `AntdUI.Modal.open`、`FormClosing`→`HandleDestroyed`（见 [[guides/AntdUI-Reference]]）。*
+*来源：2026-07-17 初版（`Sub3UI/ILAlgorithmEditForm.cs` + `.Designer.cs` + `LLCamWorkJob.btnEditJob_Click` 接线）；2026-07-26 扩展模块 B（英莱相机参数 + 实时识别结果，见 [[api/IntelligentLaserCam]] 与 [[modules/IntelligentLaserCam]]）；2026-07-27 改为 `UITabControl` + 两 `UIPage` 子页接口分隔（[[decisions/ADR-014-AlgorithmEditInterfaceSplit]]），条件 `AddPage` 按相机接口显示对应页；2026-07-30 经 [[decisions/ADR-016-DialogWindowToModalUserControl]] 由 `AntdUI.Window` 改为 `UserControl` 迁入 `SubView/`，调用点改 `AntdUI.Modal.open`、`FormClosing`→`HandleDestroyed`（见 [[guides/AntdUI-Reference]]）。*

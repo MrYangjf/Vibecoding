@@ -1,4 +1,4 @@
----
+﻿---
 title: 台达 EtherCAT 运动控制模块落地规范
 date: 2026-09-06
 tags: [指导, 运控, 台达, EtherCAT, 雷赛基线, ECAM2, P/Invoke, 目录结构, 对外消费]
@@ -1163,4 +1163,4 @@ print("文档声称但 SDK 不存在：", sorted(claimed - sdk_names))
 - [[api/DeltaEtherCAT-Native]] — 832 个台达 API 分组速查（SDK 实证）
 - [[api/LeadshineLSnmc-Reference]] — 雷赛参考基线（抽象层形态与六条纪律）
 - [[modules/MotionControl]] — 运动控制模块页
-- [[decisions/ADR-036-MotionControllerDeltaReplacement]] — 运动控制器选型决策
+- [[decisions/ADR-032-MotionControllerDeltaReplacement]] — 运动控制器选型决策

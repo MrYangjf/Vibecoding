@@ -1,4 +1,4 @@
----
+﻿---
 title: 台达 EtherCAT 部署规范（驱动 · 原生库 · 项目内落地）
 date: 2026-09-07
 updated: 2026-09-07
@@ -168,5 +168,5 @@ using EtherCAT_DLL_x64;      // strDLL_Path = "EtherCAT_DLL_x64.dll"  (x64)
 - [[guides/DeltaEtherCAT-DevGuide]] — 台达落地开发规范（API / 调用范式 / 错误码）
 - [[modules/MotionControl]] — 运控模块（三层架构）
 - [[api/DeltaEtherCAT-Native]] — 台达原生 API 全量速查
-- [[decisions/ADR-036-MotionControllerDeltaReplacement]] — 台达替换决策
-- [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地（含原生依赖段改写）
+- [[decisions/ADR-032-MotionControllerDeltaReplacement]] — 台达替换决策
+- [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地（含原生依赖段改写）

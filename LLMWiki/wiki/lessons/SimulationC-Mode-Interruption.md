@@ -1,9 +1,13 @@
----
+﻿---
 title: 模拟 C 模式进不到测试阶段（根因与修复）
 date: 2026-08-25
 tags: [教训, 模拟, 线激光, 工作流, 状态机]
 source: AdaWeldSystem/Workflow/Device/LineLaserWorkflow.cs, AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs
 ---
+
+> ⛔ **机制失效标注（2026-09-09 治理，ADR-029 裁定）**：模拟模式决策与 `SimulationWorkflow` 已于 2026-09-03 废弃删除，
+> 三态模型重构后本页描述的 A/B/C 模式切换路径不复存在。**仅「模拟链路要自驱动推进、虚拟相机要能产帧」的
+> 设计思想仍可借鉴**；现行虚拟相机产帧见 [[api/VirtualCam]]（33ms 节拍）。
 
 # 模拟 C 模式进不到测试阶段（根因与修复）
 
@@ -41,7 +45,7 @@ source: AdaWeldSystem/Workflow/Device/LineLaserWorkflow.cs, AdaWeldSystem/UIDesi
 ## 关联
 
 - 模拟驱动：[[api/DeviceControlWork]]
-- 工作流分步：[[modules/DeviceControl]] / [[decisions/ADR-024-LineLaserWorkflowRefactor]]
+- 工作流分步：[[modules/DeviceControl]] / [[decisions/ADR-021-LineLaserWorkflowRefactor]]
 - 相机选择：[[api/LineLaserManager]]（`SelectReal()` 选 SmartRay 占位、`SelectIntelligentLaser()` 选英莱）
 - 主界面轮廓显示：[[modules/UIDesign]] MainPage（`AddContourLineChart()` 须在 FormMain 初始化时显式调用，订阅英莱相机 `ContourDataReady` 事件）
 

@@ -26,7 +26,7 @@ source: AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs
 | Panel 面板 | FlowPanel | 关键控件 | 用途 |
 |-----------|-----------|----------|------|
 | `panelCalib` 标定数据参数 | `flowPanelCalib` | `txtFrontOffset` / `txtAngle` / `txtScaleX` / `txtCenterX` / `txtCenterY` / `txtApproach`（`AntdUI.Input`）、`btnSaveCalib`（`AntdUI.Button`） | 写入 `MontionManager.Instance.MoveData`（见 [[api/MoveControlData]]） |
-| `panelSim` 模拟测试参数 | `flowPanelSim` | `cmbProfile`（`AntdUI.Select`：V型/U型/平直/随机）、`chkRandom`（`AntdUI.Checkbox`）、`cmbSimMode`（`AntdUI.Select`：关闭/A/B/C）、`txtStartX` / `txtSpeed` / `txtTargetDist`（`AntdUI.Input`）、`btnSaveSim` / `btnStartSim`（`AntdUI.Button`） | 写入 `DeviceControlWork`（`SimStartX`/`SimSpeed`/`SimTargetDistance`/`CurrentMode`，[[api/DeviceControlWork]]）并套用至 `VirtualCameraRun`（`CameraSelector.Active as VirtualCameraRun`，[[modules/VirtualCam]]） |
+| `panelSim` 模拟测试参数 | `flowPanelSim` | `cmbProfile`（`AntdUI.Select`：V型/U型/平直/随机）、`chkRandom`（`AntdUI.Checkbox`）、`cmbSimMode`（`AntdUI.Select`：关闭/A/B/C）、`txtStartX` / `txtSpeed` / `txtTargetDist`（`AntdUI.Input`）、`btnSaveSim` / `btnStartSim`（`AntdUI.Button`） | 写入 `DeviceControlWork`（`SimStartX`/`SimSpeed`/`SimTargetDistance`/`CurrentMode`，[[api/DeviceControlWork]]）并套用至 `VirtualCameraRun`（`CameraSelector.Active as VirtualCameraRun`，[[api/VirtualCam]]） |
 | `panelAxis` 运动轴参数 | `flowPanelAxis` | `lblAxisTitle` / `lblAxisNote`（`AntdUI.Label`，占位） | 预留（待对接真实运动控制器，通过 [[api/MontionManager]] 管理） |
 
 **FlowPanel 配置规范**：`Align=TAlignFlow.Left`（左对齐流式）、`Gap=8`（控件间距）、`Padding=(10,4,10,4)`（内边距）、`Dock=Fill`；Label 统一尺寸 `Size=(150, 34)` + `TextAlign=MiddleLeft`；Input/Select 统一尺寸 `Size=(160, 32)`；Controls.Add 按「label→input」顺序成对添加，自动从左到右排列并换行。

@@ -1,4 +1,4 @@
----
+﻿---
 title: API — CommandCore 机器人指令协议（const string，取代 CommandTable）
 date: 2026-09-04
 tags: [API, 指令协议, 机器人, 主控, CommandCore, ADR-030]
@@ -109,5 +109,5 @@ GlobalCommData.CommunicationCommandReceived
 
 - [[api/DeviceControlWork]] — 唯一消费方（指令队列 + `DispatchCommand`）
 - [[architecture/DeviceControlArchitecture]] — §3.1 指令协议表、§7.3 指令交互线程
-- [[decisions/ADR-033-RawDesignRefinement20260903]] — 裁定 C3（字符串协议 + 不再监控 pose）
+- [[decisions/ADR-029-RawDesignRefinement20260903]] — 裁定 C3（字符串协议 + 不再监控 pose）
 - [[guides/Namespace-Compilation]] — 新增 .cs 必须登记 `.csproj`（`CommandCore.cs` 已登记）

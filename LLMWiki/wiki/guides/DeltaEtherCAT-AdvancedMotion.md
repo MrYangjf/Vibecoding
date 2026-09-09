@@ -1,4 +1,4 @@
----
+﻿---
 title: 台达 EtherCAT 高级运动（PVT / 电子凸轮）使用规范
 date: 2026-09-07
 status: active
@@ -275,7 +275,7 @@ KUKA RSI (1~12ms UDP)
 - [[guides/DeltaEtherCAT-Deployment]] — DLL 部署与校验
 - [[guides/DeltaEtherCAT-UIDesign]] — 台达 UI 设计（AntdUI 版）
 - [[modules/MotionControl]] — 运控模块
-- [[decisions/ADR-036-MotionControllerDeltaReplacement]] — 台达换轨决策
-- [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地
+- [[decisions/ADR-032-MotionControllerDeltaReplacement]] — 台达换轨决策
+- [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地
 
 *来源：raw/delta/台达EtherCAT_PVT与电子凸轮运动开发指南.md（v1.3）；核验于 2026-09-07，对照 SDK 头文件 832 符号 + PM 手册 1018 页。*

@@ -1,4 +1,4 @@
----
+﻿---
 title: VirtualCam API 参考（虚拟调试相机）
 date: 2026-09-08
 tags: [API, 相机, 虚拟, 模拟, ADR-038, ADR-039]
@@ -39,8 +39,8 @@ public enum SimSeamProfile { VGroove=0, UGroove=1, Flat=2, Random=3 }
 | `IsConnected` | 恒 `true`（无硬件连接语义） |
 | `IsRunning` / `LastAcquisitionSuccess` / `ScanRateHz` | 取自后备字段 / 常量 120 |
 | `AcquisitionCompletedSignal` | `AutoResetEvent` |
-| `SensorRunContinue()` | 生成一帧 `PointCloudData`（`GenerateSeamContour()`）→ `RaiseResultReady(BuildResult(cloud), 0)` + `RaiseProfileReady(cloud, 0)` → 置 `AcquisitionCompletedSignal` → `RaiseStateChanged()`。**不生成 Mat**（⛔ 原 `ImageAlgorithm.ConvertContourToMat` → `RaiseFrameReady` 已删） |
-| `SensorStop()` | 停运行标志 + `RaiseStateChanged()` |
+| `SensorRunContinue()` | 起 `System.Threading.Timer`（**33ms ≈ 30Hz 持续产帧**；2026-09-08 ADR-040 补模拟节拍——此前每次调用只出一帧，工作流 `PreWork` 凑不满 5 帧必然超时）后：生成一帧 `PointCloudData`（`GenerateSeamContour()`）→ `RaiseResultReady(BuildResult(cloud), 0)` + `RaiseProfileReady(cloud, 0)` → 置 `AcquisitionCompletedSignal` → `RaiseStateChanged()`。**不生成 Mat**（⛔ 原 `ImageAlgorithm.ConvertContourToMat` → `RaiseFrameReady` 已删）。`SensorStop()` / `Dispose()` 停表 |
+| `SensorStop()` | 停运行标志 + 停表 + `RaiseStateChanged()` |
 | `Dispose()` | `UpdateDisplayMat(null)` 交还基类（标准 `IDisposable.Dispose()`，遵循 ADR-001/ADR-023，未重写 `Dispose(bool)`） |
 
 > 模拟参数（`SeamProfile` / `RandomMode` / `TargetDistance` / `BaseSeamWidth` / `BaseSeamDepth`）由 `LineLaserManager.ApplyConfig()` 从 `LineLaserConfig` 套用。
@@ -60,8 +60,8 @@ public enum SimSeamProfile { VGroove=0, UGroove=1, Flat=2, Random=3 }
 
 ## 关联
 
-- 模块：[[modules/VirtualCam]]、[[modules/LineLaserCam]]
-- 决策：[[decisions/ADR-038-LineLaserThreeLayerRefactor]]、[[decisions/ADR-039-LineLaserResponsibilitySplit]]
+- 模块：[[modules/LineLaserCam]]（本类即 `LineLaserCam/VirtualCam/` 模块全部内容，模块页已并入本页）
+- 决策：[[decisions/ADR-034-LineLaserThreeLayerRefactor]]、[[decisions/ADR-035-LineLaserResponsibilitySplit]]、[[decisions/ADR-036-LineLaserManagerSingleEntry]]
 - 同层实现：[[api/IntelligentLaserCam]]
 
 ---

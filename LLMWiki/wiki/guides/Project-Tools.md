@@ -1,4 +1,4 @@
----
+﻿---
 title: 项目工具、规范与常见问题汇总
 date: 2026-08-18
 tags: [指导, 工具, 规范, 模拟, 汇总]
@@ -31,252 +31,12 @@ tags: [指导, 工具, 规范, 模拟, 汇总]
 
 ---
 
-## 1. 代码图谱工具（code-review-graph）【已废弃 — 历史参考】
-
-> ## ⚠️ 废弃声明（2026-08-19）
->
-> 本节内容随「代码图谱工具」决策一并**废弃**。用户反馈 code-review-graph 执行失败频繁、耗时久、经常误判，已从 vibecoding-llmwiki 工作流中移除（Phase 0 Step 0.7/0.8、Phase 2 Step 2.5、Phase 4 漂移检测全部回归 **Grep 默认方式**）。
->
-> 本节仅作**历史参考**保留，新工作流**不再使用** code-review-graph。raw/tools/crg_build.py 包装脚本亦不再使用。
-
-> 本节是「代码图谱工具」决策的操作参考，指导在 vibecoding-llmwiki 工作流中如何**固定使用 code-review-graph** 执行代码图谱查询。
->
-> **重要**：本项目仅使用 code-review-graph 作为唯一代码图谱工具，不启用 CodeGraph（colbymchenry/codegraph）降级方案。
->
-> **当前版本**：code-review-graph v2.3.7（已验证 2026-08-04）
-
-### 1.1 核心原则
-
-**LLMWiki 是真相源，code-review-graph 是辅助工具。**
-
-| 维度 | LLMWiki (wiki/) | code-review-graph (图谱) |
-|------|-----------------|--------------------------|
-| 定位 | 唯一真相源 | 辅助工具 |
-| 覆盖 | 架构决策、教训、模块边界、API 契约 | 函数调用链、类继承树、导入依赖 |
-| 时效 | 持续维护，编码后强制 Ingest | 即时构建，代码变更后增量更新 |
-| 冲突处理 | 优先 | 让步于 LLMWiki |
-
-### 1.2 版本兼容性说明
-
-> **v2.3.7 重大变更（2026-08-04 确认）**：
-> - `--path` 参数 → `--repo`（所有子命令统一）
-> - `internal` 模块已移除，不再需要 monkey-patch
-> - `impact --files` → `impact --repo`（影响半径分析）
-> - 旧版 `index` 子命令 → 新版 `build` 子命令
-> - **所有命令必须带 `--repo AdaWeldSystem` 参数**，否则返回空结果
-
-### 1.3 使用时机
-
-#### Phase 0 (Query) — 强制
-
-**场景**：需要理解模块间的实际代码调用关系，补充 LLMWiki 架构知识。
-
-**操作**：
-1. 正常读取 `wiki/index/index.md` → `wiki/decisions/` → `wiki/lessons/` → `wiki/modules/`
-2. 执行 `& $pythonPath -m code_review_graph status --repo $repoPath` 验证图谱数据库存在且为最新
-3. 用 `& $pythonPath -m code_review_graph search "<符号>" --repo $repoPath` 定位涉及符号（返回文件+行号区间）
-4. 用 `& $pythonPath -m code_review_graph query callers_of "<目标函数>" --repo $repoPath` 查询调用链
-5. **图谱辅助代码定位读取**：用 `search` / `query file_summary` 拿到符号的 `{file_path, line_start, line_end}`，再以 `Read(offset=line_start, limit=line_end-line_start+1)` 精确读取代码块，避免整文件通读（Phase 0 Step 0.8）
-
-**回退**：仅允许回退到 Grep，**不允许切换到其他图谱工具**。步骤仍必须执行并展示。
-
-#### Phase 2 (Code) — 强制
-
-**场景**：修改了公共方法/类/接口后，必须验证变更影响范围。
-
-**操作**：
-1. 修改代码后，用 `& $pythonPath -m code_review_graph impact --repo $repoPath --files "<变更文件>"` 获取变更爆炸半径
-2. 用 `& $pythonPath -m code_review_graph query callers_of "<变更方法>" --repo $repoPath` 追溯所有引用该符号的文件
-3. 执行编码锚点四步追溯：定义 → 搜索(graph) → 验证(impact_radius) → 提交
-
-**回退**：仅允许回退到 Grep，**不允许切换到其他图谱工具**。
-
-**与 Grep 的对比**：
-- Grep：文本匹配，会遗漏间接调用（A→B→C，改 B 时 Grep 找不到 A）
-- `code-review-graph`：图遍历，支持 N 层调用链追踪（递归 CTE）
-
-#### Phase 4 (Lint) — 强制
-
-**场景**：检查 wiki/modules/ 描述是否与当前代码一致。
-
-**操作**：
-1. 运行 `& $pythonPath -m code_review_graph dead-code --limit 10 --repo $repoPath` 检查是否产生新的死符号
-2. 运行 `& $pythonPath -m code_review_graph large-functions --limit 5 --repo $repoPath` 识别剩余重构候选
-3. 与 Wiki 模块描述对比，检测代码漂移
-
-### 1.4 禁止事项
-
-1. **禁止将图谱原始数据写入 Wiki**：图谱查询结果是即时上下文，代码变更后会过期。Wiki 只沉淀架构级知识。
-2. **禁止用图谱替代 LLMWiki Query**：Phase 0 必须先读 LLMWiki，图谱只是补充。
-3. **禁止在图谱未构建时阻塞工作流**：未安装/未构建时正常执行 Grep + 人工审查，但**不允许降级切换到 CodeGraph 或其他图谱工具**。
-
-### 1.5 标准命令速查表
-
-所有命令使用 conda myenv Python 绝对路径，`--repo` 使用 AdaWeldSystem 绝对路径：
-
-```powershell
-# 公共变量（每次执行前定义）
-$pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
-$repoPath = "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem"
-$env:CRG_PARSE_EXECUTOR = "thread"
-```
-
-| 命令 | 用途 | 结果（2026-08-11） |
-|------|------|------|
-| `& $pythonPath -m code_review_graph status --repo $repoPath` | 图谱统计 | 2049 节点 / 9672 边 / 152 文件 |
-| `& $pythonPath -m code_review_graph search "<符号>" --repo $repoPath` | FTS 符号搜索 | 返回 `file_path` + `line_start` + `line_end`（类/函数精确行区间） |
-| `& $pythonPath -m code_review_graph query callers_of "<函数>" --repo $repoPath` | 调用链追溯 | N 层调用者 |
-| `& $pythonPath -m code_review_graph query file_summary "<文件相对路径>" --repo $repoPath` | 文件符号清单 | 文件内所有类/方法行号区间 |
-| `& $pythonPath -m code_review_graph impact --repo $repoPath --files "<文件>"` | 变更影响半径 | 爆炸半径分析 |
-| `& $pythonPath -m code_review_graph dead-code --limit 10 --repo $repoPath` | 死代码检测 | 未引用符号 |
-| `& $pythonPath -m code_review_graph large-functions --limit 5 --repo $repoPath` | 大函数/大类识别 | 重构候选 |
-
-> **`search` / `file_summary` 行号定位（v2.3.7 验证）**：`search` 输出含 `file_path`、`line_start`、`line_end`（如类 32-1008、方法 80-116），`query file_summary` 返回文件内全部符号及行号区间。这两条命令是"图谱辅助代码定位读取"（Phase 0 Step 0.8）的核心——先用图谱拿到符号落点，再用 `Read(offset=line_start, limit=line_end-line_start+1)` 精确读取代码块，避免整文件通读。
-
-**构建图谱**（标准方式）：
-```powershell
-$pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
-$repoPath = "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem"
-$env:CRG_PARSE_EXECUTOR = "thread"
-& $pythonPath -m code_review_graph build --repo $repoPath
-```
-
-### 1.6 Python 环境（固定路径）
-
-> **重要**：本项目 Python 运行环境为 **conda 虚拟环境 myenv**，不在系统 PATH 中。
-> 所有 `python` 命令必须使用完整绝对路径，否则会报 "python 不是内部或外部命令"。
-
-#### 环境信息
-
-| 项 | 值 |
-|----|----|
-| Python 路径 | `D:\ProgramData\miniconda3\envs\myenv\python.exe` |
-| Python 版本 | 3.12.13 |
-| 环境类型 | conda 虚拟环境（myenv） |
-| conda 根目录 | `D:\ProgramData\miniconda3` |
-| code-review-graph 版本 | v2.3.7 |
-
-#### 执行方式（标准写法，每次必须用完整路径）
-
-```powershell
-# 定义 Python 路径变量（推荐）
-$pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
-
-# 执行图谱命令
-& $pythonPath -m code_review_graph status --repo "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem"
-```
-
-#### --repo 参数（必须用绝对路径）
-
-`--repo` 参数必须使用 **AdaWeldSystem 项目文件夹的绝对路径**：
-
-```
-d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem
-```
-
-> 禁止使用相对路径（如 `--repo AdaWeldSystem`），会因工作目录不一致导致图谱找不到。
-
-#### Windows 环境变量
-
-```powershell
-$env:CRG_PARSE_EXECUTOR = "thread"
-```
-
-### 1.7 安装与执行方法（固定标准）
-
-#### 前置条件
-
-- Python >= 3.10（code-review-graph v2.3.7+），环境路径见上
-- AdaWeldSystem 项目源码可读（图谱解析需要源码文件）
-- 本项目不依赖 Node.js，无需安装 CodeGraph
-
-#### 安装步骤（已验证，2026-08-11）
-
-```powershell
-$pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
-$repoPath = "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem"
-
-# Step 1: 安装 code-review-graph（唯一工具）
-& $pythonPath -m pip install code-review-graph
-
-# Step 2: 设置 Windows 线程模式并构建图谱
-$env:CRG_PARSE_EXECUTOR = "thread"
-& $pythonPath -m code_review_graph build --repo $repoPath
-```
-
-#### 验证清单
-
-- [x] 图谱构建成功：2049 节点、9672 边、152 文件、语言 csharp（2026-08-11）
-- [x] `search` 能正确返回 C# 类/函数（搜索 "MainDeviceThread" 返回 13 节点）
-- [x] `query callers_of` 能正确返回调用链（PowerOnInitialize ← Start ← FormMain）
-- [x] `impact --files` 能正确识别变更影响范围
-- [x] `dead-code` 能检测未引用符号
-- [x] `large-functions` 能识别大函数/大类
-- [x] `status` 能返回图谱统计信息（节点/边/文件/语言/最后更新时间）
-- [x] **Python 环境已固定**：conda myenv，路径 `D:\ProgramData\miniconda3\envs\myenv\python.exe`
-- [ ] MCP 工具能被 AI Agent 调用（`code-review-graph mcp` 模式，待后续验证）
-
-#### 验证结果摘要
-
-| 命令 | 用途 | 结果 |
-|------|------|------|
-| `status --repo $repoPath` | 图谱统计 | 2049 节点 / 9672 边 / 152 文件（2026-08-11） |
-| `search "MainDeviceThread" --repo $repoPath` | 符号搜索 | 返回 Class + 11 Function + File（13 节点） |
-| `query callers_of "PowerOnInitialize" --repo $repoPath` | 调用链追溯 | 2 个调用者：Start、FormMain 构造函数 |
-| `impact --repo $repoPath --files "Workflow/MainDeviceThread.cs"`（现役 `MainDeviceControl/DeviceStatusWork.cs`） | 影响半径 | ~318 个受影响节点 |
-| `dead-code --limit 3 --repo $repoPath` | 死代码检测 | 约 663 个死符号（含早期版本残留） |
-| `large-functions --limit 3 --repo $repoPath` | 大函数识别 | Sensor.cs 1466 行、LineLaserWorkflow.cs 1403 行 （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-
-### 1.8 Windows 兼容性注意事项（标准执行方法）
-
-#### 问题：多进程 spawn 失败
-
-**现象**：`ProcessPoolExecutor` 在 Windows 上因非 TTY stdin 触发子进程 spawn 异常，导致构建挂起。
-
-**原因**：code-review-graph 默认使用进程池并行解析，Windows 下 `sys.stdin.isatty()` 为 False 时应自动切换线程池，但某些环境（如 TRAE 集成终端）判断不准确。
-
-**解决**：设置环境变量 `CRG_PARSE_EXECUTOR=thread`，强制使用线程池。tree-sitter 解析释放 GIL，线程池性能损失 < 30%。
-
-**标准执行命令（已验证）**：
-```powershell
-# PowerShell 中设置环境变量并执行（使用 conda myenv 绝对路径）
-$pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
-$repoPath = "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem"
-$env:CRG_PARSE_EXECUTOR = "thread"
-& $pythonPath -m code_review_graph build --repo $repoPath
-```
-
-#### 包装脚本（备选方式）
-
-包装脚本 `crg_build.py` 是 Windows 环境下的备选执行方式，位于固定路径 `Vicoding管理平台/LLMWiki/raw/tools/crg_build.py`。
-
-核心逻辑：
-
-1. 自动设置 `CRG_PARSE_EXECUTOR=thread`（在 import 之前，避免 Windows 多进程 spawn 问题）
-2. 导入 `code_review_graph.cli` 并委托 `cli.main()` 执行原始 CLI
-
-**执行命令**：
-```powershell
-$pythonPath = "D:\ProgramData\miniconda3\envs\myenv\python.exe"
-& $pythonPath "Vicoding管理平台/LLMWiki/raw/tools/crg_build.py" build --repo "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\AdaWeldSystem"
-```
-
-> **注意**：包装脚本路径是固定的。v2.3.7 已移除 `internal` 模块，包装脚本不再需要 monkey-patch。如果 code-review-graph 后续版本修复了 Windows 兼容性问题，可直接使用 `& $pythonPath -m code_review_graph build --repo $repoPath` 命令，但**不允许切换到 CodeGraph 或其他图谱工具**。
-
-### 1.9 性能预期
-
-基于调研数据：
-
-| 指标 | 预期值 |
-|------|--------|
-| Token 消耗减少 | ~59% |
-| 工具调用次数减少 | ~71% |
-| 响应速度提升 | ~46% |
-| 增量更新延迟 | < 2 秒 |
-
-> 注：以上数据基于 7 个开源项目的基准测试，AdaWeldSystem 实际收益取决于代码复杂度和查询模式。
-
----
+## 1. 代码图谱工具（code-review-graph）【已废弃 — 墓碑】
+
+> ⛔ **本节已废弃（2026-08-19 废弃，2026-09-09 治理压缩为墓碑）**：code-review-graph 执行失败频繁、耗时久、误判多，
+> 已从 vibecoding-llmwiki 工作流全部环节移除。代码定位 / 影响追溯 / 漂移检测一律使用 **Grep 默认方式**。
+> 原始操作手册（约 240 行）已随 git 历史留存（本文件 2026-09-09 之前版本）。
+> 现行检索纪律见下节 §1.2（Grep 截断陷阱：影响半径检索必须两次独立检索交叉验证）。
 
 ## 1.2 Grep 符号定位：结果截断导致的消费方漏统计（2026-09-01）
 
@@ -756,7 +516,7 @@ private void OnCompletedAcqEvent(object sender, AcquisitionEventArgs e)
    CameraSelector.Load();              // 从 Config/INI/CameraSelector.ini 恢复相机选择
    ```
 2. 单例若只暴露 `Save()`/`Load()`，必须由启动入口负责调用——不要指望「某个页面第一次访问时自动加载」，UI 页面构造顺序不可控且可能晚于首次读取。
-3. INI 持久化文件位置遵循 [[decisions/ADR-007-ConfigLayout]]：作业类归 `Config/Jobs/`，通用设置归 `Config/INI/`。
+3. INI 持久化文件位置遵循 [[decisions/ADR-005-ConfigLayout]]：作业类归 `Config/Jobs/`，通用设置归 `Config/INI/`。
 
 ### 5.3 自检清单
 
@@ -862,7 +622,7 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 ### 8.1 NuGet 卫星资源程序集清理
 
-> **已被 [[decisions/ADR-021-NuGetLocalization]] 替代**：项目已完全移除 NuGet PackageReference，改为本地 DLL 引用。卫星程序集清理 Target 不再需要。本小节保留作为历史参考。
+> **已被 [[decisions/ADR-018-NuGetLocalization]] 替代**：项目已完全移除 NuGet PackageReference，改为本地 DLL 引用。卫星程序集清理 Target 不再需要。本小节保留作为历史参考。
 
 #### 现象
 
@@ -916,7 +676,7 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 ### 8.3 UILight 控件属性误用
 
-> **UILight 已被 [[decisions/ADR-018-UIFrameworkMigration]] 取代**：UI 框架迁移至 AntdUI 后，状态指示灯改用 **`AntdUI.Signal`**（而非 SunnyUI `UILight`）。本小节的 UILight 三要素用法仅作**历史参考**；新代码请使用 `AntdUI.Signal` 的对应属性。
+> **UILight 已被 [[decisions/ADR-015-UIFrameworkMigration]] 取代**：UI 框架迁移至 AntdUI 后，状态指示灯改用 **`AntdUI.Signal`**（而非 SunnyUI `UILight`）。本小节的 UILight 三要素用法仅作**历史参考**；新代码请使用 `AntdUI.Signal` 的对应属性。
 
 #### 问题描述
 

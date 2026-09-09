@@ -1,4 +1,4 @@
----
+﻿---
 title: API — MontionManager 运动管理器（业务层单例，取代已废弃的 MotionManager）
 date: 2026-09-07
 tags: [API, 运控, 台达, EtherCAT, 管理器, 单例, 业务层]
@@ -8,7 +8,7 @@ source: AdaWeldSystem/MotionControl/MontionManager.cs
 # API — MontionManager 运动管理器
 
 > **位置**：`MotionControl/MontionManager.cs`（命名空间 `AdaWeldSystem.MotionControl`）
-> **2026-09-07 新增**：取代已删除的 `MotionManager`（见 [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]）。
+> **2026-09-07 新增**：取代已删除的 `MotionManager`（见 [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]）。
 > **定位**：业务层唯一装配点。面向 [[modules/MotionControl]] 的 L2 抽象（`IMotion/`）编程；厂商具体类型 `Delta*` **仅在本文件 `Initialization()` 中出现一次**。
 > **2026-09-07 重构**：内部四个裸字典已由三张注册表（`AxisRegistry` / `IORegistry` / `CylinderRegistry`）取代，对外 API 名字与签名**保持不变**。
 > **同日追加**：持有 `MoveControlData MoveData`（构造时 `new` 并 `Load`），成为**唯一对接台达控制器的对象**；轴与 IO 在 `Initialization` 中按 `MoveData.MotionConfig` 的配置表创建。
@@ -90,5 +90,5 @@ L3 `DeltaMontionControl` 覆写：逐从站读 `CS_ECAT_Slave_Get_Connect_Status
 
 - 三层架构与铁律：[[modules/MotionControl]] §台达 EtherCAT 运动控制（现行）
 - 落地规范：[[guides/DeltaEtherCAT-DevGuide]]
-- 决策：[[decisions/ADR-036-MotionControllerDeltaReplacement]]、[[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]
-- ⛔ 已废弃前身：旧 `MotionManager.cs` 单例（正运动专属，2026-09-07 随正运动一并删除，见 [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]）
+- 决策：[[decisions/ADR-032-MotionControllerDeltaReplacement]]、[[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]
+- ⛔ 已废弃前身：旧 `MotionManager.cs` 单例（正运动专属，2026-09-07 随正运动一并删除，见 [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]）

@@ -1,4 +1,4 @@
----
+﻿---
 title: 焊接工艺开发专员
 date: 2026-07-01
 tags: [专员, 焊接, 工艺]
@@ -41,7 +41,7 @@ EmguALG/ImageAlgorithm.cs → PipelineManager.Instance.AlgorithmCompleted
             ├── if (actionSuccess) RecordActionToRunFileRecord → RecordAdjustment（WeldActionRecord, WeldParamAdjust）
             └── 触发 WeldProcessCompleted 事件 → 主界面实时折线图
 
-> 注：记录/调整链路由 **LineLaserWorkflow 在 Adjust 步骤统一驱动**（调用 `WeldProcess.TriggerAdjustment()`），WeldProcess 自身只暂存算法结果，单一驱动源避免双链路并存（见 [[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
+> 注：记录/调整链路由 **LineLaserWorkflow 在 Adjust 步骤统一驱动**（调用 `WeldProcess.TriggerAdjustment()`），WeldProcess 自身只暂存算法结果，单一驱动源避免双链路并存（见 [[decisions/ADR-009-WorkflowAsAdjustmentDriver]]）。
 
 ## 协作关系
 

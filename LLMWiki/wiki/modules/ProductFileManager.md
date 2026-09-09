@@ -1,4 +1,4 @@
----
+﻿---
 title: ProductFileManager 模块 — 产品生命周期记录
 date: 2026-08-31
 tags: [模块, 产品记录, 过程数据, 生产信息, 文件]
@@ -51,10 +51,10 @@ ProductFileManager/
 
 ## 相关
 
-- [[decisions/ADR-030-ProductLifecycleRecordModule]]（含 §3 故障恢复业务消费方归口，2026-09-01 追加）
+- [[decisions/ADR-026-ProductLifecycleRecordModule]]（含 §3 故障恢复业务消费方归口，2026-09-01 追加）
 - [[api/FaultRecoveryManager]] · [[api/FaultRecordManager]]
 - [[modules/SqlLiteDatabase]]（FaultRecordManager）
 - [[modules/Safety]] · [[modules/DeviceControl]]（消费方所在模块）
 - [[modules/PointCloudData]]（PCLOperate 余部）
-- [[decisions/ADR-010-WeldActionRecord]]
+- [[decisions/ADR-008-WeldActionRecord]]
 - [[lessons/FaultRecoveryDeviceKey]]（策略注册与记录 key 必须同源）

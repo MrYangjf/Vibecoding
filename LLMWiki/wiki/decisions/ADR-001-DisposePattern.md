@@ -1,4 +1,4 @@
----
+﻿---
 title: ADR-001 Dispose 模式决策
 date: 2026-07-01
 tags: [决策, UI, 资源释放, WinForms]
@@ -13,7 +13,7 @@ WinForms 设计器生成的 `*.Designer.cs` 文件包含 `Dispose(bool)` 方法�
 
 ## 决策
 
-**适用范围（2026-08-19 澄清，见 [[decisions/ADR-023-DisposePatternFullCoverage]]）：**
+**适用范围（2026-08-19 澄清，见 [[decisions/ADR-020-DisposePatternFullCoverage]]）：**
 
 - **`DisposeComponents()` 模式仅用于 UI 设计器类**（Form / UserControl 及其 `.cs` 后置代码）——因为 UI 类继承自 `Control`，重写 `Dispose(bool)` 会与设计器生成代码冲突。
 - **UI 类也按需使用**：仅当持有「外部嵌套控件/独立资源」（设计器 `Dispose(bool)` 覆盖不到的对象）时才写 `DisposeComponents()`；无嵌套、无独立资源则不需要。
@@ -43,7 +43,7 @@ UI 类使用 `DisposeComponents()` 公共方法模式：
 
 ## 相关页面
 
-- [[decisions/ADR-023-DisposePatternFullCoverage]]
+- [[decisions/ADR-020-DisposePatternFullCoverage]]
 - [[guides/WinForms-Designer]]
 - [[modules/UIDesign]]
 

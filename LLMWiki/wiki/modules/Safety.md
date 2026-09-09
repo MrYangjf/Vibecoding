@@ -1,4 +1,4 @@
----
+﻿---
 title: Safety 模块 — 安全检查流程（DeviceStatusWork）+ 故障恢复
 date: 2026-09-02
 tags: [模块, 安全互锁, 安全检查, 故障恢复, 状态机, PLC, DeviceStatusWork, ADR-028]
@@ -11,7 +11,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/ 模块源码
 >
 > **状态模型**：安全类**不对外暴露**子设备三态，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费；主设备运行态经 `SetStatus` 单一入口变更。
 >
-> **故障恢复已迁出**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）2026-09-01 归口 `ProductFileManager/`（[[decisions/ADR-030-ProductLifecycleRecordModule]] §3），本模块仅作消费方。完整说明见 [[modules/ProductFileManager]]。
+> **故障恢复已迁出**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）2026-09-01 归口 `ProductFileManager/`（[[decisions/ADR-026-ProductLifecycleRecordModule]] §3），本模块仅作消费方。完整说明见 [[modules/ProductFileManager]]。
 
 ---
 
@@ -77,7 +77,7 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 `DeviceControlWork` 焊前一次性门控**直接读** `DeviceStatusWork.Instance.IsSafe`。
 
 > ⛔ **旧写法已移除（2026-09-03，裁定 C3）**：~~`DeviceControlWork.IsRobotPoseSafe(pose)`~~ 已从整机编排类删除——不再以「机器人 pose 是否安全」为门控输入，改为直接消费 `DeviceStatusWork` 的互锁结果。
-> 安全闭环本身继续有效（见 [[decisions/ADR-028-SafetyCheckConsolidation]]），变的只是接入点：原 `IsRobotPoseSafe` 已删除（2026-09-03 裁定 C3：不再监控机器人 pose）；`DeviceStatusWork.IsSafe` 反映的是**本机安全 IO**（急停/安全门/互锁），与机器人 pose 无关。
+> 安全闭环本身继续有效（见 [[decisions/ADR-024-SafetyCheckConsolidation]]），变的只是接入点：原 `IsRobotPoseSafe` 已删除（2026-09-03 裁定 C3：不再监控机器人 pose）；`DeviceStatusWork.IsSafe` 反映的是**本机安全 IO**（急停/安全门/互锁），与机器人 pose 无关。
 
 监控未启动时 `IsSafe` 返回 true，与合并前「恒安全」行为等价，接入不阻断整机。
 
@@ -102,8 +102,8 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 - → [[modules/DeviceControl]] — 工作流基类（`DeviceWorkflowBase` / `DeviceStateBase` 提供 SetState/SetWeldStatus/EmergencyStop）
 - → [[modules/Comm]] — PLC(S7) 通讯（`S7PLCCommunication.ReadBit/Read<T>`）、机器人连接判定
 - → [[api/DeviceControlWork]] — 消费 `IsSafe` 做 Pose 门控（现由 `DeviceControlWork` 承载）
-- → [[decisions/ADR-028-SafetyCheckConsolidation]] — 本次三合一决策
-- → [[decisions/ADR-031-ThreeStateModelRefactor]] — 本次归并重命名决策
+- → [[decisions/ADR-024-SafetyCheckConsolidation]] — 本次三合一决策
+- → [[decisions/ADR-027-ThreeStateModelRefactor]] — 本次归并重命名决策
 - → [[lessons/FaultRecoveryDeviceKey]] — 故障恢复设备键名匹配陷阱
 
 ---

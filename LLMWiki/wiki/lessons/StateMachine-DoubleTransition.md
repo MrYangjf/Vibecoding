@@ -1,3 +1,5 @@
+> ⛔ **机制失效标注（2026-09-09 治理，ADR-027/029）**：本页针对的旧「设备状态机模板方法 + TryTransition」机制已随四态模型删除（现行 = 三态模型非泛型基类，`SetState`/`SetWeldStatus` 唯一写入入口）。**「同一状态转换不要两层各转一次」的思想仍有效**，落点变为：工作流层不得绕过基类手工给 `State`/`WeldStatus` 赋值。
+
 # 教训：状态机重复转换
 
 > **历史语境注记（2026-09-02，ADR-028）**：本页记录的是**已删除的旧架构**——`DeviceStateMachine/` 目录、`DeviceStateMachineBase` 模板方法、`_deviceStateMachine` 字段、`DeviceState` 四态枚举均已不复存在（2026-08-28 起）。现行状态由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 承载三态模型，写入唯一入口为 `SetState`/`SetWeldStatus`/`SetStatus`。

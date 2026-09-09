@@ -1,4 +1,4 @@
----
+﻿---
 title: API — ProfileMatRenderer 轮廓 Mat 渲染器
 date: 2026-09-08
 tags: [API, 相机, 线激光, 渲染, GDI, 业务层, ADR-039]
@@ -52,7 +52,7 @@ RaiseMatUpdated(mat);
 
 ## 关联
 
-- 决策：[[decisions/ADR-039-LineLaserResponsibilitySplit]]
+- 决策：[[decisions/ADR-035-LineLaserResponsibilitySplit]]
 - 调用方：[[api/LineLaserManager]]、[[modules/LineLaserCam]]
 - 校准数据结构：`LineLaserCam/ILineLaser/LineLaserCalibration.cs`
 - 原实现出处：[[api/IntelligentLaserCam]]（⛔ `ConvertContourToMatDemo` 已于 2026-09-08 从该文件删除）

@@ -1,4 +1,4 @@
----
+﻿---
 title: UI 开发专员
 date: 2026-07-01
 tags: [专员, UI, WinForms, AntdUI]
@@ -8,7 +8,7 @@ tags: [专员, UI, WinForms, AntdUI]
 
 ## 职责边界
 
-- 所有用户界面的设计与实现（WinForms + AntdUI，原 SunnyUI 已迁出，见 [[decisions/ADR-018-UIFrameworkMigration]]）
+- 所有用户界面的设计与实现（WinForms + AntdUI，原 SunnyUI 已迁出，见 [[decisions/ADR-015-UIFrameworkMigration]]）
 - 页面导航结构搭建（ParentUI → Sub1UI → Sub2UI → Sub3UI）
 - 为算法/3D/相机/运动控制等模块提供可视化交互界面
 - 控件布局、事件绑定、数据绑定

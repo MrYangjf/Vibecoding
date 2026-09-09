@@ -1,4 +1,4 @@
----
+﻿---
 title: 麦格威 MVSDK 原生 DLL 未部署导致 NullReferenceException
 date: 2026-09-09
 tags: [教训, 麦格威, MecaVision, MVSDK, DLL部署, NullReferenceException, 动态加载]
@@ -6,7 +6,7 @@ tags: [教训, 麦格威, MecaVision, MVSDK, DLL部署, NullReferenceException, 
 
 # 麦格威 MVSDK 原生 DLL 未部署导致 NullReferenceException
 
-> ⚠️ 关联：[[guides/MecaVision-DevGuide]] · [[api/MecaVisionMVSDK-Native]] · [[decisions/ADR-041-MecaVisionMonitorCamera]]
+> ⚠️ 关联：[[guides/MecaVision-DevGuide]] · [[api/MecaVisionMVSDK-Native]] · [[decisions/ADR-037-MecaVisionMonitorCamera]]
 
 ## 现象（2026-09-09 实测）
 

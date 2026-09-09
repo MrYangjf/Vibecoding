@@ -1,4 +1,4 @@
----
+﻿---
 title: LineLaserWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
 updated: 2026-09-04
@@ -219,6 +219,6 @@ var step   = wf.StepStatusText;  // "step:100 / 3.4s 工作中-焊接与自适�
 - [[modules/WeldParamControl]] / [[api/WeldParamControlWorkflow]] — 焊接工艺计算链路
 - [[api/MotionControlWorkflow]] — CAMBOX 硬件跟踪运行期间跳过软件调整
 - [[api/GlobalCommData]] — 日志与通讯底层出口
-- [[decisions/ADR-026-YinglaiDataFlow]] — 英莱数据流
-- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型决策
-- [[decisions/ADR-033-RawDesignRefinement20260903]] — 原档细化与完全重构裁定
+- [[decisions/ADR-035-LineLaserResponsibilitySplit]] — 英莱数据流
+- [[decisions/ADR-027-ThreeStateModelRefactor]] — 三态模型决策
+- [[decisions/ADR-029-RawDesignRefinement20260903]] — 原档细化与完全重构裁定

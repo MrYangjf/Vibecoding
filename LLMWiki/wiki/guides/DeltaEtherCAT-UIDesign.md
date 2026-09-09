@@ -1,4 +1,4 @@
----
+﻿---
 title: 台达 EtherCAT UI 设计规范（AntdUI 版）
 date: 2026-09-07
 status: active
@@ -9,7 +9,7 @@ tags: [指南, 运控, 台达, UI, AntdUI, 监控]
 
 > **定位**：台达运控在 **AdaWeldSystem** 的界面落地规范——主页面分区、新增弹窗清单、状态刷新机制、配色与控件映射。
 > 原档 `raw/delta/台达EtherCAT_PVT与电子凸轮运动开发指南.md` 第四部分是**按另一个项目（`MasonMotionControl` 命名空间、WinForms 原生控件、`IUpdate` 接口）写的**，本页是其**到 AdaWeldSystem 的翻译层**，不是照抄。
-> 前置：[[guides/DeltaEtherCAT-DevGuide]]（能力）、[[guides/DeltaEtherCAT-AdvancedMotion]]（PVT/ECAM2）、[[decisions/ADR-018-UIFrameworkMigration]]、[[decisions/ADR-019-DialogWindowToModalUserControl]]、[[modules/UIDesign]]。
+> 前置：[[guides/DeltaEtherCAT-DevGuide]]（能力）、[[guides/DeltaEtherCAT-AdvancedMotion]]（PVT/ECAM2）、[[decisions/ADR-015-UIFrameworkMigration]]、[[decisions/ADR-016-DialogWindowToModalUserControl]]、[[modules/UIDesign]]。
 
 ## 章节导航
 
@@ -178,6 +178,6 @@ UserControl + Modal 承载（ADR-019）
 - [[guides/DeltaEtherCAT-Deployment]] — DLL 部署
 - [[modules/UIDesign]] — UI 模块（含 2026-09-07 目录与命名对照）
 - [[guides/AntdUI-Reference]] — AntdUI 开发范式（权威）
-- [[decisions/ADR-018-UIFrameworkMigration]]、[[decisions/ADR-019-DialogWindowToModalUserControl]]、[[decisions/ADR-022-LayoutContainerFreedom]]
+- [[decisions/ADR-015-UIFrameworkMigration]]、[[decisions/ADR-016-DialogWindowToModalUserControl]]、[[decisions/ADR-019-LayoutContainerFreedom]]
 
 *来源：raw/delta/台达EtherCAT_PVT与电子凸轮运动开发指南.md 第四部分（原对齐 MasonMotionControl 风格），2026-09-07 翻译到 AdaWeldSystem / AntdUI 体系。*

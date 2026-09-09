@@ -1,4 +1,4 @@
----
+﻿---
 title: API — LineLaserManager 线激光管理器（业务层单例 + 唯一业务处理点）
 date: 2026-09-08
 tags: [API, 相机, 线激光, 管理器, 单例, 业务层, PVT, 依赖注入, ADR-038, ADR-039]
@@ -8,7 +8,7 @@ source: AdaWeldSystem/LineLaserCam/LineLaserManager.cs
 # API — LineLaserManager 线激光管理器
 
 > **位置**：`LineLaserCam/LineLaserManager.cs`（命名空间 `AdaWeldSystem.LineLaserCam`）
-> **2026-09-08 新增**：取代已删除的 `CameraSelector`（见 [[decisions/ADR-038-LineLaserThreeLayerRefactor]]）。
+> **2026-09-08 新增**：取代已删除的 `CameraSelector`（见 [[decisions/ADR-034-LineLaserThreeLayerRefactor]]）。
 > **2026-09-08 二次分工（ADR-039）**：从「只转发事件」升级为**业务处理中枢**——结果侧算 Y 轴 PVT 点并下载，
 > 轮廓侧做产品记录、点缓冲与按需 Mat 生成；实现层只发 `ResultReady` / `ProfileReady` 两个回调。
 > **定位**：业务层唯一装配点。面向 L2 抽象 `LineLaserCameraBase` 编程；具体相机类型 `IntelligentLaserCameraRun` / `VirtualCameraRun` **仅在本文件的惰性创建处出现**。
@@ -103,12 +103,12 @@ LineLaserManager.Instance.SetDisplayOptions(true, 15.0, true);
 - `MatUpdated` 携带的 Mat 与相机 `CurrentMat` **共享同一实例**，订阅方必须 `Clone()` 后再跨帧持有。
 - 日志直连 `GlobalCommData.ShowLog`，标签为「线激光管理器」/「焊缝跟踪」/ 相机键名，纯文本无符号（[[standards/CodeSimplification]]）。
 - `SetWorking` 属状态切换，按 ADR-035 **不输出日志**。
-- ⚠️ PVT 时间基准（相邻帧实测间隔）与速度前馈（位置一阶差分）为**待实测参数**，见 [[decisions/ADR-039-LineLaserResponsibilitySplit]] D7。
+- ⚠️ PVT 时间基准（相邻帧实测间隔）与速度前馈（位置一阶差分）为**待实测参数**，见 [[decisions/ADR-035-LineLaserResponsibilitySplit]] D7。
 
 ## 关联
 
 - 三层架构与铁律：[[modules/LineLaserCam]]
 - 抽象基类：`LineLaserCam/ILineLaser/LineLaserCameraBase.cs`
-- 决策：[[decisions/ADR-039-LineLaserResponsibilitySplit]]、[[decisions/ADR-038-LineLaserThreeLayerRefactor]]、[[decisions/ADR-015-CameraConnectionStateDecoupled]]
+- 决策：[[decisions/ADR-035-LineLaserResponsibilitySplit]]、[[decisions/ADR-034-LineLaserThreeLayerRefactor]]、[[decisions/ADR-013-CameraConnectionStateDecoupled]]
 - 实现：[[api/IntelligentLaserCam]]、[[api/VirtualCam]]
 - 运控侧：[[api/MontionManager]]、[[guides/DeltaEtherCAT-AdvancedMotion]]

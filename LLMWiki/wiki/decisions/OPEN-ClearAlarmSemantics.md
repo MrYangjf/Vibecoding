@@ -1,4 +1,4 @@
----
+﻿---
 title: OPEN 消报语义：M5 应回落 Stop 还是 NoReset
 date: 2026-09-04
 tags: [待决问题, 架构, 状态机, 焊接工艺, MainDeviceStatus, ClearAlarm, 已关闭]
@@ -7,7 +7,7 @@ status: closed
 
 # OPEN 议题：消除报警（M5）应回落 Stop 还是 NoReset
 
-> ✅ **已关闭（2026-09-04 下午）**：用户最终裁定——**消除报警一律回 NoReset**，无论报警前是否处于 Running；只有复位流程执行成功才到达 Stop。已落地于 `DoClearAlarm`，正式决议见 [[decisions/ADR-034-MainDeviceStateSemantics]] D1。以下为存档。
+> ✅ **已关闭（2026-09-04 下午）**：用户最终裁定——**消除报警一律回 NoReset**，无论报警前是否处于 Running；只有复位流程执行成功才到达 Stop。已落地于 `DoClearAlarm`，正式决议见 [[decisions/ADR-030-MainDeviceStateSemantics]] D1。以下为存档。
 
 > **状态：未决（Open）**。用户 2026-09-04 明确表示「我在这里犹豫了」，裁定**先按旧文档回到 Stop 处理**，
 > 但要求**标记该问题**留待后续裁定。本页即该标记。

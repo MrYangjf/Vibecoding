@@ -1,4 +1,4 @@
----
+﻿---
 title: 代码精简规范（精简代码区域 · 详尽版）
 date: 2026-08-26
 tags: [规范, 代码精简, 注释规范, 日志规范, 重构, 检查脚本]
@@ -7,7 +7,7 @@ status: accepted
 
 # 代码精简规范（精简代码区域 · 详尽版）
 
-> **用途**：本页是「代码精简」需求的**唯一标准源**。触发精简需求时，AI 直接读取本页执行，无需用户重复输入精简要求。由 [[index/index]] 的「代码精简规范」分类路由到此；沉淀决策见 [[decisions/ADR-025-CodeSimplificationStandard]]。
+> **用途**：本页是「代码精简」需求的**唯一标准源**。触发精简需求时，AI 直接读取本页执行，无需用户重复输入精简要求。由 [[index/index]] 的「代码精简规范」分类路由到此；沉淀决策见 [[decisions/ADR-022-CodeSimplificationStandard]]。
 > **适用范围**：除 `*.Designer.cs`（设计器自动生成）外的全部业务源码（`UIDesign/` 下非设计器 `.cs` 同样适用五维度），且不触及外部厂商 SDK（即 `3rdDepend/` 下的 DLL 及相机/PLC 等厂商**原生** P/Invoke 签名、厂商**原生**数据结构定义不在整理范围；但项目中封装这些 SDK 的**自有逻辑代码**属于整理范围）。
 > **工作单元**：以「一个文件夹」为整理单位，逐文件夹落地本规范。文件夹内每个 `.cs` 文件的具体审查可用检查脚本 `scripts/csharp_review.py` 逐文件扫描（详见第四节）。
 > **版本说明**：2026-08-26 升级为详尽版——在原四维度粗版基础上，并入用户新建的 C# 代码审查规范（文件书写整理 / 逻辑精简 9 类 / 函数精简）与检查脚本。原设备日志规范（项目特有）保持不变。详细反例目录见文末「参考文件」。
@@ -37,7 +37,7 @@ status: accepted
 
 ### ③ 枚举与事件：去重合并 + 禁止过度枚举
 
-- 同类型功用的枚举只保留**一份**；子命名空间不得重复定义父命名空间已有枚举（见 [[decisions/ADR-020-EnumDeduplication]]）。
+- 同类型功用的枚举只保留**一份**；子命名空间不得重复定义父命名空间已有枚举（见 [[decisions/ADR-017-EnumDeduplication]]）。
 - 功能等价、命名不同但语义重复的枚举合并为一个（合并前 Grep 全量追溯引用并同步改名）。
 - 事件同理：同一通知语义只保留一个事件；避免 `XxxChanged`/`OnXxx`/`XxxEvent` 三套并存。
 - 合并属**跨文件变更**，必须 Grep 全量追溯引用并完成改名，禁止留下孤立旧枚举/旧事件。
@@ -214,8 +214,8 @@ python3 scripts/csharp_review.py <目标文件.cs> --json     # JSON 输出（�
 | 已有约束 | 关系 |
 |---|---|
 | [[decisions/ADR-002-CS73-Constraint]] | 精简后仍须 C# 7.3 语法，禁用 switch 表达式 / 可空引用 / init / record 等 |
-| [[decisions/ADR-020-EnumDeduplication]] | 本规范 ③ 枚举去重的具体执行依据 |
-| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-023-DisposePatternFullCoverage]] | 精简**不得**新增或重写 `Dispose(bool)`；非 UI 类保持标准 `IDisposable.Dispose()`（与 ④-9 禁止过度资源管理一致）|
+| [[decisions/ADR-017-EnumDeduplication]] | 本规范 ③ 枚举去重的具体执行依据 |
+| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-020-DisposePatternFullCoverage]] | 精简**不得**新增或重写 `Dispose(bool)`；非 UI 类保持标准 `IDisposable.Dispose()`（与 ④-9 禁止过度资源管理一致）|
 | AGENTS.md Region 完整性 | `#region`/`#endregion` 必须配对，精简不得遗留孤立 `#endregion`（见 ①）|
 | 公共接口契约 | 精简**不得**改变公共类型/方法签名与枚举成员名（除非走 ③ 合并流程并全量改名）；检查脚本亦不自动改 public 成员 |
 | .csproj 注册 | 若因精简新建 .cs 文件，必须注册到 `AdaWeldSystem.csproj` |

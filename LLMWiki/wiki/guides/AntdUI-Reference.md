@@ -1,4 +1,4 @@
----
+﻿---
 title: AntdUI 完整开发参考
 date: 2026-08-18
 tags: [指导, UI, AntdUI, 参考手册, 汇总]
@@ -1066,7 +1066,7 @@ tabsAlgo.AddTabSelect(ilTab);
 1. `AntdUI-DesignParadigm.md` — 设计范式枢纽页（第 1 节）
 2. `AntdUI-GridPanel-Span-Syntax.md` — GridPanel.Span 语法（第 2.2 节）
 3. `AntdUI-SplitterToGridPanel-FixedRegion.md` — Splitter→GridPanel 改造（第 2.4 节）
-4. `decisions/ADR-022-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
+4. `decisions/ADR-019-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
 5. `AntdUI-Menu-Tabs-Navigation.md` — Menu + Tabs 导航（第 3.1 节）
 6. `AntdUI-Tabs-ControlsAndPages.md` — Tabs Controls.Add + Pages.Add（第 3.3 节）
 7. `AntdUI-TableColumns-DesignerSerialization.md` — Table 列与数据绑定（第 4.1 节）

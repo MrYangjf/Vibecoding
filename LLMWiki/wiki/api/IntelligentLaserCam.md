@@ -1,4 +1,4 @@
----
+﻿---
 title: IntelligentLaserCam API 参考
 date: 2026-07-24
 tags: [API, 相机, 英莱, 线激光, ADR-038, ADR-039]
@@ -168,7 +168,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 - **raw-Marshal 规避 GC 压力**：弃用 `ContourData.PointArray` 的托管 getter（每帧 `new` 2048 个 FPoint 包装），改用 `contour.__Instance` 基址 + `IntPtr.Add` + **全限定 `System.Runtime.InteropServices.Marshal.Copy` + `System.BitConverter.ToSingle`** 直接读 `FPoint`（y@0 / z@4），读完即走（彻底规避 SDK 命名空间遮蔽 BCL `Marshal` 的编译错误，见 [[lessons/IntelligentLaser-Pitfalls]]）。
 - **SDK 自有算法结果捕获（InspectResult）**：同一 `MillionOutlineInspect` 回调在读取轮廓后，额外在 `using` 块内读取 `inspect.InspectResult[0]`（`RuntimeInspectResult`：ParseRes / CurrentFeaturePoint.YPos-ZPos(mm) / Width[2] / HeightOrDepth[2] / Area / Angles[3] / Radii[2] / Vec[2] / Timestamp），拷贝进线程安全快照 **`LineLaserSeamResult`**（`_ilLock` 保护 `_lastInspect`），经 `LastInspectResult` 暴露（⛔ `HasInspectResult` 已删，改用 `Valid`）。**ADR-039 后**：该快照在回调尾部直接作为 `RaiseResultReady` 的载荷交给 `LineLaserManager`（→ `SeamPvtFeeder` → Y 轴 PVT），不再等人来轮询。工作流 `AnalyzeImage()` 据此走英莱自有算法路线（详见下方「算法路线分支」）。
 - ⛔ ~~**轮廓 Mat 复用持久画布（2026-08-26 重构）**~~：**2026-09-08 随绘制代码一并上提（ADR-039）**。`_canvasBmp`/`_canvasG`/`_matLock`/`EnsureCanvas`/`UpdateCurrentMatFromCanvas` 均已从本类删除；复用画布的责任转由 [[api/ProfileMatRenderer]] 承担（画布 + Mat 一次分配终身复用，`Dispose()` 统一释放，日志标签「线激光渲染器」）。本类 Dispose 内改为 `UpdateDisplayMat(null)` 交还基类。
-- ⛔ ~~**回调驱动显示（2026-08-17）**~~：**2026-09-08 已删除 `NotifyFrameReady` / `ContourFrameReady`（ADR-039）**。现行两条显示路径：**手动 UI 页**（`ILCamPage`）订阅 `LineLaserManager.Instance.MatUpdated`（业务层在 `DisplayEnabled` 为真时才生成 Mat，故天然低频）；**主页面轮廓**改为**线程轮询** `LineLaserManager.Instance.Profile` 快照（33ms + 版本号比对），不再走相机回调——60Hz 回调直接压 UI 线程是原设计的隐患，见 [[decisions/ADR-039-LineLaserResponsibilitySplit]] D5。英莱官方 demo「回调更新画面」的结论**仅适用于同进程低频画面**，本项目主页面不适用。
+- ⛔ ~~**回调驱动显示（2026-08-17）**~~：**2026-09-08 已删除 `NotifyFrameReady` / `ContourFrameReady`（ADR-039）**。现行两条显示路径：**手动 UI 页**（`ILCamPage`）订阅 `LineLaserManager.Instance.MatUpdated`（业务层在 `DisplayEnabled` 为真时才生成 Mat，故天然低频）；**主页面轮廓**改为**线程轮询** `LineLaserManager.Instance.Profile` 快照（33ms + 版本号比对），不再走相机回调——60Hz 回调直接压 UI 线程是原设计的隐患，见 [[decisions/ADR-035-LineLaserResponsibilitySplit]] D5。英莱官方 demo「回调更新画面」的结论**仅适用于同进程低频画面**，本项目主页面不适用。
 - **校准数据双回调（2026-08-17 / 2026-09-08 改型）**：`RegisterCallbacks()` 在轮廓回调之外额外注册 `InternalRefCornerPts` 校准回调（`_cbCalibration` 存字段防 GC），`CalibrationCallback` 在 `using` 块内把 `IntelligentCalibrationInfo`（中心点+4角点）拷贝进 **`LineLaserCalibration`** 快照（`_calibLock` 保护），经 `override Calibration` 暴露。⛔ 绘制不再由本类执行：`LineLaserManager` 取 `Active.Calibration` 传给 [[api/ProfileMatRenderer]]（绘制内容同下：黄色校准框 + 浅灰大十字架 + 浅绿角点/中心点 + 红色特征点，无校准回退自动缩放画法）。
 - **连接位掩码（Core 未连=硬失败）**：`ConnectToSensor` 返回位掩码。`EM_INTELLIGENT_CONNECT_E_CORE` 位为 1 表示 Core 服务未连上 → **视为硬失败**：记录 `Error` 日志、`UnInitSDK()` 清理、直接返回（不置 `_isConnected`/`_isOpened`），避免状态栏假阳性「已连接」。仅当 Core 连上时才继续启用传感器/激光/采集相机。
 

@@ -9,7 +9,7 @@ source: raw/mecavision/（SDK 原文核验抽取，2026-09-08）
 
 > **真相源**：`raw/mecavision/MecaVision_SDK…/MecaVision/Demo/C#/MVSDK/MVSDK.cs`（官方 C# 封装，**6885 行**，唯一类 = 静态类 `MvApi`）。
 > 本页全部 API 名与签名由脚本从该文件抽取核验（2026-09-08），**与厂商原文逐字一致**。
-> 落地架构约束见 [[decisions/ADR-041-MecaVisionMonitorCamera]]；开发指导见 [[guides/MecaVision-DevGuide]]；模块上下文见 [[modules/MonitorCam]]。
+> 落地架构约束见 [[decisions/ADR-037-MecaVisionMonitorCamera]]；开发指导见 [[guides/MecaVision-DevGuide]]；模块上下文见 [[modules/MonitorCam]]。
 
 ## 章节导航
 
@@ -201,6 +201,6 @@ structs = set(re.findall(r"public\s+struct\s+(\w+)", t))
 ## 相关页面
 
 - [[guides/MecaVision-DevGuide]] —— 开发指导（落地步骤/映射表/踩坑）
-- [[decisions/ADR-041-MecaVisionMonitorCamera]] —— 监控相机切换麦格威架构决策
+- [[decisions/ADR-037-MecaVisionMonitorCamera]] —— 监控相机切换麦格威架构决策
 - [[modules/MonitorCam]] —— 监控相机模块现状
 - [[api/MonitorCamManager]] —— 现役运行控制（本 API 的唯一消费入口）

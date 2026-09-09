@@ -1,4 +1,4 @@
----
+﻿---
 title: UI 状态判断与控制精简规范
 date: 2026-08-24
 tags: [规范, UI, 代码精简, 状态管理, 真相源]
@@ -53,9 +53,9 @@ status: accepted
 
 | 已有约束 | 关系 |
 |---|---|
-| [[standards/CodeSimplification]] / [[decisions/ADR-025-CodeSimplificationStandard]] | 互补：ADR-023 覆盖除 `*.Designer.cs` 外的全部业务源码（含 `UIDesign/` 非设计器 `.cs` 五维度），本页专补 `UIDesign/` 状态判断与控制细则 |
+| [[standards/CodeSimplification]] / [[decisions/ADR-022-CodeSimplificationStandard]] | 互补：ADR-023 覆盖除 `*.Designer.cs` 外的全部业务源码（含 `UIDesign/` 非设计器 `.cs` 五维度），本页专补 `UIDesign/` 状态判断与控制细则 |
 | [[decisions/ADR-002-CS73-Constraint]] | 精简后仍须 C# 7.3 语法 |
-| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-023-DisposePatternFullCoverage]] | 精简**不得**新增/重写 `Dispose(bool)` |
+| [[decisions/ADR-001-DisposePattern]] / [[decisions/ADR-020-DisposePatternFullCoverage]] | 精简**不得**新增/重写 `Dispose(bool)` |
 | 公共接口契约 | 精简**不得**改变公共类型/方法签名 |
 
 ---

@@ -1,4 +1,4 @@
----
+﻿---
 title: LaserWeldHeadWorkflow API 参考（焊接头工作流 · 骨架期）
 date: 2026-09-02
 updated: 2026-09-04
@@ -118,5 +118,5 @@ string status = head.StateName + " / " + head.WorkStepName;
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
 - [[modules/LaserWeldHead]] — 焊接头模块（ILaserWeldHeadController 等）
 - [[api/LaserWeldHeadController]] — 控制器 API
-- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型（现行有效）
-- [[decisions/ADR-033-RawDesignRefinement20260903]] — 原档细化与完全重构裁定
+- [[decisions/ADR-027-ThreeStateModelRefactor]] — 三态模型（现行有效）
+- [[decisions/ADR-029-RawDesignRefinement20260903]] — 原档细化与完全重构裁定

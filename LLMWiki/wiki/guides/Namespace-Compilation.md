@@ -304,7 +304,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 
 **现场 B：`EmguALG/ImageAlgorithm.cs`**
 
-`public static class ImageAlgorithm`（`ADR-003` 唯一算法文件）。region 8 的 6 个数据模型（`WeldDefectType`/`WeldDefect`/`PreWeldAlignmentConfig`/`PreWeldAlignmentResult`/`WeldQualityConfig`/`WeldQualityResult`）被定义在类体内（8 空格缩进）→ 真实名为 `AdaWeldSystem.EmguALG.ImageAlgorithm.PreWeldAlignmentResult`，消费方期望 `AdaWeldSystem.EmguALG.PreWeldAlignmentResult`。
+`public static class ImageAlgorithm`（算法算子集中约定：原 ADR-003 已于 2026-09-09 删除，现行见 ADR-038-EmguALGThreeLayer）。region 8 的 6 个数据模型（`WeldDefectType`/`WeldDefect`/`PreWeldAlignmentConfig`/`PreWeldAlignmentResult`/`WeldQualityConfig`/`WeldQualityResult`）被定义在类体内（8 空格缩进）→ 真实名为 `AdaWeldSystem.EmguALG.ImageAlgorithm.PreWeldAlignmentResult`，消费方期望 `AdaWeldSystem.EmguALG.PreWeldAlignmentResult`。
 
 > 矛盾标注：该错误曾在 MonitorCam 模块首次 Ingest + Lint（2026-07-13 11:15:30）时未被检出——当时 Wiki 描述的是「命名空间级别」的预期设计，与缺陷代码表面一致，但代码实际把类型放进了既有类内部。
 

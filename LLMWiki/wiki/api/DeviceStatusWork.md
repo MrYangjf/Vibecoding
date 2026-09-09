@@ -1,4 +1,4 @@
----
+﻿---
 title: API — DeviceStatusWork 安全/IO/状态管控（+ SafetyFlow / SafetyInterlockChecker）
 date: 2026-09-02
 tags: [API, 安全检查, 安全互锁, 工作流, PLC, 日志, DeviceStatusWork, ADR-028]
@@ -7,13 +7,13 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 
 # API — DeviceStatusWork 安全/IO/状态管控
 
-> **本页述 `DeviceStatusWork`（单例，安全/IO/状态管控）**，见 [[decisions/ADR-031-ThreeStateModelRefactor]]。
+> **本页述 `DeviceStatusWork`（单例，安全/IO/状态管控）**，见 [[decisions/ADR-027-ThreeStateModelRefactor]]。
 > 安全类**不对外暴露子设备状态**，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费。
 >
 > **位置**：`MainDeviceControl/DeviceStatusWork.cs`（命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`）
 > **继承**：**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**；由三个常驻监控线程驱动（`IOWork` / `EMGWork` / `LightStatusWork`，各 20Hz；EMGWork 置 Highest）。
 > **设计来源**：参考 `PcomDeviceInterface/MachineStatusWork.cs` 的 IOWork/EMGWork/StatusWork 三线程模型（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
-> **单文件承载**：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（[[decisions/ADR-028-SafetyCheckConsolidation]]）。故障恢复模块已于 2026-09-04 整体移除（ADR-032 D3），本类不再做故障落库。
+> **单文件承载**：互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（[[decisions/ADR-024-SafetyCheckConsolidation]]）。故障恢复模块已于 2026-09-04 整体移除（ADR-032 D3），本类不再做故障落库。
 >
 > **✅ 2026-09-04 已落地（ADR-030 批次 3）**：本类线程与入口**以原档命名为准统一**：三线程 `thIOWork`（Running IO + Alarm IO）/ `thEMGWork`（Safe IO）/ **`thLightStatusWork`（status IO，三色灯）**，循环标志位 `IsIOWorking` / `IsEMGWorking` / `IsLightStatusWorking`，公共入口 **`MachineIOWorkOpen()`**（取代旧 `StartWork()`）；线程方法体统一为 `IOWork()` / `EMGWork()` / `LightStatusWork()`。
 > 原档未定义停止方法，补充 **`MachineIOWorkClose()`**（取代旧 `CloseWork()`）并保留——置 `_running = false` 后有限等待 `Join(1000)`，不 Abort。
@@ -188,6 +188,6 @@ cfg.StatusLampDb = 10;
 - [[modules/DeviceControl]] — 工作流基类与三态模型
 - [[api/DeviceControlWork]] — 消费方：`DeviceControlWork` 焊前门控**直接读** `IsSafe`（⛔ 旧包装方法 ~~`DeviceControlWork.IsRobotPoseSafe`~~ 已于 2026-09-03 移除，裁定 C3）
 - ~~[[api/FaultRecoveryManager]] — 故障记录归口~~（⛔ 2026-09-04 模块整体移除，ADR-032）
-- [[decisions/ADR-028-SafetyCheckConsolidation]] — 三文件合并决策
-- [[decisions/ADR-031-ThreeStateModelRefactor]] — 归并重命名决策（现行有效）
+- [[decisions/ADR-024-SafetyCheckConsolidation]] — 三文件合并决策
+- [[decisions/ADR-027-ThreeStateModelRefactor]] — 归并重命名决策（现行有效）
 - [[lessons/FaultRecoveryDeviceKey]] — 故障记录设备键名陷阱

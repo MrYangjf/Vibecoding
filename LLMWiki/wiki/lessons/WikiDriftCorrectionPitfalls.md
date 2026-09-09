@@ -1,4 +1,4 @@
----
+﻿---
 title: Wiki 批量漂移修正五坑（行尾污染 / 换行符被吃 / 机器替换语义破损 / 横幅自伤 / 外部参考误改）
 date: 2026-09-03
 tags: [教训, LLMWiki, 漂移, 工具脚本, Python, 行尾, 批量编辑]
@@ -195,7 +195,7 @@ architecture/DeviceControlArchitecture.md:231  CommandCore.cs
 architecture/DeviceControlArchitecture.md:271  RollPressProcess.cs
 architecture/DeviceControlArchitecture.md:329~333  RollPressProcess.cs ×4
 architecture/DeviceControlArchitecture.md:964  CommandCore.cs
-decisions/ADR-029-ArchitectureRawSource.md:29  RollPressProcess.cs
+decisions/ADR-028-ArchitectureRawSource.md:29  RollPressProcess.cs
 ```
 
 但**这 9 处全部写在反引号代码体内**，是明确的历史名/原档名引用，不是真实引用。

@@ -1,4 +1,4 @@
----
+﻿---
 title: 设备控制架构 — MainDeviceControl（三态模型 + RunStep 驱动工作流）
 date: 2026-09-03
 tags: [架构, 设备控制, 状态机, 三态模型, SubDeviceState, SubDeviceWeldStatus, MainDeviceStatus, 工作流, MainDeviceControl, 线程模型, CommandCore]
@@ -8,7 +8,7 @@ source: LLMWiki/raw/architecture/主控设计.xlsx + 激光焊接系统业务流
 # 设备控制架构 — MainDeviceControl
 
 > **本页是设备控制架构的唯一规范页**，也是全项目架构的唯一真相源。
-> **架构原档（唯一修改入口，共 3 份）**：`LLMWiki/raw/architecture/` 下 `主控设计.xlsx` + `激光焊接系统业务流程图20260904.md`（**业务流主源**）+ `激光焊接系统业务流程图.pdf`（图形备份）。2026-09-04 起业务流以 **md 版为主源**（PDF 文本层提取不全，用户人工全量转写）。**改架构先改原档，再同步本页**（约定见 [[decisions/ADR-032-ArchitectureRawSource]]）。
+> **架构原档（唯一修改入口，共 3 份）**：`LLMWiki/raw/architecture/` 下 `主控设计.xlsx` + `激光焊接系统业务流程图20260904.md`（**业务流主源**）+ `激光焊接系统业务流程图.pdf`（图形备份）。2026-09-04 起业务流以 **md 版为主源**（PDF 文本层提取不全，用户人工全量转写）。**改架构先改原档，再同步本页**（约定见 [[decisions/ADR-028-ArchitectureRawSource]]）。
 >
 > | 原档 | 模式 | 回答的问题 | 判读方式 |
 > |---|---|---|---|
@@ -29,8 +29,8 @@ source: LLMWiki/raw/architecture/主控设计.xlsx + 激光焊接系统业务流
 > 冲突裁决：**原档 > 本页 > 源码注释**；源码与原档不一致须交用户裁定（ADR-029 §3）。
 > **不按版本代际（V1/V2/V3）描述架构**——架构只维护「当前事实」这一份，变更直接改本页。
 > 目录：`AdaWeldSystem/MainDeviceControl/`
-> 目标平台：.NET Framework 4.8（C# 7.3，[[decisions/ADR-002-CS73-Constraint]]）；离线构建（[[decisions/ADR-021-NuGetLocalization]]）
-> UI：WinForms + AntdUI（[[decisions/ADR-018-UIFrameworkMigration]]）
+> 目标平台：.NET Framework 4.8（C# 7.3，[[decisions/ADR-002-CS73-Constraint]]）；离线构建（[[decisions/ADR-018-NuGetLocalization]]）
+> UI：WinForms + AntdUI（[[decisions/ADR-015-UIFrameworkMigration]]）
 
 **章节导航**
 
@@ -283,7 +283,7 @@ DeviceStatusWork                  独立单例，不继承任何基类
 | 基类 `DeviceWorkflowBase` | 只声明 `public abstract void LoadConfig()` / `SaveConfig()`，**不知道配置文件叫什么、在哪** |
 | 子设备 workflow | 定义自己的配置名 / 路径成员（如 `ConfigFileName` + `Config`），并重写两个方法 |
 
-- 落盘位置统一为 `Config/XML/`（沿用 [[decisions/ADR-007-ConfigLayout]] 的 `Config` 分层约定），由 `XdocumentReaderWriter` 内部拼装，**子设备只给文件名**。
+- 落盘位置统一为 `Config/XML/`（沿用 [[decisions/ADR-005-ConfigLayout]] 的 `Config` 分层约定），由 `XdocumentReaderWriter` 内部拼装，**子设备只给文件名**。
 - 参考实现（§16.2）里的 `LoadConfig(XmlReader)` / `SaveConfig(XmlWriter)` **不作为模板**——那是流式 API，与本项目配置体系不一致。
 - 完整模板与四条铁律见 **§16.8**。
 - `ClearProduct()`（清料）按裁定 D2 **不入基类契约**。
@@ -658,7 +658,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 ### 8.3 不入上电级联
 
-`WeldParamControlWorkflow` **不纳入** `DeviceControlWork` 上电初始化（`InitializeMachine`）级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（见 [[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
+`WeldParamControlWorkflow` **不纳入** `DeviceControlWork` 上电初始化（`InitializeMachine`）级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（见 [[decisions/ADR-009-WorkflowAsAdjustmentDriver]]）。
 
 ### 8.4 振镜摆幅待实现
 
@@ -668,7 +668,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 ## 9. 安全互锁与状态管控
 > **代码模板**：见 §16.5 状态层模板（`MachineStatusWork.cs` → `DeviceStatusWork.cs`）。
-> **ADR-031/038 增补（2026-09-04）**：主设备态初始值 `NoReset`（报错置 Alarm、消除报警回 NoReset、只有复位流程成功才到 Stop）；初始化时序通讯优先；故障恢复模块已整体移除；状态切换零日志（详见 [[decisions/ADR-034-MainDeviceStateSemantics]] / [[decisions/ADR-035-ErrorReportingHierarchy]]）。
+> **ADR-031/038 增补（2026-09-04）**：主设备态初始值 `NoReset`（报错置 Alarm、消除报警回 NoReset、只有复位流程成功才到 Stop）；初始化时序通讯优先；故障恢复模块已整体移除；状态切换零日志（详见 [[decisions/ADR-030-MainDeviceStateSemantics]] / [[decisions/ADR-031-ErrorReportingHierarchy]]）。
 
 ### 9.1 文件归属（ADR-025 合并 + ADR-028 归并）
 
@@ -749,7 +749,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 ## 10. 运动控制（台达 EtherCAT 主站）
 
-**核心理念**：运动实时链路 100% 硬件总线化，PC 退化为非实时轨迹规划器。决策依据 [[decisions/ADR-036-MotionControllerDeltaReplacement]]、[[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]。
+**核心理念**：运动实时链路 100% 硬件总线化，PC 退化为非实时轨迹规划器。决策依据 [[decisions/ADR-032-MotionControllerDeltaReplacement]]、[[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]。
 ⚠️ 正运动（ZMotion）CAMBOX 方案已于 2026-09-07 随控制器换轨整体移除；**台达侧承接焊缝跟踪的高级运动方案 OPEN**（候选 ECAM2 电子凸轮 / 虚拟主轴 + GearIn / PVT），未定前不得照搬旧 CAMBOX 参数实施。
 
 ### 10.1 数据流（全链路）
@@ -844,7 +844,7 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 | L3 实现 | `MotionControl/DeltaEtherCAT/`（7 文件） | 台达实现；单位换算（`Equiv` = 工程单位/脉冲）**只在此层** |
 | L1 原生 | `MotionControl/DeltaEtherCAT/Native/`（7 文件） | `CS_ECAT_*` P/Invoke，只被 L3 调用 |
 
-> 已删除的正运动组件：`CamBoxTracker` / `EncoderAxis` / `RSIPositionBuffer` / `InterpolationEngine` / `ZMotion*` / `MotionManager` / `MotionConfig`（2026-09-07，见 [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]）。
+> 已删除的正运动组件：`CamBoxTracker` / `EncoderAxis` / `RSIPositionBuffer` / `InterpolationEngine` / `ZMotion*` / `MotionManager` / `MotionConfig`（2026-09-07，见 [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]）。
 
 详见 [[modules/MotionControl]]、[[api/MontionManager]]、[[api/MotionControlWorkflow]]、[[guides/DeltaEtherCAT-DevGuide]]。
 
@@ -865,7 +865,7 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 | `WeldParamControl` | 焊接工艺（`WeldProcess` + `WeldDataManager`） | 由 `WeldParamControlWorkflow` 驱动 |
 | `Comm` | 顶层通讯（`CommunicationManager` / PLC / Robot / KUKA / Modbus） | 机器人与 PLC 连接唯一持有者 |
 | `EmguALG` | 算法管道（`PipelineManager` / 焊缝识别 / ROI / 实时监视） | |
-| `UIDesign` | UI 层，含三个子命名空间 `Sub1UI` / `Sub2UI` / `Sub3UI` | AntdUI，见 [[decisions/ADR-018-UIFrameworkMigration]] |
+| `UIDesign` | UI 层，含三个子命名空间 `Sub1UI` / `Sub2UI` / `Sub3UI` | AntdUI，见 [[decisions/ADR-015-UIFrameworkMigration]] |
 | `LaserWeldHead` | 焊接头（接口 + 控制器 + 数据模型） | |
 | `FileOperate` | 文件与日志 | |
 | `SqlLiteDatabase` | SQLite 持久化（含 `FaultRecord.db`） | |
@@ -1029,7 +1029,7 @@ UI 读取状态时须区分三个层级（ADR-028 三态模型）：
 
 ## 14. 维护约定
 
-- **本页只写当前事实**，不做版本代际对比、不保留历史方案描述。架构演进的「为什么」记在 [[decisions/ADR-027-WorkflowResponsibilityBoundary]]、[[decisions/ADR-028-SafetyCheckConsolidation]] 等 ADR 里，本页只给结论。
+- **本页只写当前事实**，不做版本代际对比、不保留历史方案描述。架构演进的「为什么」记在 [[decisions/ADR-023-WorkflowResponsibilityBoundary]]、[[decisions/ADR-024-SafetyCheckConsolidation]] 等 ADR 里，本页只给结论。
 - **改架构先改原档，再同步本页，最后改代码**（ADR-029）。冲突裁决链：**原档 > 本页 > 源码注释**；代码与本页不一致时**不得直接以代码为准回改本页**，须先确认是「原档已改待落地」还是「代码擅自偏离」——前者登记 §15，后者改回代码。
 - 2026-09-01 起全库**不再保留历史架构页**（原 `V2-Architecture` / `V3-Architecture` / `V3-MotionControlArchitecture` 等代际页面已删除，其仍有效的技术内容已并入本页第 9、10 章）。
 - **本页是架构唯一真相源**：原 `project/architecture.md`（模块依赖图）与 `archive/` 分类已于 2026-09-01 合并入本页 / 移出，全库不再保留第二个架构页。历史归档内容（SunnyUI 迁移、代码精简进度快照）归 [[project/SunnyUI-Legacy]]、[[project/CodeSimplification-Progress-20260826]]。
@@ -1042,7 +1042,7 @@ UI 读取状态时须区分三个层级（ADR-028 三态模型）：
 ## 15. 落地清单（改码 Plan）
 
 > 本节是**唯一登记「原档已定、代码未改」的地方**。原档 > 本页 > 源码注释（ADR-029 §3）。
-> 2026-09-03：C1~C7 七项冲突**已由用户裁定**（记录见 [[decisions/ADR-033-RawDesignRefinement20260903]]），本页已按裁定完全重写。
+> 2026-09-03：C1~C7 七项冲突**已由用户裁定**（记录见 [[decisions/ADR-029-RawDesignRefinement20260903]]），本页已按裁定完全重写。
 > **元原则（用户 2026-09-03 明确）**：新结构文档是**全新设计与细化**，不是对旧文档的补充，**是完全的重构**。改码时不得沿用旧设计思维填补空缺，一律以本页 §1~§7 的新表述为准。
 
 ### 15.1 七项冲突的裁定结论（已生效）
@@ -1589,7 +1589,7 @@ public class MachineStatusWork
 | 单例暴露 | `public static Instance` 字段 / `GetInstance()` 混用 | — | 沿用各文件现有风格，不强行统一 |
 | 抽象成员可见性 | `abstract class`（internal） | — | 本项目基类须与现有 `DeviceWorkflowBase` 一致 |
 
-**已裁定项（2026-09-03，见 [[decisions/ADR-033-RawDesignRefinement20260903]]）**
+**已裁定项（2026-09-03，见 [[decisions/ADR-029-RawDesignRefinement20260903]]）**
 
 | # | 裁定 | 落地口径 |
 |---|---|---|

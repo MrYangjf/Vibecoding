@@ -1,4 +1,4 @@
----
+﻿---
 title: C# 语言与编译常见陷阱汇总
 date: 2026-08-18
 tags: [教训, C#, 编译错误, 汇总]
@@ -153,7 +153,7 @@ static class GlobalCommData
 
 - 新增枚举时，先搜索整个项目确认是否已有同名定义
 - 枚举统一定义在最上层使用它的命名空间中
-- 参见 [[decisions/ADR-020-EnumDeduplication]]
+- 参见 [[decisions/ADR-017-EnumDeduplication]]
 
 ---
 

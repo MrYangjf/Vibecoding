@@ -1,4 +1,4 @@
----
+﻿---
 title: 教训 — 独立管控类绕过/复制基类机制的 5 类 BUG（Tag 遮蔽 · 日志出口发散 · 时间戳非原子 · 字段直读 · 停机重启误判超时）
 date: 2026-09-03
 tags: [教训, 继承, 并发, 日志, 步骤驱动, DeviceControlWork, CS0108, Interlocked, ADR-028]
@@ -241,5 +241,5 @@ grep -n "_status" AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 - [[lessons/StepMemberNameCollision]] — CS0108 的另一形态（常量下沉后子类残留）
 - [[lessons/CSharp-Language-Pitfalls]] — C# 语言层陷阱合集
 - [[lessons/DeviceWorkflowDualFlowCallerGate]] — 另一条关于「调用方入口」的红线
-- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型与独立管控类定位
+- [[decisions/ADR-027-ThreeStateModelRefactor]] — 三态模型与独立管控类定位
 - [[architecture/DeviceControlArchitecture]] §2 — 独立管控类为何不在继承链上

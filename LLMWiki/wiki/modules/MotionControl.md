@@ -1,4 +1,4 @@
----
+﻿---
 title: MotionControl 模块 — 运控调整
 date: 2026-07-31
 tags: [模块, 运控, 水平移动, 模拟测试, 运动轴, 状态机, 台达, EtherCAT]
@@ -7,7 +7,7 @@ source: AdaWeldSystem/MotionControl/ 模块源码
 
 # MotionControl 模块 — 运控调整
 
-> **2026-09-07 控制器整体换轨**：正运动（ZMotion）全套实现**已从代码库删除**，运动控制改由**台达 PCI-L221 EtherCAT 主站卡**承接（程序不再使用任何正运动设置）。差异对照见 §控制器换轨沿革。决策记录：[[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]。
+> **2026-09-07 控制器整体换轨**：正运动（ZMotion）全套实现**已从代码库删除**，运动控制改由**台达 PCI-L221 EtherCAT 主站卡**承接（程序不再使用任何正运动设置）。差异对照见 §控制器换轨沿革。决策记录：[[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]。
 
 独立运控模块（不再挂载于 InteliWeld），负责：
 
@@ -16,7 +16,7 @@ source: AdaWeldSystem/MotionControl/ 模块源码
 3. 业务聚合（`MontionManager` 单例 + `Cylinder` 气缸）；
 4. 运控工作流（`MotionControlWorkflow`，位于 `MainDeviceControl/DeviceWorkflow/`）。
 
-设计遵循 ADR-009 的「独立模块 + Run/Workflow 分离」范式与 [[decisions/ADR-012-MotionControlModule]]、[[decisions/ADR-036-MotionControllerDeltaReplacement]]。
+设计遵循 ADR-009 的「独立模块 + Run/Workflow 分离」范式与 [[decisions/ADR-010-MotionControlModule]]、[[decisions/ADR-032-MotionControllerDeltaReplacement]]。
 
 ## 目录结构（2026-09-07 现行）
 
@@ -65,7 +65,7 @@ MotionControl/
 
 ## 台达 EtherCAT 运动控制（现行）
 
-> 本模块为**全新设计**：目录结构与对外消费关系以用户提供的开发指导原档为准，决策见 [[decisions/ADR-036-MotionControllerDeltaReplacement]]。
+> 本模块为**全新设计**：目录结构与对外消费关系以用户提供的开发指导原档为准，决策见 [[decisions/ADR-032-MotionControllerDeltaReplacement]]。
 
 ### 三层 + 业务层依赖铁律
 
@@ -200,7 +200,7 @@ MotionControl/
 
 ## 控制器换轨沿革（2026-09-07）
 
-> 2026-09-07 起运动控制**仅使用台达 PCI-L221 EtherCAT 主站**；此前基于正运动（ZMotion）的实现及其知识页已全部删除，详见 [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]。
+> 2026-09-07 起运动控制**仅使用台达 PCI-L221 EtherCAT 主站**；此前基于正运动（ZMotion）的实现及其知识页已全部删除，详见 [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]。
 
 | 维度 | 正运动（已移除） | 台达（现行） |
 |---|---|---|
@@ -241,7 +241,7 @@ X 坐标来源**已具备**：`Comm/Robot/KUKARobot/RSICommunication.cs`（RSI U
 - 运动控制采用**三层架构**（L1 Native / L2 `IMotion/` / L3 `DeltaEtherCAT/`）+ 业务层 `MontionManager`；业务层只面向 L2 抽象编程。
 - **2026-09-07 控制器换轨**：移除正运动全套，全面落台达 EtherCAT；消费方全量对接 `MontionManager`。
 - **2026-09-07 高级运动能力入档**：PVT 与 ECAM/ECAM2 的使用方式、API 真值核验、焊缝跟踪方案裁决，见 [[guides/DeltaEtherCAT-AdvancedMotion]]；配套 UI 设计见 [[guides/DeltaEtherCAT-UIDesign]]。
-- 详阅 [[decisions/ADR-036-MotionControllerDeltaReplacement]]、[[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]、[[guides/DeltaEtherCAT-DevGuide]]、[[guides/DeltaEtherCAT-Deployment]]。
+- 详阅 [[decisions/ADR-032-MotionControllerDeltaReplacement]]、[[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]、[[guides/DeltaEtherCAT-DevGuide]]、[[guides/DeltaEtherCAT-Deployment]]。
 
 ## 协作关系
 
@@ -249,7 +249,6 @@ X 坐标来源**已具备**：`Comm/Robot/KUKARobot/RSICommunication.cs`（RSI U
 |----------|----------|
 | [[modules/DeviceControl]] | `MotionControlWorkflow` 承载运控启停编排；私有阶段枚举经 `MapWeldStatus` 映射为焊接过程态 `SubDeviceWeldStatus` |
 | [[modules/WeldParamControl]] | `WeldProcess.ComputeAndCacheHorizontalMove` 委派至 `MoveControlData`；`WeldProcess.CurrentRobotX` 供真实机器人X读取 |
-| [[modules/VirtualCam]] | `MotionControlWorkflow` 取图（`CameraSelector.Active`）+ 模拟轮廓驱动 |
 | [[modules/LineLaserCam]] | 共享 `ICameraRun`（`CameraRun` 真实相机）；`Comm/SystemComm` 枚举 |
 | [[modules/EmguALG]] | `PipelineManager.AlgorithmCompleted` / `SeamFeatureResult` |
 | [[modules/Comm]] | `GlobalCommData.ShowLog` 日志（L2 不使用，仅 L3/业务层） |

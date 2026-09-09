@@ -1,4 +1,4 @@
----
+﻿---
 title: 英莱传感器控制与激光/传感器按钮 UI 统一
 date: 2026-08-24
 tags: [教训, 英莱, 线激光, 传感器, UI, 代码精简]
@@ -48,4 +48,4 @@ private void UpdateLaserSensorUi()
 - [[api/IntelligentLaserCam]] — `SetSensor`/`SetCaptureCamera`/`IsCameraOn`/`IsLaserOn`/`DetectHardwareStatus` 契约
 - [[lessons/IntelligentLaser-Pitfalls]] — 三层控制解耦（SetSensorEnable 触发回调、SetLaser 仅物理激光、SetCaptureCamera 仅预览）
 - [[lessons/UiRefreshUnifiedEntry]] — UI 状态刷新统一入口 `RefreshUi(RefreshUiScope)`
-- [[decisions/ADR-025-CodeSimplificationStandard]] — 代码精简规范（去冗余副本、合并重复逻辑）
+- [[decisions/ADR-022-CodeSimplificationStandard]] — 代码精简规范（去冗余副本、合并重复逻辑）

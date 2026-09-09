@@ -1,4 +1,4 @@
----
+﻿---
 title: MotionControlWorkflow API 参考（台达 EtherCAT 运控 · 三态模型）
 date: 2026-09-02
 updated: 2026-09-07
@@ -12,7 +12,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
 > **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
-> 设计依据 [[decisions/ADR-036-MotionControllerDeltaReplacement]]、[[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]]。
+> 设计依据 [[decisions/ADR-032-MotionControllerDeltaReplacement]]、[[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]。
 
 > **✅ 2026-09-07 控制器换轨改造**：删除全部正运动（ZMotion）依赖（原 `CamBoxTracker` / `EncoderAxis` / `RSIPositionBuffer` / `InterpolationEngine` 及其 `Tracker` 属性），相位枚举由 `LaserCamBoxWorkflowState` 改为 **`MotionControlPhase`**，初始化改走 `MontionManager.Instance.Initialization("台达运控", ref msg)`。**对外契约（`Instance` / `Start()` / `Stop(bool)` / `IsRunning` / `WeldStatus` / `StateName`）保持不变**，UI 侧 [[api/MotionControlPage]] 无需改动。
 > ⚠️ **OPEN**：焊缝跟踪的高级运动方案未定（候选 ECAM2 电子凸轮 / 虚拟主轴 + GearIn / PVT），因此本类当前**只到「伺服使能 + 就绪」**，不含轨迹跟踪步骤。
@@ -23,7 +23,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 ## 定位
 
 - **运控编排归本类**：台达总线的打开/初始化/关闭、全体轴伺服使能、急停下发，统一由本类编排；实时跟随由硬件总线完成。
-- **不产出设备数据**（[[decisions/ADR-027-WorkflowResponsibilityBoundary]]）：轴/IO/气缸对象由 [[api/MontionManager]] 持有与注册，本类只调用其批量接口。
+- **不产出设备数据**（[[decisions/ADR-023-WorkflowResponsibilityBoundary]]）：轴/IO/气缸对象由 [[api/MontionManager]] 持有与注册，本类只调用其批量接口。
 - **厂商隔离**：本类不出现任何 `Delta*` 类型——台达装配发生在 `MontionManager.Initialization()` 内（唯一装配点）。
 - 差异化职责（原档 R011）：**检测送丝位置和焊接质量阈值**——`SubDeviceLog()` 内 `// todo`，待硬件点位明确后落地。
 
@@ -95,6 +95,6 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 - [[api/DeltaEtherCAT-Native]] — 台达 EtherCAT 原生 API 速查
 - [[modules/MotionControl]] — 运控硬件层（三层架构与铁律）
 - [[guides/DeltaEtherCAT-DevGuide]] — 台达落地规范
-- [[decisions/ADR-036-MotionControllerDeltaReplacement]] — 台达替换决策
-- [[decisions/ADR-037-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地
-- [[decisions/ADR-031-ThreeStateModelRefactor]]、[[decisions/ADR-033-RawDesignRefinement20260903]] — 三态模型与原档细化裁定
+- [[decisions/ADR-032-MotionControllerDeltaReplacement]] — 台达替换决策
+- [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地
+- [[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]] — 三态模型与原档细化裁定

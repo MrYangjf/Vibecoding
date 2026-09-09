@@ -1,4 +1,4 @@
----
+﻿---
 title: 英莱（IntelligentLaser）相机开发教训汇总
 date: 2026-08-18
 tags: [教训, 相机, 英莱, IntelligentLaser, 汇总]
@@ -288,7 +288,7 @@ if (!_intelligentInstance.IsConnected)
 > - **手动 UI 页（`ILCamPage`）**仍走事件：订阅 `LineLaserManager.Instance.MatUpdated`；是否生成 Mat 由 `SetDisplayOptions(enabled, fps, convert)` 开关控制，**默认关闭**——节流责任从采集侧移到业务侧。
 > - **主页面（`MainPage`）轮廓改为线程轮询**：独立线程每 33ms 读 `LineLaserManager.Instance.Profile` 快照，用递增 `Version` 判断是否有新帧，无新帧直接跳过。
 >   **关键差别**：轮询的是**预先填好的池化快照**（双缓冲，数组一次分配终身复用），不是「回调产数据、UI 再回头拉」，因此没有本条担心的双重浪费；且刷新节拍由 UI 自己掌握，相机帧率再高也不会压垮界面。
-> - 判断准则：**事件 = 必须帧帧响应且低频；轮询 = 允许丢帧且高频。** 见 [[decisions/ADR-039-LineLaserResponsibilitySplit]] D5。
+> - 判断准则：**事件 = 必须帧帧响应且低频；轮询 = 允许丢帧且高频。** 见 [[decisions/ADR-035-LineLaserResponsibilitySplit]] D5。
 
 ### 3.2 一次性回调必须在连接前注册
 
@@ -933,7 +933,7 @@ else
 **注意事项**
 
 - 锁定时机 = 相机连接后校准框四角点首次就绪的帧（等价于用户所说「连接时」）；若校准框数据始终不到达，轴保持 `_contourYMin/Max`/`_contourZMin/Max` 默认回退范围（含负值，不锁定、每帧轻量检查）。
-- 与 [[decisions/ADR-026-YinglaiDataFlow]] 决策3（Signal 模式每帧刷新）不冲突：刷新照常 60Hz，仅轴范围从「每帧重设」改为「连接时一次锁定」。
+- 与 [[decisions/ADR-035-LineLaserResponsibilitySplit]] 决策3（Signal 模式每帧刷新）不冲突：刷新照常 60Hz，仅轴范围从「每帧重设」改为「连接时一次锁定」。
 - 切勿把 `SetAxisLimits` 重新放回每帧（会回到无意义开销）。校准框量程（含负值）通常远大于单条焊缝 Z 起伏，轮廓在固定相机量程视图下显得平缓属预期——这是用户明确的「固定相机量程」选择，不要为放大起伏而改用数据范围（见 §5.15 回退说明）。
 
 ### 5.12 主界面轮廓 Signal 轴映射：Y→X 轴、Z→Y 轴（首末点锚定防镜像）

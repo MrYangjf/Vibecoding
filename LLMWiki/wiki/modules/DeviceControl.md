@@ -1,4 +1,4 @@
----
+﻿---
 title: DeviceControl 模块 — 设备控制（三态模型：SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus）
 date: 2026-09-02
 tags: [模块, 设备控制, 状态机, 连接态, 焊接过程态, 主设备运行态, 工作流, 步骤驱动, DeviceControlWork, DeviceStatusWork, ADR-028]
@@ -9,11 +9,11 @@ source: AdaWeldSystem/MainDeviceControl/ 模块源码
 
 > 位于 `AdaWeldSystem/MainDeviceControl/`，是全部设备状态管理与工作流编排的唯一归属地。
 > **架构规范页**：[[architecture/DeviceControlArchitecture]] — 详细的分层、映射规则、主控流程见该页。
-> **决策记录**：[[decisions/ADR-031-ThreeStateModelRefactor]]（现行唯一有效约束）。
+> **决策记录**：[[decisions/ADR-027-ThreeStateModelRefactor]]（现行唯一有效约束）。
 >
 > **⚠️ 2026-09-03 原档细化已裁定（改码前必读）**：用户更新 `raw/architecture/主控设计.xlsx`（成员级清单）与新增 `激光焊接系统业务流程图.pdf`（业务流 + 检查清单），**7 项冲突已由用户逐条裁定**。
 > 裁定要点：**完全重构**——新档是全新设计，不是对旧文档的补充。旧的基类常驻监听线程、`GoStep` 改步入口、命令三槽、const int 指令表、机器人 pose 监控**全部清除**，代之以 `DeviceControlWork` 7 条常驻线程 + `RunStep` bool 推进 + `CommandCore` const string 协议。
-> 落地清单见 [[architecture/DeviceControlArchitecture]] §15（架构页已按裁定整体重写）。决策记录：[[decisions/ADR-033-RawDesignRefinement20260903]]（**accepted**）。
+> 落地清单见 [[architecture/DeviceControlArchitecture]] §15（架构页已按裁定整体重写）。决策记录：[[decisions/ADR-029-RawDesignRefinement20260903]]（**accepted**）。
 
 ---
 
@@ -356,7 +356,7 @@ return _initialized ? SubDeviceState.Connected : SubDeviceState.Disconnected;
 
 - 本环境**无法编译**，改动后必须做静态编译安全自检（类型解析 / csproj 完整性 / 无未注册孤儿 / `Dispose(bool)` / 继承链）
 - C# 7.3（[[decisions/ADR-002-CS73-Constraint]]）：禁 switch 表达式、属性模式、nullable、record、range
-- 非 UI 类统一标准 `IDisposable.Dispose()`（[[decisions/ADR-001-DisposePattern]]、[[decisions/ADR-023-DisposePatternFullCoverage]]）
+- 非 UI 类统一标准 `IDisposable.Dispose()`（[[decisions/ADR-001-DisposePattern]]、[[decisions/ADR-020-DisposePatternFullCoverage]]）
 - 振镜摆幅 `CalcGalvoAmplitude` 为 TODO 占位返回 0.0，`WeaveWidth` 是查表项而非公式
 - 旧四态 `DeviceState` 枚举、泛型 `WorkflowStateBase<TStep>`/`DeviceWorkflowBase<TStep>`、`MainDeviceFlowState` 枚举均已删除，引用这些旧符号的代码/文档视为冲突，须改用三态模型
 - **线程问询范式（2026-09-07 用户裁定 + 参考基线合规核对）**：线程只判断「状态是否属于自己」，**只读 `Current` 决定执行/不执行，绝不修改状态**——状态变化只归 IO 动作链（`DoXxx` → `SetStatus`）专门管理；所有循环必须有节拍防快速空转（流程线程 100ms 空闲 / 10ms 工作，连接等待 100ms，IO 三线程 50ms）。落点：`SubDeviceWork` 每拍问询（局部 `wasDriving` 门控，仅从 Running 真正跌出才经 `LogDriveStopped` 记一次日志；**启动默认态 NoReset 不打日志**，2026-09-08 用户裁定）、`CascadeResetProcess` 每步问询 `Reseting`、`DoResetMachine`/`DoStartMachine` 走 `IsActionAborted`、初始化链走 `IsInitAborted`/`IsInitPreempted`、`ScanPulseIo(requireRunning)` 分派前问询。详见 [[api/DeviceControlWork]] 与 [[api/HonorMachineTest-IOReference]] §6.1

@@ -1,4 +1,4 @@
----
+﻿---
 title: WinForms 设计器开发规范与常见错误
 date: 2026-08-18
 tags: [指导, UI, WinForms, 设计器, 汇总]
@@ -42,7 +42,7 @@ public void DisposeComponents()
 }
 ```
 
-> **⚠️ 适用范围澄清（2026-08-19，见 [[decisions/ADR-023-DisposePatternFullCoverage]]）**：
+> **⚠️ 适用范围澄清（2026-08-19，见 [[decisions/ADR-020-DisposePatternFullCoverage]]）**：
 > - `DisposeComponents()` **仅限 UI 设计器类**（Form / UserControl）使用
 > - **非 UI 类（后端类）禁止编写 `DisposeComponents()`**，必须实现标准 `IDisposable.Dispose()` 并正确释放资源
 > - **UI 类也非必需**：仅当持有「外部嵌套控件/独立资源」（代码 new 的非容器控件、单例/静态事件订阅、外部对象生命周期）时才写；无嵌套/无独立资源则不需要
@@ -57,7 +57,7 @@ public void DisposeComponents()
 
 - 禁止在 Designer.cs 中修改 Dispose 方法
 - **禁止在 UI 类的 `.cs` 文件中重写 `Dispose(bool)` 方法**（会与设计器冲突）
-- **禁止非 UI 类编写 `DisposeComponents()`**（非 UI 类必须用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-023-DisposePatternFullCoverage]]）
+- **禁止非 UI 类编写 `DisposeComponents()`**（非 UI 类必须用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-020-DisposePatternFullCoverage]]）
 - 禁止在 InitializeComponent 中使用 for/while/if 等流程控制语句
 
 ### 1.5 自审命令

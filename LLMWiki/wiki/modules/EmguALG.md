@@ -1,4 +1,4 @@
----
+﻿---
 title: EmguALG 模块 — 视觉算法（三层：Abstractions / 领域算法 / Manager）
 date: 2026-09-08
 tags: [模块, 图像算法, EmguCV, 三层架构, 送丝距离, 焊接质量]
@@ -6,7 +6,7 @@ tags: [模块, 图像算法, EmguCV, 三层架构, 送丝距离, 焊接质量]
 
 # EmguALG 模块 — 视觉算法
 
-> 视觉算法模块。底层原子算子集中在 `ImageAlgorithm.cs`（[[decisions/ADR-003-SingleAlgorithmFile]]）。
+> 视觉算法模块。底层原子算子集中在 `ImageAlgorithm.cs`（[[decisions/ADR-038-EmguALGThreeLayer]]）。
 > **2026-09-08 ADR-042 三层改造**：新增 `Abstractions/` 抽象接口、两个领域算法目录（`WireFeedDistance/`、`WeldQuality/`）、`Manager/` 统一调度；**删除** `SeamRecognition/`（外部零引用已证实）、`Core/ProfileTransform.cs`（点云换算链）、`EmguConfiger/` 三个文件（`PipelineManager`/`JobManager`/`AlgorithmJob`）、焊缝特征上报链（用户裁定：焊缝特征由线激光直接获取，`PipelineManager.ReportExternalResult`→`WeldProcess.AlgorithmCompleted` 链路整条移除）。
 
 ## 目录结构（2026-09-08 后）
@@ -34,7 +34,7 @@ tags: [模块, 图像算法, EmguCV, 三层架构, 送丝距离, 焊接质量]
 
 | 约束 | 违反后果 |
 |------|---------|
-| 原子算子必须在 `ImageAlgorithm.cs` 实现 | 算法分散，违反 [[decisions/ADR-003-SingleAlgorithmFile]] |
+| 原子算子必须在 `ImageAlgorithm.cs` 实现 | 算法分散，违反 [[decisions/ADR-038-EmguALGThreeLayer]] |
 | 业务语义只在领域算法内实现，不得直调 `ImageAlgorithm` 原子算子 | 算子库被污染、无法复用 |
 | 算法返回原始值不做平滑 | 平滑由 [[modules/WeldParamControl]] 处理 |
 | 结果读取走 `GetLatest*(out version)` 版本比对，禁止缓存 Mat 引用 | 池化快照被复写导致脏读 |

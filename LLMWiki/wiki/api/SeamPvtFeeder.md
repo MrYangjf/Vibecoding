@@ -1,4 +1,4 @@
----
+﻿---
 title: API — SeamPvtFeeder 焊缝跟踪 PVT 点下发器
 date: 2026-09-08
 tags: [API, 运控, PVT, 台达, 焊缝跟踪, 依赖注入, ADR-039]
@@ -53,7 +53,7 @@ Flush(isFinal)
 ## 约束与已知项
 
 - **不持有 `MontionManager` / `MontionControl` / `Delta*`**：注入面只有 `IPVTMotion`（ADR-039 D6）。未实现 PVT 的轴由 `MontionAxis` 的 `virtual` 默认实现返回 `PVTResult.NotSupported`，**不抛异常、不连坐编译**，因此注入一个未支持的轴不会让线激光链路崩掉。
-- **⚠️ 时间基准与速度前馈为待实测参数**：`Time` 取相邻帧实测间隔（`PVTTimeMode.Relative`），`Vel` 取位置一阶差分。现场需按实际跟随效果标定，配置项已预留 `LineLaserConfig.PvtFrameSeconds`（默认 1/60）、`PvtBatchSize`（16）、`PvtMinRemainBuffer`（200）。见 [[decisions/ADR-039-LineLaserResponsibilitySplit]] D7。
+- **⚠️ 时间基准与速度前馈为待实测参数**：`Time` 取相邻帧实测间隔（`PVTTimeMode.Relative`），`Vel` 取位置一阶差分。现场需按实际跟随效果标定，配置项已预留 `LineLaserConfig.PvtFrameSeconds`（默认 1/60）、`PvtBatchSize`（16）、`PvtMinRemainBuffer`（200）。见 [[decisions/ADR-035-LineLaserResponsibilitySplit]] D7。
 - **线程**：`Feed` 在 SDK 原生回调线程被调用（经 `LineLaserManager.OnCameraResultReady`），内部 `lock(_lock)` 保护；下发为同步调用，**耗时需关注**——批次过大可能拖慢回调，现场调 `PvtBatchSize`。
 - 日志标签「焊缝跟踪」，纯文本无符号（[[standards/CodeSimplification]]）；注入/失败各一条，逐帧不记日志。
 
@@ -70,7 +70,7 @@ LineLaserManager.Instance.AttachYAxis(axis);   // 内部 SeamPvtFeeder.Attach(ax
 
 ## 关联
 
-- 决策：[[decisions/ADR-039-LineLaserResponsibilitySplit]]
+- 决策：[[decisions/ADR-035-LineLaserResponsibilitySplit]]
 - 持有者：[[api/LineLaserManager]]（`AttachYAxis` / `SetWorking`）
 - 能力抽象：`MotionControl/IMotion/IPVTMotion.cs`（`IPVTMotion` + `PVTPoint` + `PVTInformation` + `PVTResult` + `PVTTimeMode`）
 - 高级运动结论：[[guides/DeltaEtherCAT-AdvancedMotion]]

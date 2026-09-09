@@ -1,4 +1,4 @@
----
+﻿---
 title: WeldParamControl 模块 — 焊接参数控制与工艺计算
 date: 2026-08-28
 tags: [模块, 焊接, 工艺, 自适应, 功率, 送丝, 振镜, 焊缝]
@@ -126,7 +126,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）→ SendToRobot 下发机器人
 
 ### 不入上电级联
 
-**不纳入** `DeviceControlWork.InitializeMachine()` 级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（[[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
+**不纳入** `DeviceControlWork.InitializeMachine()` 级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（[[decisions/ADR-009-WorkflowAsAdjustmentDriver]]）。
 
 ---
 
@@ -145,6 +145,6 @@ WeldParamOutput（功率/送丝/速度/摆幅）→ SendToRobot 下发机器人
 - [[modules/DeviceControl]] — `WeldParamControlWorkflow` 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（含完整数据链路）
 - [[api/WeldDataManager]] — 焊接数据管理器 API
-- [[decisions/ADR-011-WorkflowAsAdjustmentDriver]] — 工作流作为调整主驱动
+- [[decisions/ADR-009-WorkflowAsAdjustmentDriver]] — 工作流作为调整主驱动
 - [[modules/LineLaserCam]] — 英莱线激光，焊缝信息源头
 - [[modules/EmguALG]] — 算法管道，承载 `SeamFeatureResult` 上报

@@ -1,4 +1,4 @@
----
+﻿---
 title: 配置与数据工具使用指南
 date: 2026-08-18
 tags: [指导, 工具, 配置, 数据库, 汇总]
@@ -190,7 +190,7 @@ ini.SaveToFile();
 
 - 优先使用相对于程序目录的相对路径，如 `@"Config\INI\xxx.ini"`
 - 确保目录存在。目录不存在时 `SaveToFile()` 可能失败
-- 遵循 [[decisions/ADR-007-ConfigLayout]] 配置目录布局规范
+- 遵循 [[decisions/ADR-005-ConfigLayout]] 配置目录布局规范
 
 #### 多线程安全
 

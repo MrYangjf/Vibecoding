@@ -52,7 +52,7 @@ source: AdaWeldSystem/MonitorCam/MonitorCamManager.cs
 
 - 实现层：[[api/MecaVisionMVSDK-Native]]（`MonitorCam/MecaVisionCam/`，实现 `IMonitorCamApi`）
 - 抽象层：`MonitorCam/IMonitorCam/`（接口 + 3 枚举 + 2 事件参数）
-- 模块页：[[modules/MonitorCam]]；决策：[[decisions/ADR-041-MecaVisionMonitorCamera]]
+- 模块页：[[modules/MonitorCam]]；决策：[[decisions/ADR-037-MecaVisionMonitorCamera]]
 - 算法侧：[[api/AlgorithmManager]]（EmguALG.Manager，承接原 AlgorithmManager 职责）
 
 > 历史沿革：健康巡检原属 `MonitorSupervisionWorkflow`，2026-08-31 经 ADR-027 下沉至本类前身 `MonitorCamManager`（ADR-013 ②）。

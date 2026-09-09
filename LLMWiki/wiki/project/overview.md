@@ -1,4 +1,4 @@
----
+﻿---
 title: AdaWeldSystem 项目概览
 date: 2026-07-01
 tags: [项目, 概览, 架构]
@@ -125,9 +125,9 @@ AdaWeldSystem/
 | [[modules/DeviceControl]] | 12 | **设备控制中枢 `MainDeviceControl/`**：三态模型（`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus`）+ 5 个子设备工作流 + 2 个整机管控类（`DeviceControlWork` 运行编排 / `DeviceStatusWork` 安全·IO·状态）；故障恢复 2026-09-01 归口迁出至 [[modules/ProductFileManager]]（ADR-027 §3）。架构见 [[architecture/DeviceControlArchitecture]] |
 | [[modules/UIDesign]] | 22 | 全部 UI 界面（AntdUI），子命名空间 `Sub1UI` / `Sub2UI` / `Sub3UI` |
 | [[modules/LineLaserCam]] | 8 | **线激光相机（2026-09-08 三层重构 ADR-038）**：`ILineLaser/` 抽象 3 + 英莱 1 + 虚拟 1 + 业务层 3（`LineLaserManager` / `CameraRegistry` / `LineLaserConfig`） |
-| └ [[modules/IntelligentLaserCam]] | 1 | 英莱线激光相机（默认线激光，见 [[decisions/ADR-024-LineLaserWorkflowRefactor]]） |
+| └ [[modules/IntelligentLaserCam]] | 1 | 英莱线激光相机（默认线激光，见 [[decisions/ADR-021-LineLaserWorkflowRefactor]]） |
 | └ VirtualCam | 1 | 虚拟相机（模拟模式取图源） |
-| ⛔ 已删除 | 15 | `SmartRayCam/`10 + `HikRobotCam/`3 + 旧 `Api/`2（`CameraSelector` / `ICameraRun`），见 [[decisions/ADR-038-LineLaserThreeLayerRefactor]] |
+| ⛔ 已删除 | 15 | `SmartRayCam/`10 + `HikRobotCam/`3 + 旧 `Api/`2（`CameraSelector` / `ICameraRun`），见 [[decisions/ADR-034-LineLaserThreeLayerRefactor]] |
 | [[modules/MotionControl]] | 17 | 运控：正运动 ZMotion / CAMBOX 跟踪 / `MoveControlData` / `MotionManager` |
 | [[modules/EmguALG]] | 15 | 图像算法唯一入口、算法配置、Job 管理、ROI 工具、焊缝识别、实时监控 |
 | [[modules/Comm]] | 12 | 全局通讯中心 `CommunicationManager`、TCP/S7/PLC/Robot（KUKA RSI+EKI）、Modbus |

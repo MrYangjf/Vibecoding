@@ -6,7 +6,7 @@ tags: [规范, 权责边界, 工作流, 子设备, 事件, ADR-027, ADR-028]
 
 # 流程与子设备对象权责边界标准（WorkflowResponsibilityBoundary）
 
-> **触发**：用户提出「流程与xx设备权责不清 / 流程里怎么这么多事件 / 这个事件该不该放流程」等权责类问题时，AI **直接读取本页执行**，无需用户重复输入权责要求。决策见 [[decisions/ADR-027-WorkflowResponsibilityBoundary]]。
+> **触发**：用户提出「流程与xx设备权责不清 / 流程里怎么这么多事件 / 这个事件该不该放流程」等权责类问题时，AI **直接读取本页执行**，无需用户重复输入权责要求。决策见 [[decisions/ADR-023-WorkflowResponsibilityBoundary]]。
 >
 > **适用范围**：`MainDeviceControl/DeviceWorkflow/` 下全部子设备工作流 + `DeviceControlWork` / `DeviceStatusWork` 两个整机管控类，以及所有被流程调用的子设备对象（相机 Run、运动控制器、跟踪引擎、焊接头等）。
 >
@@ -220,7 +220,7 @@ private void OnWeldStatusChanged(object sender, WeldStatusChangedEventArgs e)
 
 ## 关联
 
-- 决策：[[decisions/ADR-027-WorkflowResponsibilityBoundary]]
+- 决策：[[decisions/ADR-023-WorkflowResponsibilityBoundary]]
 - 架构：[[architecture/DeviceControlArchitecture]]
 - 模块：[[modules/DeviceControl]]、[[modules/MonitorCam]]
 - API：[[api/MonitorCameraWorkflow]]、[[api/MonitorCamManager]]、[[api/MotionControlWorkflow]]、[[api/WeldParamControlWorkflow]]、[[api/DeviceControlWork]]

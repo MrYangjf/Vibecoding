@@ -1,4 +1,4 @@
----
+﻿---
 title: DeviceControlWork API 参考（整机主控 · 主设备运行态 MainDeviceStatus）
 date: 2026-09-04
 tags: [API, 工作流, 主控, 上电初始化, 机器人交互, 主设备运行态, 模拟, DeviceControlWork, ADR-028, ADR-030]
@@ -7,7 +7,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 
 # DeviceControlWork API 参考
 
-> **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-031-ThreeStateModelRefactor]]。
+> **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-027-ThreeStateModelRefactor]]。
 > 主设备对外状态为 **运行态 `MainDeviceStatus`**（6 态：Running/Alarm/EStop/Stop/NoReset/Reseting），由 `SetStatus(...)` 单一入口写入，禁手工赋值。
 >
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs`（**直接挂在 `MainDeviceControl/` 下，不在 `DeviceWorkflow/` 子目录**）
@@ -468,7 +468,7 @@ bool robotOnline = main.IsRobotOnline;
 | 4 | `DoSubPrework` 链路 | Preworking 五项检查实值判定（批次 4.5） |
 | 5 | Working 四路子流程 | 工艺参数闭环（批次 4.6） |
 
-> ✅ **C3 已由 [[decisions/ADR-034-MainDeviceStateSemantics]] D1 裁定关闭（2026-09-04）**：
+> ✅ **C3 已由 [[decisions/ADR-030-MainDeviceStateSemantics]] D1 裁定关闭（2026-09-04）**：
 > `DoClearAlarm()` 消报**一律回落 `NoReset`**（不再区分 wasRunning 回 Stop），现行代码即此实现。
 > 沿革见 [[decisions/OPEN-ClearAlarmSemantics]]（已关闭）。
 
@@ -479,6 +479,6 @@ bool robotOnline = main.IsRobotOnline;
 - [[api/CommandCore]] — 机器人指令协议（const string，取代 CommandTable）
 - [[api/DeviceStatusWork]] — 安全/IO/状态管控：`IsSafe` 门控 + `MachineIOWorkOpen/Close`
 - [[modules/Comm]] — 机器人/PLC 连接归属地
-- [[decisions/ADR-031-ThreeStateModelRefactor]] — 三态模型决策
-- [[decisions/ADR-033-RawDesignRefinement20260903]] — 本次重构依据（7 线程 + 9 方法 + 裁定 C1~C7）
+- [[decisions/ADR-027-ThreeStateModelRefactor]] — 三态模型决策
+- [[decisions/ADR-029-RawDesignRefinement20260903]] — 本次重构依据（7 线程 + 9 方法 + 裁定 C1~C7）
 - [[api/GlobalCommData]] — 通讯与日志底层出口（本类 `_tag` / `_simTag` 的直连落地）

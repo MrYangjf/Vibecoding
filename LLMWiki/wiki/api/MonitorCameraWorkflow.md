@@ -207,6 +207,6 @@ private void ShowResult()
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
 - [[api/MonitorCamManager]] — 采集运行控制与健康巡检（图像/连接态/巡检的归属）
 - [[api/AlgorithmManager]] — 算法配置管理器（`AlignmentConfig` / `QualityConfig`）
-- [[decisions/ADR-027-WorkflowResponsibilityBoundary]] — 权责边界决策
-- [[decisions/ADR-005-CallbackAcquisition]] — 回调采集（有界可失败语义）
-- [[decisions/ADR-009-MonitorCameraModule]]、[[decisions/ADR-031-ThreeStateModelRefactor]]、[[decisions/ADR-033-RawDesignRefinement20260903]]
+- [[decisions/ADR-023-WorkflowResponsibilityBoundary]] — 权责边界决策
+- [[decisions/ADR-003-CallbackAcquisition]] — 回调采集（有界可失败语义）
+- [[decisions/ADR-007-MonitorCameraModule]]、[[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]]

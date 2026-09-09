@@ -1,4 +1,4 @@
----
+﻿---
 title: MoveControlData API 参考
 date: 2026-07-16
 tags: [API, 运控, 水平移动, 标定]
@@ -8,7 +8,7 @@ source: AdaWeldSystem/MotionControl/MoveControlData.cs
 # MoveControlData API 参考
 
 > 运控标定数据 + 水平移动计算 + 缓存，位于 `MotionControl/MoveControlData.cs`，命名空间 `AdaWeldSystem.MotionControl`。
-> 原挂载于 InteliWeld，现归独立 MotionControl 模块（见 [[decisions/ADR-012-MotionControlModule]]）。
+> 原挂载于 InteliWeld，现归独立 MotionControl 模块（见 [[decisions/ADR-010-MotionControlModule]]）。
 >
 > **2026-09-07 改造**：去掉 `Lazy<T>` 单例，改为普通实例类；6 项标定参数不再自存副本，一律转发到 `MotionConfig` 的 `CALIBRATION` 节。
 

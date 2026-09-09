@@ -1,4 +1,4 @@
----
+﻿---
 title: 代码精简范围裁定：强制排除仅 Designer.cs
 date: 2026-08-27
 tags: [教训, 代码精简, 范围, Designer.cs, UIDesign, 误解]
@@ -25,7 +25,7 @@ tags: [教训, 代码精简, 范围, Designer.cs, UIDesign, 误解]
 ## 已更正位置（2026-08-27）
 
 - [[standards/CodeSimplification]] 适用范围/扫描范围/边界表/执行清单/未覆盖段全部改为"仅 `*.Designer.cs` 除外"，`UIDesign/` 非设计器 `.cs` 纳入。
-- [[decisions/ADR-025-CodeSimplificationStandard]] 相关页面描述同步更正。
+- [[decisions/ADR-022-CodeSimplificationStandard]] 相关页面描述同步更正。
 - [[index/index]]「代码精简规范」分类摘要加注裁定。
 
 ## 影响案例

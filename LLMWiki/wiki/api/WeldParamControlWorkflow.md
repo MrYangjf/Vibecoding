@@ -1,4 +1,4 @@
----
+﻿---
 title: WeldParamControlWorkflow API 参考（焊接工艺控制流程 · 三态模型）
 date: 2026-09-02
 updated: 2026-09-04
@@ -33,7 +33,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.
 下发：SendToRobot → KUKA 机器人（顶层 Comm 管控连接，此处只做数据下发）
 ```
 
-- **不入 `DeviceControlWork` 上电级联**（ADR-027 权责边界），由线激光在 Working 态逐帧触发（单一驱动源，见 [[decisions/ADR-011-WorkflowAsAdjustmentDriver]]）。
+- **不入 `DeviceControlWork` 上电级联**（ADR-027 权责边界），由线激光在 Working 态逐帧触发（单一驱动源，见 [[decisions/ADR-009-WorkflowAsAdjustmentDriver]]）。
 - `ConnectOn()` 语义为「工艺参数就绪」（置 `Connected`）。
 - 本流程是「被外部逐帧触发的一次性计算 + 下发」，**非自推进流程**：`ComputeAndOutput()` 只置 `_pendingCompute`，业务由编排线程按 10 计算 → 20 下发 → 800/900 收尾完成；**上一轮未跑完时新触发被丢弃**（`StepIdle` 才消费），天然节流不堆积。
 
@@ -222,5 +222,5 @@ var last = wf.LastOutput;              // 最近一轮结果（功率/送丝/速
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
 - [[api/WeldDataManager]] — 焊接数据管理器（参数载入/切换）
 - [[api/LineLaserWorkflow]] — 唯一触发方（Working 态逐帧 `ComputeAndOutput`）
-- [[decisions/ADR-011-WorkflowAsAdjustmentDriver]] — 单一驱动源决策
-- [[decisions/ADR-031-ThreeStateModelRefactor]]、[[decisions/ADR-033-RawDesignRefinement20260903]] — 三态模型与原档细化裁定
+- [[decisions/ADR-009-WorkflowAsAdjustmentDriver]] — 单一驱动源决策
+- [[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]] — 三态模型与原档细化裁定

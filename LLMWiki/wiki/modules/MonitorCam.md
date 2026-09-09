@@ -65,7 +65,7 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 - **算法参数**：由 `EmguALG/Manager/AlgorithmManager` 持有强类型配置（`WireFeedConfig` / `WeldQualityConfig`），持久化 `Config/INI/MonitorAlgorithm.ini`
 - **UI**：由 [[modules/UIDesign]] 的 `Sub2UI/MonitorCamPage` 页面驱动与展示（27 处引用点已同步改名）
 - **解耦**：单向依赖 `Comm`（日志）与 `EmguALG`；不反向依赖工作流
-- **配置**：INI 落盘遵循 [[decisions/ADR-007-ConfigLayout]]
+- **配置**：INI 落盘遵循 [[decisions/ADR-005-ConfigLayout]]
 
 ## 相机实现（MecaVisionCam）— 2026-09-08 落地
 
@@ -82,11 +82,11 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 
 ## 设计决策
 
-- [[decisions/ADR-041-MecaVisionMonitorCamera]]：**三层重构 + 切换麦格威 + 删除海康**（accepted）
-- [[decisions/ADR-042-EmguALGThreeLayer]]：算法模块三层改造（输入源即本模块）
-- [[decisions/ADR-009-MonitorCameraModule]]：SDK 抽象、完全解耦、Live/PIL 双模式
-- [[decisions/ADR-005-CallbackAcquisition]]：复用回调等待取图模式
-- [[decisions/ADR-007-ConfigLayout]]：配置文件归入 Config/INI/
+- [[decisions/ADR-037-MecaVisionMonitorCamera]]：**三层重构 + 切换麦格威 + 删除海康**（accepted）
+- [[decisions/ADR-038-EmguALGThreeLayer]]：算法模块三层改造（输入源即本模块）
+- [[decisions/ADR-007-MonitorCameraModule]]：SDK 抽象、完全解耦、Live/PIL 双模式
+- [[decisions/ADR-003-CallbackAcquisition]]：复用回调等待取图模式
+- [[decisions/ADR-005-ConfigLayout]]：配置文件归入 Config/INI/
 
 ## 相关教训
 

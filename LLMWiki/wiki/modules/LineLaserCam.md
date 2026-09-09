@@ -1,4 +1,4 @@
----
+﻿---
 title: LineLaserCam 模块 — 线激光相机
 date: 2026-09-08
 tags: [模块, 相机, 线激光, 三层架构, 管理器, ADR-038]
@@ -11,12 +11,12 @@ source: AdaWeldSystem/LineLaserCam/ 模块源码
 > L2 抽象 `ILineLaser/` + L3 实现（`IntelligentLaserCam/` 英莱、`VirtualCam/` 虚拟）+ 业务层 `LineLaserManager` 单例。
 > 同时**删除 SmartRay 与海康机器人 3D 两套不再使用的实现**（`SmartRayCam/` 10 文件、`HikRobotCam/` 3 文件、旧 `Api/` 2 文件），
 > 并移除 `Mv3dLpNet` 引用；`CameraSelector` 与 `ICameraRun` 由 `LineLaserManager` 与 `LineLaserCameraBase` 取代。
-> 决策记录：[[decisions/ADR-038-LineLaserThreeLayerRefactor]]。
+> 决策记录：[[decisions/ADR-034-LineLaserThreeLayerRefactor]]。
 >
 > **2026-09-08 二次分工（ADR-039）**：三层结构建成后业务仍留在实现层，故再次切分——
 > **实现层只做回调触发**（`RaiseResultReady` + `RaiseProfileReady`），
 > **业务全部上提 `LineLaserManager`**（结果侧算 Y 轴 PVT 点并下载、轮廓侧做产品记录/点缓冲/按需生成 Mat）。
-> 决策记录：[[decisions/ADR-039-LineLaserResponsibilitySplit]]。
+> 决策记录：[[decisions/ADR-035-LineLaserResponsibilitySplit]]。
 
 ## 目录结构（2026-09-08 现行）
 
@@ -119,7 +119,7 @@ LineLaserCam/
 - 线激光族采用**抽象层 + 实现层 + 业务层**三层，业务层只面向抽象编程（仿 [[modules/MotionControl]] 的 L1/L2/L3 铁律，本模块无 Native 层）。
 - 相机选择、事件订阅、连接态与配置统一归口 `LineLaserManager`，`CameraSelector` 随之删除。
 - **业务一律归业务层**：实现层只发两个中性回调，跨模块依赖只取 `IPVTMotion` 一类能力抽象（ADR-039）。
-- 详阅 [[decisions/ADR-038-LineLaserThreeLayerRefactor]]、[[decisions/ADR-039-LineLaserResponsibilitySplit]]、[[decisions/ADR-015-CameraConnectionStateDecoupled]]、[[decisions/ADR-016-CameraSelectorUnifiedToApi]]（后两条为历史决策）。
+- 详阅 [[decisions/ADR-034-LineLaserThreeLayerRefactor]]、[[decisions/ADR-035-LineLaserResponsibilitySplit]]、[[decisions/ADR-013-CameraConnectionStateDecoupled]]、[[decisions/ADR-034-LineLaserThreeLayerRefactor]]（后两条为历史决策）。
 
 ## 协作关系
 

@@ -38,6 +38,6 @@ source: AdaWeldSystem/EmguALG/Manager/AlgorithmManager.cs
 
 ## 关联
 
-- 模块页：[[modules/EmguALG]]；决策：[[decisions/ADR-042-EmguALGThreeLayer]]
+- 模块页：[[modules/EmguALG]]；决策：[[decisions/ADR-038-EmguALGThreeLayer]]
 - 消费方：`MonitorCameraWorkflow`（检测执行）、`MonitorCamPage` / `FormMain`（配置面板，原 `AlgorithmManager.Load()` 调用点改此）
 - 相机侧：[[api/MonitorCamManager]]
