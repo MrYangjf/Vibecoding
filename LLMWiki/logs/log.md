@@ -1,4 +1,37 @@
-﻿## [2026-09-09 16:35:51] ingest+governance | 全库知识治理：判废 4 ADR + 重排 001~038 + 合并重复页 + 精简文档 + 废料清理
+## [2026-09-09 18:41:55] coding+ingest | MonitorCam 业务边界澄清 + EmguALG 五层细化（ADR-039）
+
+**来源**：用户裁定——监控相机是 2D 面阵相机，无 Live/PIL 模式；画面显示采用单次触发采集刷新；EmguALG 项目层级重构为 Abstractions/Core/RealtimeMonitor/LineLaserContour/Manager 五层。
+
+**操作**：
+1. 监控相机业务边界修正：
+   - `IMonitorCamApi` 删除 `FrameReceived` 事件、`StartAcquisition()`/`StopAcquisition()`，只保留 `Connect`/`Disconnect`/`CaptureSingleFrame()`/`Dispose`。
+   - `MecaVisionCam` 删除回调字段/事件/连续采集方法，改为单次触发取帧 `CaptureSingleFrame()`。
+   - `MonitorCamManager` 删除 `IsLiveMode`/`ChangeMode`、移除 `FrameReceived` 订阅、`SensorStop()` 简化为空实现；`SensorRunContinue()` 明确为单次异步触发。
+   - `MonitorCamEventArgs` 删除 `MonitorFrameEventArgs` 与 `FrameCompletedEventArgs.IsLive`。
+   - `MonitorCamPage` + Designer 删除 `chkLive` 实时预览复选框与 `chkLive_CheckedChanged`；状态显示不再引用 `IsLiveMode`。
+2. EmguALG 五层重构：
+   - `EmguALG/WireFeedDistance/` 与 `EmguALG/WeldQuality/` 迁入 `EmguALG/RealtimeMonitor/`，命名空间同步改为 `AdaWeldSystem.EmguALG.RealtimeMonitor.*`。
+   - 新建 `EmguALG/LineLaserContour/ILineLaserContourAlgorithm.cs` + `LineLaserContourAlgorithm.cs`。
+   - `LineLaserManager` 删除内嵌 `ProfileMatRenderer` 类，`_renderer` 类型改为 `ILineLaserContourAlgorithm`，new `LineLaserContourAlgorithm()`。
+   - `AlgorithmManager.cs` / `MonitorCameraWorkflow.cs` / `ImageAlgorithm.cs` 更新 using 指向新命名空间。
+   - `AdaWeldSystem.csproj` 更新 Compile 路径并注册新文件。
+3. Wiki 知识回注：
+   - 新建 `decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement.md`。
+   - 更新 `modules/EmguALG.md`（五层目录 + 调用方式 + 删除链路）、`modules/MonitorCam.md`（无 Live/PIL + 单次触发机制）。
+   - 更新 `api/AlgorithmManager.md`、`api/MonitorCamManager.md`、`api/MonitorCameraWorkflow.md`。
+   - 修正 `decisions/ADR-038-EmguALGThreeLayer.md` 标题/正文 `ADR-042` → `ADR-038` 漂移。
+   - 更新 `index/index.md` 场景路由、模块/API 摘要、ADR 列表（38→39）。
+
+**校验**：Grep 确认无残留 `IsLiveMode`/`ChangeMode`/`FrameReceived`/`MonitorFrameEventArgs`（监控相机侧）；无旧命名空间 `AdaWeldSystem.EmguALG.WireFeedDistance`/`WeldQuality`；`ProfileMatRenderer` 零类型引用（仅历史注释）；csproj 注册文件全部存在；旧目录 `EmguALG/WireFeedDistance`、`EmguALG/WeldQuality` 已删除。**真编译待 Visual Studio**。
+
+**新增 Wiki 页面**：decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement.md
+**删除 Wiki 页面**：无
+**更新 Wiki 页面**：modules/EmguALG、modules/MonitorCam、api/AlgorithmManager、api/MonitorCamManager、api/MonitorCameraWorkflow、decisions/ADR-038-EmguALGThreeLayer、index/index
+**代码备份**：AdaWeldSystem_backup_20260909_180840.tar.gz
+
+---
+
+## [2026-09-09 16:35:51] ingest+governance | 全库知识治理：判废 4 ADR + 重排 001~038 + 合并重复页 + 精简文档 + 废料清理
 
 **来源**：用户指令「对知识库做全库知识检查，合并重复项，删除废除项，精简文档，整理序号」（/vibeCoding 全流程）。
 

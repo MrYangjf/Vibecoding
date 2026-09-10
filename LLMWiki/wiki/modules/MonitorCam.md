@@ -1,6 +1,7 @@
 ﻿---
 title: MonitorCam 模块 — 自动焊接头监控相机（三层：IMonitorCam / MecaVisionCam / MonitorCamManager）
 date: 2026-08-03
+updated: 2026-09-09
 tags: [模块, 相机, 监控, 焊前对中, 焊中质检, MecaVision, 三层架构]
 source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 ---
@@ -8,18 +9,19 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 # MonitorCam 模块 — 自动焊接头监控相机
 
 > 独立监控相机模块：负责焊前激光光斑/焊丝对中检测、焊中焊接质量检测，两者均具备画面输出与结果输出。
-> **2026-09-08 三层重构 + 厂商切换（ADR-041 accepted）**：抽象层 `IMonitorCam/`、实现层 `MecaVisionCam/`（麦格威 MVCAMSDK）、业务中枢 `MonitorCamManager.cs`，参照 MotionControl 与线激光范式；**海康实现已删除**。
+> **2026-09-08 三层重构 + 厂商切换（ADR-037 accepted）**：抽象层 `IMonitorCam/`、实现层 `MecaVisionCam/`（麦格威 MVCAMSDK）、业务中枢 `MonitorCamManager.cs`，参照 MotionControl 与线激光范式；**海康实现已删除**。
+> **2026-09-09 业务边界澄清（ADR-039 accepted）**：监控相机为 **2D 面阵相机，无 Live/PIL 模式切换**；画面显示采用「单次触发采集后刷新 Mat」的方式（与线激光手动调试页同构，频率可控）。
 
 ## 核心文件（三层目录）
 
 | 层 | 文件 | 职责 |
 |---|---|---|
-| 抽象层 | `MonitorCam/IMonitorCam/IMonitorCamApi.cs` | 相机契约（连接/采集/Live-PIL/帧回调） |
+| 抽象层 | `MonitorCam/IMonitorCam/IMonitorCamApi.cs` | 相机契约（连接 / 断开 / 单次触发取帧 / 释放） |
 | 抽象层 | `MonitorCam/IMonitorCam/MonitorCamType.cs` | 3 枚举：`MonitorCameraConnectionState` / `MonitorCameraPhase` / `MonitorSupervisionState` |
-| 抽象层 | `MonitorCam/IMonitorCam/MonitorCamEventArgs.cs` | 3 事件参数：监督状态变更 / 帧 / 帧完成 |
-| 实现层 | `MonitorCam/MecaVisionCam/MecaVisionCam.cs` | **麦格威实现**：只取帧并抛 `FrameReceived`，不做业务判断 |
+| 抽象层 | `MonitorCam/IMonitorCam/MonitorCamEventArgs.cs` | 2 事件参数：监督状态变更 / 帧完成 |
+| 实现层 | `MonitorCam/MecaVisionCam/MecaVisionCam.cs` | **麦格威实现**：只按契约单次取帧，不做业务判断 |
 | 实现层 | `MonitorCam/MecaVisionCam/Native/MVSDK.cs` | 官方原样封装（6885 行静态类 `MvApi`，按进程位数动态加载原生库） |
-| 业务层 | `MonitorCam/MonitorCamManager.cs` | **对外唯一入口（Lazy 单例）**：连接编排、模式切换、帧分发、健康巡检 |
+| 业务层 | `MonitorCam/MonitorCamManager.cs` | **对外唯一入口（Lazy 单例）**：连接编排、单次触发采集、帧分发、健康巡检 |
 | 配置 | `MonitorCam/MonitorCamConfig.cs` | 硬件配置（IP/端口/曝光/尺寸），持久化 `Config/INI/MonitorCamera.ini` |
 | 工作流 | `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` | 采集→分析→显示→结果，继承 `DeviceWorkflowBase` |
 
@@ -32,38 +34,42 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 | 关注点 | 承载者 | 位置 |
 |---|---|---|
 | 连接编排、帧分发、健康巡检、配置 | `MonitorCamManager` | `MonitorCam/MonitorCamManager.cs` |
-| 取帧与回调触发（Live/PIL） | `MecaVisionCam` | `MonitorCam/MecaVisionCam/MecaVisionCam.cs` |
+| 单次触发取帧 | `MecaVisionCam` | `MonitorCam/MecaVisionCam/MecaVisionCam.cs` |
 | 检测阶段枚举 | `MonitorCamPhase` | `MonitorCam/IMonitorCam/MonitorCamType.cs` |
 | 连接态 + 焊接过程态 + 执行步 | `MonitorCameraWorkflow` | `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` |
 
 > **权责边界（ADR-027）**：流程只输出「进度」，图像/连接态/健康度由 `MonitorCamManager` 输出（`FrameCompletedEvent` / `StatusChanged`），算法结果由流程以只读属性暴露。细则见 [[standards/WorkflowResponsibilityBoundary]]。
 
-## 回调等待取图机制
+## 单次触发取图机制
 
-`MonitorCamManager.SensorRunContinue()` 触发一次采集（PIL 模式）
-└── `MecaVisionCam.CaptureSingleFrame()` 同步返回帧（`CameraGetImageBuffer` → `CameraImageProcess` → `CameraFlipFrameBuffer` → 建 Mat → `CameraReleaseImageBuffer`）
-      ├── 写入 `CurrentMat`，`LastAcquisitionSuccess = true/false`
-      └── `AcquisitionCompletedSignal.Set()`  // 通知 Workflow 等待线程
+```
+MonitorCamManager.SensorRunContinue() 触发一次采集
+└── Task 异步执行 MecaVisionCam.CaptureSingleFrame() 同步返回帧
+    ├── CameraGetImageBuffer → CameraImageProcess → CameraFlipFrameBuffer → 建 Mat → CameraReleaseImageBuffer
+    ├── 写入 CurrentMat，LastAcquisitionSuccess = true/false
+    └── AcquisitionCompletedSignal.Set()  // 通知 Workflow 等待线程
+```
 
-> Live 模式（`ChangeMode(true)`）经 `CameraSetCallbackFunction` + `CameraPlay` 持续触发 `FrameReceived` → `FrameCompletedEvent`，**不参与 Workflow 回调流程**。
+> 监控相机无 Live 模式，所有帧均为单次触发产出（ADR-039）。`SensorStop()` 保留方法签名但内部为空（单次任务由 Task 自行结束），仅兼容既有调用方。
 
 ## 关键属性（MonitorCamManager）
 
 | 属性 | 类型 | 说明 |
 |------|------|------|
-| AcquisitionCompletedSignal | AutoResetEvent（readonly） | Workflow 等待的回调信号 |
-| CurrentMat | Mat | 当前帧（lock 保护） |
-| LastAcquisitionSuccess | bool | 最近一次采集是否成功 |
-| IsLiveMode | bool | 是否实时预览模式 |
-| ConnectionState | MonitorCameraConnectionState | 连接状态 |
-| SupervisionState | MonitorSupervisionState | 健康巡检状态（Idle/Checking/Healthy/Degraded/Error） |
-| Config | MonitorCamConfig | 硬件配置（IP/端口/曝光/尺寸） |
+| `AcquisitionCompletedSignal` | AutoResetEvent（readonly） | Workflow 等待的回调信号 |
+| `CurrentMat` | Mat | 当前帧（lock 保护） |
+| `LastAcquisitionSuccess` | bool | 最近一次采集是否成功 |
+| `ConnectionState` | MonitorCameraConnectionState | 连接状态 |
+| `SupervisionState` | MonitorSupervisionState | 健康巡检状态（Idle/Checking/Healthy/Degraded/Error） |
+| `Config` | MonitorCamConfig | 硬件配置（IP/端口/曝光/尺寸） |
+
+> 已删除：`IsLiveMode`、`ChangeMode`、`FrameReceived` 事件、`StartAcquisition()` / `StopAcquisition()`（ADR-039）。
 
 ## 与外部模块关系
 
-- **算法**：经 [[modules/EmguALG]] 的 `AlgorithmManager.Instance.DetectWireFeed/DetectWeldQuality` 调用（原为直调 `ImageAlgorithm`，ADR-042 后统一走 Manager）
+- **算法**：经 [[modules/EmguALG]] 的 `AlgorithmManager.Instance.DetectWireFeed/DetectWeldQuality` 调用（原为直调 `ImageAlgorithm`，ADR-038 后统一走 Manager）
 - **算法参数**：由 `EmguALG/Manager/AlgorithmManager` 持有强类型配置（`WireFeedConfig` / `WeldQualityConfig`），持久化 `Config/INI/MonitorAlgorithm.ini`
-- **UI**：由 [[modules/UIDesign]] 的 `Sub2UI/MonitorCamPage` 页面驱动与展示（27 处引用点已同步改名）
+- **UI**：由 [[modules/UIDesign]] 的 `Sub2UI/MonitorCamPage` 页面驱动与展示（画面由检测触发后刷新，无实时预览开关）
 - **解耦**：单向依赖 `Comm`（日志）与 `EmguALG`；不反向依赖工作流
 - **配置**：INI 落盘遵循 [[decisions/ADR-005-ConfigLayout]]
 
@@ -71,28 +77,28 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md (新增)
 
 麦格威 MVCAMSDK（C# 封装 `MvApi` 动态加载原生 `MVCAMSDK.dll` / `MVCAMSDK_X64.dll`）。实现要点（均以官方 Basic/FirstStep 例程为实证）：
 
-1. `Connect(ip,port)`：`CameraSdkInit` → `CameraEnumerateDevice` → **`CameraGigeGetIp` 按 IP 匹配**（未匹配回退首台并记日志）→ `CameraInit` → 黑白传感器设 `CameraSetIspOutFormat(MONO8)` → `CameraSetTriggerMode(0)` 连续采集 → 挂断联回调。
-2. Live：`CameraSetCallbackFunction` + `CameraPlay`；回调内 `CameraFlipFrameBuffer`（SDK 输出自底向上）→ 建 Mat → `Clone` 独立副本 → 抛 `FrameReceived`。
-3. PIL：`CameraGetImageBuffer` → `CameraImageProcess` → `CameraFlipFrameBuffer` → 建图 → **必须 `CameraReleaseImageBuffer`**。
-4. 坑位：回调委托必须持引用防 GC；`CameraHandle` 在 MVSDK.cs 是**文件级 using 别名**，消费方须自行声明。
-5. 部署：原生库已拷入 `3rdDepend/MecaVision/`（x64 四件套）；平台目标须显式 x64/x86。
-6. 完整 API/错误码/取帧配方见 [[api/MecaVisionMVSDK-Native]] 与 [[guides/MecaVision-DevGuide]]。
+1. `Connect(ip,port)`：`CameraSdkInit` → `CameraEnumerateDevice` → **`CameraGigeGetIp` 按 IP 匹配**（未匹配回退首台并记日志）→ `CameraInit` → 黑白传感器设 `CameraSetIspOutFormat(MONO8)` → `CameraSetTriggerMode(0)` → 挂断联回调。
+2. 取帧：`CameraGetImageBuffer` → `CameraImageProcess` → `CameraFlipFrameBuffer`（SDK 输出自底向上）→ 建 Mat → `Clone` 独立副本 → **必须 `CameraReleaseImageBuffer`**。
+3. 坑位：回调委托必须持引用防 GC；`CameraHandle` 在 MVSDK.cs 是**文件级 using 别名**，消费方须自行声明。
+4. 部署：原生库已拷入 `3rdDepend/MecaVision/`（x64 四件套）；平台目标须显式 x64/x86。
+5. 完整 API/错误码/取帧配方见 [[api/MecaVisionMVSDK-Native]] 与 [[guides/MecaVision-DevGuide]]。
 
-> 历史：早期曾用 `MonitorCameraSimulator` 占位、随后为海康 `HikvisionCameraApi`；2026-09-08 切麦格威并删除海康实现与 `MvCameraControl.Net` 引用。
+> 历史：早期曾用 `MonitorCameraSimulator` 占位、随后为海康 `HikvisionCameraApi`；2026-09-08 切麦格威并删除海康实现与 `MvCameraControl.Net` 引用。2026-09-09 删除 Live/PIL 模式相关接口与 UI。
 
 ## 设计决策
 
+- [[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]]：**监控相机业务边界澄清 + EmguALG 五层细化**（accepted）
 - [[decisions/ADR-037-MecaVisionMonitorCamera]]：**三层重构 + 切换麦格威 + 删除海康**（accepted）
 - [[decisions/ADR-038-EmguALGThreeLayer]]：算法模块三层改造（输入源即本模块）
-- [[decisions/ADR-007-MonitorCameraModule]]：SDK 抽象、完全解耦、Live/PIL 双模式
+- [[decisions/ADR-007-MonitorCameraModule]]：SDK 抽象、完全解耦（Live/PIL 双模式条款已被 ADR-039 废止）
 - [[decisions/ADR-003-CallbackAcquisition]]：复用回调等待取图模式
 - [[decisions/ADR-005-ConfigLayout]]：配置文件归入 Config/INI/
 
 ## 相关教训
 
-- [[guides/Namespace-Compilation]]：7 个 MonitorCam 文件已注册到 .csproj
+- [[guides/Namespace-Compilation]]：MonitorCam 文件已注册到 .csproj
 - [[guides/WinForms-UI-Threading]]：UI 事件处理均检查 InvokeRequired
-- 真编译待 Visual Studio（本环境无 C# 编译器），改动以 Python 静态校验（14/14）替代
+- 真编译待 Visual Studio（本环境无 C# 编译器），改动以 Python 静态校验替代
 
 ---
 

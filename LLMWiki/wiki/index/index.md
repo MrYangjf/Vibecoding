@@ -1,7 +1,7 @@
 # Wiki Index — AdaWeldSystem 知识库索引
 
 > 内容导向索引。AI 回答查询前必须先读取本文件定位相关页面。
-> 最后更新：2026-09-09（**全库知识治理**：删除 4 项整页失效 ADR（原 003 单算法文件 / 004 Step 状态机 / 016 CameraSelector 上提 / 026 英莱数据流）并重排为 **001~038 连续**；`modules/VirtualCam` 并入 `api/VirtualCam`；`_trash_20260908` 与根部空 `LLMWiki/` 目录清理；ADR-Index 重建两段重排映射。映射与删除对照唯一准绳 = [[decisions/ADR-Index]]）
+> 最后更新：2026-09-09（**全库知识治理**：删除 4 项整页失效 ADR（原 003 单算法文件 / 004 Step 状态机 / 016 CameraSelector 上提 / 026 英莱数据流）并重排为 **001~038 连续**；新增 **ADR-039** 监控相机业务边界澄清与 EmguALG 五层细化；`modules/VirtualCam` 并入 `api/VirtualCam`；`_trash_20260908` 与根部空 `LLMWiki/` 目录清理；ADR-Index 重建两段重排映射。映射与删除对照唯一准绳 = [[decisions/ADR-Index]]）
 > **架构真源**：`raw/architecture/` 三份原档（ADR-028） > `wiki/architecture/DeviceControlArchitecture.md` > 代码注释。**任何架构问题以 ADR-027 三态模型为准**，`decisions/` 下的旧 ADR 均为决策史，不代表现行约束。
 > **三态模型（ADR-027）**：旧「设备四态 `DeviceState` + 泛型 `DeviceWorkflowBase<TStep>` + 流程态」模型已全部删除，改为 `SubDeviceState`(连接态) / `SubDeviceWeldStatus`(焊接过程态) / `MainDeviceStatus`(主设备运行态) 三态 + 各工作流私有阶段枚举；「步骤驱动」「自动手动双流程」两套旧模型均已于 2026-09-03 清除，现行规范唯一出处 = [[architecture/DeviceControlArchitecture]]
 > **架构原档沉淀 `raw/architecture/`（ADR-028）**：**2026-09-04 扩为 3 份**——`主控设计.xlsx`（成员级静态结构）+ `激光焊接系统业务流程图20260904.md`（业务流 + 检查清单 + IO 触发 + 命令全表，**主源**）+ `激光焊接系统业务流程图.pdf`（图形备份）；旧两份 PDF 及 3 张渲染图已删除。为架构唯一修改入口，改原档→同步架构页）
@@ -63,7 +63,7 @@
 | [四、规范标准 standards](#四规范标准-standards强制) | 4 规范 + 4 深反例 | **必须遵守** |
 | [五、历史教训 lessons](#五历史教训-lessons门禁) | 19 条坑 | **编码前门禁** |
 | [六、操作指导 guides](#六操作指导-guides怎么做) | 12 本手册 | 查「怎么做」 |
-| [七、设计决策 ADR](#七设计决策-adr) | 38 条（001~038 连续），按有效性分组（编号总表 + 1 条已裁定关闭的 OPEN） | 理解「为什么」/ 查约束 |
+| [七、设计决策 ADR](#七设计决策-adr) | 39 条（001~039 连续），按有效性分组（编号总表 + 1 条已裁定关闭的 OPEN） | 理解「为什么」/ 查约束 |
 | [八、归档文档](#八归档文档) | 2 页历史 | 追溯，不引用 |
 | [九、专员职责](#九专员职责) | 10 个角色 | 分派任务 |
 | [十、来源索引](#十来源索引) | raw/ 映射 | 溯源 |
@@ -92,14 +92,14 @@
 
 | 页面 | 摘要 | 标签 |
 |------|------|------|
-| [[modules/EmguALG]] | 图像算法模块（**2026-09-08 ADR-038 三层改造**）：Abstractions + WireFeedDistance/WeldQuality 领域算法 + Manager/AlgorithmManager 统一调度；SeamRecognition/PipelineManager/焊缝上报链已删除 | #图像算法 |
+| [[modules/EmguALG]] | 图像算法模块（**2026-09-08 ADR-038 三层改造**）：Abstractions + RealtimeMonitor(WireFeedDistance/WeldQuality) + LineLaserContour + Manager/AlgorithmManager 统一调度；SeamRecognition/PipelineManager/焊缝上报链已删除；`ProfileMatRenderer` 迁入 LineLaserContour（ADR-039） | #图像算法 |
 | [[modules/PointCloudData]] | 3D点云数据处理：3DModel、DataIO、Render；**RunFileRecord 已迁出 [[modules/ProductFileManager]]（ADR-027）** | #3D #点云 |
 | [[modules/LineLaserCam]] | **线激光相机模块**（2026-09-08 三层重构 ADR-034 + **二次分工 ADR-035**）：L2 `ILineLaser/`（抽象基类 `LineLaserCameraBase` + 枚举 + 中性事件参数 `LineLaserSeamResult`/`LineLaserCalibration`）+ L3 英莱 `IntelligentLaserCam/` 与虚拟 `VirtualCam/`（**只发回调不做业务**）+ 业务层 `LineLaserManager` 单例（业务中枢：PVT 下载 / 快照 / 按需 Mat）+ `ProfileMatRenderer`/`SeamPvtFeeder`/`ProfileSnapshot`；⛔ SmartRayCam、HikRobotCam、旧 `Api/`、`CameraSelector`、`ICameraRun` 已全部删除 | #相机 #线激光 #三层架构 #管理器 #PVT #ADR-034 #ADR-035 |
 | [[modules/IntelligentLaserCam]] | 英莱(IntelligentLaser) 线激光相机模块，继承 `LineLaserCameraBase`；**ADR-035 后只做回调触发**（触发 `ResultReady`/`ProfileReady` 即返回，绘制与业务全上移 Manager），文件 1746→1324 行；硬件状态检测/帧率切换保护/实测 FPS/UI 层不直引 SDK；校准数据存中性 `LineLaserCalibration`；**相机 IP 由 `LineLaserManager.Config.SensorIp` 下发** | #相机 #英莱 #线激光 #ADR-034 #ADR-035 |
 | [[modules/MotionControl]] | 运控调整独立模块：**2026-09-07 控制器换轨台达 EtherCAT**（⛔ `API/` 与 `ZMotion/` 子目录、`MotionManager`、`MotionConfig` 已全部删除）；现行三层 `IMotion/`(L2) + `DeltaEtherCAT/`(L3) + `DeltaEtherCAT/Native/`(L1) + 业务层 `MontionManager`/`Cylinder`；`MoveControlData`（标定+计算+缓存）保持不变；`MotionControlWorkflow` 位于 `MainDeviceControl/DeviceWorkflow/`，见 [[api/MotionControlWorkflow]]；单位换算只在 L3（`Equiv`=mm/pulse）、IO 为 NPN 低电平有效 | #运控 #水平移动 #模拟 #台达 #EtherCAT |
 | [[modules/WeldParamControl]] | 焊接参数控制模块：`WeldProcess`（工艺计算/自适应调整，单例）+ `WeldDataManager`（参数持久化）；**`TriggerAdjustment()` 无参**（用内部暂存的焊缝特征与 RobotX）；配套 [[api/WeldParamControlWorkflow]] 负责「计算后下发机器人」，振镜摆幅为查表项（当前 TODO 返回 0） | #焊接 #工艺 #自适应 |
 | [[modules/LaserWeldHead]] | 激光焊接头模块：**`API/ILaserWeldHeadController.cs`** + Controller + Data（3 文件）；原 `LaserWeldHeadStateMachine.cs` 已移除，状态机职责现由 `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs` 承接 | #焊接头 #模块 |
-| [[modules/MonitorCam]] | 监控相机模块：焊前对中/焊中质检；**2026-09-08 ADR-037（accepted）三层重构 + 切换麦格威**：`IMonitorCam/`（抽象）+ `MecaVisionCam/`（实现 + Native/MVSDK.cs 官方 6885 行）+ `MonitorCamManager.cs`（业务中枢）；海康实现已删除 | #相机 #监控 |
+| [[modules/MonitorCam]] | 监控相机模块：焊前对中/焊中质检；**2026-09-08 ADR-037（accepted）三层重构 + 切换麦格威**：`IMonitorCam/`（抽象）+ `MecaVisionCam/`（实现 + Native/MVSDK.cs 官方 6885 行）+ `MonitorCamManager.cs`（业务中枢）；海康实现已删除；**2026-09-09 ADR-039 删除 Live/PIL 模式，画面由单次触发采集刷新** | #相机 #监控 |
 | [[modules/FileOperate]] | 文件操作工具库：INI、Log、XML | #工具 |
 | [[modules/Comm]] | 通讯模块：全局状态、TCP/S7/Profinet/Modbus、事件总线、**`CommBase/` 通讯实现基座（`CommBase/Ethernet/`、`CommBase/Modbus/`、`CommBase/Profinet/`、`CommBase/S7Net/` 四层 + `IntelligentLaserModbus/` 独立 Modbus 层 + `Robot/KUKARobot/`）**；NetworkPort 统一抽象层已取消（未实装）；**2026-08-19 CommunicationManager/TcpIpComm/SstTcpServer/SstTcpClient 新增标准 IDisposable.Dispose()（ADR-020）** | #通讯 |
 | [[modules/DeviceControl]] | **设备控制核心模块（三态模型）** `MainDeviceControl/`：**`DeviceStateApiCore/` 基类层**（`DeviceStateBase` 三态枚举 + `DeviceWorkflowBase` 非泛型工作流基类 + `CommandTable` 机器人握手表）+ **根目录两个独立管控类**（`DeviceControlWork` 整机运行编排 / `DeviceStatusWork` 安全·IO·状态三线程，二者**均不继承**工作流基类）+ **`DeviceWorkflow/` 实现层 5 个工作流**（LineLaser / MonitorCamera / MotionControl / WeldParamControl / LaserWeldHead）；⚠️ 目录名 ≠ 命名空间，`DeviceStateApiCore/` 下仍分属 `...DeviceState` / `...FlowState`；状态写入唯一入口 `SetState`/`SetWeldStatus`/`SetStatus`（禁手工赋值），执行步由 `RunStep` 驱动（`GoStep` 已废） | #模块 #设备控制 #状态机 #三态模型 #执行步 #MainDeviceControl #非泛型 #ADR-027 |
@@ -116,7 +116,7 @@
 | 页面 | 摘要 | 标签 |
 |------|------|------|
 | [[api/LineLaserWorkflow]] | 线激光工作流（`MainDeviceControl/DeviceWorkflow/`）：9 态分步状态机（PreWork→Starting→Working→Stopping），Working 态事件驱动触发焊接工艺计算；`WeldStatus`（焊接过程态）与 `State`（连接态）双属性；**焊缝信息即英莱线激光结果**（FeatureY/FeatureZ + Width0/Width1）；继承非泛型 `DeviceWorkflowBase`（ADR-027），状态转换走基类 `SetWeldStatus`；**2026-09-01 修正**：删工作流自建手动流程（`StartManualMode`/`StopManualMode`/`IsManualMode`），严格继承基类 `ManualStart`/`ManualStop`。⚠️ 早期「基类监听线程 + 执行步 0/10/…/900」步骤驱动机制已于 2026-09-03 清除 | #API #工作流 #状态机 #英莱 #三态模型 #非泛型 #执行步 #ADR-027 |
-| [[api/MonitorCamManager]] | 监控相机业务中枢（原 MonitorCameraRun，ADR-037 改名承接）：Lazy 单例、Live/PIL 模式、健康巡检（`StartSupervision`/`StatusChanged` 等，ADR-023 R1 自工作流下沉） | #API #相机 #监控 #健康巡检 |
+| [[api/MonitorCamManager]] | 监控相机业务中枢（原 MonitorCameraRun，ADR-037 改名承接）：Lazy 单例、**ADR-039 删除 Live/PIL 模式**、单次触发采集、健康巡检（`StartSupervision`/`StatusChanged` 等，ADR-023 R1 自工作流下沉） | #API #相机 #监控 #健康巡检 |
 | [[api/MonitorCameraWorkflow]] | 监控相机工作流（`MainDeviceControl/DeviceWorkflow/`）：**只做编排**（触发采集→调用算法→读取结果→推进流程态）；7 态（删 `Displaying`，R5）；**零自定义事件**，2026-08-31 移除 DisplayEvent/ResultEvent/ErrorAborted/ManualStopped/StatusChanged 五个越权事件，结果改 `LastResult`/`LastOverlay` 只读属性供 UI 拉取（ADR-023）。含完整迁移对照表；**2026-09-01 步骤驱动改造**：`WaitOne(5000)` → `WaitOne(0)` 非阻塞探测，执行步 0/10/20/30/800/900；**同日二次审查修复 `new Initialize()` 隐藏基类反模式**（体移入 `InitializeFlow()`，回归基类包装器） | #API #工作流 #监控 #权责边界 #ADR-023 #执行步 |
 | [[api/DeviceControlWork]] | **整机主控（DeviceControlWork，单例，不继承基类）**（`MainDeviceControl/DeviceControlWork.cs`）：**2026-09-04 ADR-029 批次 0~3 + 4.4 已落地**——7 条常驻线程（5 子设备工作线程 + 心跳 `thHeartInspectWork` + 指令交互 `thCommCommandWork`）+ §7.5 九个公共方法（`MachineFlowWorkOpen`/`MachineCommandWorkOpen`/`InitializeMachine`/`ClearMachine`/`ResetMachine`/`StartMachine`/`ClearAlarm`/`EstopMachine`/`EstopCancel`）；`MainDeviceStatus` 6 态经 `MachineStatusTrans` 校验后写入；上电初始化 5 步后拉起全部线程；机器人指令走 [[api/CommandCore]] 的 const string 队列（**不再监控 pose**，命令三槽已拆）；内部执行步机制（`WorkStep`/`GoStep`/`FailFlow`）已整体删除；模拟测试改由按需线程 `thSimTestWork` 承载 | #API #主控 #工作流 #ADR-027 #ADR-029 #7线程 |
 | [[api/FaultRecoveryManager]] | 故障恢复管理器单例（**2026-09-01 迁至 `ProductFileManager/`，命名空间 `AdaWeldSystem.ProductFileManager`**，ADR-026 §3；原 `MainDeviceControl/DeviceWorkflow/`）；自动恢复策略 `RegisterRecoveryStrategy`；**2026-08-31 起承载 `FaultCategory` 与 `FaultRecord`**（自已删除的 SafetyInterlock.cs 迁入，ADR-024）；**SQLite 持久化已下沉 [[api/FaultRecordManager]]**（ADR-026，仅留 `Persist` 做领域对象→string[] 适配）；6 消费方须 `using AdaWeldSystem.ProductFileManager`；⚠️注册 key 与记录 key 必须同源，见 [[lessons/FaultRecoveryDeviceKey]] | #API #故障恢复 #SQLite #单例 #归口 #ADR-026 |
@@ -125,10 +125,10 @@
 | [[api/CommandCore]] | **2026-09-04 新增（ADR-029 裁定 C3）** 机器人指令协议静态常量类（`MainDeviceControl/DeviceStateApiCore/CommandCore.cs`）：以 const string 取代已删除的 `CommandTable.cs`（const int 六件套 `RobotPose`/`RobotCommand`/`DeviceCommand`/`RobotPoseCode`/`SignalCode`/`InteractionTable` 全部移除）；Rx* 9 条接收指令 + Tx* 9 条下发指令 + `Normalize`/`IsKnownCommand`；**不再监控机器人 pose**，位姿类指令仅记录不驱动流程 | #API #指令协议 #机器人 #CommandCore #ADR-029 |
 | [[api/MotionControlWorkflow]] | **运控工作流**（`MainDeviceControl/DeviceWorkflow/`）：**2026-09-07 换轨改造**——删除全部 ZMotion 依赖（CamBoxTracker/EncoderAxis/RSIPositionBuffer/InterpolationEngine），私有阶段枚举改 `MotionControlPhase`（Idle/Initializing/Ready/Stopping/Error），步位 10/20/700，初始化改 `MontionManager.Instance.Initialization("台达运控", ref msg)`，对外契约不变；⛔ 原 CAMBOX 硬件实时跟踪随正运动移除，台达侧承接方案 OPEN；**2026-09-01 步骤驱动改造**：`MonitorLoop` 并入基类监听线程（`BeatMs=20`），`Start()` 由「同步完成动作」改为「受理指令」 | #API #工作流 #运控 #台达 #执行步 |
 | [[api/WeldParamControlWorkflow]] | **焊接工艺控制流程**（`MainDeviceControl/DeviceWorkflow/`）：**非设备**，输入机器人信息+线激光结果→计算功率/送丝/摆幅/速度→下发机器人；`ComputeAndOutput()` 调无参 `TriggerAdjustment()`；**不入上电级联**，由线激光触发；**2026-09-01 步骤驱动改造**：`ComputeAndOutput()` 改命令变量模式（只置 `_pendingCompute`），执行步 0/10/20/800/900，⚠️ 返回值语义变为「上一轮是否成功」 | #API #工作流 #焊接 #工艺 #功率 #送丝 #执行步 |
-| [[api/AlgorithmManager]] | EmguALG 统一调度入口（ADR-038 新建，承接原 MonitorAlgorithmManager 配置职责）：`DetectWireFeed`/`DetectWeldQuality` + 强类型配置 + 结果池化版本比对 | #API #算法 #管理器 #EmguALG |
+| [[api/AlgorithmManager]] | EmguALG 统一调度入口（ADR-038 新建，ADR-039 命名空间迁入 RealtimeMonitor）：`DetectWireFeed`/`DetectWeldQuality` + 强类型配置 + 结果池化版本比对 | #API #算法 #管理器 #EmguALG |
 | [[api/MecaVisionMVSDK-Native]] | **2026-09-08 新增** 麦格威 MVSDK 原生 API 速查（签名由 SDK 原文 `MVSDK.cs` 6885 行脚本抽取，非人工转写）：动态加载机制（`IntPtr.Size` 选 `MVCAMSDK.dll`/`MVCAMSDK_X64.dll`，禁 AnyCPU）· 33 个生产 API（初始化/采集/取帧/ISP/存图/参数/触发/闪光灯）· 4 个回调委托（`CAMERA_SNAP_PROC`/`CAMERA_CONNECTION_STATUS_CALLBACK` 等）· 核心结构体 · 13 个错误码真值（0/-1/-5/-6/-12/-13/-14/-16/-18/-25/-26/-28/-38）· 核验配方 | #API #相机 #麦格威 #MecaVision #MVSDK #速查 |
 | [[api/LineLaserManager]] | **2026-09-08 新增**（取代已删 `CameraSelector`，ADR-034）+ **同日二次分工（ADR-035）升为业务中枢**：持有 `CameraRegistry` 与 `LineLaserConfig`；注册即订阅相机事件；`SelectIntelligentLaser`/`SelectVirtual`/`Select(name)` 切换，`SetWorking` 驱动连接态并收尾 PVT 段，`LoadConfig`/`SaveConfig` 走 `Config/XML/LineLaserConfig.xml`；**业务产出** `Profile`（池化双缓冲快照 + 版本号）、`LastResult`、`ResultReady`、`MatUpdated`（⛔ `FrameReady` 已删）、`AttachYAxis(IPVTMotion)`、`SetDisplayOptions`；**具体相机类型仅在其中惰性 new 一次** | #API #相机 #线激光 #管理器 #单例 #业务层 #PVT #依赖注入 #ADR-034 #ADR-035 |
-| [[api/ProfileMatRenderer]] | **2026-09-08 新增**（ADR-035）轮廓 Mat 渲染器：英莱实现层 `ConvertContourToMatDemo` 上提业务层；`Render(cloud, calib, result)` 出 Mat，画布 834×554 一次分配终身复用（零 GC）；校准框 + 大十字架（中心改图像中心）+ 角点 + 特征点 + mm 虚线刻度 + 无校准回退自动缩放；只有 `LineLaserManager` 调用 | #API #相机 #线激光 #渲染 #GDI #ADR-035 |
+| [[api/ProfileMatRenderer]] | **2026-09-08 新增**（ADR-035）轮廓 Mat 渲染器：英莱实现层 `ConvertContourToMatDemo` 上提业务层；**2026-09-09 ADR-039 迁为 `EmguALG/LineLaserContour/LineLaserContourAlgorithm.cs`**，原内嵌类删除，接口为 `ILineLaserContourAlgorithm` | #API #相机 #线激光 #渲染 #GDI #ADR-035 #ADR-039 |
 | [[api/SeamPvtFeeder]] | **2026-09-08 新增**（ADR-035）焊缝跟踪 PVT 点下发器：结果 `FeatureY` → Y 轴 PVT 点，台达 **B 套流式**下载（`BeginMove` 起段 → 攒批 → `GetInformation` 查 `RemainBufferSize` → `ContinueMove` 续喂 → `FinishSegment` 收尾）；**只依赖 `IPVTMotion`**，不做脉冲换算；⚠️ 时间基准与速度前馈待现场实测 | #API #运控 #PVT #台达 #焊缝跟踪 #依赖注入 #ADR-035 |
 | [[api/VirtualCam]] | 虚拟调试相机（**2026-09-08 由 `VirtualCameraRun` 改名并同步文件名**）：自生成轮廓点云，继承 `LineLaserCameraBase`；ADR-035 后只触发 `ResultReady`/`ProfileReady` 不做业务；`BuildResult` 按最低点推算中性 `LineLaserSeamResult`，使模拟模式也能打通 PVT 链路 | #API #相机 #虚拟 #ADR-034 #ADR-035 |
 | [[api/IntelligentLaserCam]] | 英莱(IntelligentLaser) 工业3D线激光相机运行控制：继承 `LineLaserCameraBase`，MillionOutlineInspect 回调→mm轮廓→PointCloudData + `LineLaserSeamResult` → 触发 `ResultReady`/`ProfileReady` 后即返回；x64 + 原生 DLL 部署；托管枚举 IlFpsModel/SyncHardwareStatus/MeasuredFps/ResetMeasuredFps/FetchFpsModel；校准数据存中性 `LineLaserCalibration`（`Calibration` 属性）；**IP 由 `LineLaserManager.Config.SensorIp` 下发**；**2026-09-08 类名由 `IntelligentLaserCameraRun` 改为 `IntelligentLaserCam`（ADR-036）**；⛔ ADR-035 已删 `IsManualMode`/`ContourFrameReady`/`ContourDataReady`/`IlInspectResult`/`IlCalibrationInfo`/GDI 绘制 | #API #相机 #英莱 #线激光 #ADR-034 #ADR-035 |
@@ -229,8 +229,8 @@
 
 ## 七、设计决策（ADR）
 
-> **编号说明（2026-09-09 更新）**：现存 **001~038 共 38 条，编号连续、无断号**。
-> 编号沿革两度重排：2026-09-07（删正运动三项）、2026-09-09（删整页失效四项：原 003/004/016/026）。
+> **编号说明（2026-09-09 更新）**：现存 **001~039 共 39 条，编号连续、无断号**。
+> 编号沿革：2026-09-07（删正运动三项）、2026-09-09（删整页失效四项：原 003/004/016/026）、2026-09-09 新增 ADR-039。
 > **旧号 → 新号映射与删除对照唯一准绳 = [[decisions/ADR-Index]]**；各 ADR 页 frontmatter 的 `previous_id` 字段已移除（沿革以 ADR-Index 为准）。
 > `logs/`、代码注释与 skills 副本编号已按 09-09 映射同步；更早期归档文本中的裸编号按 ADR-Index 换算。
 
@@ -247,11 +247,12 @@
 | [[decisions/ADR-001-DisposePattern]] | 为什么使用 DisposeComponents() 而非在 .cs/Designer.cs 中重写 Dispose；**2026-08-19 澄清：DisposeComponents() 仅限 UI 设计器类且按需使用，非 UI 类统一标准 IDisposable.Dispose()（见 ADR-020）** | #决策 #UI #资源释放 |
 | [[decisions/ADR-002-CS73-Constraint]] | 为什么限制 C# 7.3 语法（MSBuild v4.0 兼容性） | #决策 #语法 |
 | [[decisions/ADR-038-EmguALGThreeLayer]] | **2026-09-08（✅ accepted）** EmguALG 三层改造：`Abstractions/` + `WireFeedDistance/`/`WeldQuality/` + `Manager/AlgorithmManager`；删旧 Job 流水线；**算子仍集中 `ImageAlgorithm.cs`**（承接原 ADR-003 算子集中约定，原页 2026-09-09 删除） | #决策 #算法 #三层架构 #EmguALG |
+| [[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]] | **2026-09-09（✅ accepted）** 监控相机业务边界澄清：2D 面阵相机无 Live/PIL 模式，画面由单次触发采集刷新；EmguALG 细化为五层，`WireFeedDistance/`/`WeldQuality/` 归入 `RealtimeMonitor/`，新增 `LineLaserContour/` | #决策 #监控相机 #算法 #五层架构 #ADR-039 |
 | [[decisions/ADR-003-CallbackAcquisition]] | 为什么 Workflow 取图使用回调等待模式；**2026-09-01 边界澄清**：其有界 `WaitOne`（上限 5000ms、超时可失败）**不违反**「单步禁阻塞等待」红线，判据「有界+可失败=合法」 | #决策 #相机 #异步 #回调 |
 | [[decisions/ADR-004-CommRefactor]] | Comm 模块重构：合并文件、移除 MachineStatus、TCPIPComm 纳入 CommunicationManager | #决策 #通讯 #重构 |
 | [[decisions/ADR-005-ConfigLayout]] | Config 文件夹按文件类型分层（INI/XML/GSDML） | #决策 #配置 #文件结构 |
 | [[decisions/ADR-006-CommXmlSeparation]] | 通讯 XML 配置按设备类型分离：RobotServer/RobotClient/PLC 独立 XML + 独立日志开关 | #决策 #通讯 #XML #配置管理 |
-| [[decisions/ADR-007-MonitorCameraModule]] | MonitorCam 监控相机模块架构：SDK 抽象、完全解耦、Live/PIL 双模式（沿革：海康实现已由 ADR-037 换麦格威；算法集中已由 ADR-038 三层化） | #决策 #相机 #监控 |
+| [[decisions/ADR-007-MonitorCameraModule]] | MonitorCam 监控相机模块架构：SDK 抽象、完全解耦（沿革：海康实现已由 ADR-037 换麦格威；算法集中已由 ADR-038 三层化；**Live/PIL 双模式条款由 ADR-039 废止**） | #决策 #相机 #监控 |
 | [[decisions/ADR-009-WorkflowAsAdjustmentDriver]] | 工作流作为调整主驱动：RunAutoAdjust → WeldProcess.TriggerAdjustment（无参），WeldProcess 仅暂存帧特征；**目录已迁 `MainDeviceControl/DeviceWorkflow/`，结论不变** | #决策 #工作流 #焊接 #驱动 |
 | [[decisions/ADR-010-MotionControlModule]] | 运控调整模块架构：模块独立、Run/Workflow 分离（沿革：控制器已换台达 ADR-032/033，虚拟相机归 LineLaserCam ADR-034） | #决策 #运控 #模块 #解耦 |
 | [[decisions/ADR-012-MonitorCamPage-AlgorithmInline]] | 监控相机页面命名与算法参数内联：`MonitorCamWorkJob` → `MonitorCamPage`，算法编辑内联右侧 panelRight；**实现控件已随 ADR-015 迁移为 AntdUI**（容器改 `System.Windows.Forms.GroupBox`、状态指示改 `AntdUI.Signal`），命名与「算法内联右侧」的决策精神不变 | #决策 #监控相机 #UI #命名 #算法编辑 |

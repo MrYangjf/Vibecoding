@@ -1,8 +1,8 @@
 ﻿---
 title: MonitorCameraWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
-updated: 2026-09-04
-tags: [API, 工作流, 监控, 权责边界, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-027, ADR-028, ADR-030]
+updated: 2026-09-09
+tags: [API, 工作流, 监控, 权责边界, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-027, ADR-028, ADR-030, ADR-039]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 ---
 
@@ -209,4 +209,4 @@ private void ShowResult()
 - [[api/AlgorithmManager]] — 算法配置管理器（`AlignmentConfig` / `QualityConfig`）
 - [[decisions/ADR-023-WorkflowResponsibilityBoundary]] — 权责边界决策
 - [[decisions/ADR-003-CallbackAcquisition]] — 回调采集（有界可失败语义）
-- [[decisions/ADR-007-MonitorCameraModule]]、[[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]]
+- [[decisions/ADR-007-MonitorCameraModule]]、[[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]]、[[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]]

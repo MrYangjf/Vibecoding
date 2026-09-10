@@ -1,11 +1,11 @@
 ﻿---
-title: ADR-042 算法模块（EmguALG）三层改造：两检测统一调度 + 点云/焊缝上报链删除
+title: ADR-038 算法模块（EmguALG）三层改造：两检测统一调度 + 点云/焊缝上报链删除
 date: 2026-09-08
 tags: [决策, EmguALG, 算法, 三层架构, PipelineManager, ADR-003]
 status: accepted
 ---
 
-# ADR-042：算法模块（EmguALG）三层改造
+# ADR-038：算法模块（EmguALG）三层改造
 
 ## 背景
 

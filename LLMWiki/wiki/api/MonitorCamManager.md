@@ -1,6 +1,7 @@
 ﻿---
-title: MonitorCamManager — 监控相机业务中枢（原 MonitorCamManager，ADR-041 三层重构后改名承接）
+title: MonitorCamManager — 监控相机业务中枢（原 MonitorCamManager，ADR-037 三层重构后改名承接）
 date: 2026-09-08
+updated: 2026-09-09
 tags: [API, 相机, 监控, 管理器, 健康巡检, MecaVision]
 source: AdaWeldSystem/MonitorCam/MonitorCamManager.cs
 ---
@@ -8,7 +9,8 @@ source: AdaWeldSystem/MonitorCam/MonitorCamManager.cs
 # MonitorCamManager — 监控相机业务中枢
 
 > `AdaWeldSystem.MonitorCam.MonitorCamManager`（`MonitorCam/MonitorCamManager.cs`）。
-> **2026-09-08 ADR-041**：原 `MonitorCamManager`（`MonitorCam/MonitorCamManager.cs`，已删除）改名承接，构造切至 `MecaVisionCam` 实现；对外唯一入口，Lazy 单例。参照线激光 ADR-039 分工：实现层只做回调触发，本类是业务中枢。
+> **2026-09-08 ADR-037**：原 `MonitorCamManager`（`MonitorCam/MonitorCamManager.cs`，已删除）改名承接，构造切至 `MecaVisionCam` 实现；对外唯一入口，Lazy 单例。参照线激光 ADR-035 分工：实现层只做取帧，本类是业务中枢。
+> **2026-09-09 ADR-039**：监控相机为 **2D 面阵相机，无 Live/PIL 模式**；删除 `IsLiveMode`、`ChangeMode`、`FrameReceived`、`StartAcquisition`/`StopAcquisition`；所有采集均为单次触发。
 
 ## 对外入口（单例）
 
@@ -16,10 +18,12 @@ source: AdaWeldSystem/MonitorCam/MonitorCamManager.cs
 |---|---|
 | `static MonitorCamManager Instance` | Lazy 单例 |
 | `Mat CurrentMat` | 最近一帧（业务层读取） |
-| `bool IsRun` | 采集中标志 |
+| `bool IsRun` | 相机是否已连接 |
 | `MonitorCameraConnectionState ConnectionState` | 连接态 |
 | `MonitorCamConfig Config` | 配置（持久化走 XML） |
 | `bool LastAcquisitionSuccess` | 最近一次采集成功与否 |
+
+> 已删除：`bool IsLiveMode`（ADR-039）。
 
 ## 模式与生命周期
 
@@ -27,9 +31,11 @@ source: AdaWeldSystem/MonitorCam/MonitorCamManager.cs
 |---|---|
 | `void OpenSensor(string ip, string port)` | 连接相机（委托实现层 `Connect`） |
 | `void SetPhase(MonitorCameraPhase phase)` | 设置当前阶段（焊前对中/焊中质检），驱动算法选择 |
-| `void ChangeMode(bool enableLive)` | Live/PIL 模式切换（`IsLiveMode`） |
-| `void SensorRunContinue()` / `void SensorStop()` | 连续采集启停 |
+| `void SensorRunContinue()` | 触发一次采集（单次触发，2D 面阵相机唯一采集方式） |
+| `void SensorStop()` | 停止采集（单次触发任务由 Task 自行结束，当前为空实现，保留以兼容既有调用方） |
 | `void Dispose()` | 释放（含实现层） |
+
+> 已删除：`void ChangeMode(bool enableLive)` / `void StartAcquisition()` / `void StopAcquisition()` / `event FrameReceived`（ADR-039）。
 
 ## 健康巡检（ADR-027 R1 自工作流下沉，保留不变）
 
@@ -46,13 +52,13 @@ source: AdaWeldSystem/MonitorCam/MonitorCamManager.cs
 
 | 成员 | 说明 |
 |---|---|
-| `static event MonitorCameraFrameCompletedHandler FrameCompletedEvent` | 帧采集完成（`AutoResetEvent AcquisitionCompletedSignal` 配合同步等待） |
+| `static event MonitorCameraFrameCompletedHandler FrameCompletedEvent` | 帧采集完成（`AutoResetEvent AcquisitionCompletedSignal` 配合同步等待）；事件参数不再携带 `IsLive` 标志（ADR-039） |
 
 ## 关联
 
 - 实现层：[[api/MecaVisionMVSDK-Native]]（`MonitorCam/MecaVisionCam/`，实现 `IMonitorCamApi`）
 - 抽象层：`MonitorCam/IMonitorCam/`（接口 + 3 枚举 + 2 事件参数）
-- 模块页：[[modules/MonitorCam]]；决策：[[decisions/ADR-037-MecaVisionMonitorCamera]]
+- 模块页：[[modules/MonitorCam]]；决策：[[decisions/ADR-037-MecaVisionMonitorCamera]]、[[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]]
 - 算法侧：[[api/AlgorithmManager]]（EmguALG.Manager，承接原 AlgorithmManager 职责）
 
-> 历史沿革：健康巡检原属 `MonitorSupervisionWorkflow`，2026-08-31 经 ADR-027 下沉至本类前身 `MonitorCamManager`（ADR-013 ②）。
+> 历史沿革：健康巡检原属 `MonitorSupervisionWorkflow`，2026-08-31 经 ADR-027 下沉至本类前身 `MonitorCamManager`（ADR-013 ②）。2026-09-09 删除 Live/PIL 模式相关业务语义。
