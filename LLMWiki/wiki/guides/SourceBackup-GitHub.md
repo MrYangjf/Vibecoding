@@ -1,22 +1,25 @@
-# AdaWeldSystem 云端源码备份（GitHub）操作手册
+# AdaWeldSystem / LLMWiki 云端源码备份（GitHub）操作手册
 
-> 把 `D:\焊接程序开发\AdaWeldSystem` 的源码备份到 GitHub 仓库 `MrYangjf/AdaWeldSys`（分支 `main`）的确定性做法。
-> 同步陷阱见 [[lessons/GitHubSyncPitfalls]]。聊天触发见用户级技能 `github-push-adaweld`。
+> 两个独立仓库备份到 GitHub，分支均为 `main`。同步陷阱见 [[lessons/GitHubSyncPitfalls]]。
+> 本页 2026-09-14 按实况重写：路径、远程 URL、凭据方式、仓数量和脚本现状均与旧版不同。
 
-## 1. 仓库初始化（已完成）
+## 1. 仓库结构（双仓）
 
-```bash
-cd /d/焊接程序开发/AdaWeldSystem
-git init -b main
-git remote add origin https://github.com/MrYangjf/AdaWeldSys.git
-```
+| 仓 | 本地路径 | 远程 |
+|---|---|---|
+| 代码 | `<工作区>/AdaWeldSystem/` | `ssh://git@ssh.github.com:443/MrYangjf/AdaWeldSys.git` |
+| 知识库 | `<工作区>/Vicoding管理平台/` | `ssh://git@ssh.github.com:443/MrYangjf/Vibecoding.git` |
 
-- 仅备份 `AdaWeldSystem` 目录（工作区另两大目录 `Vicoding管理平台/`、`AdaWeldSystem` 之外的文件不纳入）。
-- 默认分支 `main`，远程默认分支也已设为 `main`。
+- `<工作区>` 指 `D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy`。
+- **工作区根目录自身不是 git 仓**——两个子目录各为独立仓，顶层无 `.git`。推 LLMWiki 要进 `Vicoding管理平台/`，推代码要进 `AdaWeldSystem/`。
+- 顶层的备份包（`AdaWeldSystem_backup_*.tar.gz`、`LLMWiki_backup_*.tar.gz`）**不在任何仓库内**，属本地快照，不入库。
+- 默认分支 `main`。
 
 ## 2. 忽略规则（`.gitignore`）
 
-必须忽略编译产物与第三方大体积二进制，仓库只留源码：
+两仓各自维护一份。
+
+**代码仓**——只留源码，忽略编译产物与第三方大体积二进制：
 
 ```gitignore
 bin/
@@ -25,9 +28,11 @@ obj/
 [Oo]bj/
 *.user
 *.suo
+*.userosscache
+.sln.docstates
 .vs/
 .code-review-graph/
-3rdDepend/        # 第三方 DLL 约 200MB，本地保留，绝不入库
+3rdDepend/
 Thumbs.db
 Desktop.ini
 .DS_Store
@@ -35,62 +40,77 @@ Desktop.ini
 ~$*
 ```
 
-> ⚠️ `3rdDepend/` 是第三方依赖（OpenCV/Emgu/Skia 等），约 200MB，误提交会撑爆仓库、拖慢 clone。**永远不要把它加进版本控制。**
+> ⚠️ `3rdDepend/` 实测 **380 MB / 127 个 DLL**，单文件最大 `EtherCAT_DLL_x64.dll` **160 MB**——**已超 GitHub 100 MB 单文件硬限制**，一旦入库推送会被直接拒绝。**永远不要把它加进版本控制。**
 
-## 3. 凭据（HTTPS + PAT，免密）
+**知识库仓**——忽略构建产物、本地备份包与临时脚本：
 
-PAT 写入本机 `~/.git-credentials`（仅 home，不进工作区）：
-
-```bash
-git config --global credential.helper store
-printf 'https://MrYangjf:<PAT>@github.com\n' > ~/.git-credentials
-chmod 600 ~/.git-credentials
+```gitignore
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.pyc
+__pycache__/
+.vs/
+*.user
+*_backup_*.tar.gz
+LLMWiki_backup_*.tar.gz
+_tmp_*.py
 ```
 
-- 首次推送即完成认证，之后全自动免密。
-- PAT 若在对话中明文出现过，**立即到 GitHub 撤销重发**并更新该文件。
+## 3. 凭据（SSH over 443）
 
-## 4. 确定性同步脚本 `ada_backup.sh`（核心）
+两仓远程均为 **SSH**（非 HTTPS + PAT），端口走 **443** 以穿透受限网络：
 
-所有推送/拉取/校验都锁死在这个脚本里，**不要手写散命令**，避免非快进、漏提交、误提交。
+```bash
+ssh -T -p 443 git@ssh.github.com
+# 期望输出：Hi <user>! You've successfully authenticated, but GitHub does not provide shell access.
+```
 
-位置：`C:\Users\MrYang\ada_backup.sh`（Git Bash 运行）。
+- 依赖本机 SSH 私钥（`~/.ssh/`），**无需** `~/.git-credentials`，也**不要**在仓库或工作区留存任何 token。
+- 改远程：`git remote set-url origin ssh://git@ssh.github.com:443/<owner>/<repo>.git`。
+- 沿革：早期曾用 HTTPS + PAT 明文写 `~/.git-credentials`，该方案已废弃（风险见 [[lessons/GitHubSyncPitfalls]] ③）。
 
-| 子命令 | 行为 |
-|---|---|
-| `bash ada_backup.sh push [提交信息]` | `add -A` → 有改动才 `commit` → `push origin main`；若远端有新提交自动 `fetch+rebase` 再推；rebase 冲突立即 `abort` 并报错 |
-| `bash ada_backup.sh pull` | `fetch` + `rebase` 到本地；冲突即 `abort` 报错 |
-| `bash ada_backup.sh status` / `verify` | 单命令内 `fetch` 后比对本地/远端，报告 `ahead`/`behind`/`dirty`/`3rdDepend 误跟踪` |
+## 4. 推送流程
 
-设计要点：**不依赖 `origin/main` 本地跟踪引用**（沙箱不落盘，见 [[lessons/GitHubSyncPitfalls]]），改用 `git ls-remote` 直连 GitHub 取远端 HEAD 的 SHA 做比对，推送直接 `git push`，rebase 用该 SHA。所有比较都不需要本地 `origin/main`。
+~~早期封装的确定性脚本 `ada_backup.sh` 与其聊天触发技能 `github-push-adaweld` 均已退役~~（工具与脚本都不存在了，**不要再去调用**）。现按裸命令流程操作，**逐仓各执行一遍**：
+
+```bash
+cd <仓根>
+git status --porcelain | head          # 先看改动面貌
+git add -A
+git diff --cached --shortstat          # 复核改动规模
+git commit -F - <<'MSGEOF'
+<提交信息>
+MSGEOF
+git push origin main
+```
+
+推送前的**必做四查**见 [[lessons/GitHubSyncPitfalls]] ⑦——尤其是大文件排查与删除项对账。
 
 ## 5. 本地 / 远端一致性校验
 
-`ada_backup.sh status` 输出示例：
-
-```
-本地 HEAD : ac502e5...
-远端 HEAD : ac502e5...
-ahead(本地领先)  : 0
-behind(本地落后) : 0
-工作区未提交改动  : 0
-3rdDepend 误跟踪 : 0 (应为 0)
+```bash
+cd <仓根>
+git rev-parse HEAD ; git rev-parse origin/main    # 两个 SHA 应相同
+git status --short                                # 应为空
+git ls-remote origin main | cut -c1-12            # 远端 HEAD 的权威取值
 ```
 
-- 四项全 0 → 退出码 0，表示本地与远端完全一致、工作区干净。
-- 任一非 0 → 退出码 1，按提示 `push` 或 `pull` 同步。
-- `3rdDepend 误跟踪` 必须恒为 0，否则说明忽略规则被破坏。
+- 三项全绿（本地 SHA = 远程 SHA + 工作区干净 + `rev-parse origin/main` 吻合）即为完全同步。
+- `git ls-remote` 是唯一权威的远端取值方式，**不依赖**本地 `origin/main` 跟踪引用（该引用在部分环境下跨命令不落盘，见 [[lessons/GitHubSyncPitfalls]] ①）。
 
 ## 6. 排错
 
 | 现象 | 处理 |
 |---|---|
-| `push` 报 non-fast-forward | 脚本已自动 `fetch+rebase`；若 rebase 冲突，脚本 `abort` 后按提示手动解决冲突再 `push`。**禁止 `--force`** |
-| 认证失败 | 检查 `~/.git-credentials` 中 PAT 是否有效（GitHub 可撤销/重发） |
-| `status` 显示 `behind>0` | 本地落后，运行 `bash ada_backup.sh pull` |
-| `status` 显示 `ahead>0` 或 `dirty>0` | 本地有未同步改动，运行 `bash ada_backup.sh push` |
-| `3rdDepend 误跟踪 >0` | 立即 `git rm -r --cached 3rdDepend` 并从提交中移除，确认 `.gitignore` 含 `3rdDepend/` |
+| `push` 报 non-fast-forward | 先 `git fetch origin main` 再 `git rebase origin/main`；冲突立即 `git rebase --abort` 报错。**禁止 `--force`** |
+| SSH 连接超时 | 确认走的是 `ssh.github.com:443` 而非 `github.com:22`；用 `ssh -T -p 443 git@ssh.github.com` 单独测 |
+| `ssh -T` 报 Permission denied | 检查私钥是否加载（`ssh-add -l`）、公钥是否已加到 GitHub 账号 |
+| 工作区出现大批 `D` 删除项 | **先对账再提交**——可能只是目录改名（应被识别为 `R`）而非真删，见 [[lessons/GitHubSyncPitfalls]] ⑥ |
+| `3rdDepend 误跟踪 >0` | 立即 `git rm -r --cached 3rdDepend`，确认 `.gitignore` 含 `3rdDepend/` |
+| 提交后远端仍缺文件 | 确认进对了仓（代码 / 知识库是两个独立仓，见第 1 节） |
 
 ## 7. 持续校验（可选自动化）
 
-可建每日/定期自动化运行 `bash ada_backup.sh status`，一旦发现本地与远端漂移即向用户报告，实现"时刻检验本地文件夹是否匹配"。
+可建定期自动化运行第 5 节的校验命令，发现本地与远端漂移即报告。
