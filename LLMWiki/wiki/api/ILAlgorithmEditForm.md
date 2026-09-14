@@ -14,10 +14,10 @@ tags: [API, UI, 算法, 配置, SubDialog, Modal]
 
 | 项 | 值 |
 |----|----|
-| 命名空间 | `AdaWeldSystem.Sub3UI` |
+| 命名空间 | `AdaWeldSystem.UIDesign.SubDialog.IntelligentLaserDialog` |
 | 基类 | `AntdUI.Window`（窗体对话框，AntdUI 无 UIForm2 基类） |
 | 文件 | `UIDesign/SubDialog/IntelligentLaserDialog/ILAlgorithmEditForm.cs` + `.Designer.cs` |
-| 调用方 | `Sub2UI/LLCamWorkJob.cs`（现役 `UIDesign/TabPage/ILCamPage.cs`） 的 `btnEditJob_Click`（经 `ShowDialog(this)`），**替代原 TODO** |
+| 调用方 | `AdaWeldSystem.UIDesign.TabPage.ILCamPage`（原 `Sub2UI/LLCamWorkJob.cs`） 的 `btnEditJob_Click`（经 `ShowDialog(this)`），**替代原 TODO** |
 | 关联模块 | [[modules/EmguALG]]、[[modules/UIDesign]]、[[modules/IntelligentLaserCam]]、[[api/IntelligentLaserCam]] |
 
 ## 构造函数

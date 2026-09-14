@@ -1,12 +1,21 @@
 ---
-title: Profinet GSDML 开发笔记
+title: Profinet GSDML 开发笔记（已废弃）
 date: 2026-07-01
-tags: [API, Profinet, PLC, GSDML, 通讯]
+tags: [API, Profinet, PLC, GSDML, 通讯, 已废弃]
 source: 网络公开资料整理
 module: Comm
+status: deprecated
 ---
 
 # Profinet GSDML 开发笔记
+
+> ⛔ **本页已废弃（2026-09-14，[[decisions/ADR-045-CommModuleRefactor]]）**
+>
+> | 项 | 处置 |
+> |---|---|
+> | 旧机制 | `Comm/CommBase/Profinet/GSDMLGenerator.cs` 生成 GSDML 到 `Config/GSDML/` |
+> | 处置 | 用户裁定**不做 Profinet 封装**：生成器物理删除、`CommunicationType.Profinet` 枚举成员清除、CommPage 仅保留"已移除"提示文案 |
+> | 现行实践 | PLC 通讯走西门子 S7（`SiemensS7Comm`，经 [[modules/Comm]] 的 Manager 访问）；本页仅存档 GSDML 格式参考知识 |
 
 > **所属模块**：[[modules/Comm]] — Profinet 设备描述文件（GSDML）生成开发参考，基于网络公开资料整理。
 
@@ -87,8 +96,8 @@ module: Comm
 
 ## 6. 项目实现
 
-- `Comm/Profinet/GSDMLGenerator.cs` — 生成 GSDML 文件到 `Config/GSDML/` 目录（ADR-007）。
-- 生成后导入 TIA Portal 配置现场设备，配合专用硬件实现 IO 数据交换。
+- ~~`Comm/Profinet/GSDMLGenerator.cs` — 生成 GSDML 文件到 `Config/GSDML/` 目录~~（已移除，2026-09-14 ADR-045）。
+- 生成后导入 TIA Portal 配置现场设备，配合专用硬件实现 IO 数据交换。（已随生成器移除，本节仅存档）
 
 ## 7. 注意事项
 

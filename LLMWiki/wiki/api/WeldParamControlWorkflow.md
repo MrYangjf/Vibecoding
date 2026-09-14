@@ -1,8 +1,8 @@
 ﻿---
 title: WeldParamControlWorkflow API 参考（焊接工艺控制流程 · 三态模型）
 date: 2026-09-02
-updated: 2026-09-04
-tags: [API, 工作流, 焊接, 工艺, 功率, 送丝, 振镜, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-028, ADR-030]
+updated: 2026-09-14
+tags: [API, 工作流, 焊接, 工艺, 功率, 送丝, 振镜, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-028, ADR-030, ADR-041]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs
 ---
 
@@ -16,6 +16,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.
 
 > **✅ 2026-09-04 已落地（ADR-030 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`，`StepIdle` 内消费 `_pendingCompute` 触发变量）、`RunStep` 每 case 靠 bool 推进。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/`FailFlow`（基类自造）/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
+> **ℹ️ 2026-09-14（ADR-041）**：参数与算法承载者 ~~`WeldProcess`~~ → [[api/WeldParamManager]]；配置持久化 ~~`WeldDataManager`~~ → 并入 [[api/WeldParamManager]]；本类逻辑与步位**不变**，仅把旧引用替换为 `WeldParamManager.Instance`。
+> **⛔ 同日第三次修订**：线激光引导配置脱离本类——~~`_seamGuide` 字段~~ / ~~`SeamGuide` 属性~~ / ~~`SaveSeamGuide()` 方法~~ **已删除**，`SEAM_GUIDE` 段随配置实例移交 [[api/WeldParamManager]]（`Config/XML/WeldParamControl.xml`）。本类不再有任何配置实例。
 
 ---
 
@@ -25,7 +27,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.
 
 ```
 输入：机器人信息（RobotX）+ 线激光结果（焊缝宽度/特征）
-  ↓ WeldProcess.TriggerAdjustment()（无参，用其内部暂存的最近帧特征）
+  ↓ WeldParamManager.TriggerAdjustment()（无参，内部取配置与机器人坐标）
 分析计算：滑动平滑 + 查找表匹配 + 灵敏度判定
   ↓
 输出：焊接功率 / 送丝速度 / 振镜摆幅 / 焊接速度（WeldParamOutput）
@@ -46,7 +48,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.
 | `Instance` | `static WeldParamControlWorkflow` | `Lazy<T>` 单例 |
 | `StateName` | `override string` | 对外名片名，返回 `Tag`（日志/事件标识） |
 | `IsParamReady` | `bool` | 工艺参数是否已就绪（等价于连接态 `Connect`） |
-| `ConsecutiveFailureCount` | `int` | 连续失败次数（**直通** `WeldProcess.Instance`） |
+| `ConsecutiveFailureCount` | `int` | 连续失败次数（**直通** `WeldParamManager.Instance`） |
 | `LastOutput` | `WeldParamOutput` | 最近一次计算结果（**类级复用实例**，供 UI 折线图读取） |
 | `State` / `WeldStatus` | 基类属性 | 连接态（`SubDeviceState`）/ 焊接过程态（`SubDeviceWeldStatus`） |
 | `RunStep` / `StepWorkTime` / `WorkStepName` / `StepStatusText` | 基类属性 | 执行步 / 步骤用时 / 步中文名 / 可观测摘要 |
@@ -121,31 +123,30 @@ public bool ComputeAndOutput()
 
 **⚠️ 返回值语义（重要）**：计算被挪到编排线程（无自带线程）后，返回的是**上一轮 `_output.Success`**。调用方若需本轮结果，请在 `WeldStatusChanged` 收到 `Standby`/`ErrorAborted` 后读 `LastOutput.Success`（ADR-027 R4「推状态 + 拉数据」）。当前唯一调用方 `LineLaserWorkflow.RunAutoAdjust`（硬件 CAMBOX 未运行时）不使用返回值，无兼容问题。
 
-**关键**：`WeldProcess.TriggerAdjustment()` 是**无参**方法，内部用 `OnAlgorithmCompleted` 暂存的 `_lastSeamFeature` / `_lastRobotX`——**不要给它加参数**。
+**关键**：`WeldParamManager.TriggerAdjustment()` 是**无参**方法，内部取用 Manager 持有的 `CurrentAutoParam` / `IsCountType` / `CountNum` / `CurrentRobotX`——**不要给它加参数**（[[decisions/ADR-009-WorkflowAsAdjustmentDriver]]）。
 
 ### LoadParameters()（载入 → Standby）
 
-`SetPhase(Initializing)` → `WeldDataManager.Instance.ReloadCurrentParamValues()` → 校验 `WeldProcess.Instance.CurrentAutoParam`（null → `SetPhase(Uninitialized)` + false）→ `SetPhase(Standby)` + true；异常 → `SetPhase(ErrorAborted)` + false。
+`SetPhase(Initializing)` → `WeldParamManager.Instance.ReloadCurrentParamValues()` → 校验 `WeldParamManager.Instance.CurrentAutoParam`（null → `SetPhase(Uninitialized)` + false）→ `SetPhase(Standby)` + true；异常 → `SetPhase(ErrorAborted)` + false。
 
 ### SwitchParameter(configId) / Complete()
 
-- `SwitchParameter`：`WeldDataManager.Instance.SwitchConfig(configId)` → `LoadParameters()`；异常 → `SetPhase(ErrorAborted)`。
+- `SwitchParameter`：`WeldParamManager.Instance.SwitchConfig(configId)` → `LoadParameters()`；异常 → `SetPhase(ErrorAborted)`。
 - `Complete()`：`SetPhase(Standby, "本轮焊接完成，工艺控制回到待机")`（本轮焊接结束由主设备调用）。
 
 ### 数据链路（焊缝信息即英莱线激光的结果）
 
 ```
-英莱线激光取像 → 回调含 FeatureY/FeatureZ（特征点）、Width0/Width1（宽度）
-  → LineLaserWorkflow 构造 SeamFeatureResult 经 PipelineManager.ReportExternalResult 上报
-  → WeldProcess.OnAlgorithmCompleted 暂存 _lastSeamFeature / _lastRobotX
+线激光结果（焊缝宽度）+ 机器人 RobotX
   → WeldParamControlWorkflow.ComputeAndOutput()（只置 _pendingCompute）
-  → DoCompute()(10): wp.TriggerAdjustment()【无参】→ 平滑 + 查表 + 灵敏度判定 → FillOutput
+  → DoCompute()(10): WeldParamManager.Instance.TriggerAdjustment()【无参】
+       → WeldParamAdjustmentAlgorithm.ExecuteAdjustment（平滑 + 查表 + 灵敏度判定）→ FillOutput
   → DoOutput()(20): SendToRobot → KUKA → 成功收尾
 ```
 
 ### 振镜摆幅：TODO（查表项，非公式）
 
-`CalcGalvoAmplitude(wp)` 当前占位返回 `0.0`（不摆动），不影响其余三项工艺参数下发。规划在 `AutoParamManager` 新增 `WeaveWidth` **分段查找表**（与焊缝宽度关联，同送丝/速度/功率三张表的匹配方式）——⛔ 不要用自创公式（如 `(SeamWidth - LaserDiameter) / 2`），那是未经验证的推导。
+`CalcGalvoAmplitude(wp)` 当前占位返回 `0.0`（不摆动），不影响其余三项工艺参数下发。规划在 `AutoParamHelper` 新增 `WeaveWidth` **分段查找表**（与焊缝宽度关联，同送丝/速度/功率三张表的匹配方式）——⛔ 不要用自创公式（如 `(SeamWidth - LaserDiameter) / 2`），那是未经验证的推导。
 
 ---
 
@@ -176,7 +177,16 @@ public bool ComputeAndOutput()
 |---|---|---|
 | `TimeOutSeconds` | 30 | 基类超时阈值（秒） |
 
-`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/XML/WeldParamControlWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。工艺参数本体由 `WeldDataManager` / `WeldProcess` 承载，不落本配置。
+`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/XML/WeldParamControlWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。工艺参数本体由 `WeldParamManager` 承载，不落本配置。
+
+> **2026-09-11（ADR-040）**：构造函数即调 `LoadConfig()`（此前无调用方）。
+> **⛔ 2026-09-14（ADR-041 第三次修订）本类配置不再承载 `SEAM_GUIDE` 段**：线激光引导标定与修正参数
+> （`ENABLE_GUIDE` / `AXIS_MM_PER_LASER_MM` / `LASER_ZERO_MM` / `GUIDE_SIGN` / `NO_VALUE_TOLERANCE_MM` /
+> `OUTLIER_LIMIT_MM` / `MONOTONIC_WINDOW_MM` / `MONOTONIC_DEADBAND_MM` / `BATCH_SIZE` / `MIN_REMAIN_BUFFER` /
+> `FRAME_SECONDS` / `MAX_OUTPUT_INTERVAL_MS` / `MAX_PENDING_POINTS`）
+> 随配置实例一并移交 [[api/WeldParamManager]]，落在 `Config/XML/WeldParamControl.xml`。
+> 原只读属性 `SeamGuide`、方法 `SaveSeamGuide()` 与私有字段 `_seamGuide` **已删除**；
+> `LoadConfig` / `SaveConfig` 只读写 `TimeOutSeconds`。配置清单见 [[api/WeldParamManager]]。
 
 ---
 
@@ -220,7 +230,8 @@ var last = wf.LastOutput;              // 最近一轮结果（功率/送丝/速
 - [[modules/WeldParamControl]] — 模块说明（含完整数据链路）
 - [[modules/DeviceControl]] — 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
-- [[api/WeldDataManager]] — 焊接数据管理器（参数载入/切换）
+- [[api/WeldParamManager]] — 参数、算法与配置持久化的唯一入口（ADR-041）
 - [[api/LineLaserWorkflow]] — 唯一触发方（Working 态逐帧 `ComputeAndOutput`）
+- [[api/SeamTrackingAlgorithm]] — 线激光引导轨迹算法（配置由 [[api/WeldParamManager]] 自持自载，本类不再参与）
 - [[decisions/ADR-009-WorkflowAsAdjustmentDriver]] — 单一驱动源决策
 - [[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]] — 三态模型与原档细化裁定

@@ -1,5 +1,5 @@
 ﻿---
-title: ADR-024 线激光工作流分步重构（switch-case + step）
+title: ADR-021 线激光工作流分步重构（switch-case + step）
 date: 2026-08-20
 status: accepted
 ---
@@ -8,7 +8,7 @@ status: accepted
 > 「由主设备分步驱动 / GoStep 改步」的步驱动机制已于 2026-09-03 整体清除（ADR-029 裁定 C1/C6），
 > 现行流程推进唯一出处 = [[architecture/DeviceControlArchitecture]] §5（`RunStep` bool 驱动）。
 
-# ADR-024 线激光工作流分步重构（switch-case + step）
+# ADR-021 线激光工作流分步重构（switch-case + step）
 
 ## 背景
 

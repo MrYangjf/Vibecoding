@@ -7,17 +7,17 @@ source: AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs
 
 # MotionControlPage — 运控调整参数页
 
-> 运控调整的人机参数入口，作为 `NavPage`（参数界面实例）的**工艺配置**子页挂载。2026-07-17 由 `Sub3UI/MotionControlParamForm`（误置弹窗目录、代码内构建）迁入 `Sub2UI` 并改为**设计器生成**（`.Designer.cs` 布局），符合 NavPage 子页均位于 Sub2UI 的既有约定。
+> 运控调整的人机参数入口，作为 `NavPage`（参数界面实例）的**工艺配置**子页挂载。2026-07-17 由 `Sub3UI/MotionControlParamForm`（误置弹窗目录、代码内构建）迁入 `UIDesign/TabPage/` 并改为**设计器生成**（`.Designer.cs` 布局），符合 NavPage 子页均位于 `UIDesign.TabPage` 的既有约定。
 
 ## 基本信息
 
 | 项 | 值 |
 |----|----|
-| 类 | `AdaWeldSystem.Sub2UI.MotionControlPage` |
+| 类 | `AdaWeldSystem.UIDesign.TabPage.MotionControlPage` |
 | 基类 | `UserControl`（AntdUI 无 UIPage 基类，页面以 `UserControl` 承载，由 NavPage 的 `AntdUI.Tabs` 挂载；容器标题由 `GroupBox.Text` 承载） |
 | 文件 | `UIDesign/TabPage/MotionControlPage.cs` + `.Designer.cs` |
 | 挂载 | `ControlPage/NavPage.cs`：经 NavPage.LoadTabs() 挂载（`uiTabControl1.AddTabSelect(tab)`），节点归参数界面「工艺配置」父节点 |
-| 命名空间依赖 | `AdaWeldSystem.Comm`、`AdaWeldSystem.VirtualCam`、`AdaWeldSystem.MotionControl` |
+| 命名空间依赖 | `AdaWeldSystem.Comm.SystemComm`、`AdaWeldSystem.LineLaserCam.VirtualCam`、`AdaWeldSystem.MotionControl` |
 
 ## 界面构成（设计器生成，`.Designer.cs`）
 
@@ -65,4 +65,4 @@ source: AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs
 
 ---
 
-*来源：AdaWeldSystem/UIDesign/Sub2UI/MotionControlPage.cs + .Designer.cs*
+*来源：AdaWeldSystem/UIDesign/TabPage/MotionControlPage.cs + .Designer.cs*

@@ -1,4 +1,4 @@
-﻿---
+---
 title: API — FaultRecoveryManager 故障恢复管理器（+ FaultRecord / FaultCategory）
 date: 2026-08-31
 tags: [API, 故障恢复, SQLite, 单例, Safety, FaultRecord, 已废弃]
@@ -65,7 +65,7 @@ status: deprecated
 - 库：`DataBase/FaultRecord.db`（持久化实现下沉 [[api/FaultRecordManager]]，ADR-027），表 `FaultRecord`
 - 列：`Time`(24) / `Device`(32) / `State`(16) / `Category`(16) / `ErrorCode`(32) / `ParamSnapshot`(200) / `AutoRecovered`(8) / `RecoveryAction`(64)
 - 写入失败仅记 Warning 日志，不抛出异常中断调用链
-- **为何 `Persist()` 不随 SQLite 实现一起下沉**：它只做「`FaultRecord` 领域对象 → `string[]` 值数组」映射 + 按列宽截断 + 失败记 Warning，**不含任何 SQLite 代码**。若搬进 `SqlLiteDatabase`，DB 层就必须引用 `FaultRecord` 领域类型，直接违反 ADR-027「DB 层不得反向依赖业务层」红线。这是分层取舍，不是漏拆。
+- **为何 `Persist()` 不随 SQLite 实现一起下沉**：它只做「`FaultRecord` 领域对象 → `string[]` 值数组」映射 + 按列宽截断 + 失败记 Warning，**不含任何 SQLite 代码**。若搬进 `SQLiteDatabase`，DB 层就必须引用 `FaultRecord` 领域类型，直接违反 ADR-027「DB 层不得反向依赖业务层」红线。这是分层取舍，不是漏拆。
 
 ### 消费方（6 处，均在 `MainDeviceControl/`）
 

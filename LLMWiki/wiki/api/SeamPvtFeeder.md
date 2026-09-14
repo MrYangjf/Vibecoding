@@ -1,13 +1,21 @@
 ﻿---
-title: API — SeamPvtFeeder 焊缝跟踪 PVT 点下发器
+title: API — SeamPvtFeeder 焊缝跟踪 PVT 点下发器（⛔ 已废弃）
 date: 2026-09-08
-tags: [API, 运控, PVT, 台达, 焊缝跟踪, 依赖注入, ADR-039]
-source: AdaWeldSystem/LineLaserCam/LineLaserManager.cs
+updated: 2026-09-11
+status: deprecated
+tags: [API, 运控, PVT, 台达, 焊缝跟踪, 依赖注入, ADR-039, 已废弃]
+source: AdaWeldSystem/LineLaserCam/LineLaserManager.cs（已删除）
 ---
 
-# API — SeamPvtFeeder 焊缝跟踪 PVT 点下发器
+# API — SeamPvtFeeder 焊缝跟踪 PVT 点下发器（⛔ 已废弃）
 
-> **2026-09-08 归并（ADR-040）**：本类不再单独立文件，与 `LineLaserManager` 同驻 `LineLaserCam/LineLaserManager.cs`。
+> ⛔ **2026-09-11 整类删除（ADR-040）**：本类已从代码库移除。线激光结果**不再直写 PVT**——
+> 新增 [[api/SeamTrajectoryBuilder]]（`WeldParamControl/SeamGuide/`）承接「滤波 + 超限剔除 + 单调约束 + 标定转换 + PVT 写入」，
+> 由 [[api/MotionControlWorkflow]] 在控制器流程中调用。本页仅作历史沿革保留，**不得据其改码**。
+> 迁移对照：`Attach`→`AttachAxis`、`Feed`→`Feed(结果, 帧率, 轴当前位置)`、`Reset`→`Reset`、`FinishSegment`→`Finish`，
+> 新增 `Tick`（250ms 强制输出节拍）与 `HasFault`（无值超限报警）；PVT 三项配置从 `LineLaserConfig` 迁至 `SeamGuideConfig`。
+
+> **2026-09-08 归并**：本类曾与 `LineLaserManager` 同驻 `LineLaserCam/LineLaserManager.cs`。
 > **位置**：`LineLaserCam/LineLaserManager.cs`（命名空间 `AdaWeldSystem.LineLaserCam`）
 > **2026-09-08 新增（ADR-039）**：把线激光识别结果（焊缝特征点横向坐标 `FeatureY`）换算为 Y 轴 PVT 轨迹点，
 > 按台达 **B 套流式**持续下载——`BeginMove` 起段 → 攒批 → 查缓冲区水位 → `ContinueMove` 续喂 → `FinishSegment` 收尾。

@@ -69,9 +69,10 @@ MonitorCamManager.SensorRunContinue() 触发一次采集
 
 - **算法**：经 [[modules/EmguALG]] 的 `AlgorithmManager.Instance.DetectWireFeed/DetectWeldQuality` 调用（原为直调 `ImageAlgorithm`，ADR-038 后统一走 Manager）
 - **算法参数**：由 `EmguALG/Manager/AlgorithmManager` 持有强类型配置（`WireFeedConfig` / `WeldQualityConfig`），持久化 `Config/INI/MonitorAlgorithm.ini`
-- **UI**：由 [[modules/UIDesign]] 的 `Sub2UI/MonitorCamPage` 页面驱动与展示（画面由检测触发后刷新，无实时预览开关）
+- **UI**：由 [[modules/UIDesign]] 的 `UIDesign.TabPage/MonitorCamPage` 页面驱动与展示（画面由检测触发后刷新，无实时预览开关）
 - **解耦**：单向依赖 `Comm`（日志）与 `EmguALG`；不反向依赖工作流
 - **配置**：INI 落盘遵循 [[decisions/ADR-005-ConfigLayout]]
+- **参照范式**：本模块是 [[standards/ModuleOrganizationPattern]] 的**场景 A（基于第三方库 MecaVision MVSDK）**样本——`IMonitorCam/` 抽象 + `MecaVisionCam/`（含 `Native/MVSDK.cs`）实现 + `MonitorCamManager` 唯一入口
 
 ## 相机实现（MecaVisionCam）— 2026-09-08 落地
 

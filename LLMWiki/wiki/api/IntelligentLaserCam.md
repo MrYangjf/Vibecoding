@@ -14,7 +14,8 @@ source: AdaWeldSystem/LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs
 >
 > **2026-09-08 二次分工（ADR-039）**：本类**只做回调触发，不做业务处理**。已删除 ⛔`ConvertContourToMatDemo`/画布/`_currentMat`、⛔`IsManualMode`、⛔`ContourFrameReady`/`ContourDataReady`/`ContourDataEventArgs`、⛔`NotifyFrameReady`/`EnsureCanvas`/`CalcTwoLineCrossPoint`、⛔`IlInspectResult`/`IlCalibrationInfo`；
 > 新增/改型：`LastInspectResult` → `LineLaserSeamResult`（struct）、`Calibration` → `LineLaserCalibration`，回调尾部只调 `RaiseResultReady(snapResult, fps)` + `RaiseProfileReady(cloud, fps)`。
-> 业务（PVT 点下载 / Mat 生成 / 快照刷新）全部上移 [[api/LineLaserManager]]，绘制上移 [[api/ProfileMatRenderer]]。文件 1746 行 → 1324 行。
+> 业务（结果转发 / Mat 生成 / 快照刷新）全部上移 [[api/LineLaserManager]]，绘制上移 [[api/ProfileMatRenderer]]。文件 1746 行 → 1324 行。
+> ⚠️ **2026-09-11（ADR-040）**：结果侧「Y 轴 PVT 点下载」已从 `LineLaserManager` 迁至 [[api/SeamTrajectoryBuilder]]，相机回调链路本身不变（仍只 `RaiseResultReady`）。
 > SDK 包装为厂商 CppSharp 生成的 `IntelligentLaser_CSharp.dll`（.Net Framework 构建，供 .NET 4.8），无需手写 P/Invoke。开发手册见 [[api/IntelligentLaserSDK_CSharp_DevManual]]。
 
 ## 数据链路
@@ -26,7 +27,7 @@ MillionOutlineInspect 回调（原生线程）— ADR-039 后只做三件事
    → ① PointCloudData.AddPoint(0, YPos, ZPos)               [托管点云]
    → ② InspectResult[0] → LineLaserSeamResult 快照（_ilLock 保护）
    → ③ _acquisitionCompletedSignal.Set()
-        → RaiseResultReady(snapResult, _measuredFps)   [结果处理 → Manager: PVT 点下载]
+        → RaiseResultReady(snapResult, _measuredFps)   [结果处理 → Manager 只转发（ADR-040）]
         → RaiseProfileReady(cloud, _measuredFps)       [轮廓处理 → Manager: 记录/快照/显示 Mat]
    → 返回（回调内不做绘制、不做业务）
 
@@ -77,7 +78,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 | `int LastContourPointCount { get; }` | 最近一次毫米轮廓点数量（MillionOutline 回调内更新，供页面显示轮廓点数） |
 | `LineLaserCalibration Calibration { get; }` | **校准数据快照（2026-09-08 改型，ADR-039）**：`override` 基类虚属性，返回中性结构 `LineLaserCalibration`（`ILineLaser/`，Center + 4 角点，mm，`[0]=Y 横向 / [1]=Z 高度`，`HasData` 标记）。由 `InternalRefCornerPts` 回调填充（`_calibLock` 保护）。⛔ 原 `IlCalibrationInfo`/`CalibrationInfo` 已删除。供 `LineLaserManager` 调 [[api/ProfileMatRenderer]] 绘制校准框/十字架 |
 | ~~`event EventHandler ContourFrameReady`~~ | **2026-09-08 已删除（ADR-039）**：显示事件改由业务层发出——`LineLaserManager.MatUpdated`（`LineLaserMatEventArgs`），`ILCamPage` 订阅之。原节流 ~20fps（50ms）逻辑随之删除 |
-| ~~`event EventHandler<ContourDataEventArgs> ContourDataReady`~~ | **2026-09-08 已删除（ADR-039，拆为两个中性回调）**：改为 `LineLaserCameraBase` 的 `ResultReady`（`LineLaserResultEventArgs`，带 `LineLaserSeamResult` + 实测帧率）与 `ProfileReady`（`LineLaserProfileEventArgs`，带 `PointCloudData` + 实测帧率）。二者在回调尾部无条件触发（原「自动模式才外传」的分支取消），由 `LineLaserManager` 注册并处理：`ResultReady` → `SeamPvtFeeder` 下载 Y 轴 PVT 点；`ProfileReady` → 记录入库 + 快照刷新 + 显示 Mat。⛔ 直接订阅本类事件的旧写法（`LineLaserWorkflow` / `MainPage`）已全部改订阅 `LineLaserManager` |
+| ~~`event EventHandler<ContourDataEventArgs> ContourDataReady`~~ | **2026-09-08 已删除（ADR-039，拆为两个中性回调）**：改为 `LineLaserCameraBase` 的 `ResultReady`（`LineLaserResultEventArgs`，带 `LineLaserSeamResult` + 实测帧率）与 `ProfileReady`（`LineLaserProfileEventArgs`，带 `PointCloudData` + 实测帧率）。二者在回调尾部无条件触发（原「自动模式才外传」的分支取消），由 `LineLaserManager` 注册并处理：`ResultReady` → 缓存 + 转发（⛔ **不再由 `SeamPvtFeeder` 写 PVT**，Y 轴轨迹改由 [[api/SeamTrajectoryBuilder]] 承接，ADR-040）；`ProfileReady` → 记录入库 + 快照刷新 + 显示 Mat。⛔ 直接订阅本类事件的旧写法（`LineLaserWorkflow` / `MainPage`）已全部改订阅 `LineLaserManager` |
 | `int FetchCurrentJobId()` | 获取当前 JOB ID（`FetchJobInfo`；⚠️ dwCmd=0 查询语义待真机验证） |
 | `List<IlJobDescInfo> FetchJobList()` | **2026-08-24 新增**：读取运行目录 `IntelligentLaser_jobdesclist.json`（连接相机后原生 SDK 自动落盘，**这是「全部 Job 号」的官方数据源**，SDK 无枚举 API 但落盘 JSON 提供），返回全部 Job 描述（Id/JointType/JobDescribe）；文件缺失/解析失败返回空列表，不缓存不兜底 |
 | `IlJobDescInfo GetCurrentJobInfo()` | **2026-08-24 新增**：当前 JOB 完整描述（`FetchCurrentJobId` + `FetchJobList` 按 id 匹配）；未连接/查不到返回 null。供 UI 展示当前 JOB 与接头类型 |
@@ -103,7 +104,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 | **相机参数（基础参数）** | `IntelligentSensorBaseParams` / `FetchSensorBaseParam`·`SetSensorBaseParam` | 曝光(`Exptime`·uint)、激光强度(`Power`·uint)、抗弧光/伽马(`Gama`·float)、温度(`FTempCpu` 只读) | `IlCameraParam` + `FetchCameraParams`/`ApplyCameraParams` |
 | **Job 参数（算法参数）** | `TIntelligentJobParam` / `FetchJobParamter`·`SetJobParamter` | 焊缝接头种类、特征点、向量等算法参数（名称/类型/范围由 SDK 初始化回调下发，**不硬编码**） | `IlJobParamInfo` + `FetchAllJobParams`/`ApplyJobParams` |
 
-> 相机参数编辑 UI 为 `Sub3UI/ILParamForm`（Table 单元格编辑曝光/激光强度/抗弧光）；Job 参数编辑在 `Sub3UI/ILAlgorithmEditForm` 模块 B（`ILAlgoForm`）。
+> 相机参数编辑 UI 为 `AdaWeldSystem.UIDesign.SubDialog.IntelligentLaserDialog/ILParamForm`（Table 单元格编辑曝光/激光强度/抗弧光）；Job 参数编辑在 `AdaWeldSystem.UIDesign.SubDialog.IntelligentLaserDialog/ILAlgorithmEditForm` 模块 B（`ILAlgoForm`）。
 
 ## 校准数据（InternalRefCornerPts，显示画面）
 
@@ -133,7 +134,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 
 ## Job Parameter（英莱算法参数）
 
-英莱相机自带一套**设备侧 Job Parameter**（焊缝接头种类、特征点、向量等算法参数，名称/类型/范围由 SDK 初始化回调下发，**不硬编码**），与 EmguALG 的 `PipelineConfig`（项目算法参数）是两套完全不同的参数体系。二者已合并进同一 UI 窗体 `Sub3UI/ILAlgorithmEditForm`（见 [[api/ILAlgorithmEditForm]] 模块 B），但后端由本类以 `IlJobParamInfo` 托管缓存封装，**UI 绝不直连 `IntelligentLaser_export`**（呼应 [[api/IntelligentLaserSDK_CSharp_DevManual]] §7「参数读写封装进相机模块」）。
+英莱相机自带一套**设备侧 Job Parameter**（焊缝接头种类、特征点、向量等算法参数，名称/类型/范围由 SDK 初始化回调下发，**不硬编码**），与 EmguALG 的 `PipelineConfig`（项目算法参数）是两套完全不同的参数体系。二者已合并进同一 UI 窗体 `AdaWeldSystem.UIDesign.SubDialog.IntelligentLaserDialog/ILAlgorithmEditForm`（见 [[api/ILAlgorithmEditForm]] 模块 B），但后端由本类以 `IlJobParamInfo` 托管缓存封装，**UI 绝不直连 `IntelligentLaser_export`**（呼应 [[api/IntelligentLaserSDK_CSharp_DevManual]] §7「参数读写封装进相机模块」）。
 
 ### 数据契约 IlJobParamInfo（命名空间级托管类）
 `ValueType`：`1=string` / `2=float` / `3=int`；范围仅 float/int 有效。字段：`Name`/`StringValue`/`FloatValue(double)`/`IntValue(long)`/`HasRange`/`FloatMin/FloatMax`/`IntMin/IntMax`。
@@ -166,7 +167,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 - **回调释放竞态防护（2026-08-20 下午，第四层防御）**：新增 `_activeCallbacks` 引用计数器（`Interlocked.Increment/Decrement` + `try/finally`），三个回调均参与计数；新增 `WaitForCallbacksToFinish()` 自旋等待归零（超时 2s，超时记警告仍继续释放避免死锁）；`DisconnectManual` / `ReleaseNativeResources` 在关传感器 + 反初始化 SDK 后、释放委托 GCHandle 前等待回调归零 + `Thread.Sleep(50)`，消除「关传感器→释放委托」之间在途回调触发 `CallbackOnCollectedDelegate` 的竞态窗口。高帧率下回退中在途回调更多，此层防御尤为关键。详见 [[lessons/IntelligentLaser-Pitfalls]] 第 6 章。
 - **务必 Dispose 回调包装**：`__GetOrCreateInstance` 拿到的是拥有原生内存的包装对象，必须 `using` 释放，否则 100Hz 下每帧泄漏（见 [[api/IntelligentLaserSDK_CSharp_DevManual]] 第 4 条约定）。所有原生字段读取在 `using` 块内完成，`Mat` 在块外由托管 `PointCloudData` 生成。
 - **raw-Marshal 规避 GC 压力**：弃用 `ContourData.PointArray` 的托管 getter（每帧 `new` 2048 个 FPoint 包装），改用 `contour.__Instance` 基址 + `IntPtr.Add` + **全限定 `System.Runtime.InteropServices.Marshal.Copy` + `System.BitConverter.ToSingle`** 直接读 `FPoint`（y@0 / z@4），读完即走（彻底规避 SDK 命名空间遮蔽 BCL `Marshal` 的编译错误，见 [[lessons/IntelligentLaser-Pitfalls]]）。
-- **SDK 自有算法结果捕获（InspectResult）**：同一 `MillionOutlineInspect` 回调在读取轮廓后，额外在 `using` 块内读取 `inspect.InspectResult[0]`（`RuntimeInspectResult`：ParseRes / CurrentFeaturePoint.YPos-ZPos(mm) / Width[2] / HeightOrDepth[2] / Area / Angles[3] / Radii[2] / Vec[2] / Timestamp），拷贝进线程安全快照 **`LineLaserSeamResult`**（`_ilLock` 保护 `_lastInspect`），经 `LastInspectResult` 暴露（⛔ `HasInspectResult` 已删，改用 `Valid`）。**ADR-039 后**：该快照在回调尾部直接作为 `RaiseResultReady` 的载荷交给 `LineLaserManager`（→ `SeamPvtFeeder` → Y 轴 PVT），不再等人来轮询。工作流 `AnalyzeImage()` 据此走英莱自有算法路线（详见下方「算法路线分支」）。
+- **SDK 自有算法结果捕获（InspectResult）**：同一 `MillionOutlineInspect` 回调在读取轮廓后，额外在 `using` 块内读取 `inspect.InspectResult[0]`（`RuntimeInspectResult`：ParseRes / CurrentFeaturePoint.YPos-ZPos(mm) / Width[2] / HeightOrDepth[2] / Area / Angles[3] / Radii[2] / Vec[2] / Timestamp），拷贝进线程安全快照 **`LineLaserSeamResult`**（`_ilLock` 保护 `_lastInspect`），经 `LastInspectResult` 暴露（⛔ `HasInspectResult` 已删，改用 `Valid`）。**ADR-039 后**：该快照在回调尾部直接作为 `RaiseResultReady` 的载荷交给 `LineLaserManager`（→ 转发，⛔ **ADR-040 起不再由相机模块侧写 PVT**），不再等人来轮询。工作流 `AnalyzeImage()` 据此走英莱自有算法路线（详见下方「算法路线分支」）。
 - ⛔ ~~**轮廓 Mat 复用持久画布（2026-08-26 重构）**~~：**2026-09-08 随绘制代码一并上提（ADR-039）**。`_canvasBmp`/`_canvasG`/`_matLock`/`EnsureCanvas`/`UpdateCurrentMatFromCanvas` 均已从本类删除；复用画布的责任转由 [[api/ProfileMatRenderer]] 承担（画布 + Mat 一次分配终身复用，`Dispose()` 统一释放，日志标签「线激光渲染器」）。本类 Dispose 内改为 `UpdateDisplayMat(null)` 交还基类。
 - ⛔ ~~**回调驱动显示（2026-08-17）**~~：**2026-09-08 已删除 `NotifyFrameReady` / `ContourFrameReady`（ADR-039）**。现行两条显示路径：**手动 UI 页**（`ILCamPage`）订阅 `LineLaserManager.Instance.MatUpdated`（业务层在 `DisplayEnabled` 为真时才生成 Mat，故天然低频）；**主页面轮廓**改为**线程轮询** `LineLaserManager.Instance.Profile` 快照（33ms + 版本号比对），不再走相机回调——60Hz 回调直接压 UI 线程是原设计的隐患，见 [[decisions/ADR-035-LineLaserResponsibilitySplit]] D5。英莱官方 demo「回调更新画面」的结论**仅适用于同进程低频画面**，本项目主页面不适用。
 - **校准数据双回调（2026-08-17 / 2026-09-08 改型）**：`RegisterCallbacks()` 在轮廓回调之外额外注册 `InternalRefCornerPts` 校准回调（`_cbCalibration` 存字段防 GC），`CalibrationCallback` 在 `using` 块内把 `IntelligentCalibrationInfo`（中心点+4角点）拷贝进 **`LineLaserCalibration`** 快照（`_calibLock` 保护），经 `override Calibration` 暴露。⛔ 绘制不再由本类执行：`LineLaserManager` 取 `Active.Calibration` 传给 [[api/ProfileMatRenderer]]（绘制内容同下：黄色校准框 + 浅灰大十字架 + 浅绿角点/中心点 + 红色特征点，无校准回退自动缩放画法）。
@@ -176,7 +177,7 @@ InternalRefCornerPts 回调（原生线程，校准数据）
 
 英莱 SDK 自带算法与反馈，`IntelligentLaserCameraRun` 将每帧 `InspectResult[0]` 捕获为 `LineLaserSeamResult` 快照（⛔ 原 `IlInspectResult` 已于 2026-09-08 删除，ADR-039）。工作流 `LineLaserWorkflow` 经 `LineLaserManager.Instance.ResultReady` 拿到结果后分支（详见 [[api/LineLaserWorkflow]]）：
 
-- **英莱 + `ParseRes==1`（有有效识别）**：直接以 `LineLaserSeamResult` 构造 `SeamFeatureResult`（FeatureY→CenterY、FeatureZ→CenterX、平均 Width→SeamWidth、Area→SeamArea），经 `PipelineManager.ReportExternalResult(...)` 复用类级 `_completedArgs` 触发 `AlgorithmCompleted`，下游 `WeldProcess`/`MotionControlWorkflow` 照常消费焊缝特征；**不再运行 Emgu 通用管线**，满足"启用英莱相机时算法走自己路线"的诉求。显示沿用当前轮廓帧（`_lastResultMat = _lastAcquiredMat`）。
+- **英莱 + `ParseRes==1`（有有效识别）**：直接以 `LineLaserSeamResult` 构造 `SeamFeatureResult`（FeatureY→CenterY、FeatureZ→CenterX、平均 Width→SeamWidth、Area→SeamArea），经 `PipelineManager.ReportExternalResult(...)` 复用类级 `_completedArgs` 触发 `AlgorithmCompleted`，下游 ~~`WeldProcess`~~ [[api/WeldParamManager]]/`MotionControlWorkflow` 消费焊缝特征（2026-09-14 ADR-041）；**不再运行 Emgu 通用管线**，满足"启用英莱相机时算法走自己路线"的诉求。显示沿用当前轮廓帧（`_lastResultMat = _lastAcquiredMat`）。
 - **英莱但 `ParseRes!=1`（本帧无有效识别）/ 其他相机**：回退 `PipelineManager.Instance.Execute(_lastAcquiredMat, robotX)` 通用 Emgu 管线，与 SmartRay/Virtual 一致。
 - 坐标映射（FeatureY/Z → CenterY/X）为按物理 mm 的初步对齐，具体标定关系需现场复核（见交付报告已知局限）。
 

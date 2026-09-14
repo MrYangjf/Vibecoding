@@ -17,7 +17,7 @@ tags: [教训, UI, AntdUI, Modal, 编译错误, 重载解析]
 
 事实依据（`[[guides/AntdUI-Reference]]` 的 Message/Modal owner 规范明确 "Modal owner = Control"）：
 - `System.Windows.Forms.Form` 是 `Control` 的子类，`Form.ActiveForm` / `this.FindForm()` 作为 Modal owner 完全合法；
-- 项目内 `FileOperate/XMLfile.cs` 同款 `Form.ActiveForm` 作为 owner 的写法可正常编译。
+- 项目内 `FileOperate/XdocumentReaderWriter.cs` 同款 `Form.ActiveForm` 作为 owner 的写法可正常编译。
 
 ## 修复（以本例为准）
 - 真正缺失的是第三参数：本例 content 本应是方法参数 `msg`（字符串内容），但 `else` 分支误写为未定义的 `m`（`m` 仅存在于 `BeginInvoke` 的 lambda 形参作用域）。将 `m` 改为 `msg` 后两条错误**同时消失**。

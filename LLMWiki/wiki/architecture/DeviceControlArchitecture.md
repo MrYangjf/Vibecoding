@@ -1,4 +1,4 @@
-﻿---
+---
 title: 设备控制架构 — MainDeviceControl（三态模型 + RunStep 驱动工作流）
 date: 2026-09-03
 tags: [架构, 设备控制, 状态机, 三态模型, SubDeviceState, SubDeviceWeldStatus, MainDeviceStatus, 工作流, MainDeviceControl, 线程模型, CommandCore]
@@ -636,25 +636,23 @@ EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 子设备�
 ### 8.2 数据链路（焊缝信息 = 英莱线激光的结果）
 
 ```
-英莱线激光相机取像
-  ↓ 回调 IlInspectResult 直接携带：FeatureY/FeatureZ（特征点）、Width0/Width1（宽度）
-LineLaserWorkflow.OnContourFrameReady
-  ↓ 构造 SeamFeatureResult：sf.CenterY=ir.FeatureY, sf.CenterX=ir.FeatureZ,
-    sf.SeamWidth=(ir.Width0+ir.Width1)*0.5, sf.SeamArea=ir.Area
-PipelineManager.Instance.ReportExternalResult(sf, robotX, null)
+配置层（INI / ConfigHelper / AutoParamHelper + WeldAlgorithmsConfig → Config/XML/WeldParamControl.xml）
+  ↓ WeldParamManager 构造时统一载入
+WeldParamManager.Instance.CurrentAutoParam + 查找表 + 轨迹算法配置（含线激光引导标定）
   ↓
-WeldProcess.OnAlgorithmCompleted
-  ↓ 暂存 _lastSeamFeature / _lastRobotX
-WeldParamControlWorkflow.ComputeAndOutput()
-  ↓ 调用 WeldProcess.TriggerAdjustment()【无参，用上一步暂存值】
-  ↓ 滑动平滑 + 查找表匹配 + 灵敏度判定
+线激光结果（焊缝宽度）+ 机器人 RobotX
+  ↓
+WeldParamControlWorkflow.ComputeAndOutput()（只置 _pendingCompute）
+  ↓ 调用 WeldParamManager.TriggerAdjustment()【无参，ADR-009】
+  ↓ WeldParamAdjustmentAlgorithm.ExecuteAdjustment：滑动平滑 + 查表匹配 + 灵敏度判定
 WeldParamOutput（功率/送丝/速度/摆幅）
   ↓ SendToRobot → 下发机器人
 ```
 
 **关键点**：
 - 英莱回调**本就含特征点与宽度**，链路本就通；本工作流补的是「计算后下发到机器人」这一环
-- `WeldProcess.TriggerAdjustment()` 是**无参**方法（内部用 `OnAlgorithmCompleted` 暂存的 `_lastSeamFeature`/`_lastRobotX`），**不要给它加参数**
+- `WeldParamManager.TriggerAdjustment()` 是**无参**方法（内部取用 Manager 的配置与 `CurrentRobotX`），**不要给它加参数**（2026-09-14 ADR-041：原 `WeldProcess` 已删除）
+- `WeldParamManager` 同时承担配置持久化（原 `WeldDataManager` 职责 + 焊接算法配置 `WeldAlgorithmsConfig`（线激光引导 `SEAM_GUIDE` + 参数调整 `WELD_PARAM_ADJUST` 两节合一），自有 `Config/XML/WeldParamControl.xml`）与算法持有，是 WeldParamControl 模块唯一外部入口；⛔ 外部不得持有或 `new` 配置实例（ADR-041 第三次修订 / ADR-044）
 
 ### 8.3 不入上电级联
 
@@ -859,16 +857,16 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 | 模块 | 职责 | 备注 |
 |---|---|---|
 | `MainDeviceControl` | 设备控制中枢：三态基类 + 5 个子设备工作流 + 2 个整机管控类 | 依赖最广，见本页 §2 目录结构 |
-| `LineLaserCam` | 线激光相机（SmartRay / HikRobot / VirtualCam / IntelligentLaserCam + `Api` 接口层） | `Api` 子层为独立命名空间 `LineLaserCamApi` |
+| `LineLaserCam` | 线激光相机（`ILineLaser/` 抽象 + `IntelligentLaserCam/` + `VirtualCam/` + 业务层） | 旧 `Api/` 独立命名空间 `LineLaserCamApi` 已删除（ADR-038 三层重构） |
 | `MonitorCam` | 监控相机（`MonitorCameraRun` + `Api` 算法管理） | 健康巡检已下沉 `MonitorCameraRun` |
 | `MotionControl` | 运控（台达 EtherCAT 三层：`IMotion/` L2 · `DeltaEtherCAT/` L3 · `Native/` L1；业务层 `MontionManager` + 三张注册表 / `MoveControlData`） | 见本页 §10 |
-| `WeldParamControl` | 焊接工艺（`WeldProcess` + `WeldDataManager`） | 由 `WeldParamControlWorkflow` 驱动 |
+| `WeldParamControl` | 焊接工艺（`WeldParamManager` 统一管理参数、算法与配置持久化） | 由 `WeldParamControlWorkflow` 驱动 |
 | `Comm` | 顶层通讯（`CommunicationManager` / PLC / Robot / KUKA / Modbus） | 机器人与 PLC 连接唯一持有者 |
 | `EmguALG` | 算法管道（`PipelineManager` / 焊缝识别 / ROI / 实时监视） | |
-| `UIDesign` | UI 层，含三个子命名空间 `Sub1UI` / `Sub2UI` / `Sub3UI` | AntdUI，见 [[decisions/ADR-015-UIFrameworkMigration]] |
+| `UIDesign` | UI 层，命名空间随目录（`UIDesign.MainWindow` / `.ControlPage` / `.TabPage` / `.SubDialog.<业务域>`，ADR-048） | AntdUI，见 [[decisions/ADR-015-UIFrameworkMigration]] |
 | `LaserWeldHead` | 焊接头（接口 + 控制器 + 数据模型） | |
 | `FileOperate` | 文件与日志 | |
-| `SqlLiteDatabase` | SQLite 持久化（含 `FaultRecord.db`） | |
+| `SQLiteDatabase` | SQLite 持久化（权限 / 配置 / 自动参数 / 产品数据） | |
 | `PCLOperate` | 3D 点云数据处理（模块名沿用 `PointCloudData`，见 [[modules/PointCloudData]]） | |
 | `ProductFileManager` | 产品文件管理 | |
 
@@ -884,13 +882,12 @@ graph TD
     UIDesign --> EmguALG
     UIDesign --> FileOperate
     UIDesign --> LineLaserCam
-    UIDesign --> LineLaserCamApi
     UIDesign --> MainDeviceControl
     UIDesign --> MonitorCam
     UIDesign --> MotionControl
     UIDesign --> PCLOperate
     UIDesign --> ProductFileManager
-    UIDesign --> SqlLiteDatabase
+    UIDesign --> SQLiteDatabase
     UIDesign --> WeldParamControl
 
     MainDeviceControl --> Comm
@@ -898,10 +895,9 @@ graph TD
     MainDeviceControl --> FileOperate
     MainDeviceControl --> LaserWeldHead
     MainDeviceControl --> LineLaserCam
-    MainDeviceControl --> LineLaserCamApi
     MainDeviceControl --> MonitorCam
     MainDeviceControl --> MotionControl
-    MainDeviceControl --> SqlLiteDatabase
+    MainDeviceControl --> SQLiteDatabase
     MainDeviceControl --> WeldParamControl
 
     EmguALG --> Comm
@@ -915,13 +911,12 @@ graph TD
     WeldParamControl --> FileOperate
     WeldParamControl --> MotionControl
     WeldParamControl --> ProductFileManager
-    WeldParamControl --> SqlLiteDatabase
+    WeldParamControl --> SQLiteDatabase
 
     LineLaserCam --> Comm
     LineLaserCam --> EmguALG
     LineLaserCam --> PCLOperate
     LineLaserCam --> ProductFileManager
-    LineLaserCam <--> LineLaserCamApi
 
     MonitorCam --> Comm
     MonitorCam --> EmguALG
@@ -932,10 +927,10 @@ graph TD
     MotionControl --> FileOperate
 
     Comm --> FileOperate
-    Comm --> SqlLiteDatabase
+    Comm --> SQLiteDatabase
 
-    SqlLiteDatabase --> Comm
-    SqlLiteDatabase --> WeldParamControl
+    SQLiteDatabase --> Comm
+    SQLiteDatabase --> WeldParamControl
 
     PCLOperate --> Comm
     PCLOperate --> FileOperate
@@ -945,7 +940,7 @@ graph TD
     FileOperate --> Comm
 ```
 
-> **`LineLaserCam <--> LineLaserCamApi` 是同模块内的接口/实现双向引用**（`Api/` 子层为独立命名空间），非跨模块环，属设计内正常。
+> **`LineLaserCam` 内部接口/实现双向引用**（`ILineLaser/` 抽象 ↔ `IntelligentLaserCam/` 等实现）属同模块内正常；旧 `LineLaserCamApi` 独立命名空间已删除，不再构成依赖图节点。
 
 ---
 
@@ -954,10 +949,10 @@ graph TD
 | 循环 | 涉及 | 风险 | 建议 |
 |---|---|---|---|
 | `Comm` ↔ `FileOperate` | 通讯 ↔ 文件/日志 | 低 | 日志系统收敛为只写接口，通讯不再反向依赖 |
-| `Comm` ↔ `SqlLiteDatabase` | 通讯 ↔ 持久化 | 低 | 提取共享数据模型到独立层 |
+| `Comm` ↔ `SQLiteDatabase` | 通讯 ↔ 持久化 | 低 | 提取共享数据模型到独立层 |
 | `EmguALG` ↔ `WeldParamControl` | 算法管道 ↔ 焊接工艺 | 中 | 算法结果经 `SeamFeatureResult` 单向上报，工艺层不再反向 using 算法管道 |
-| `SqlLiteDatabase` ↔ `WeldParamControl` | 持久化 ↔ 焊接工艺 | 低 | 焊接数据仓储上提为接口 |
-| `ProductFileManager` ↔ `MainDeviceControl` | 记录归口 ↔ 设备控制层 | 低 | **2026-09-01 新增且刻意保留**：`DeviceWorkflow/` 下 5 个子工作流 + 2 个管控类引用本模块记故障，`FaultRecord.State` 反向引用 `MainDeviceControl.DeviceState` 的 `SubDeviceWeldStatus`（七态）枚举。仅限枚举级，不涉及工作流层；断开须改 State 为 string 或下沉枚举，已评估后放弃 |
+| `SQLiteDatabase` ↔ `WeldParamControl` | 持久化 ↔ 焊接工艺 | 低 | 焊接数据仓储上提为接口 |
+| `ProductFileManager` ↔ `MainDeviceControl` | 记录归口 ↔ 设备控制层 | 低 | **2026-09-01 新增且刻意保留**：`DeviceWorkflow/` 下 5 个子工作流 + 2 个管控类引用本模块记故障，`FaultRecord.State` 反向引用 `MainDeviceControl.DeviceStateApiCore` 的 `SubDeviceWeldStatus`（七态）枚举。仅限枚举级，不涉及工作流层；断开须改 State 为 string 或下沉枚举，已评估后放弃 |
 
 > 上述环由 `using` 静态推导得出，**改造前须确认是真实耦合还是冗余 using**（冗余 using 应直接删除而非重构）。
 > 环数由 4 组增至 5 组（2026-09-01，ADR-027 §3），新增的 `ProductFileManager` ↔ `MainDeviceControl` 为**有意设计**，非待清理项。
@@ -967,9 +962,9 @@ graph TD
 ### 11.4 核心调用链（当前事实）
 
 1. **图像采集链**：`LineLaserCam`（`CameraSelector` 选 SmartRay / HikRobot / VirtualCam / IntelligentLaserCam）→ `MainDeviceControl/LineLaserWorkflow` → `EmguALG.PipelineManager`
-2. **焊缝特征链**：`EmguALG.PipelineManager` → `SeamFeatureResult` 上报 → `WeldParamControl.WeldProcess` → `WeldParamControlWorkflow.ComputeAndOutput()` → 下发机器人
+2. **焊缝参数链**：线激光焊缝结果 → `WeldParamControl.WeldParamManager` → `WeldParamControlWorkflow.ComputeAndOutput()` → 下发机器人
 3. **运控纠偏链**：`MainDeviceControl/MotionControlWorkflow` → `MotionControl.MontionManager.Instance` 装配台达控制器 → `DeltaEtherCAT/` 轴对象 → 输出 Y 纠偏（跟踪用高级运动方案 OPEN：ECAM2 / 虚拟轴+GearIn / PVT）
-4. **监控链**：`MonitorCam.MonitorCameraRun` → `MonitorCameraWorkflow`（健康巡检在 `MonitorCameraRun` 内）→ UI `Sub2UI/MonitorCamPage`
+4. **监控链**：`MonitorCam.MonitorCameraRun` → `MonitorCameraWorkflow`（健康巡检在 `MonitorCameraRun` 内）→ UI `UIDesign.TabPage/MonitorCamPage`
 5. **模拟链**：`DeviceControlWork`（`SimTestMode`，归并自原 SimulationWorkflow）→ `LineLaserWorkflow` 选虚拟相机 + 共享 robotX → 同生产链路上报 → `MotionControlWorkflow` 切「运动/仅记录」
 6. **安全链**：`DeviceStatusWork`（三线程：IOWork 50ms 互锁轮询 → `SafetyInterlockChecker.Check()`；EMGWork 50ms 急停轮询 → `EStopMachine`；StatusWork 50ms 反射）→ 失败 `ReportAlarm`（ADR-032：状态切换零日志）
 7. **自动初始化链**：`DeviceControlWork.InitializeMachine()` → **通讯优先开启（机器人/PLC 与子设备同级）→ 焊接头 → 运控 → 线激光 → 监控相机**（ADR-031 D2）→ 全部就绪保持 NoReset 待复位，失败置 Alarm
@@ -984,7 +979,7 @@ graph TD
 | 流程编排 | `MainDeviceControl` | 可依赖所有设备与算法模块；**不得被设备/算法模块反向依赖**（权责边界见 [[standards/WorkflowResponsibilityBoundary]]） |
 | 设备/算法 | `LineLaserCam` / `MonitorCam` / `MotionControl` / `LaserWeldHead` / `EmguALG` | 只产出数据与结果，**不引用流程层** |
 | 工艺 | `WeldParamControl` | 接收算法结果，输出焊接参数 |
-| 基础 | `Comm` / `FileOperate` / `SqlLiteDatabase` / `PCLOperate` / `ProductFileManager` | 被上层依赖，尽量不反向依赖业务模块 |
+| 基础 | `Comm` / `FileOperate` / `SQLiteDatabase` / `PCLOperate` / `ProductFileManager` | 被上层依赖，尽量不反向依赖业务模块 |
 
 ---
 
@@ -995,7 +990,7 @@ graph TD
 | 模块 | 关系 |
 |---|---|
 | [[modules/Comm]] | **提供**机器人 / PLC 的**通讯方法和管理**；`DeviceControlWork` 是**实际使用方**，在 `InitializeMachine` 中调用其方法完成通讯 Open + Connect On（裁定 C5，见 §7.4） |
-| [[modules/WeldParamControl]] | `WeldProcess` 提供工艺计算能力，由 `WeldParamControlWorkflow` 驱动 |
+| [[modules/WeldParamControl]] | `WeldParamManager` 提供工艺计算能力，由 `WeldParamControlWorkflow` 驱动 |
 | [[modules/LineLaserCam]] | 英莱线激光相机，焊缝信息源头 |
 | [[modules/EmguALG]] | 算法管道 `PipelineManager`，承载 `SeamFeatureResult` 上报 |
 | [[modules/MotionControl]] | 运控硬件层，台达 PCI-L221 EtherCAT 主站（三层架构） |
@@ -1021,7 +1016,7 @@ UI 读取状态时须区分三个层级（ADR-028 三态模型）：
 
 **UI 侧范式（推状态 + 拉数据）**：先订阅设备与流程的状态事件，状态转完成后再拉取流程只读属性渲染数据。
 
-各 UI 文件须引入 `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;`（读设备态/事件参数时另需 `using AdaWeldSystem.MainDeviceControl.DeviceState;`）。
+各 UI 文件须引入 `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;`（读设备态/事件参数时另需 `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;`）。
 
 当前接入的 UI 文件：`FormMain.cs`、`ILCamPage.cs`、`MonitorCamPage.cs`、`MotionControlPage.cs`、`MainPage.cs`
 
@@ -1598,7 +1593,7 @@ public class MachineStatusWork
 
 ### 16.8 D1 落地模板：本项目 XML 配置读写
 
-**为什么不用参考的 `XmlReader`/`XmlWriter`**：参考项目是流式读写（调用方持有读取器逐个节点解析），本项目已有统一的配置读写器 `AdaWeldSystem/FileOperate/XMLfile.cs`（`XdocumentReaderWriter`，基于 `XDocument` / LINQ to XML），**默认目录 `AppDomain.CurrentDomain.BaseDirectory + "Config\XML\"`**，构造时传入文件名（无扩展名自动补 `.xml`），目录不存在自动创建、文件不存在自动新建并保存。引入两套 XML 体系会分裂配置管理，故统一走本项目写法。
+**为什么不用参考的 `XmlReader`/`XmlWriter`**：参考项目是流式读写（调用方持有读取器逐个节点解析），本项目已有统一的配置读写器 `AdaWeldSystem/FileOperate/XdocumentReaderWriter.cs`（`XdocumentReaderWriter`，基于 `XDocument` / LINQ to XML），**默认目录 `AppDomain.CurrentDomain.BaseDirectory + "Config\XML\"`**，构造时传入文件名（无扩展名自动补 `.xml`），目录不存在自动创建、文件不存在自动新建并保存。引入两套 XML 体系会分裂配置管理，故统一走本项目写法。
 
 **子设备 workflow 增加的配置路径成员（每个子设备各一个）**
 

@@ -15,7 +15,12 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 > 设计依据 [[decisions/ADR-032-MotionControllerDeltaReplacement]]、[[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]。
 
 > **✅ 2026-09-07 控制器换轨改造**：删除全部正运动（ZMotion）依赖（原 `CamBoxTracker` / `EncoderAxis` / `RSIPositionBuffer` / `InterpolationEngine` 及其 `Tracker` 属性），相位枚举由 `LaserCamBoxWorkflowState` 改为 **`MotionControlPhase`**，初始化改走 `MontionManager.Instance.Initialization("台达运控", ref msg)`。**对外契约（`Instance` / `Start()` / `Stop(bool)` / `IsRunning` / `WeldStatus` / `StateName`）保持不变**，UI 侧 [[api/MotionControlPage]] 无需改动。
-> ⚠️ **OPEN**：焊缝跟踪的高级运动方案未定（候选 ECAM2 电子凸轮 / 虚拟主轴 + GearIn / PVT），因此本类当前**只到「伺服使能 + 就绪」**，不含轨迹跟踪步骤。
+> **✅ 2026-09-11 线激光引导接入（ADR-040）**：焊缝跟踪方案落定为 **PVT B 套流式**（相机前置 50mm，见 [[modules/LineLaserCam]]）。
+> **✅ 2026-09-14 演进（ADR-041）**：`SeamTrajectoryBuilder` 已改为 `SeamTrackingAlgorithm` 并纳入 `WeldParamManager` 管理；
+> 本类只负责**轨迹点缓冲区管理**与**控制器写入**（`BeginMove` / `ContinueMove`），算法计算由 [[api/WeldParamManager]] 代理。
+> 本类在 `Ready` 相位周期驱动：订阅 `LineLaserManager.ResultReady`、`LineLaserWorkflow` 进入 `Working` 时 `ResetSeamTracking()` 起段并逐帧 `FeedSeamTracking`、
+> `TickSeamTracking()` 保证 ≤250ms 输出一段轨迹、`SeamTrackingHasFault` 触发 `Fail`。⛔ 不再由 `LineLaserManager` 直写 PVT。
+> ⚠️ 原「ECAM2 / 虚拟主轴 + GearIn」候选方案因台达无虚拟轴已排除（详见 [[guides/DeltaEtherCAT-AdvancedMotion]]）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
 ---
@@ -64,8 +69,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 | 步号 | 常量 | 动作 | 推进 |
 |---|---|---|---|
 | 10 | `StepServoOn` | `DoServoOn()`：首次进入下发 `MontionManager.Instance.ServoOnAll()`，随后轮询 `IsAllServoOn()`（遍历 `MontionControl.GetAxes()` 判 `IsServoOn()`）；`ServoOnTimeoutSeconds = 10` 超时 → `Fail()` | → 20 |
-| 20 | `StepReady` | 已使能待机；空转等待，靠相位切换把执行步复位到停止或失败收尾 | — |
-| 700 | `StepStopping` | `DoStopping()`：`MontionManager.Instance.ServoOffAll()` | → `StepIdle` |
+| 20 | `StepReady` | 已使能待机：调 `UpdateSeamTracking()` 周期驱动线激光引导（起止沿 `ResetSeamTracking`/`DrainSeamTracking`、`TickSeamTracking` 强制输出、`SeamTrackingHasFault` → `Fail`） | — |
+| 700 | `StepStopping` | `DoStopping()`：调用 `FlushSeamBuffer(true)` 收尾当前段 → `MontionManager.Instance.ServoOffAll()` | → `StepIdle` |
 | 900 | `StepFinishFail` | `DoFinishFail()`：记录失败原因与失败步号 | → `StepIdle` |
 
 > 步段位沿用 [[architecture/DeviceControlArchitecture]] §5 约定（10/20 业务段 · 700 停止 · 900 失败收尾）。
@@ -82,8 +87,19 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 | `ResetProcess()` | 解除急停（`SetEmergencyStop(false)`）、清 `_servoOnIssued`、回 `Idle` 并置 `Standby` |
 | `ClearStatus()` | 清报警/失败原因/`_servoOnIssued`，**直接置 `_phase` 不经映射**，`WeldStatus` 强制 `NoReset` |
 | `ResetWorkTime()` | 调基类 `ResetStepTime()`，防止停止期时间计入步骤时长导致误超时 |
-| `InitializeOn()` | 阻塞初始化：调 `MontionManager.Instance.Initialization("台达运控", ref msg)`；失败置 `Error` + `Disconnected`，成功置 `Idle` + `Connected` + `NoReset`（等待复位） |
+| `InitializeOn()` | 阻塞初始化：调 `MontionManager.Instance.Initialization("台达运控", ref msg)`；失败置 `Error` + `Disconnected`，成功置 `Idle` + `Connected` + `NoReset`（等待复位）并 `AttachSeamTrackAxis()` 装配焊缝跟踪 |
 | `ConnectOff()` | 阻塞断开：关闭台达总线，调用方阻塞至完成 |
+
+### 焊缝跟踪装配（ADR-040 / ADR-041）
+
+| 方法 | 说明 |
+|---|---|
+| `AttachSeamTrackAxis()` | 按 `LineLaserManager.Config.SeamTrackAxisName` 取轴 → 订阅 `LineLaserManager.ResultReady`；未找到轴只记 Warning 不影响初始化（**2026-09-14：不再 push 配置**，线激光引导配置由 `WeldParamManager` 自持自载） |
+| `OnSeamResultReady()` | 相机 SDK 回调线程：仅 `_seamTrackingActive`（`LineLaserWorkflow` 处于 `Working`）时调用 `WeldParamManager.Instance.FeedSeamTracking(...)`，返回点加入 `_seamBuffer` |
+| `UpdateSeamTracking()` | 设备流程线程：Working 起止沿 `ResetSeamTracking()` / `DrainSeamTracking()`+`FlushSeamBuffer(true)`；`TickSeamTracking()` 强制输出；`SeamTrackingHasFault` → `Fail` |
+| `TryFlushSeamBuffer(isFinal)` | 按 `RemainBufferSize` 水位与节拍条件触发 `FlushSeamBuffer` |
+| `FlushSeamBuffer(isFinal)` | 把 `_seamBuffer` 中 PVT 点通过 `BeginMove` / `ContinueMove` 写入 `_seamAxis` |
+| `DetachSeamTrackAxis()` | 退订结果、`FlushSeamBuffer(true)` 收尾、清空缓冲区、复位状态（`InitializeOff` / `DisposeManaged` 调用） |
 
 ---
 
@@ -91,6 +107,9 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs
 
 - [[modules/DeviceControl]] — 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §10 运动控制 · §16 模板）
+- [[api/WeldParamManager]] — 模块唯一入口，代理 `SeamTrackingAlgorithm`
+- [[api/SeamTrackingAlgorithm]] — 线激光引导轨迹算法（本类的点来源）
+- [[api/WeldParamControlWorkflow]] — 焊缝跟踪工作态（`Working`）的判定来源；**不再提供标定配置**（2026-09-14 起由 [[api/WeldParamManager]] 自持）
 - [[api/MontionManager]] — 运控业务层单例（轴/IO/气缸注册与查询，台达装配点）
 - [[api/DeltaEtherCAT-Native]] — 台达 EtherCAT 原生 API 速查
 - [[modules/MotionControl]] — 运控硬件层（三层架构与铁律）

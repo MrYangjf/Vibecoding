@@ -13,8 +13,15 @@
 > - [8. 参考链接](#8-参考链接)
 
 >
-> 对应目录：`Comm/Robot/KUKARobot/`（由 `Comm/KUKARobot/` 迁入 `Robot/` 子目录）
+> 对应目录：`Comm/Communication/Implementations/`（2026-09-14 ADR-045 重构迁入；协议知识仍以本页为准）
 > 来源：[KST_RSI_33_zh.pdf](../../raw/knowledge/KUKA_OPT/KST_RSI_33_zh.pdf)、[KST_Ethernet_KRL_22_zh.pdf](../../raw/knowledge/KUKA_OPT/KST_Ethernet_KRL_22_zh.pdf)
+
+> ⚠️ **历史名称提示（2026-09-14 ADR-045）**：本页第 5/7 章描述的代码结构已重构——
+> `KUKARobotManager.cs`（已移除，门面并入 `CommunicationManager.cs`）·
+> `RSICommunication.cs`（现役 KukaRsiComm.cs）·
+> `EKICommunication.cs`（现役 KukaEkiComm.cs）·
+> `KUKADataTypes.cs` / `KUKAXMLConfig.cs`（文件已移除：RSI 数据结构与 RSIConfig 并入 `KukaRsiComm.cs`、EKI 数据结构与 EKIConfig 并入 `KukaEkiComm.cs`、管理层事件参数并入 `CommunicationManager.cs`；`KUKAXMLConfig` 改为 **partial class** 拆居两个实现类文件，类型名与命名空间不变）。
+> 对外访问统一经 `CommunicationManager` 门面（ConnectRobot/SendRobotData/RobotDataReceived/RobotConnected），见 [[decisions/ADR-045-CommModuleRefactor]]。
 
 ---
 
@@ -377,37 +384,37 @@ END
 ```
 Comm/
 ├── KUKARobot/
-│   ├── RSICommunication.cs    ← RSI UDP 通讯管理
-│   ├── EKICommunication.cs    ← EKI TCP 通讯管理
-│   ├── KUKAXMLConfig.cs       ← XML 配置生成与解析
-│   ├── KUKADataTypes.cs       ← 数据结构定义
-│   └── KUKARobotManager.cs    ← 统一管理层
+│   ├── RSICommunication.cs    ← RSI UDP 通讯管理（现役 KukaRsiComm.cs）
+│   ├── EKICommunication.cs    ← EKI TCP 通讯管理（现役 KukaEkiComm.cs）
+│   ├── KUKAXMLConfig.cs       ← XML 配置生成与解析（现役：partial 拆入 KukaRsiComm.cs / KukaEkiComm.cs）
+│   ├── KUKADataTypes.cs       ← 数据结构定义（现役：并入 KukaRsiComm.cs / KukaEkiComm.cs / CommunicationManager.cs）
+│   └── KUKARobotManager.cs    ← 统一管理层（已移除，门面并入 CommunicationManager.cs）
 ```
 
 ### 5.2 职责分工
 
-- **RSICommunication**：管理 UDP 套接字、XML 序列化/反序列化、IPOC 时间戳校验、实时数据循环
-- **EKICommunication**：管理 TCP 连接、XML 数据交换、连接状态监控
-- **KUKAXMLConfig**：生成 RSI/EKI 的 XML 配置文件、解析配置参数
-- **KUKADataTypes**：定义 KUKA 相关的数据实体（位姿、修正值、状态等）
-- **KUKARobotManager**：统一入口，协调 RSI 和 EKI 的工作，对外提供简化接口
+- **RSICommunication**：管理 UDP 套接字、XML 序列化/反序列化、IPOC 时间戳校验、实时数据循环（现役 KukaRsiComm）
+- **EKICommunication**：管理 TCP 连接、XML 数据交换、连接状态监控（现役 KukaEkiComm）
+- **KUKAXMLConfig**：生成 RSI/EKI 的 XML 配置文件、解析配置参数（现役 partial class，RSI 半边居 KukaRsiComm.cs、EKI 半边居 KukaEkiComm.cs）
+- **KUKADataTypes**：定义 KUKA 相关的数据实体（位姿、修正值、状态等；现役并入各实现类文件）
+- **KUKARobotManager**：统一入口（已移除，职责并入 CommunicationManager 门面）
 
 ### 5.3 代码实现概要
 
-**KUKADataTypes.cs**：
+**KUKADataTypes.cs**（现役：并入 `KukaRsiComm.cs` / `KukaEkiComm.cs` / `CommunicationManager.cs`，类型名不变）：
 - 定义了 RSI/EKI 的枚举类型（`RSIDataType`、`EKIDataType`、`EKIMode`、`EKIEnvironment`、`RSIErrorType`）
 - 定义了位姿结构 `KUKAPosition` 和 `KUKAFrame`
 - 定义了数据实体 `KUKARobotData`（机器人状态）、`KUKACorrectionData`（传感器修正）
 - 定义了 EKI 状态结构 `EKIStatus`
 - 定义了各类事件参数（`RSIDataEventArgs`、`EKIDataEventArgs` 等）
 
-**KUKAXMLConfig.cs**：
+**KUKAXMLConfig.cs**（现役：partial class，RSI 半边居 `KukaRsiComm.cs`、EKI 半边居 `KukaEkiComm.cs`）：
 - 静态类，提供 RSI/EKI 的 XML 配置生成与解析
 - `GenerateRSIXML` / `ParseRSIXML`：RSI XML 配置的序列化/反序列化
 - `GenerateEKIXML` / `ParseEKIXML`：EKI XML 配置的序列化/反序列化
 - `SaveRSIConfig` / `LoadRSIConfig` / `SaveEKIConfig` / `LoadEKIConfig`：文件持久化
 - 配置类：`RSIConfig`、`RSIElement`、`EKIConfig`、`EKIElement`
-- **实现方式**：底层 DOM 操作统一调用 `[[modules/FileOperate]]/XMLfile.cs` 的 `XdocumentReaderWriter` 通用方法（`AddElement`、`GetElementByPath`、`GetAttributeValue` 等），不再直接 `new XDocument`/`new XElement`
+- **实现方式**：底层 DOM 操作统一调用 `[[modules/FileOperate]]/XdocumentReaderWriter.cs` 的 `XdocumentReaderWriter` 通用方法（`AddElement`、`GetElementByPath`、`GetAttributeValue` 等），不再直接 `new XDocument`/`new XElement`
 
 **RSICommunication.cs**：
 - 基于 `UdpClient` 实现 UDP/IP 通讯
@@ -555,8 +562,8 @@ PC 获取机器人位置的两种方式：
 |------|------|------|
 | `RSICommunication` | `Comm/Robot/KUKARobot/RSICommunication.cs` | RSI UDP/XML 实时通讯。**保留但非默认链路**——实时主轴数据改由 EtherCAT PDO 直连正运动控制器，本组件作为备用/调试通道 |
 | `EKICommunication` | `Comm/Robot/KUKARobot/EKICommunication.cs` | EKI TCP 数据交换，用于非实时配置管理与状态监控 |
-| `KUKADataTypes` | `Comm/Robot/KUKARobot/KUKADataTypes.cs` | 机器人数据结构，含 ToolRelX + 时间戳结构 |
-| `KUKARobotManager` | `Comm/Robot/KUKARobot/` | 统一管理 RSI + EKI，由 `CommunicationManager.RobotManager` 直接暴露 |
+| `KUKADataTypes` | ~~`Comm/Robot/KUKARobot/KUKADataTypes.cs`~~ → 并入 `KukaRsiComm.cs` / `KukaEkiComm.cs` / `CommunicationManager.cs` | 机器人数据结构，含 ToolRelX + 时间戳结构 |
+| `KUKARobotManager` | ~~`Comm/Robot/KUKARobot/`~~ → 门面并入 `CommunicationManager.cs` | 统一管理 RSI + EKI（已移除，经 Manager 门面访问） |
 
 > **实装状态**：CAMBOX 跟踪链路三组件（`EncoderAxis` / `CamBoxTracker` / `RSIPositionBuffer`）与 `MotionControlWorkflow` 编排均已落地；**KUKA 侧 RSI FastIPO + EtherCAT 从站配置需现场联调**，PLC/机器人点位待标定。
 

@@ -10,7 +10,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs
 > **本页述 `CommandCore`（静态常量类，机器人指令协议）**，ADR-030 裁定 C3，2026-09-04 落地。
 >
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs`
-> **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceState`（⚠️ 目录 `DeviceStateApiCore/` 下的类分属 `...DeviceState` 与 `...FlowState` 两个命名空间，禁止新增 `...DeviceStateApiCore`）
+> **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`（2026-09-14 ADR-048 起命名空间随目录对齐；此前分属 `...DeviceState` / `...FlowState` 的旧写法已废止）
 > **取代**：⛔ 已删除的 `CommandTable.cs`（const int + `RobotPose` / `RobotCommand` / `DeviceCommand` / `RobotPoseCode` / `SignalCode` / `InteractionTable` 六件套）
 > **落地批次**：批次 0.3 / 0.4，见 [[architecture/DeviceControlArchitecture]] §15.2
 

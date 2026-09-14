@@ -1,112 +1,62 @@
 ---
-title: WeldDataManager API 参考
+title: WeldDataManager API 参考（已并入 WeldParamManager）
 date: 2026-07-02
-tags: [API, 焊接, 自动调整参数, 配置管理]
-source: raw/skills/02-Development/WeldProcessSpecialist.md
+updated: 2026-09-14
+tags: [API, 焊接, 自动调整参数, 配置管理, 已废弃, ADR-041]
+source: AdaWeldSystem/WeldParamControl/WeldParamManager.cs
 ---
 
-# WeldDataManager API 参考
+# WeldDataManager API 参考（已并入 WeldParamManager）
 
-> 焊接数据管理器（单例）。
-> 集中管理自动调整参数：运行时 `AutoParam`、分段数据表 `AutoParamManager`、配置映射 `ConfigManager`、当前配置标识 `CurrentAutoParamId`。
-> `CurrentAutoParamId` 通过 `Config/INI/WeldData.ini` 持久化。
+> ⛔ **本类已删除**（2026-09-14 ADR-041 第二次修订）。
+> 原 `WeldDataManager` 承担的参数持久化职责（`AutoParam` / `AutoParamHelper` / `ConfigHelper` / `CurrentAutoParamId` / INI）
+> 已全部并入 [[api/WeldParamManager]]，由 Manager 统一管理配置。
+> 本页仅作沿革与迁移参考。
 
-## 核心类
+---
 
-```csharp
-public class WeldDataManager
-{
-    public static WeldDataManager Instance { get; }
+## 沿革
 
-    public AutoParam mAutoParam { get; private set; }
-    public AutoParamManager mAutoParamManage { get; private set; }
-    public ConfigManager mConfigManager { get; private set; }
-    public string CurrentAutoParamId { get; private set; }
+| 时间 | 状态 | 说明 |
+|---|---|---|
+| 2026-07-02 | 创建 | 作为 WeldParamControl 模块的参数持久化入口，管理 `AutoParam` / `AutoParamHelper` / `ConfigHelper` |
+| 2026-09-14 | 删除 | 与「一个 Manager」原则冲突，整体并入 `WeldParamManager` |
 
-    public void SwitchConfig(string configId);
-    public void SaveCurrentAutoParam();
-    public AutoParam AddConfig(string configId);
-    public bool DeleteConfig(string configId);
-}
-```
+---
 
-## 职责分层
+## 迁移对照
+
+| 原 `WeldDataManager` 调用 | 现调用 |
+|---|---|
+| `WeldDataManager.Instance.mAutoParam` | `WeldParamManager.Instance.CurrentAutoParam` |
+| `WeldDataManager.Instance.mAutoParamManage` | `WeldParamManager.Instance.AutoParamHelper` |
+| `WeldDataManager.Instance.mConfigManager` | `WeldParamManager.Instance.ConfigHelper` |
+| `WeldDataManager.Instance.CurrentAutoParamId` | `WeldParamManager.Instance.CurrentAutoParamId` |
+| `WeldDataManager.Instance.SwitchConfig(configId)` | `WeldParamManager.Instance.SwitchConfig(configId)` |
+| `WeldDataManager.Instance.AddConfig(configId)` | `WeldParamManager.Instance.AddConfig(configId)` |
+| `WeldDataManager.Instance.DeleteConfig(configId)` | `WeldParamManager.Instance.DeleteConfig(configId)` |
+| `WeldDataManager.Instance.SaveCurrentAutoParam()` | `WeldParamManager.Instance.SaveCurrentAutoParam()` |
+| `WeldDataManager.Instance.SaveCurrentProfile()` | `WeldParamManager.Instance.SaveCurrentProfile()` |
+| `WeldDataManager.Instance.ReloadCurrentParamValues()` | `WeldParamManager.Instance.ReloadCurrentParamValues()` |
+| `WeldDataManager.Instance.LoadProfileIntoLookupTable(identityInfo)` | `WeldParamManager.Instance.LoadProfileIntoLookupTable(identityInfo)` |
+
+---
+
+## 原职责分层（归档）
 
 ```
 WeldDataManager
-├── mAutoParam          // 运行时当前 AutoParam 对象（内存实时使用）
-├── mAutoParamManage    // AutoParamManager：按 identityInfo 管理四张分段数据表
-├── mConfigManager      // ConfigManager：管理 AutoParam 基础配置与 JSON 映射
+├── mAutoParam          // 运行时当前 AutoParam 对象
+├── mAutoParamManage    // AutoParamHelper：按 identityInfo 管理四张分段数据表
+├── mConfigManager      // ConfigHelper：管理 AutoParam 基础配置与 JSON 映射
 └── CurrentAutoParamId  // 当前选中的配置标识（INI 持久化）
 ```
 
-| 层级 | 成员 | 职责 |
-|------|------|------|
-| 运行时 | `mAutoParam` | 内存中实时使用的焊接工艺参数 |
-| 分段数据 | `mAutoParamManage` | 按 `identityInfo` 存储焊缝宽度/送丝速度/激光功率/焊接速度的分段数据表，支持手动微调 |
-| 配置映射 | `mConfigManager` | 存储 AutoParam 基础信息（类型、焊丝材质、板材、时间、标识）与 JSON 对象的映射，用于列表展示与切换 |
-| 当前标识 | `CurrentAutoParamId` | 当前激活的配置名，写入 `Config/INI/WeldData.ini` |
-
-## 初始化流程
-
-1. 加载 `Config/INI/WeldData.ini`，若不存在则自动创建
-2. 读取 `CurrentAutoParamId`，缺失或为空时设为 `"DefaultParam"`
-3. 构造 `AutoParamManager` 和 `ConfigManager`
-4. **确保 DefaultParam 配置存在**：
-   - 若 `ConfigManager` 无 DefaultParam，则创建 `AutoParam.CreateDefault()` 并写入
-   - 若 `AutoParamManager` 无 DefaultParam 表，则 `SelectTable(defaultParam)` 创建并保存默认分段数据
-5. 加载 `CurrentAutoParamId` 对应的配置，设置 `WeldProcess.Instance.CurrentAutoParam`
-
-## 默认配置保护
-
-- `AutoParam.DefaultIdentity` 常量值为 `"DefaultParam"`（避免使用 SQLite 保留关键字 `Default` 作为表名）
-- `AutoParam.CreateDefault()` 返回标识为 `"DefaultParam"` 的默认实例
-- `AutoParam.IsDefault` 属性判断当前实例是否为默认配置
-- `WeldDataManager.DeleteConfig` 中：
-  - `configId == "DefaultParam"` 返回 `false`
-  - `configId == CurrentAutoParamId` 返回 `false`
-
-## 配置切换
-
-```csharp
-WeldDataManager.Instance.SwitchConfig("NewConfig");
-```
-
-切换时会：
-1. 校验配置存在性
-2. 更新 `CurrentAutoParamId`
-3. 写入 INI 文件
-4. 从 `ConfigManager` 加载 `AutoParam`
-5. 调用 `AutoParamManager.SelectTable` 加载分段数据
-6. 同步设置 `WeldProcess.Instance.CurrentAutoParam`
-
-## 新增配置
-
-```csharp
-WeldDataManager.Instance.AddConfig("NewConfig");
-```
-
-新增配置并自动切换为当前配置，同时创建对应分段数据表。
-
-## 保存当前配置
-
-```csharp
-WeldDataManager.Instance.SaveCurrentAutoParam();
-```
-
-将 `mAutoParam` 序列化为 JSON 后保存/更新到 `ConfigManager`。
-
-## 使用规范
-
-- UI 页面（`ParamConfigPage`、`ConfigForm`、`AutoParamForm`）通过 `WeldDataManager.Instance` 访问自动调整参数
-- 禁止直接修改 `CurrentAutoParamId`，必须通过 `SwitchConfig` 或 `AddConfig`
-- `mAutoParam` 的字段修改后，需要调用 `SaveCurrentAutoParam()` 持久化到 `ConfigManager`
-- 分段数据修改后，需要调用 `mAutoParamManage.UpdateParamValues()`
+---
 
 ## 相关页面
 
+- [[api/WeldParamManager]] — 参数、算法与配置持久化的唯一入口（替代本页）
 - [[modules/WeldParamControl]] — 焊接工艺模块
-- [[modules/SqlLiteDatabase]] — AutoParamManager / ConfigManager
-- [[api/GlobalCommData]] — 全局事件总线（不再管理自动调整参数）
-- [[decisions/ADR-002-CS73-Constraint]] — C# 7.3 语法约束
-- [[guides/Config-Data-Tools]] — SQLite 保留关键字不能用作表名
+- [[modules/SQLiteDatabase]] — AutoParamHelper / ConfigHelper
+- [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]] — 删除本类的决策

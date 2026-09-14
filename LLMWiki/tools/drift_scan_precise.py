@@ -60,10 +60,14 @@ RENAMED = {
     "LaserWeldHeadStateMachine.cs": "MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs",
     # ADR-030 批次 0（2026-09-04 落地）：指令协议表 → const string 协议常量类
     "CommandTable.cs": "MainDeviceControl/DeviceStateApiCore/CommandCore.cs",
-    # 通讯层
-    "PLCCommunicationManager.cs": "Comm/PLC/Siemens/S7PLCCommunication.cs",
-    "RobotCommunicationManager.cs": "Comm/Robot/KUKARobot/KUKARobotManager.cs",
-    "GlobalCommData.cs": "Comm/SystemComm.cs",
+    # 通讯层（2026-09-14 ADR-045 Comm 模块重构后更新现役归属）
+    "PLCCommunicationManager.cs": "Comm/Communication/Implementations/SiemensS7Comm.cs",
+    "RobotCommunicationManager.cs": "Comm/Communication/CommunicationManager.cs",
+    "GlobalCommData.cs": "Comm/SystemComm/SystemComm.cs",
+    "S7PLCCommunication.cs": "Comm/Communication/Implementations/SiemensS7Comm.cs（类名 SiemensS7Comm）",
+    "RSICommunication.cs": "Comm/Communication/Implementations/KukaRsiComm.cs（类名 KukaRsiComm）",
+    "EKICommunication.cs": "Comm/Communication/Implementations/KukaEkiComm.cs（类名 KukaEkiComm）",
+    "ModbusTCPCommunication.cs": "Comm/Communication/Implementations/InLaserModbusComm.cs（类名 InLaserModbusComm）",
     # 相机 / 运控 / 算法
     "MonitorCameraConfig.cs": "MonitorCam/MonitorCameraRun.cs",
     "Zmcaux.cs": "MotionControl/ZMotion/ZMotionNative.cs",
@@ -111,7 +115,23 @@ REMOVED = {
     "FaultRecordManager.cs": "2026-09-04 随 FaultRecoveryManager 整体移除（ADR-032 D3）",
     "SimulationWorkflow.cs": "独立模拟流程已废弃（成员归并 DeviceControlWork）",
     "HorizontalMoveWorkflow.cs": "ADR-012 后移除",
-    "TCPServer.cs": "未落地，现役仅有 TCPIPComm 客户端侧",
+    "TCPServer.cs": "未落地，现役仅有 TCPIPComm 客户端侧（TCPIPComm 亦已于 2026-09-14 被 EthernetXmlComm 取代，见下）",
+    # 2026-09-14 Comm 模块重构（ADR-045）
+    "TCPIPComm.cs": "2026-09-14 废弃重写；现役 Comm/Communication/Implementations/EthernetXmlComm.cs（类名 EthernetComm，SstTcpServer/SstTcpClient 内嵌同文件）",
+    "GSDMLGenerator.cs": "2026-09-14 用户裁定删除（Profinet 封装不做）；现役无对应，CommPage 仅保留移除提示文案",
+    "KUKARobotManager.cs": "2026-09-14 删除；门面（ConnectRobot/DisconnectRobot/SendRobotData/RobotDataReceived/RobotConnected）并入 Comm/Communication/CommunicationManager.cs",
+    # 2026-09-14 ProductFileControl 记录重构（ADR-046）
+    "RunRecordManager.cs": "2026-09-14 重构拆分；文件 IO 归 ProductFileControl/RecordFileStore.cs，对外入口归 ProductFileControl/ProductFileRecordManager.cs",
+    # 2026-09-14 Implementations 单文件化：配置/数据结构并入各自实现类（ADR-045 增补）
+    "KUKADataTypes.cs": "2026-09-14 并入实现类文件：RSI 类型→KukaRsiComm.cs，EKI 类型→KukaEkiComm.cs，管理层事件参数→CommunicationManager.cs（类型名不变）",
+    "KUKAXMLConfig.cs": "2026-09-14 并入实现类文件：partial class 拆分，RSI 半边→KukaRsiComm.cs，EKI 半边→KukaEkiComm.cs（类型名不变）",
+    "ILModbusData.cs": "2026-09-14 并入实现类文件：InLaserModbusComm.cs（类型名不变）",
+    # 2026-09-14 ProductFileControl 记录类文件自包含（ADR-047）
+    "RecordFileStore.cs": "2026-09-14 并入 ProductFileControl/Records/SeamTrackRecord.cs（internal 类随焊缝追踪记录落位，ADR-047）",
+    "RecordFrame.cs": "2026-09-14 并入 ProductFileControl/Records/SeamTrackRecord.cs（帧 DTO 随焊缝追踪记录落位，ADR-047）",
+    "WeldActionRecord.cs": "2026-09-14 并入 ProductFileControl/Records/WeldParamAdjustRecord.cs（类型名不变，DataReviewerPage 消费不受影响，ADR-047）",
+    "SmartRayConverter.cs": "2026-09-14 整链删除（0 消费；AddSmartRayFrame 于 SeamTrackRecord/Manager 同步删除，ADR-047）",
+    "SeamAdjustRecord.cs": "2026-09-14 改名 Records/WeldParamAdjustRecord.cs（类名 SeamAdjustRecord→WeldParamAdjustRecord，ADR-047）",
     "NetworkPortBase.cs": "网络端口抽象层未落地",
     "INetworkPort.cs": "网络端口抽象层未落地",
     "NullMotionController.cs": "ADR-027 删除空控制器",
@@ -170,6 +190,9 @@ REMOVED = {
     "HikCameraRun.cs": "2026-09-08 随 HikRobotCam/ 删除（海康 3D 相机实现）",
     "HikCameraManager.cs": "2026-09-08 随 HikRobotCam/ 删除（海康相机管理）",
     "HikCameraDevice.cs": "2026-09-08 随 HikRobotCam/ 删除（海康设备封装）",
+    # 2026-09-14 WeldParamControl 算法配置合一（ADR-044）
+    "SeamGuideConfig.cs": "2026-09-14 与 WeldParamAdjustmentConfig.cs 合并为 WeldParamControl/WeldAlgorithmsConfig.cs（XML 节 SEAM_GUIDE 名不变；ADR-044）",
+    "WeldParamAdjustmentConfig.cs": "2026-09-14 与 SeamGuideConfig.cs 合并为 WeldParamControl/WeldAlgorithmsConfig.cs（XML 节 WELD_PARAM_ADJUST 名不变；ADR-044）",
 }
 
 # 3) 外部参考 / 第三方库内部 —— 静默
@@ -185,7 +208,7 @@ EXTERNAL = {
     # 麦格威 MecaVision 官方 SDK 封装文件（2026-09-08）：现位于 raw/mecavision/（SDK 原档），
     # 规划落地路径 MonitorCam/Native/MVSDK.cs（ADR-041 proposed，实施后可改判 RENAMED）
     "MVSDK.cs": "麦格威官方 SDK C# 封装文件（现 raw/mecavision/，规划 MonitorCam/Native/）",
-    "INIFile.cs": "大小写变体：现役 FileOperate/IniFile.cs",
+    "XMLfile.cs": "2026-09-14 文件名对齐类型名：现役 FileOperate/XdocumentReaderWriter.cs（类名 XdocumentReaderWriter）",
     # 泛指设计器文件，非某个具体文件（真实文件形如 XxxForm.Designer.cs）
     "Designer.cs": "泛指设计器文件",
     "designer.cs": "泛指设计器文件（大小写变体）",

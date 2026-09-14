@@ -1,5 +1,5 @@
 ---
-title: ADR-007 Config 文件夹分层决策
+title: ADR-005 Config 文件夹分层决策
 date: 2026-07-03
 tags: [决策, 配置, 文件结构, 规范]
 status: accepted
@@ -11,7 +11,7 @@ status: accepted
 > - `XMLEditor.cs` → 现役 `UIDesign/TabPage/FileEditorPage.cs`
 >
 
-# ADR-007 Config 文件夹按文件类型分层
+# ADR-005 Config 文件夹按文件类型分层
 
 ## 背景
 

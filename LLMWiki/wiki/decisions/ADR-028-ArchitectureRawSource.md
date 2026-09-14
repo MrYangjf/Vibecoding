@@ -1,7 +1,7 @@
 ﻿---
-title: ADR-032 架构原档单一来源约定（raw/architecture）
+title: ADR-028 架构原档单一来源约定（raw/architecture）
 date: 2026-09-02
-tags: [决策, 架构, 知识库治理, 原档, 单一来源, 主控设计, 泳道图, ADR-029]
+tags: [决策, 架构, 知识库治理, 原档, 单一来源, 主控设计, 泳道图, ADR-028]
 status: accepted
 ---
 
@@ -12,7 +12,7 @@ status: accepted
 > - `MachineStatusWork.cs` → 现役 `MainDeviceControl/DeviceStatusWork.cs`
 >
 
-# ADR-032 架构原档单一来源约定（raw/architecture）
+# ADR-028 架构原档单一来源约定（raw/architecture）
 
 > **2026-09-02 接受**：用户指令——「将架构设计 xlsx 和 pdf 文件沉淀到知识库原档，保证不会错误，并且后续我只需要修改这些文件，来更新架构」。**2026-09-02（晚）扩充**：新增第 3 份原档 `焊接系统工作流程业务流向图.pdf`（业务状态流），原档 2→3。
 > **2026-09-04 扩为 3 份（md 版升为主源）**：用户指出 AI 对 PDF 的解析有欠缺，

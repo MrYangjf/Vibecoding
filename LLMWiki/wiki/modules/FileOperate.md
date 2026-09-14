@@ -14,9 +14,9 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md
 
 ```
 FileOperate/
-├── IniFile.cs                           ← INI 配置文件读写
+├── INIFile.cs                           ← INI 配置文件读写
 ├── Log.cs                               ← 日志管理
-└── XMLfile.cs                           ← XML 文档操作（XdocumentReaderWriter）
+└── XdocumentReaderWriter.cs             ← XML 文档操作（XdocumentReaderWriter）
 ```
 
 ## 核心文件
@@ -25,9 +25,9 @@ FileOperate/
 |------|------|
 | INIFile.cs | INI 配置文件读写（自研，非 Windows API）；文件位于 `Config/INI/` |
 | Log.cs | 日志管理（分级日志、文件轮转） |
-| XMLfile.cs (`XdocumentReaderWriter`) | XML 文档加载、保存、通用 DOM 操作（元素/属性读写、路径导航）；XML 文件位于 `Config/XML/` |
+| XdocumentReaderWriter.cs | XML 文档加载、保存、通用 DOM 操作（元素/属性读写、路径导航）；XML 文件位于 `Config/XML/` |
 
-## XMLfile 通用方法（2026-07-01 扩展）
+## XdocumentReaderWriter 通用方法（2026-07-01 扩展）
 
 `XdocumentReaderWriter` 提供以下通用 XML 操作能力，供业务层调用：
 

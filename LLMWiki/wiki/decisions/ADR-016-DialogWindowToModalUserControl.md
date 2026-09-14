@@ -1,11 +1,13 @@
 ﻿---
-title: ADR-019 子对话窗承载方式：AntdUI.Window+PageHeader → Modal 承载的 UserControl
+title: ADR-016 子对话窗承载方式：AntdUI.Window+PageHeader → Modal 承载的 UserControl
 date: 2026-07-30
 tags: [决策, UI, AntdUI, Modal, UserControl, 对话窗]
 status: accepted
 ---
 
-# ADR-019 子对话窗承载方式改为「Modal 承载的 UserControl」
+# ADR-016 子对话窗承载方式改为「Modal 承载的 UserControl」
+
+> ⚠️ **沿革横幅（2026-09-14，ADR-048）**：本决策 **§3「命名空间保持不变：仍为 `AdaWeldSystem.Sub3UI` / `AdaWeldSystem.Sub2UI`」已废止**——目录两次重命名（2026-08-05 `Sub2UI/`→`TabPage/` 等；2026-09-07 `SubView/`→`SubDialog/`）后，命名空间已随目录对齐为 `AdaWeldSystem.UIDesign.MainWindow` / `.ControlPage` / `.TabPage` / `.SubDialog.<业务域>`，见 [[decisions/ADR-048-NamespaceDirectoryAlignment]]。本决策其余结论（Modal 承载 `UserControl`、`HandleDestroyed` 替代 `FormClosing`、`DialogResult` 关闭语义、`Message.*` owner 改 `this.FindForm()`）**全部继续有效**。
 
 ## 背景
 

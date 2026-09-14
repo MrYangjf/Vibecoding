@@ -1,12 +1,17 @@
-﻿---
-title: ADR-030 产品生命周期记录模块与故障记录归口（DB 下沉 + 消费方归位）
+---
+title: ADR-026 产品生命周期记录模块与故障记录归口（DB 下沉 + 消费方归位）
 date: 2026-08-31
 tags: [决策, 模块, 产品记录, 故障恢复, SQLite, 文件迁移, 归口]
-status: accepted
+status: accepted
 
-# ADR-030 ProductFileManager 产品生命周期记录模块 + FaultRecord DB 实现下沉
+
+# ADR-026 ProductFileManager 产品生命周期记录模块 + FaultRecord DB 实现下沉
 
 > **类名注记（2026-09-02，ADR-028）**：本文消费方清单中的 `SafetyWorkflow` **现为 `DeviceStatusWork`**、`MainDeviceWorkflow` **现为 `DeviceControlWork`**；`FaultRecord.State` 字段类型由旧四态 `DeviceState` 改为 `SubDeviceWeldStatus`（焊接过程态七态）。枚举级反向依赖的结论继续有效。
+>
+> **术语沿革（2026-09-14）**：`SqlLiteDatabase` 已纠正为 `SQLiteDatabase`；`AuthManager`/`ConfigManager`/`AutoParamManager`/`ProductDatabaseManager` 已统一改为 `*Helper`，抽象基类由 `DatabaseManagerBase` 改为 `DatabaseHelperBase`；`FaultRecordManager` 已于 2026-09-04 随故障恢复模块整体移除（[[decisions/ADR-031-ErrorReportingHierarchy]] D3）。本 ADR 正文保留历史决策原貌。
+>
+> **沿革横幅（2026-09-14）**：本页描述的记录模块结构（`RunRecordManager.cs` 单文件承载）**已被 [[decisions/ADR-046-ProductRecordModuleRefactor]] 取代**——现役为 `ProductRecordBase` 抽象 + 三记录类（SeamTrack/SeamAdjust/WeldResult）+ `ProductFileRecordManager`；命名空间统一 `AdaWeldSystem.ProductFileControl`。「记录归口一处」的结论仍有效。
 
 ## 状态
 已采纳（2026-08-31）
@@ -15,7 +20,7 @@ status: accepted
 用户审视项目结构后裁定：程序整个生命周期的记录文件（过程数据、生产信息、故障恢复数据等）需要一个专门的地方归口。现状两处割裂：
 
 1. **过程记录挂在 PCLOperate 下**：`PCLOperate/RunFileRecord/`（RunRecordManager 1046 行 + RecordFrame + WeldActionRecord + SmartRayConverter）——「运行记录」是产品全生命周期数据，不是点云运算（PCLOperate）的子域，就近原则错位。
-2. **FaultRecoveryManager 内联 SQLite 实现**：`MainDeviceControl/DeviceWorkflow/FaultRecoveryManager.cs` 的 `#region SQLite 持久化` 直接持有 `SQLiteDataBase`，DB 文件落在输出根目录 `FaultRecord.db`——违背 SqlLiteDatabase 模块「数据库操作归口 + `DataBase\` 子目录」的既有范式（AuthManager/ConfigManager/AutoParamManager/ProductDatabaseManager 均在模块内）。
+2. **FaultRecoveryManager 内联 SQLite 实现**：`MainDeviceControl/DeviceWorkflow/FaultRecoveryManager.cs` 的 `#region SQLite 持久化` 直接持有 `SQLiteDataBase`，DB 文件落在输出根目录 `FaultRecord.db`——违背 SQLiteDatabase 模块「数据库操作归口 + `DataBase\` 子目录」的既有范式（AuthManager/ConfigManager/AutoParamManager/ProductDatabaseManager 均在模块内）。
 
 用户已手动新建空目录 `ProductFileManager/` 并迁移 4 文件（AI 实施时检测到物理移动已完成，按「重读文件、保留用户改动」惯例接手收尾）。
 
@@ -28,10 +33,10 @@ status: accepted
 - 跨目录引用保留：`AdaWeldSystem.PCLOperate.Models`（PointCloudData/Point3D）、`PCLOperate.DataIO`。
 - csproj：4 条 Compile 改路径；删除 VS 生成的 `<Folder Include="ProductFileManager\" />` 孤儿条目。
 
-### 2. 故障记录 DB 实现下沉 SqlLiteDatabase
-- 新建 `SqlLiteDatabase/FaultRecordManager.cs`：继承 `DatabaseManagerBase`（构造传 `"FaultRecord.db"`，对齐 ProductDatabaseManager 范式），承载建表/插入/查询；DB 文件随之迁到 **`DataBase\FaultRecord.db`**。
+### 2. 故障记录 DB 实现下沉 SQLiteDatabase
+- 新建 `SQLiteDatabase/FaultRecordManager.cs`：继承 `DatabaseManagerBase`（构造传 `"FaultRecord.db"`，对齐 ProductDatabaseManager 范式），承载建表/插入/查询；DB 文件随之迁到 **`DataBase\FaultRecord.db`**。
 - `FaultRecoveryManager` 删除 `#region SQLite 持久化`（EnsureDb/内联 Persist/`_db`/`_dbLock`/`_tableReady`），`Persist` 保留为「FaultRecord → string[] 映射 + 截断 + 失败日志」的领域侧适配，写入调用 `FaultRecordManager.Instance.InsertFaultRecord(values)`。
-- **分层约束**：FaultRecordManager 以 `string[]` 为写入契约，**不引用领域类型**——SqlLiteDatabase 层不得反向依赖 MainDeviceControl。
+- **分层约束**：FaultRecordManager 以 `string[]` 为写入契约，**不引用领域类型**——SQLiteDatabase 层不得反向依赖 MainDeviceControl。
 - **FaultCategory/FaultRecord 数据载体留在 FaultRecoveryManager.cs**（ADR-025 决策维持；FaultRecoveryManager.cs 已于 2026-09-04 整体移除，ADR-032 D3）：它们是故障恢复闭环的领域载体，非 DB 实现。
 - 管理器内部不做 try/catch 日志（对齐模块范式），由调用方兜底记 Warning。
 
@@ -39,7 +44,7 @@ status: accepted
 
 > **补充而非推翻**本节前两条：DB 实现下沉（§2）与业务消费方归口（§3）是同一归口目标的两个半步。
 
-**背景**：§1 的决策背景写明归口范围是「过程数据、生产信息、**故障恢复数据**」，但 2026-08-31 只落了两件事——过程记录迁 `ProductFileManager/`、DB 实现下沉 `SqlLiteDatabase/`。故障恢复的**业务消费方** `FaultRecoveryManager.cs`（含 `FaultCategory`/`FaultRecord`）仍留在 `MainDeviceControl/DeviceWorkflow/`，归口未闭合。用户 2026-09-01 裁定：由 `ProductFileManager` 作为使用方承接。
+**背景**：§1 的决策背景写明归口范围是「过程数据、生产信息、**故障恢复数据**」，但 2026-08-31 只落了两件事——过程记录迁 `ProductFileManager/`、DB 实现下沉 `SQLiteDatabase/`。故障恢复的**业务消费方** `FaultRecoveryManager.cs`（含 `FaultCategory`/`FaultRecord`）仍留在 `MainDeviceControl/DeviceWorkflow/`，归口未闭合。用户 2026-09-01 裁定：由 `ProductFileManager` 作为使用方承接。
 
 **决策**：
 - `MainDeviceControl/DeviceWorkflow/FaultRecoveryManager.cs` → `ProductFileManager/FaultRecoveryManager.cs`，命名空间 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow` → `AdaWeldSystem.ProductFileManager`。整体迁移，不拆文件。
@@ -63,12 +68,12 @@ status: accepted
 | 方案 | 放弃原因 |
 |---|---|
 | RunRecordManager 更名 ProductFileManager | 公共 API 零破坏优先；单例名与「记录管理器」语义仍相符，仅模块归口变化 |
-| FaultRecordManager 引用 FaultRecord 类型做强类型 API | 造成 SqlLiteDatabase → MainDeviceControl 反向依赖 |
+| FaultRecordManager 引用 FaultRecord 类型做强类型 API | 造成 SQLiteDatabase → MainDeviceControl 反向依赖 |
 | SQLite 实现搬为静态工具类 | 与模块 DatabaseManagerBase 继承范式不一致 |
 | FaultRecord.db 保持根目录 | 与模块 `DataBase\` 惯例不一致；旧 db 文件为空转数据，无迁移价值（PLC 未标定环境尚未投产） |
 
 ## 后果
-- 正面：生命周期记录归口单一模块；数据库操作全部收敛 SqlLiteDatabase；FaultRecoveryManager 278→231 行、职责纯化为恢复闭环。
+- 正面：生命周期记录归口单一模块；数据库操作全部收敛 SQLiteDatabase；FaultRecoveryManager 278→231 行、职责纯化为恢复闭环。
 - 负面/注意：历史 `FaultRecord.db`（根目录）不再被读取；WeldProcess 私有方法名 `RecordActionToRunFileRecord` 与少量概念性注释保留旧称呼（指记录概念本身，非模块路径，后续触及再改）。
 
 ### §3 的后果（2026-09-01）
@@ -77,7 +82,7 @@ status: accepted
 
 ## 相关
 - 前置：[[decisions/ADR-024-SafetyCheckConsolidation]]（FaultCategory/FaultRecord 归属）、[[decisions/ADR-008-WeldActionRecord]]（双记录设计）
-- 模块：[[modules/ProductFileManager]]、[[modules/SqlLiteDatabase]]、[[modules/Safety]]、[[modules/DeviceControl]]、[[modules/PointCloudData]]
+- 模块：[[modules/ProductFileManager]]、[[modules/SQLiteDatabase]]、[[modules/Safety]]、[[modules/DeviceControl]]、[[modules/PointCloudData]]
 - API：[[api/FaultRecordManager]]、[[api/FaultRecoveryManager]]
 - 教训：[[lessons/FaultRecoveryDeviceKey]]、[[guides/Config-Data-Tools]]
 - 工具：[[guides/Project-Tools]] §1.2（Grep 结果截断导致消费方漏统计的排查教训）

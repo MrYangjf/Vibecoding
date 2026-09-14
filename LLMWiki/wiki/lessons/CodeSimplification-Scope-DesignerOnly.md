@@ -19,6 +19,7 @@ tags: [教训, 代码精简, 范围, Designer.cs, UIDesign, 误解]
 |------|----------------|
 | `*.Designer.cs`（任意目录） | ❌ 跳过（设计器生成，ADR-018/设计器约束） |
 | `UIDesign/` 下非设计器 `.cs` | ✅ 适用五维度（状态控制细则见 UiStateSimplification） |
+| `*.Designer.cs` 中的 `Dispose(bool)` | ❌ 禁止手写/改写，破坏设计器生成逻辑会导致显示异常（见 ADR-001/020） |
 | 厂商 SDK 原生代码 / `3rdDepend/` | ❌ 跳过 |
 | 其余业务源码 | ✅ 适用五维度 |
 

@@ -39,7 +39,10 @@ SDK 包已归档：`LLMWiki/raw/mecavision/MecaVision_SDK…/MecaVision/`
 | `*.Interface` | `SDK/`、`SDK/X64/` | GigE/USB3 协议插件 |
 | `MVSDK_API_CHS.chm` / `_ENG.chm` | `Document/` | 官方 API 手册 |
 | C# 例程 ×12 | `Demo/C#/` | FirstStep（Grabber 路径）、TriggerAndStrobe（触发+闪光灯）、GPIO、ROI、SaveImage、Record、TwoCameras、WpfFirstStep 等 |
+| **C 原生头文件**（6 个） | `SDK/Include/` | **接口声明真相源**：`CameraApi.h`（`extern "C"` 全部 API）· `CameraApiLoad.h` · `CameraDefine.H`（枚举/结构体）· `CameraStatus.h`（错误码）· `RawDecodeApi.h` · `mvocx.h`。**2026-09-14 从 `Demo/VC++/Include/` 抽入**并独立存放 |
 | 驱动 | `Drivers/USB/` | USB 相机驱动 |
+
+> ⚠️ **原档裁剪（2026-09-14）**：`Demo/` 现仅保留 **C# 例程**（本项目技术栈）。其余 10 种语言示例（LabView / Delphi6 / VB6 / VB.NET / QT / QT5 / Java / Python / Visual FoxPro8 / C++ Builder）与 VC++ 的 MFC 样板、`.cpp` 范例已删除；**其中唯一的 C 原生头文件已抽存至 `SDK/Include/`**（删前已核验 `Demo/VC++/Include` 与 `Demo/QT/Include` 同 md5，仅存一份）。`Demo/` 26.07 MB → 1.29 MB。原始完整性由 `LLMWiki_backup_20260913_211524.tar.gz` 保障。
 
 ## 2. 工程配置
 
@@ -49,7 +52,7 @@ SDK 包已归档：`LLMWiki/raw/mecavision/MecaVision_SDK…/MecaVision/`
 4. **DLL 部署**：所选位数对应的 `MVCAMSDK*.dll` + `MVImageProcess*.dll` 与 exe 同目录（参照海康「原生 DLL 由运行时提供」的部署心智，但麦格威需**自己拷**到输出目录）。**2026-09-09 增补**：仅落 `3rdDepend/MecaVision/` 不够——必须把 4 个文件（`MVCAMSDK_X64.dll`、`MVImageProcess_X64.DLL`、2 个 `*.Interface` 协议插件）加进 csproj `CopyNative3rdDependToOutput` 目标，否则输出目录无 DLL，`MvApi` 静态构造 `LoadLibrary` 静默失败、委托全 null，首次调用即 NullReferenceException（见 [[lessons/MecaVision-NativeDllLoadNRE]]）。
 5. **管理员权限**：SDK 访问注册表，Win7/8 非管理员报 -13；程序 `app.manifest` 申请管理员权限。
 
-## 3. 落地目录结构（✅ 2026-09-08 已按此落地，ADR-041 accepted）
+## 3. 落地目录结构（✅ 2026-09-08 已按此落地，ADR-037 accepted）
 
 **三层结构（用户裁定：不保留海康实现，参照 MotionControl/线激光范式）**：
 

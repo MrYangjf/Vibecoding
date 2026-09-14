@@ -1,12 +1,12 @@
 ﻿---
-title: ADR-013 Workflow 模块作为流程管理中枢
+title: ADR-011 Workflow 模块作为流程管理中枢
 date: 2026-07-17
 tags: [决策, 工作流, 模块, 迁移, 监督]
 status: superseded（部分：中枢目录与监督机制已变更；MonitorAlgorithmManager 结论仍有效）
 source: 用户需求「Workflow 统一管理所有工作流程」
 ---
 
-# ADR-013 Workflow 模块作为流程管理中枢
+# ADR-011 Workflow 模块作为流程管理中枢
 
 ## 状态
 已采纳（2026-07-17）｜**已被取代（2026-09-01 治理标注）**
@@ -57,7 +57,7 @@ source: 用户需求「Workflow 统一管理所有工作流程」
 
 ---
 
-*来源：AdaWeldSystem/Workflow/ + AdaWeldSystem/MonitorCam/MonitorAlgorithmManager.cs（2026-09-08 已删除，算法参数并入 EmguALG/Manager/AlgorithmManager.cs，ADR-042）+ 用户需求*
+*来源：AdaWeldSystem/Workflow/ + AdaWeldSystem/MonitorCam/MonitorAlgorithmManager.cs（2026-09-08 已删除，算法参数并入 EmguALG/Manager/AlgorithmManager.cs，ADR-038）+ 用户需求*
 
 ---
 

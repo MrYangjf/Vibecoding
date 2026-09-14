@@ -51,7 +51,7 @@ public enum SimSeamProfile { VGroove=0, UGroove=1, Flat=2, Random=3 }
 
 ## BuildResult（ADR-039 新增）
 
-虚拟相机不走英莱算法，用**最低点即焊缝特征点**推算一个中性 `LineLaserSeamResult`（`Valid=true`、`ParseRes=1`、`FeatureY`=最低点 Y、`FeatureZ`=最低点 Z、宽度=Y 跨度、面积=宽×深×0.5），**用于在模拟模式下打通「结果 → Y 轴 PVT」链路**——使 [[api/SeamPvtFeeder]] 在无真机时也能被验证。
+虚拟相机不走英莱算法，用**最低点即焊缝特征点**推算一个中性 `LineLaserSeamResult`（`Valid=true`、`ParseRes=1`、`FeatureY`=最低点 Y、`FeatureZ`=最低点 Z、宽度=Y 跨度、面积=宽×深×0.5），**用于在模拟模式下打通「结果 → Y 轴 PVT」链路**——使 [[api/SeamTrajectoryBuilder]] 在无真机时也能被验证（ADR-040 前为 [[api/SeamPvtFeeder]]，已废弃）。
 
 ## 协作
 

@@ -1,11 +1,17 @@
 ﻿---
-title: ADR-039 线激光职责再分工与焊缝跟踪 PVT 依赖注入
+title: ADR-035 线激光职责再分工与焊缝跟踪 PVT 依赖注入
 date: 2026-09-08
 status: accepted
-tags: [决策, 线激光, 相机, 职责分层, PVT, 依赖注入, 焊缝跟踪, ADR-039]
+tags: [决策, 线激光, 相机, 职责分层, PVT, 依赖注入, 焊缝跟踪, ADR-035]
 ---
 
-# ADR-039 线激光职责再分工与焊缝跟踪 PVT 依赖注入
+# ADR-035 线激光职责再分工与焊缝跟踪 PVT 依赖注入
+
+> ⚠️ **部分被取代（2026-09-11，[[decisions/ADR-040-SeamGuideTrajectoryBuilder]]）**：本条 ⑥「Y 轴以 `IPVTMotion` 注入
+> `LineLaserManager`、结果侧经 `SeamPvtFeeder` 直写 PVT」**已废止**——`SeamPvtFeeder` 与 `AttachYAxis` 整类删除，
+> Y 轴轨迹构造迁至 [[api/SeamTrajectoryBuilder]]（WeldParamControl 模块），由 [[api/MotionControlWorkflow]] 调用。
+> ①~⑤（实现层只回调 / Manager 做业务 / 中性结构 / 绘制上提 / 主页面轮询）**仍有效**。
+> 另注：本页 frontmatter `title` 仍为 09-08 时代编号，以 [[decisions/ADR-Index]] 现行编号为准。
 
 ## 背景
 

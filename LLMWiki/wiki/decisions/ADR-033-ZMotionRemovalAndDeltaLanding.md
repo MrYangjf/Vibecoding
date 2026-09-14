@@ -1,11 +1,11 @@
 ﻿---
-title: ADR-037 移除正运动（ZMotion）并全面落地台达 EtherCAT + 消费方全量对接
+title: ADR-033 移除正运动（ZMotion）并全面落地台达 EtherCAT + 消费方全量对接
 date: 2026-09-07
 tags: [决策, 运控, 台达, EtherCAT, 正运动, 移除, 消费方对接, 代码精简]
 status: accepted
 ---
 
-# ADR-037 移除正运动（ZMotion）并全面落地台达 EtherCAT + 消费方全量对接
+# ADR-033 移除正运动（ZMotion）并全面落地台达 EtherCAT + 消费方全量对接
 
 ## 背景
 

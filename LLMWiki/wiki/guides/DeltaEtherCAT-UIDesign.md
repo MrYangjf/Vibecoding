@@ -31,8 +31,8 @@ tags: [指南, 运控, 台达, UI, AntdUI, 监控]
 
 | 维度 | 原档（MasonMotionControl） | **AdaWeldSystem 落地** |
 |---|---|---|
-| 命名空间 | `MasonMotionControl` | `AdaWeldSystem.Sub2UI`（TabPage 页）/ `AdaWeldSystem.Sub3UI`（SubDialog 弹窗） |
-| 目录 | `MotionControl/UIControl/` | 页面 `UIDesign/TabPage/`；弹窗 `UIDesign/SubDialog/MotionDialog/`（**遵循 2026-09-07 按业务域拆分**） |
+| 命名空间 | `MasonMotionControl` | `AdaWeldSystem.UIDesign.TabPage`（页面）/ `AdaWeldSystem.UIDesign.SubDialog.<业务域>`（弹窗） |
+| 目录 | `MotionControl/UIControl/` | 页面 `UIDesign/TabPage/`；弹窗 `UIDesign/SubDialog/MotionControlDialog/`（**遵循 2026-09-07 按业务域拆分**） |
 | 弹窗基类 | `System.Windows.Forms.Form` | `UserControl` + `AntdUI.Modal.open`（ADR-019，**禁** `AntdUI.Window`） |
 | 文件命名 | `XxxDialog` / `XxxControl` | **`XxxForm`**（对齐用户 2026-09-07 改名：`ILScanDialog`→`ILScanForm`、`FormLogin`→`LoginForm`） |
 | 表格 | `DataGridView` | **`AntdUI.Table` + `AntList<T>`**（禁用 DataGridView，见 [[modules/UIDesign]]） |
@@ -45,7 +45,7 @@ tags: [指南, 运控, 台达, UI, AntdUI, 监控]
 | 运控入口 | `MotionManager.GetMotionManager()` | **`MontionManager.Instance`**（本项目单例属性，非工厂方法） |
 | 轴遍历 | `mgr.GetAxes()` | `MontionManager.Instance.MontionControl.GetAxes()` |
 | 异步 | `Task` 起后台 | 长操作走工作流/后台线程；**UI 线程不阻塞**；`InvokeRequired` 封送（[[guides/WinForms-UI-Threading]]） |
-| 持久化 | `XmlSerializer` 序列化配置类 | **`FileOperate/XMLfile.cs`**（ADR-036：无参 `LoadConfig`/`SaveConfig`，末尾必 `SaveXdocument()`） |
+| 持久化 | `XmlSerializer` 序列化配置类 | **`FileOperate/XdocumentReaderWriter.cs`**（ADR-036：无参 `LoadConfig`/`SaveConfig`，末尾必 `SaveXdocument()`） |
 
 ---
 
@@ -147,7 +147,7 @@ UserControl + Modal 承载（ADR-019）
 
 ## 6. 配置持久化
 
-⚠️ **不用 `XmlSerializer`**（原档做法）；本项目统一走 `FileOperate/XMLfile.cs`：
+⚠️ **不用 `XmlSerializer`**（原档做法）；本项目统一走 `FileOperate/XdocumentReaderWriter.cs`：
 
 - 配置类提供**无参** `LoadConfig()` / `SaveConfig()`
 - 写入末尾**必须**调用 `SaveXdocument()`

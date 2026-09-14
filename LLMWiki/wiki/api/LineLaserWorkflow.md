@@ -134,7 +134,7 @@ if (MotionControlWorkflow.Instance.IsRunning) { _lastAdjustSuccess = true; retur
 _lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();   // 焊接工艺计算与下发
 ```
 
-> 焊缝特征与机器人 X 由 `WeldProcess` 在 `PipelineManager.AlgorithmCompleted` 中暂存，工艺工作流统一计算下发，此处无需传参。
+> 焊缝结果与机器人 X 由 `WeldParamManager` 统一取用（2026-09-14 ADR-041：原 `WeldProcess` 已删除），工艺工作流统一计算下发，此处无需传参。
 
 ### 失败计数语义
 
@@ -197,7 +197,7 @@ _lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();   // 
 
 ```csharp
 using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;
-using AdaWeldSystem.MainDeviceControl.DeviceState;   // 读 SubDeviceState / SubDeviceWeldStatus 枚举
+using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;   // 读 SubDeviceState / SubDeviceWeldStatus 枚举
 
 var wf = LineLaserWorkflow.Instance;
 var status = wf.WeldStatus;   // 焊接过程态：判断是否运行、显示分步进度

@@ -1,5 +1,5 @@
 ﻿---
-title: ADR-017 算法编辑界面按接口分隔（Tabpage / UIPage + AddPage，单独个例仅记录为当前）
+title: ADR-014 算法编辑界面按接口分隔（Tabpage / UIPage + AddPage，单独个例仅记录为当前）
 status: accepted
 date: 2026-07-27
 tags: [决策, UI, 算法编辑, 接口分隔, 英莱, Tabpage, SunnyUI, UIPage, AntdUI(迁移后)]
@@ -13,7 +13,7 @@ source: 用户需求「将我自有算法和英莱的相机算法分隔开，使
 > - `ParamPage.cs` → 现役 `UIDesign/TabPage/ParamConfigPage.cs`
 >
 
-# ADR-017 算法编辑界面按接口分隔（Tabpage / UIPage + AddPage，单独个例仅记录为当前）
+# ADR-014 算法编辑界面按接口分隔（Tabpage / UIPage + AddPage，单独个例仅记录为当前）
 
 > 📌 **界面框架描述已随 [[decisions/ADR-015-UIFrameworkMigration]] 更新**：本 ADR 撰写时 UI 框架为 SunnyUI，故描述「`UITabControl` + `UIPage` + `AddPage`」。迁移后实际为 **`AntdUI.Tabs` + `UserControl` + `AddTabSelect(UserControl)`**（见 `ILAlgorithmEditForm.Designer.cs`）。**接口分隔的核心决策（自有算法与英莱相机算法分两个页）不变**。
 

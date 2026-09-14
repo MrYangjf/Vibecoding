@@ -1,6 +1,6 @@
 ---
 title: 数据库开发专员
-date: 2026-07-01
+date: 2026-09-14
 tags: [专员, 数据库, SQLite]
 source: raw/skills/AdaWeldsys_Skills/02-Development/DatabaseSpecialist.md
 ---
@@ -17,28 +17,36 @@ source: raw/skills/AdaWeldsys_Skills/02-Development/DatabaseSpecialist.md
 
 ## 负责文件
 
-SqlLiteDatabase/
-├── SQLiteDataBase.cs          ← 数据库基础操作（CRUD）
-├── AuthManage.cs              ← 权限管理
-├── ConfigManage.cs            ← 配置管理
-├── AutoParamManager.cs        ← 自动参数数据库管理（JSON序列化）
-├── ProductDatabaseManage.cs   ← 产品数据库管理
-└── ConfigManager.cs           ← 焊接工艺配置管理
+```
+SQLiteDBControl/
+├── SQLiteCore/
+│   └── SQLiteDataBase.cs          ← SQLite 数据库核心封装（CRUD）
+├── ISQLiteHelper/
+│   └── DatabaseHelperBase.cs      ← Helper 抽象基类
+├── Helpers/
+│   ├── AuthHelper.cs              ← 权限管理
+│   ├── AutoParamHelper.cs         ← 自动参数数据库管理（JSON序列化）
+│   │                                （含 WeldAutoParamProfile 数据结构）
+│   ├── ConfigHelper.cs            ← 配置管理
+│   └── ProductDatabaseHelper.cs   ← 产品数据库管理
+└── SQLiteDatabaseManager.cs       ← 单例入口，聚合所有 Helper
+```
 
 ## 技术要点
 
 - System.Data.SQLite
-- 数据库路径: AppDomain.CurrentDirectory + @\DataBase\
-- Entity Framework 6 (System.Data.SQLite.EF6)
+- 数据库路径: `Application.StartupPath + @"\DataBase\"`
 - Newtonsoft.Json 序列化参数字典到 SQLite
-- AutoParam.identityInfo 作为数据库表名/配置标识
+- `AutoParam.identityInfo` 作为数据库表名/配置标识
+- 命名空间: `AdaWeldSystem.SQLiteDBControl`（子命名空间 `SQLiteCore` / `ISQLiteHelper` / `Helpers`，ADR-048）
+- 对外唯一入口: `SQLiteDatabaseManager.Instance`
 
 ## 协作关系
 
 | 协作对象 | 数据接口 |
 |----------|----------|
-| 焊接工艺专员 | AutoParamManager, ConfigManager |
-| UI开发专员 | AuthManage, ConfigManage |
+| 焊接工艺专员 | `AutoParamHelper`, `ConfigHelper` |
+| UI开发专员 | `AuthHelper`, `ConfigHelper` |
 
 ---
 

@@ -1,14 +1,16 @@
 ﻿---
-title: ADR-008 通讯 XML 配置按设备类型分离
+title: ADR-006 通讯 XML 配置按设备类型分离
 date: 2026-07-03
 tags: [决策, 通讯, XML, 配置管理]
 status: accepted
 ---
 
-# ADR-008 通讯 XML 配置按设备类型分离
+# ADR-006 通讯 XML 配置按设备类型分离
 
 > 状态：已采纳
 > 日期：2026-07-03
+>
+> **沿革横幅（2026-09-14）**：XML 按设备类型分离的**结论仍有效**（8 个 XML 配置由 `CommunicationManager` 持有）；但承载者已随 [[decisions/ADR-045-CommModuleRefactor]] 迁移——`CommunicationManager.cs` 现位于 `Comm/Communication/`，机器人 XML 消费方 `CommRobotPage` 现为 `CommPage`。
 
 ## 背景
 

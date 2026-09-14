@@ -15,7 +15,7 @@ source: raw/knowledge/AdaWeldSystem_Wiki.md
 
 ```
 PCLOperate/
-├── 3DModel/
+├── Models/
 │   ├── Point3D.cs                       ← 3D 点数据结构
 │   └── PointCloudData.cs               ← 点云数据集
 ├── DataIO/
@@ -29,14 +29,14 @@ PCLOperate/
 ```
 
 > **2026-08-07 目录名修正**：实际代码目录名为 `PCLOperate/`（而非 `PointCloudData/`），内部子结构完全一致。模块名仍沿用 `PointCloudData`。
-> **2026-08-31 RunFileRecord 迁出（ADR-027）**：过程记录 4 文件（RunRecordManager/RecordFrame/WeldActionRecord/SmartRayConverter）迁入 `ProductFileManager/`，命名空间改 `AdaWeldSystem.ProductFileManager`；本模块仅余点云本域（3DModel/DataIO/Render），RunRecordManager 仍引用本模块 Models/DataIO。
+> **2026-08-31 RunFileRecord 迁出（ADR-027）**：过程记录 4 文件（RunRecordManager/RecordFrame/WeldActionRecord/SmartRayConverter）迁入 `ProductFileManager/`，命名空间改 `AdaWeldSystem.ProductFileManager`；本模块仅余点云本域（Models/DataIO/Render），RunRecordManager 仍引用本模块 Models/DataIO。
 
 ## 核心文件
 
 | 文件 | 职责 |
 |------|------|
-| `3DModel/Point3D.cs` | 3D 点数据结构（X/Y/Z/强度） |
-| 3DModel/PointCloudData.cs | 点云数据集（点列表 + 元数据） |
+| `Models/Point3D.cs` | 3D 点数据结构（X/Y/Z/强度） |
+| Models/PointCloudData.cs | 点云数据集（点列表 + 元数据） |
 | DataIO/PointCloudReader.cs | 点云数据文件读取（导入/格式转换） |
 | DataIO/PointCloudWriter.cs | 点云数据文件写入（导出） |
 | Render/PointCloudViewer.cs | 3D渲染引擎核心（HelixToolkit 封装） |

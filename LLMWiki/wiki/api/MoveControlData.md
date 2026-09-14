@@ -52,14 +52,14 @@ public MoveControlData MoveData { get; private set; }   // MontionManager 构造
 | `bool TryGetNearestHorizontalMove(double robotX, out double move, out double key)` | 阈值内找最近缓存项（趋近/近似匹配） |
 | `void RemoveHorizontalMove(double key)` | 命中后移除（避免重复触发） |
 | `void ClearHorizontalMoveCache()` | 清空缓存 |
-| `void ComputeAndCacheHorizontalMove(SeamFeatureResult seamFeature, double robotX)` | 组合：计算+缓存+日志（**单一算法真源**，供 WeldProcess 与 MotionControlWorkflow 统一调用） |
+| `void ComputeAndCacheHorizontalMove(SeamFeatureResult seamFeature, double robotX)` | 组合：计算+缓存+日志（**单一算法真源**，供 ~~WeldProcess~~ [[api/WeldParamManager]] 与 MotionControlWorkflow 统一调用） |
 | `void Load()` / `void Save()` | **本地持久化**：委托 `MotionConfig.LoadConfig()` / `SaveConfig()`，读写 `Config/XML/DeltaMotionConfig.xml` 的 `CALIBRATION` 节；`Save` 由 `MotionControlPage`「保存标定参数」调用，`Load` 在 `MontionManager` 构造时自动执行一次（参见 [[guides/Project-Tools]]） |
 
 > ⚠️ **配置源已统一**：原 `Config/INI/MoveControlData.ini` 弃用，标定与台达运控参数同处一个 XML。禁止再对同一文件开第二个 `XdocumentReaderWriter`——`SaveConfig` 会 `NewXdocument` 重建整篇，并发写会互相覆盖。
 
 ## 协作
 
-- 被 `MotionControlWorkflow`（`MainDeviceControl/DeviceWorkflow/`）的水平移动线程消费、被 `WeldProcess`（[[modules/WeldParamControl]]）真实流程调用，两处均经 `MontionManager.Instance.MoveData` 访问。
+- 被 `MotionControlWorkflow`（`MainDeviceControl/DeviceWorkflow/`）的水平移动线程消费、被 ~~`WeldProcess`~~ [[api/WeldParamManager]]（[[modules/WeldParamControl]]）调用，两处均经 `MontionManager.Instance.MoveData` 访问。
 - 标定参数由 [[modules/UIDesign]] 的 `MotionControlPage`「标定数据参数」组写入。
 - `MontionManager` 是唯一对接台达控制器的对象；`MoveControlData` 只提供配置数据，不碰硬件。
 

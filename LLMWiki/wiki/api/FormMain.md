@@ -17,7 +17,7 @@ source: AdaWeldSystem/UIDesign/MainWindow/FormMain.cs + .Designer.cs
 | 基类 | `AntdUI.Window`（主窗体） |
 | 文件 | `UIDesign/MainWindow/FormMain.cs` + `.Designer.cs` |
 | 命名空间 | `AdaWeldSystem` |
-| 依赖 | `AdaWeldSystem.Comm`、`AdaWeldSystem.MainDeviceControl.DeviceState`、`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`、`MonitorCam`、`MotionControl`、`LineLaserCamApi`、`Sub1UI`、`Sub2UI` |
+| 依赖 | `AdaWeldSystem.Comm.SystemComm`、`AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`、`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`、`AdaWeldSystem.UIDesign.ControlPage`、`AdaWeldSystem.UIDesign.TabPage`、`MonitorCam`、`MotionControl`、`LineLaserCam` |
 
 ## #region 结构（2026-08-27 精简后）
 
@@ -51,7 +51,7 @@ source: AdaWeldSystem/UIDesign/MainWindow/FormMain.cs + .Designer.cs
 
 ## 协作
 
-- 子页面：`MainPage`（主页面，Sub1UI）、`NavPage`（参数/相机设置，Sub2UI）、`DataReviewerPage`（数据追溯）。
+- 子页面：`MainPage` / `NavPage` / `DataReviewerPage`（均 `AdaWeldSystem.UIDesign.ControlPage`）。
 - 状态源：`DeviceControlWork`（整机状态 `MainDeviceStatus`，ADR-028 三态模型）、`LineLaserWorkflow`（焊接过程态 `SubDeviceWeldStatus`）；设备连接态现由 `MainPage` `ButtonShadow` 常驻按钮表征（ADR-025），状态栏仅承载流程状态/系统时间两项；整机状态显示已迁移至 `MainPage.LabelStatus`（2026-09-08，`lbl_SystemStatus` 删除）。
 
 ---

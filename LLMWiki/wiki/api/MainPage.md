@@ -7,17 +7,17 @@ source: AdaWeldSystem/UIDesign/ControlPage/MainPage.cs + .Designer.cs
 
 # MainPage — 主页面
 
-> 主显示页面（Sub1UI `UserControl`），承载英莱线激光轮廓 ScottPlot Signal 图 + 4 条实时数据曲线（焊缝宽度/机器人运动速度/送丝速度/激光功率）+ 全局日志框。2026-08-27 经五维度代码精简（删未用字段/死函数、内联 LoadComponent、补 5 #region、public 方法归集、XML 注释补全）。2026-08-31 改用 **AntdUI `ButtonShadow` 常驻按钮**（[[decisions/ADR-025-ButtonShadowDeviceSwitch]]，替代已废弃的 FloatButton 覆盖层方案）：6 个硬件快捷开关（焊接头/线激光/监控相机/运动控制器/机器人通讯/PLC通讯；徽标红=断开 绿=连接；仅线激光实现真实连接/断开切换，其余硬件暂未接入，点击提示「暂未接入」），构造函数中代码后置创建并直接放入 **`panelfloatbutton` 面板**（MainPage 底部 54px 全宽条，tableLayoutPanel2 第 3 行），随页面显隐自动生效。**同日风格迭代（形态对齐 AntdUI Demo `buttonShadow1`）**：50×50 阴影按钮**仅显示 SVG 图标**（默认 poweroff 电源 SVG）、设备名经 **`TooltipComponent` 顶部提示**（`ArrowAlign=TAlign.Top`）、连接态由**原生徽标属性** `Badge=""`+`BadgeMode=true`+`BadgeBack` 红/绿承载；预留接口 `SetDeviceIconSvg`/`SetDeviceBadgeSvg`。
+> 主显示页面（`AdaWeldSystem.UIDesign.ControlPage` `UserControl`），承载英莱线激光轮廓 ScottPlot Signal 图 + 4 条实时数据曲线（焊缝宽度/机器人运动速度/送丝速度/激光功率）+ 全局日志框。2026-08-27 经五维度代码精简（删未用字段/死函数、内联 LoadComponent、补 5 #region、public 方法归集、XML 注释补全）。2026-08-31 改用 **AntdUI `ButtonShadow` 常驻按钮**（[[decisions/ADR-025-ButtonShadowDeviceSwitch]]，替代已废弃的 FloatButton 覆盖层方案）：6 个硬件快捷开关（焊接头/线激光/监控相机/运动控制器/机器人通讯/PLC通讯；徽标红=断开 绿=连接；仅线激光实现真实连接/断开切换，其余硬件暂未接入，点击提示「暂未接入」），构造函数中代码后置创建并直接放入 **`panelfloatbutton` 面板**（MainPage 底部 54px 全宽条，tableLayoutPanel2 第 3 行），随页面显隐自动生效。**同日风格迭代（形态对齐 AntdUI Demo `buttonShadow1`）**：50×50 阴影按钮**仅显示 SVG 图标**（默认 poweroff 电源 SVG）、设备名经 **`TooltipComponent` 顶部提示**（`ArrowAlign=TAlign.Top`）、连接态由**原生徽标属性** `Badge=""`+`BadgeMode=true`+`BadgeBack` 红/绿承载；预留接口 `SetDeviceIconSvg`/`SetDeviceBadgeSvg`。
 
 ## 基本信息
 
 | 项 | 值 |
 |----|----|
-| 类 | `AdaWeldSystem.Sub1UI.MainPage` |
+| 类 | `AdaWeldSystem.UIDesign.ControlPage.MainPage` |
 | 基类 | `System.Windows.Forms.UserControl` |
 | 文件 | `UIDesign/ControlPage/MainPage.cs` + `.Designer.cs` |
-| 命名空间 | `AdaWeldSystem.Sub1UI` |
-| 依赖 | `AdaWeldSystem.Comm`、`WeldParamControl`、`LineLaserCamApi`、`LineLaserCam.IntelligentLaserCam`、`PCLOperate.Models`、`MainDeviceControl.DeviceWorkflow`(LineLaserWorkflow)、`MainDeviceControl.DeviceState`(三态枚举)、`ScottPlot` |
+| 命名空间 | `AdaWeldSystem.UIDesign.ControlPage` |
+| 依赖 | `AdaWeldSystem.Comm.SystemComm`、`WeldParamControl`、`LineLaserCam`、`LineLaserCam.IntelligentLaserCam`、`PCLOperate.Models`、`MainDeviceControl.DeviceWorkflow`(LineLaserWorkflow)、`MainDeviceControl.DeviceStateApiCore`(三态枚举)、`ScottPlot` |
 
 ## #region 结构（2026-08-27 精简后）
 

@@ -2,7 +2,7 @@
 
 > KUKA 机器人通讯模块 C# API 参考
 >
-> 命名空间：`AdaWeldSystem.Comm.KUKARobot`
+> 命名空间：实现类 `AdaWeldSystem.Comm.Communication.Implementations`（`KukaRsiComm`/`KukaEkiComm`），门面 `AdaWeldSystem.Comm.Communication.CommunicationManager`（ADR-045 + ADR-048）
 > 对应目录：`Comm/KUKARobot/`
 
 ---
@@ -220,10 +220,10 @@ public struct EKIStatus
 
 ## 4. KUKAXMLConfig
 
-XML 配置生成与解析。
+XML 配置生成与解析。（2026-09-14 起为 **partial class**：RSI 半边居 `KukaRsiComm.cs`、EKI 半边居 `KukaEkiComm.cs`，类型名与命名空间不变）
 
 ```csharp
-public static class KUKAXMLConfig
+public static partial class KUKAXMLConfig
 {
     // RSI XML 配置生成
     public static string GenerateRSIXML(RSIConfig config);
@@ -337,7 +337,7 @@ public enum EKIDataType
 
 ## 5. KUKADataTypes
 
-数据结构定义。
+数据结构定义。（2026-09-14 起独立文件移除：RSI 侧类型并入 `KukaRsiComm.cs`、EKI 侧并入 `KukaEkiComm.cs`、管理层事件参数并入 `CommunicationManager.cs`，类型名与命名空间不变）
 
 ### 5.1 KUKARobotData
 

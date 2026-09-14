@@ -2,7 +2,7 @@
 
 > 基于 Andrej Karpathy LLM Wiki 理论构建
 > 版本：V1.0 | 创建时间：2026-07-01
-> 位置：`Vicoding管理平台/LLMWiki/` —— 与可视化工具 `tools/KarpathyWikiManager.html` 配合使用
+> 位置：`Vicoding管理平台/LLMWiki/` —— 健康检查由 `tools/` 下三个只读扫描器（`wiki_audit.py` / `lint_scan.py` / `drift_scan_precise.py`）承担
 
 ---
 
@@ -43,9 +43,12 @@ LLMWiki/
 │
 ├── raw/                   ← 原始资料层：AI 只读不改（真相源）
 │   ├── skills/            ← 开发团队 Skill 规范（从 Skills/ 同步）
-│   ├── knowledge/         ← 第三方技术知识库原始资料（EmguCV/HelixToolkit）
+│   ├── knowledge/         ← 第三方技术知识库原始资料（EmguCV / HelixToolkit / KUKA_OPT）
 │   ├── history/           ← 开发历史记录（history.md 按时间分段）
-│   └── codebase/          ← 关键代码快照（架构接口、核心算法）
+│   ├── architecture/      ← 主控设计原档（主控设计.xlsx、激光焊接系统业务流程图.pdf）
+│   ├── delta/             ← 台达 EtherCAT 厂商原始清单与错误码
+│   └── mecavision/        ← 麦格威监控相机 SDK 原档（`MecaVision_SDK/`，仅存档，编译产物已清）
+│   # ⚠️ 2026-09-12：原 `raw/codebase/`（0 字节空目录）与 `raw/tools/crg_build.py`（已退役的图谱工具）已删除
 │
 ├── wiki/                  ← AI 维护的知识层：AI 全权负责写和维护
 │   ├── project/           ← 项目整体知识（概览、技术栈、演进路线）
@@ -69,6 +72,10 @@ LLMWiki/
 │
 ├── wiki/index/           ← 索引层（独立于日志）
 │   └── index.md           ← 全库内容索引（内容导向，按分类组织）
+│
+├── tools/                 ← 只读健康扫描器（wiki_audit / lint_scan / drift_scan_precise / check_adr_status / truncate_log）
+├── scripts/               ← 代码审查与批量脚本（csharp_review.py / scan_by_folder.sh）
+├── skills/                ← 工作流 Skill 的仓库副本（与 `~/.workbuddy/skills/vibecoding-llmwiki/` 同步）
 │
 └── logs/                  ← 日志层
     └── log.md             ← 变更日志（时间导向，倒序追加）
@@ -218,6 +225,16 @@ Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 - [ ] **缺失链接**：同一主题在不同页面中未互相引用
 - [ ] **技能同步**：检查 raw/skills/ 和 wiki/people/ 是否同步
 - [ ] **代码漂移**：检查 wiki/modules/ 描述是否与当前代码一致
+
+**自动化扫描（先行，2026-09-12 补）**：在 `Vicoding管理平台/LLMWiki/` 下依次运行——
+
+```
+python tools/wiki_audit.py          # 10 项体检：红链 / 孤儿 / 索引重复 / ADR 空洞 / 体积 / 重复度 / 错放 / 入链 / 二级子目录 / 过小分类
+python tools/lint_scan.py           # 死链 / 孤儿 / ADR 编号冲突 / 外链失效
+python tools/drift_scan_precise.py  # wiki 引用的 .cs 是否仍存在
+```
+
+**健康判据**：红链 0 · 孤儿 0 · 索引重复行 0 · 二级子目录 0 · 过小分类 0 · drift 待修正 0。脚本一律按 `__file__` 推导路径，禁硬编码绝对路径。
 
 ---
 

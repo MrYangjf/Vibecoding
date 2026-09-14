@@ -1,11 +1,11 @@
 ﻿---
-title: ADR-038 线激光三层重构与 SmartRay/海康 3D 移除
+title: ADR-034 线激光三层重构与 SmartRay/海康 3D 移除
 date: 2026-09-08
 status: accepted
-tags: [决策, 线激光, 相机, 三层架构, 管理器, 移除, ADR-038]
+tags: [决策, 线激光, 相机, 三层架构, 管理器, 移除, ADR-034]
 ---
 
-# ADR-038 线激光三层重构与 SmartRay/海康 3D 移除
+# ADR-034 线激光三层重构与 SmartRay/海康 3D 移除
 
 ## 背景
 

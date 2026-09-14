@@ -1,4 +1,4 @@
-﻿---
+---
 title: FaultRecordManager API — 故障记录数据库管理器
 date: 2026-08-31
 tags: [API, 故障恢复, SQLite, 单例, 数据库, 已废弃]
@@ -9,13 +9,13 @@ status: deprecated
 
 > ⛔ **整页废弃（2026-09-04）**：FaultRecordManager 已随 FaultRecoveryManager **整体从代码中移除**（[[decisions/ADR-031-ErrorReportingHierarchy]] D3）。历史存档见下文。
 
-> **位置**：`SqlLiteDatabase/FaultRecordManager.cs`，命名空间 `AdaWeldSystem.SqlLiteDatabase`（2026-08-31 新增，ADR-027）。
+> **位置**：`SQLiteDatabase/FaultRecordManager.cs`，命名空间 `AdaWeldSystem.SQLiteDatabase`（2026-08-31 新增，ADR-027）。
 > FaultRecord 表的建表、插入与查询；继承 `DatabaseManagerBase`，数据库文件 `DataBase\FaultRecord.db`（首启自动建目录建表）。
 
 ## 定位
 
 - **只负责持久化**，故障恢复闭环逻辑（记录→重试→复位）见 [[api/FaultRecoveryManager]]。
-- **不依赖领域类型**：`FaultRecord`/`FaultCategory` 定义于 `ProductFileManager/FaultRecoveryManager.cs`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-027 §3），本类以字符串值数组为写入契约，保持 SqlLiteDatabase 层不反向依赖业务层。
+- **不依赖领域类型**：`FaultRecord`/`FaultCategory` 定义于 `ProductFileManager/FaultRecoveryManager.cs`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-027 §3），本类以字符串值数组为写入契约，保持 SQLiteDatabase 层不反向依赖业务层。
 
 ## 公共接口
 
@@ -29,7 +29,7 @@ status: deprecated
 
 ## 使用范式
 
-调用方（FaultRecoveryManager.Persist）负责 FaultRecord → string[] 映射与截断（Device/ErrorCode 32、ParamSnapshot 200、RecoveryAction 64），并对写入失败记 Warning 日志——SqlLiteDatabase 管理器内部不做 try/catch 日志（对齐 ProductDatabaseManager 范式）。
+调用方（FaultRecoveryManager.Persist）负责 FaultRecord → string[] 映射与截断（Device/ErrorCode 32、ParamSnapshot 200、RecoveryAction 64），并对写入失败记 Warning 日志——SQLiteDatabase 管理器内部不做 try/catch 日志（对齐 ProductDatabaseHelper 范式）。
 
 ## ⚠️ 设备键名陷阱
 
@@ -37,4 +37,4 @@ status: deprecated
 
 ## 相关
 
-- [[api/FaultRecoveryManager]] · [[modules/SqlLiteDatabase]] · [[decisions/ADR-026-ProductLifecycleRecordModule]] · [[decisions/ADR-024-SafetyCheckConsolidation]]
+- [[api/FaultRecoveryManager]] · [[modules/SQLiteDatabase]] · [[decisions/ADR-026-ProductLifecycleRecordModule]] · [[decisions/ADR-024-SafetyCheckConsolidation]]

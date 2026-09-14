@@ -1,11 +1,11 @@
 ---
-title: ADR-018 UI 框架从 SunnyUI 迁移至 AntdUI
+title: ADR-015 UI 框架从 SunnyUI 迁移至 AntdUI
 date: 2026-07-20
 tags: [决策, UI, 迁移, SunnyUI, AntdUI]
 status: accepted
 ---
 
-# ADR-018 UI 框架从 SunnyUI 迁移至 AntdUI
+# ADR-015 UI 框架从 SunnyUI 迁移至 AntdUI
 
 ## 背景
 

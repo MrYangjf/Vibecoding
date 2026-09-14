@@ -1,11 +1,11 @@
 ﻿---
-title: ADR-029 MainPage 硬件快捷开关 FloatButton→ButtonShadow
+title: ADR-025 MainPage 硬件快捷开关 FloatButton→ButtonShadow
 date: 2026-08-31
 tags: [决策, UI, AntdUI, MainPage, 快捷开关, ButtonShadow, FloatButton]
 status: accepted
 ---
 
-# ADR-029 MainPage 硬件快捷开关 FloatButton→ButtonShadow
+# ADR-025 MainPage 硬件快捷开关 FloatButton→ButtonShadow
 
 ## 背景
 

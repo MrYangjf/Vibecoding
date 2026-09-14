@@ -15,14 +15,14 @@ WinForms 设计器生成的 `*.Designer.cs` 文件包含 `Dispose(bool)` 方法�
 
 **适用范围（2026-08-19 澄清，见 [[decisions/ADR-020-DisposePatternFullCoverage]]）：**
 
-- **`DisposeComponents()` 模式仅用于 UI 设计器类**（Form / UserControl 及其 `.cs` 后置代码）——因为 UI 类继承自 `Control`，重写 `Dispose(bool)` 会与设计器生成代码冲突。
+- **`DisposeComponents()` 模式仅用于 UI 设计器类**（Form / UserControl 及其 `.cs` 后置代码）——因为 UI 类继承自 `Control`，其 `.designer.cs` 中的 `Dispose(bool)` 由设计器生成，**手写或改写会直接破坏设计器生成逻辑、导致显示异常**。
 - **UI 类也按需使用**：仅当持有「外部嵌套控件/独立资源」（设计器 `Dispose(bool)` 覆盖不到的对象）时才写 `DisposeComponents()`；无嵌套、无独立资源则不需要。
 - **非 UI 类（后端类）不得使用 `DisposeComponents()`**，必须实现标准 `IDisposable.Dispose()` 接口并正确释放资源（2026-08-19 全项目迁移落地）。
 
 UI 类使用 `DisposeComponents()` 公共方法模式：
 
 1. 不在 Designer.cs 中修改 Dispose
-2. **禁止在 UI 类的 `.cs` 文件中重写或新增 `Dispose(bool)` 方法**（会与 Designer.cs 生成的 Dispose 冲突，且设计器会报错）
+2. **UI 类的 `.cs` 后置代码中不直接重写 `Dispose(bool)`**：应通过 `DisposeComponents()` 公共方法释放设计器覆盖不到的外部资源；`Dispose(bool)` 的乱写/改写若落在 `.designer.cs` 中，会直接破坏设计器生成逻辑并导致显示异常
 3. 在 `.cs` 文件中定义 `DisposeComponents()` 方法
 4. 父页面关闭时调用 `DisposeComponents()`
 

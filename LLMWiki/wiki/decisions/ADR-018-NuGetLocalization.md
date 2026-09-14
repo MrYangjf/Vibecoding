@@ -1,11 +1,11 @@
 ---
-title: ADR-021 NuGet 本地化 — 所有依赖 DLL 从 3rdDepend 引用
+title: ADR-018 NuGet 本地化 — 所有依赖 DLL 从 3rdDepend 引用
 date: 2026-08-06
 tags: [决策, NuGet, 本地化, 依赖管理, 构建]
 status: accepted
 ---
 
-# ADR-021 NuGet 本地化 — 所有依赖 DLL 从 3rdDepend 引用
+# ADR-018 NuGet 本地化 — 所有依赖 DLL 从 3rdDepend 引用
 
 > **状态**：accepted | **日期**：2026-08-06
 

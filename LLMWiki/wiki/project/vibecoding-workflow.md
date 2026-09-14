@@ -73,7 +73,7 @@ tags: [工作流, VibeCoding, 开发流程, 规范]
 
 ## 核心规则（强制，不可绕过）
 
-> 与 `~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md` 的 Key Rules 同源（2026-09-03 对齐）。
+> 与 `~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md` 的 Key Rules 同源（**2026-09-12 回灌对齐至 17 条**）。
 > **两者冲突时以 Skill 文件为准**——Skill 通常领先本页；Phase 3 Ingest 应把 Skill 的新规则回灌到这里。
 
 1. **禁止跳过 Query**：编码前必须执行 Phase 0 从 LLMWiki 检索上下文。禁止仅凭记忆或 Skill 文件编码。
@@ -83,13 +83,20 @@ tags: [工作流, VibeCoding, 开发流程, 规范]
 5. **Ingest 强制**：Phase 3 不可跳过，没有 Ingest 的编码视为未完成。
 6. **新决策必须记录**：编码若涉及新架构选择，必须在 `wiki/decisions/` 建立 ADR。
 7. **时间戳规则**：Phase 3 追加 `logs/log.md` 的时间戳必须用 Bash `date "+%Y-%m-%d %H:%M:%S"` 或 PowerShell `Get-Date -Format "yyyy-MM-dd HH:mm:ss"` 获取，**禁止猜测**；无法执行时标注 `[No.]`。
-8. **新建 .cs 必须注册 .csproj**：见 [[guides/Namespace-Compilation]] §1.1。
+8. **新建 .cs 必须注册 .csproj**：见 [[guides/Namespace-Compilation]] §1.1。文件**移动/改名**时必须就地更新已有条目的路径，并以**逐条 `os.path.exists`** 核验，不得仅凭 grep 命中判断（见 Step 2.4）。
 9. **Step 级展示（不可绕过）**：每个 Phase 内的每个 Step 都必须向用户显式展示编号、名称与产出，禁止折叠为 Phase 级摘要。
 10. **Grep 是默认的代码定位方式**：代码图谱工具已于 2026-08-19 废弃退役。用 Grep 定位符号（Step 0.7）、按行区间精确读取、多级 Grep 追溯影响（Step 2.5）。
 11. **0 消费者 ≠ 死成员（2026-09-03 教训）**：审计报某符号零消费者时，**不要直接建议删除**，先确认它是否是横切关注点载体（日志标签、序列化键、权限标记、DI/注册钩子），或 `raw/` 源档是否将其列为契约成员。本项目约定：可观测性 API（`StepStatusText` / `WorkElapsedMs`）与安全钩子（`CheckDeviceIOSafe`）**永不因未使用而删除**。应建议"收紧类型 / 降低可见性"，由用户裁决。
 12. **本沙盒无 C# 编译器——如实声明，不得伪造（2026-09-03）**：`dotnet` / `msbuild` / C# 编译器被安全策略拦截（Known Windows LOLBin），本机也没有 Visual Studio。不要浪费轮次去找。改用 Python 静态一致性校验（Step 2.6），并在最终交付中**显式声明"真编译待 Visual Studio"**为遗留项。**禁止把静态检查描述成"编译通过"**。
-13. **Wiki 页以 LF 入库——批量改写绝不能改成 CRLF（2026-09-03 教训）**：`LLMWiki/wiki/` 下所有页面在仓库中是 **LF**（`core.autocrlf=true` 只影响 checkout）。一次 Python 批量改写曾把 17 个文件悄悄转成 CRLF，diff 从约 90 行膨胀成整文件重写。规则：(a) 脚本批量编辑必须**按字节读写**并原样回写检测到的换行符，禁止 `open(p).read()` + `open(p,"w").write()`；(b) 收尾前用 `git diff --numstat` 确认没有文件的改动行数等于其总行数。
-14. **行区间替换不得吃掉换行符**：`lines[start:end] = new` 再 join 时，joiner 必须由文件探测得出（`raw.endswith("\r\n")` → `"\r\n"`，否则 `"\n"`）。默认成 `""` 曾把 `people/UISpecialist.md` 压成零换行的单个 3 KB 行。
+13. **Wiki 页以 LF 入库——批量改写绝不能改成 CRLF（2026-09-03 教训，2026-09-11 扩写）**：`LLMWiki/wiki/` 下所有页面在仓库中是 **LF**（`core.autocrlf=true` 只影响 checkout）。一次 Python 批量改写曾把 17 个文件悄悄转成 CRLF，diff 从约 90 行膨胀成整文件重写。规则：(a) 脚本批量编辑必须**按字节读写**并原样回写检测到的换行符，禁止 `open(p).read()` + `open(p,"w").write()`；(b) 收尾前用 `git diff --numstat` 确认没有文件的改动行数等于其总行数；(c) 若新旧内容的行尾相同就停下——文件本来就是对的。**⚠️ 整文件 diff 未必是你造成的（2026-09-11）**：某个文件的 blob 可能以 CRLF 入库而兄弟文件是 LF，于是即便只手工改了 2 行，`git diff --numstat` 也报成整文件重写。用 `git -c core.autocrlf=false diff --numstat` 复核——若计数骤降到个位数，那是**仓库卫生的历史遗留**而非本轮污染；如实上报，不要"顺手修"。
+14. **行区间替换既不得吃掉换行符、也不得把它翻倍（2026-09-11 扩写）**：`lines[start:end] = new` 再 join 时，joiner 必须由文件探测得出（`raw.endswith("\r\n")` → `"\r\n"`，否则 `"\n"`）。默认成 `""` 曾把 `people/UISpecialist.md` 压成零换行的单个 3 KB 行。**⚠️ joiner 还必须与 splitter 匹配**：`text.split("\n")` 会在每行尾留下 `\r`，再用 `"\r\n"` 拼回就得到 `\r\r\n`（CRCRLF），把 2 行改动放大成整文件重写（2026-09-11 命中 35 个 ADR 页）。**首选方案：按字节操作、永不重建行终止符——`parts = raw.split(b"\n")`，再 `b"\n".join(parts)`，`\r` 留在片段内。** 断言盲区：`b"\r\r\n".count(b"\r\n") == 1`，所以"`count(b"\r\n")` 未变"**并不**证明文件干净——须断言 `\r\n` / `\r\r\n` / `\n` 三者计数**全部等于原值**（或只有目标行不同）。**比对原值而非 0**：`ADR-021`/`ADR-026` 本就合法持有原生 `\r\r\n`。一旦命中，**从编辑前的 `tar.gz` 整目录还原重做**，不要修补损坏文件。见 [[lessons/WikiDriftCorrectionPitfalls]] 坑七。
+15. **退役旧规范——三档分诊，禁一刀切删除（2026-09-03）**：新架构页取代旧 wiki 内容时，**不要**批量删除或批量覆盖。先逐页分类，再施加对应处置：
+    - **第 1 档——结论被完全取代 → 整页 `deprecated` + ⛔ 横幅**：frontmatter 标 `status: deprecated`，前置 ⛔ 横幅（含"旧机制 → 处置 → 现行做法"表），正文留作历史。（已施于：模拟模式 / 步骤驱动工作流 / 自动-手动双流程等已删决策页，以及 `standards/StepDrivenWorkflow.md`。）
+    - **第 2 档——仅术语/符号名过时 → 加沿革横幅、保留结论**：推理仍成立，只是载体改名/移除。（已施于 ADR-019 / ADR-021 / ADR-038 / ADR-020 / `guides/Namespace-Compilation`。）
+    - **第 3 档——经验类内容（`lessons/` 踩坑）→ 逐条判 ✅/⚠️/⛔**：坑可以比产生它的机制活得更久。保留不依赖该机制的观点（如"推进步后立即退出""命令值必须全局唯一""禁止在单步内阻塞"），只把机制相关部分标 ⛔。
+    - 随后全库扫描指向退役页的 `[[链接]]`，逐条改为**删除线旧链 → 指向新权威页**，避免读者跟进一条死规范。
+16. **任何第二次批量替换前先查自引用（2026-09-03）**：连续两次全局替换 `[[old]]` 会产生嵌套删除线垃圾——`~~~~[[old]]~~ → [[new]]~~`——因为替换文本本身含被替换文本。批量替换前确认新文本不含旧文本；若已损坏，用精确子串**成对**修复并停止重跑全局替换。
+17. **`grep -n "^> ..."` 在 markdown 引用块上会静默返回 0**：BRE 中 `\>` 是**词尾锚点**，不是字面 `>`。校验引用块/横幅行一律用 `grep -nF`（固定字符串）。
 
 ---
 
@@ -243,8 +250,8 @@ graph TD
 | 图像算法功能 | EmguALG/ 及其直接调用方 | 其他模块 |
 | 3D 数据处理 | PointCloudData/ 及其直接调用方 | 其他模块 |
 | 通用技术功能 | FileOperate/, Comm/ | 其他模块 |
-| 焊接工艺功能 | InteliWeld/, SqlLiteDatabase/AutoParamManager.cs | 其他模块 |
-| 数据库功能 | SqlLiteDatabase/ 及其直接调用方 | 其他模块 |
+| 焊接工艺功能 | InteliWeld/, SQLiteDBControl/Helpers/AutoParamHelper.cs | 其他模块 |
+| 数据库功能 | SQLiteDBControl/ 及其直接调用方 | 其他模块 |
 | 运动控制功能 | MotionControl/ 及其直接调用方 | 其他模块 |
 | UI 界面功能 | UIDesign/ 及其直接调用的后端接口 | 后端模块内部实现 |
 
@@ -341,9 +348,23 @@ graph TD
 
 实现完成后，对照 Phase 0 的"决策约束清单"和"历史教训门禁"逐项勾选确认。
 
-#### Step 2.4: .csproj 注册（若新建文件）
+#### Step 2.4: .csproj 注册（若新建 **或移动/改名** 文件）
 
 若新建了 .cs 文件，**必须**在 `AdaWeldSystem/AdaWeldSystem.csproj` 中添加 `<Compile Include="..." />` 条目。
+
+**文件移动/改名 → 原条目路径即失效**，必须就地更新该条目的路径字符串。不要因为"文件还在"就认为条目没问题——构建用的是路径字符串。
+
+**核验方式 = 逐条存在性判断，而非 grep 命中**（2026-09-14 漏检实证）：
+
+```python
+import re, os
+txt = open('AdaWeldSystem/AdaWeldSystem.csproj', encoding='utf-8-sig').read()
+incs = re.findall(r'<Compile Include="([^"]+)"', txt)
+miss = [i for i in incs if not os.path.exists(i.replace('\\', '/'))]
+print('missing:', len(miss), miss)   # 必须为 0
+```
+
+仅在 csproj 里 `grep` 到**文件名**不能证明任何事——2026-09-14 `SeamGuideSample.cs` 移入 `Algorithms/` 后 csproj 仍留根目录旧路径，grep 判据通过但**编译必失败**。同时应反向核对（变更目录下磁盘上每个 `.cs` 都已登记）。
 
 #### Step 2.5: 变更影响范围验证（Grep 多级追溯，默认方式）
 
@@ -369,6 +390,7 @@ graph TD
 - **改名残留**：改名后仍残留的旧符号（如统一到基类 `Tag` 后残留 `_tag`）
 - **回流**：被禁用的调用点重新出现（如移除 `DeviceLog` 中间层后又新建类似封装）
 - **无用 using**：变更遗留的、现已无用的 `using` 指令
+- **csproj 路径完整性**：每条 `<Compile Include>` 路径都能在磁盘上解析到真实文件（见 Step 2.4）——**尤其是文件移动/改名之后**，缺失数必须为 0
 
 **两轮纪律**：校验脚本的第一版必然产生误报（注释命中、仅命名空间引用）。应**迭代到精确版本**，而不是靠肉眼把噪声解释掉。
 
@@ -483,6 +505,9 @@ status: proposed | accepted | deprecated
 - **禁止**追加到文件末尾
 - 整个 log.md 必须保持**严格的时间倒序**——最新的条目在最前面
 
+> ⚠️ **顶部插入的两种翻车形态（2026-09-14，跨会话已发生三次）**：① **吃掉标题**——`old_string` 锚定上一条的 `## [时间戳]` 标题行、而 `new_string` 未把它带回 → 标题被吞；② **割裂上一条**——`old_string` 锚定顶部条目的**正文首行**（如 `**触发**：…`），新条目会被插到「上一条标题」与「上一条正文」之间，标题沦为孤儿（此形态曾被视为"正确锚点"，实为错误）。**正确手法（一次编辑）**：`old_string` = 顶部条目的 `## [时间戳]` **标题行**；`new_string` = 新条目全文（标题 + 正文）+ 恰好一个空行 + **原样复制的同一条标题行**。**插入后强制读回**：`grep -n "^## \[" logs/log.md | head -3` —— 新条目须为第 1 条，上一条完整标题须紧随其后且其正文紧接该标题；同时确认条目间空行数为 **1**（本页体例）。
+> ⚠️ **旧条目的「遗留项」被本轮解决时，就地划掉**（如 `① ~~旧项~~ → **2026-09-14 已处理**`），避免 Step 4.2 陈旧检测报冲突。
+
 **日志格式**：
 ```markdown
 ## [YYYY-MM-DD HH:mm:ss] coding | 一句话描述
@@ -552,8 +577,22 @@ status: proposed | accepted | deprecated
 - [ ] **孤儿页面**：新创建的页面是否有入链？
 - [ ] **红链检测**：页面中 `[[引用]]` 的页面是否存在？
 - [ ] **双向链接**：相关页面之间是否互相引用？
-- [ ] **代码漂移**：wiki/modules/ 描述是否与当前代码一致？
 - [ ] **代码漂移**：wiki/modules/ 描述是否与当前代码一致？用 Grep 抽查：搜索 Wiki 中描述的关键符号/模块，确认在代码中存在且被使用。需关注死符号/大函数重构候选时，用 Grep 人工识别（代码图谱已废弃，无需图谱工具）。
+
+### Step 4.3: 知识库卫生巡检（周期性全库审计）
+
+> 2026-09-12 回灌。自动化扫描器只看 `[[链接]]` 与 `.cs` 名，对**从未成为链接的垃圾**完全失明。用户要求「全库审计 / 清理」时逐条执行；完整可复制清单见 [[lessons/WikiDriftCorrectionPitfalls]] 坑八 / 坑九。
+
+- [ ] **`wiki/` 下无非 Markdown 文件**：`find wiki -type f ! -name "*.md"` 为空
+- [ ] **全库无残留**：`_tmp_*` / `*.pyc` / `__pycache__/` / `*.bak` / `*~` / `*.orig`
+- [ ] **`raw/` 下无构建产物**：厂商 SDK 归档不得夹带 `bin/` `obj/` 与示例 `.exe/.pdb/.tds`；按「扩展名白名单 + 目录名」清理，**先 dry-run 体积分类表、后核对源码计数不变**，禁一刀切删厂商原档（保留 `SDK/` `Drivers/` `Document/` 与全部示例**源码**）
+- [ ] **无 0 字节空目录**：`find <dir> -type d -empty`
+- [ ] **退役工具无物理文件残留**——退役 = 连脚本一起删，不只是文档立墓碑
+- [ ] **`index.md`「来源索引」每行路径均存活**：`os.path.exists(path) == True`
+- [ ] **无悬空引用**：`grep -rn "<已删文件名>"` 覆盖 `wiki/ AGENTS.md tools/`
+- [ ] **`AGENTS.md` 与实况一致**：目录树与实际目录相符、无指向已不存在文件的引用
+- [ ] **`.gitignore` 存在**且覆盖 `bin/ obj/ *.pyc __pycache__/ .vs/ *_backup_*.tar.gz _tmp_*.py`。⚠️ 只对**未跟踪**文件生效，已入库的须用普通 `rm`（**禁用 `git rm`**）
+- [ ] **Skill 双副本一致**：`diff` 为空；**版本号相同 ≠ 内容一致**（2026-09-12 两副本同 v1.6.0 却差 4 行），以用户级为准字节覆盖
 
 ### Lint 输出
 

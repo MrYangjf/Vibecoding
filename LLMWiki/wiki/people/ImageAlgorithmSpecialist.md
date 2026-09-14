@@ -18,10 +18,10 @@ source: raw/skills/AdaWeldsys_Skills/02-Development/ImageAlgorithmSpecialist.md
 
 ## 负责文件
 
-EmguALG/（2026-09-08 ADR-042 后见 [[modules/EmguALG]]；下表为旧结构，AlgorithmJob.cs/JobManager.cs 已删除）
+EmguALG/（2026-09-08 ADR-038 后见 [[modules/EmguALG]]；下表为旧结构，AlgorithmJob.cs/JobManager.cs 已删除）
 ├── AlgorithmManager.cs    ← 配置管理与调度（严禁包含算法实现）
-├── AlgorithmJob.cs        ← Job 数据结构（2026-09-08 已删除，ADR-042）
-├── JobManager.cs          ← Job CRUD + 切换 + INI 持久化（2026-09-08 已删除，ADR-042）
+├── AlgorithmJob.cs        ← Job 数据结构（2026-09-08 已删除，ADR-038）
+├── JobManager.cs          ← Job CRUD + 切换 + INI 持久化（2026-09-08 已删除，ADR-038）
 ├── ImageAlgorithm.cs      ← 唯一算法文件（所有算法必须在此）
 └── ImageRoiTools.cs       ← ROI 绘制工具
 
@@ -31,8 +31,8 @@ EmguALG/（2026-09-08 ADR-042 后见 [[modules/EmguALG]]；下表为旧结构，
 |------|------|------|
 | ImageAlgorithm.cs | 所有图像算法实现 | 配置管理、事件通知、UI交互 |
 | AlgorithmManager.cs | 配置管理、算法调度、结果展示 | 任何图像处理算法实现 |
-| AlgorithmJob.cs | Job 数据定义、Clone | 业务逻辑、INI操作、UI交互（2026-09-08 已删除，ADR-042） |
-| JobManager.cs | Job CRUD、SwitchJob、INI持久化 | 图像算法、Pipeline执行（2026-09-08 已删除，ADR-042） |
+| AlgorithmJob.cs | Job 数据定义、Clone | 业务逻辑、INI操作、UI交互（2026-09-08 已删除，ADR-038） |
+| JobManager.cs | Job CRUD、SwitchJob、INI持久化 | 图像算法、Pipeline执行（2026-09-08 已删除，ADR-038） |
 | ImageRoiTools.cs | ROI绘制、保存/加载 | 图像算法、配置管理 |
 
 ## 技术要点

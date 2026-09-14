@@ -7,6 +7,8 @@ status: accepted
 
 # ADR-038：算法模块（EmguALG）三层改造
 
+> ℹ️ **沿革注（2026-09-14，ADR-048）**：本页「2026-09-09 真编译补充修复」条中「`Core/AlgorithmOperations.cs`（`AdaWeldSystem.EmguALG` 命名空间）」为当时写法；现役 `EmguALG/` 各子目录已随目录对齐为 `AdaWeldSystem.EmguALG.Core`（该文件所在）／`.Abstractions`／`.Manager`／`.LineLaserContour`／`.EmguConfiger`／`.RealtimeMonitor[.WeldQuality / .WireFeedDistance]`。三层结构结论不变。见 [[decisions/ADR-048-NamespaceDirectoryAlignment]]。
+
 ## 背景
 
 `EmguALG` 原为「算子静态库 + PipelineManager 单例」结构：职责过载（配置/阶段编排/焊缝特征/点云识别）、无抽象接口、无结果缓存、无统一调度入口。二手《算法程序改造指导 v2.0》提出目标架构，但**基线为另一形态**，与代码现实存在三处错位：

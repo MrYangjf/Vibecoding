@@ -1,4 +1,4 @@
-﻿---
+---
 title: AdaWeldSystem 项目概览
 date: 2026-07-01
 tags: [项目, 概览, 架构]
@@ -63,9 +63,9 @@ AdaWeldSystem/
 │   ├── ImageRoiTools.cs
 │   └── Stages.cs
 ├── FileOperate/                         ← 文件操作工具库
-│   ├── IniFile.cs
+│   ├── INIFile.cs
 │   ├── Log.cs
-│   └── XMLfile.cs
+│   └── XdocumentReaderWriter.cs
 ├── LaserWeldHead/                       ← 激光焊接头
 │   ├── API/                             (ILaserWeldHeadController)
 │   ├── LaserWeldHeadController.cs
@@ -88,30 +88,37 @@ AdaWeldSystem/
 │   ├── YAxisController.cs            ⚠️ 已移除（Y 轴专用控制器；职责现由 MotionManager.cs + ZMotion/ZMotionAxis.cs 承担）
 │   └── MotionControlStateMachine.cs  ⚠️ 已迁出本模块，现役 `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`
 ├── PointCloudData/                      ← 3D 点云处理
-│   ├── 3DModel/                         (Point3D, PointCloudData)
+│   ├── Models/                          (Point3D, PointCloudData)
 │   ├── DataIO/                          (PointCloudReader, PointCloudWriter)
 │   ├── Render/                          (PointCloudViewer, RenderConfig, SurfaceTriangulator)
 │   └── RunFileRecord/                   (RunRecordManager, RecordFrame, SmartRayConverter)
-├── SqlLiteDatabase/                     ← SQLite 数据库
-│   ├── SQLiteDataBase.cs
-│   ├── DatabaseManagerBase.cs
-│   ├── AuthManager.cs
-│   ├── ConfigManager.cs
-│   ├── AutoParamManager.cs
-│   └── ProductDatabaseManager.cs
+├── SQLiteDBControl/                    ← SQLite 数据库（命名空间 AdaWeldSystem.SQLiteDBControl）
+│   ├── SQLiteCore/
+│   │   └── SQLiteDataBase.cs
+│   ├── ISQLiteHelper/
+│   │   └── DatabaseHelperBase.cs
+│   ├── Helpers/
+│   │   ├── AuthHelper.cs
+│   │   ├── AutoParamHelper.cs           (含 WeldAutoParamProfile 数据结构)
+│   │   ├── ConfigHelper.cs
+│   │   └── ProductDatabaseHelper.cs
+│   └── SQLiteDatabaseManager.cs
 ├── UIDesign/                            ← UI 界面
 │   ├── MainWindow/                      (FormMain；原 ParentUI/)
 │   ├── ControlPage/                     (MainPage, NavPage×2, DataReviewerPage)
 │   ├── TabPage/                         (ILCamPage, ParamConfigPage, FileEditorPage, CommPage, MonitorCamPage, MotionControlPage；原 Sub2UI/)
-│   └── SubDialog/                       ← 2026-09-07 由 SubView/ 按业务域拆分
+│   └── SubDialog/                       ← 2026-09-07 由 SubView/ 按业务域拆分（命名空间 = AdaWeldSystem.UIDesign.SubDialog.<业务域>，ADR-048）
 │       ├── DataReviewerDialog/          (FileTraceForm, HelixRenderForm, RecordConfigForm, RenderParamForm)
 │       ├── FormMainDialog/              (InitWaitingForm)
 │       ├── IntelligentLaserDialog/      (ILAlgoForm, ILAlgorithmEditForm, ILParamForm, ILScanForm)
 │       ├── ParamContolDialog/           (AutoParamForm, ConfigForm)
 │       └── UserManagerDialog/           (LoginForm, UserEditForm)
 ├── WeldParamControl/                    ← 焊接参数控制（原 InteliWeld）
-│   ├── WeldProcess.cs
-│   └── WeldDataManager.cs
+│   ├── WeldParamData.cs                 (数据类集合)
+│   ├── WeldParamManager.cs              (单例 · 唯一入口，2026-09-14 ADR-041)
+│   ├── WeldAlgorithmsConfig.cs          (焊接算法配置，两节合一，Manager 独占 + 自带 XML 持久化；ADR-044)
+│   ├── Abstractions/                    (WeldAlgorithmBase)
+│   ├── Algorithms/                      (SeamGuideSample / WeldParamLookupAlgorithm / WeldParamAdjustmentAlgorithm / SeamTrackingAlgorithm)
 ├── Program.cs
 └── AdaWeldSystem.csproj
 ```
@@ -123,7 +130,7 @@ AdaWeldSystem/
 | 模块 | 文件数 | 职责简述 |
 |------|-------|---------|
 | [[modules/DeviceControl]] | 12 | **设备控制中枢 `MainDeviceControl/`**：三态模型（`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus`）+ 5 个子设备工作流 + 2 个整机管控类（`DeviceControlWork` 运行编排 / `DeviceStatusWork` 安全·IO·状态）；故障恢复 2026-09-01 归口迁出至 [[modules/ProductFileManager]]（ADR-027 §3）。架构见 [[architecture/DeviceControlArchitecture]] |
-| [[modules/UIDesign]] | 22 | 全部 UI 界面（AntdUI），子命名空间 `Sub1UI` / `Sub2UI` / `Sub3UI` |
+| [[modules/UIDesign]] | 22 | 全部 UI 界面（AntdUI），命名空间随目录：`UIDesign.MainWindow` / `.ControlPage` / `.TabPage` / `.SubDialog.<业务域>`（ADR-048） |
 | [[modules/LineLaserCam]] | 8 | **线激光相机（2026-09-08 三层重构 ADR-038）**：`ILineLaser/` 抽象 3 + 英莱 1 + 虚拟 1 + 业务层 3（`LineLaserManager` / `CameraRegistry` / `LineLaserConfig`） |
 | └ [[modules/IntelligentLaserCam]] | 1 | 英莱线激光相机（默认线激光，见 [[decisions/ADR-021-LineLaserWorkflowRefactor]]） |
 | └ VirtualCam | 1 | 虚拟相机（模拟模式取图源） |
@@ -132,12 +139,12 @@ AdaWeldSystem/
 | [[modules/EmguALG]] | 15 | 图像算法唯一入口、算法配置、Job 管理、ROI 工具、焊缝识别、实时监控 |
 | [[modules/Comm]] | 12 | 全局通讯中心 `CommunicationManager`、TCP/S7/PLC/Robot（KUKA RSI+EKI）、Modbus |
 | └ [[modules/KUKARobot]] | 5 | KUKA 机器人通讯（`Comm/Robot/KUKARobot/`） |
-| [[modules/SqlLiteDatabase]] | 7 | 用户认证、配置管理、自动参数管理、`FaultRecord` 持久化 |
+| [[modules/SQLiteDatabase]] | 7 | 用户认证、配置管理、自动参数管理、产品数据持久化；目录 `SQLiteDBControl/`，对外唯一入口 `SQLiteDatabaseManager` |
 | [[modules/PointCloudData]] | 7 | 3D 点云数据处理（`PCLOperate/`，模块名沿用 PointCloudData） |
 | [[modules/MonitorCam]] | 4 | 监控相机：焊前对中/焊中质检，健康巡检在 `MonitorCameraRun` |
 | [[modules/ProductFileManager]] | 5 | 产品生命周期记录归口：过程数据文件管理 + **故障恢复数据（`FaultRecoveryManager`，2026-09-01 自 DeviceControl 迁入）** |
 | [[modules/LaserWeldHead]] | 3 | 激光焊接头（激光器/镜片温度/对焦电机 IO/安全 IO），含数据模型 |
-| [[modules/WeldParamControl]] | 2 | 焊接工艺核心逻辑（`WeldProcess` 自适应调整 + `WeldDataManager`） |
+| [[modules/WeldParamControl]] | 8 | 焊接参数与算法（**2026-09-14 ADR-041 算法分层**：`WeldParamManager` 唯一入口 + `WeldParamLookupAlgorithm` / `WeldParamAdjustmentAlgorithm` / `SeamTrackingAlgorithm` 非单例实现 + `WeldAlgorithmBase` 抽象基类 + `WeldParamData` + `WeldAlgorithmsConfig`（两节合一，ADR-044），样本 `SeamGuideSample` 归 `Algorithms/`） |
 | [[modules/FileOperate]] | 3 | INI/Log/XML 文件操作工具库 |
 
 > **已删除模块（勿再列入清单）**：`Workflow/`、`DataModels/`、`DeviceStateMachine/`（2026-08-28 并入 `MainDeviceControl`）、`PointCloudData/`、`InteliWeld/`（能力并入 `EmguALG` / `WeldParamControl`）。

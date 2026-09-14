@@ -68,6 +68,7 @@ tags: [模块, 图像算法, EmguCV, 五层架构, 送丝距离, 焊接质量, �
 - [[modules/LineLaserCam]]：采集完成后调用 `ImageAlgorithm` 原子算子；显示 Mat 由 `LineLaserContour` 生成
 - [[api/ILAlgorithmEditForm]]：仍以 `Stages.PipelineConfig` 为模块 A 占位传参（后续 re-point 到领域配置）
 - ~~[[modules/WeldParamControl]] 经 `PipelineManager.AlgorithmCompleted` 获取焊缝特征~~（2026-09-08 ADR-038 删除）
+- [[standards/ModuleOrganizationPattern]]：本模块是**场景 A（基于第三方库 EmguCV）+ Core 独立成目录**的样本——`Core/`（算子）+ `Abstractions/` + 领域算法实现 + `Manager/AlgorithmManager`
 
 ---
 

@@ -1,5 +1,5 @@
 ﻿---
-title: ADR-009 监控相机模块架构决策
+title: ADR-007 监控相机模块架构决策
 date: 2026-07-13
 tags: [决策, 相机, 监控, 解耦, SDK抽象]
 status: accepted
@@ -11,7 +11,7 @@ source: 用户需求「自动焊接头监控模块」+ 本模块设计
 > ① 海康实现 `HikvisionCameraApi` 已删除，切换麦格威 MVSDK（[[decisions/ADR-037-MecaVisionMonitorCamera]]）；
 > ② 「算法集中在 `ImageAlgorithm.cs` 第 8 区」已由 EmguALG 三层改造取代（[[decisions/ADR-038-EmguALGThreeLayer]]）。
 
-# ADR-009 监控相机模块架构决策
+# ADR-007 监控相机模块架构决策
 
 ## 背景
 

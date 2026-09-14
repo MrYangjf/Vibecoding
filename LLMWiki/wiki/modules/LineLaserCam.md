@@ -13,10 +13,17 @@ source: AdaWeldSystem/LineLaserCam/ 模块源码
 > 并移除 `Mv3dLpNet` 引用；`CameraSelector` 与 `ICameraRun` 由 `LineLaserManager` 与 `LineLaserCameraBase` 取代。
 > 决策记录：[[decisions/ADR-034-LineLaserThreeLayerRefactor]]。
 >
-> **2026-09-08 二次分工（ADR-039）**：三层结构建成后业务仍留在实现层，故再次切分——
+> **2026-09-08 二次分工（ADR-035）**：三层结构建成后业务仍留在实现层，故再次切分——
 > **实现层只做回调触发**（`RaiseResultReady` + `RaiseProfileReady`），
 > **业务全部上提 `LineLaserManager`**（结果侧算 Y 轴 PVT 点并下载、轮廓侧做产品记录/点缓冲/按需生成 Mat）。
 > 决策记录：[[decisions/ADR-035-LineLaserResponsibilitySplit]]。
+>
+> **2026-09-11 三次分工（ADR-040，⛔ 已演进为 ADR-041）**：线激光结果**不再直写 PVT**——
+> `SeamPvtFeeder` 与 `AttachYAxis` 整类/整方法删除，**结果侧只缓存并转发 `ResultReady`**；
+> 「滤波 / 超限剔除 / 单调约束 / 标定转换」与 PVT 点计算迁至 [[modules/WeldParamControl]] 的
+> [[api/SeamTrackingAlgorithm]]（非单例、只输出 `PVTPoint[]`、不直接写控制器），由 [[api/WeldParamManager]] 持有，
+> [[api/MotionControlWorkflow]] 写入控制器。
+> 决策记录：~~[[decisions/ADR-040-SeamGuideTrajectoryBuilder]]~~ → [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]]。
 
 ## 目录结构（2026-09-08 现行）
 
@@ -33,9 +40,9 @@ LineLaserCam/
 │   └── VirtualCam.cs            ← 自生成轮廓（继承 LineLaserCameraBase）
 ├── CameraRegistry.cs                  ← 相机注册表（按名登记与查询）
 ├── LineLaserConfig.cs                 ← 配置实体（Config/XML/LineLaserConfig.xml）
-└── LineLaserManager.cs                ← 业务层单例（对外唯一入口 + 全部业务处理）
-       ├─ 同文件内嵌 ProfileSnapshot / ProfileMatRenderer / SeamPvtFeeder
-       └─ 三个业务辅助类（2026-09-08 归并，不再单独立文件，ADR-040）
+└── LineLaserManager.cs                ← 业务层单例（对外唯一入口 + 结果/轮廓业务处理）
+       ├─ 同文件内嵌 ProfileSnapshot / ProfileMatRenderer
+       └─ ⛔ SeamPvtFeeder 已于 2026-09-11 删除（ADR-040，PVT 写入迁至 WeldParamControl）
 ```
 
 > **命名空间**：`ILineLaser/` → `AdaWeldSystem.LineLaserCam.ILineLaser`；
@@ -53,7 +60,7 @@ LineLaserCam/
 | 业务层只认抽象 | 具体类型（`IntelligentLaserCam` / `VirtualCam`）仅在 `LineLaserManager` 内 `new` 一次 |
 | **取实例一律走管理器** | 需要厂商特化能力时取 `Instance.IntelligentLaser` / `Instance.VirtualCamera`，**禁止** `Active as Xxx` 转型（ADR-040） |
 | **外设经管理器代理** | 连接 / 激光 / 传感器开关一律 `LineLaserManager.Connect/SetLaser/SetSensor/ShutdownPeripherals`，工作流不持有相机对象（ADR-040） |
-| **业务层只认能力抽象** | 跨模块依赖只取 `IPVTMotion` 一类能力接口，禁止持有 `MontionManager` / `MontionControl` / `Delta*`（ADR-039 D6） |
+| **不再持有运动能力** | 结果侧只转发 `ResultReady`，**不注入 `IPVTMotion`、不写 PVT**；Y 轴轨迹构造归 [[modules/WeldParamControl]]（ADR-040，取代 ADR-035 的原注入面） |
 | 唯一入口 | 工作流与 UI 一律经 `LineLaserManager.Instance`，禁止直接持有相机实例做装配 |
 
 ## 抽象层契约 `LineLaserCameraBase`
@@ -81,21 +88,23 @@ LineLaserCam/
 
 - 单例（`Lazy<T>`），持有 `Cameras`（`CameraRegistry`）+ `Config`（`LineLaserConfig`）；
 - `Register(name, camera)` 登记即订阅 `ResultReady` / `ProfileReady` / `StateChanged` 并**就地做业务处理**；
-- **结果处理**（`OnCameraResultReady`）：缓存中性结果 → `SeamPvtFeeder` 换算 Y 轴 PVT 点 → B 套流式下载 → 对外转发 `ResultReady`；
+- **结果处理**（`OnCameraResultReady`）：缓存中性结果 → 对外转发 `ResultReady`（**不写 PVT**，ADR-040）；
 - **轮廓处理**（`OnCameraProfileReady`）：产品记录 `RunRecordManager.AddFrame` → 更新 `ProfileSnapshot` 点缓冲 → 按开关生成 Mat 并触发 `MatUpdated`；
 - 显示处理默认关闭，接口先行：`SetDisplayOptions(enabled, fps, convertMat)` + `Config.DisplayEnabled/DisplayFps/ConvertMatEnabled`；
-- Y 轴经 `AttachYAxis(IPVTMotion)` 注入（由 `MotionControlWorkflow` 初始化成功后按 `Config.SeamTrackAxisName` 装配）；
+- 焊缝跟踪轴名 `Config.SeamTrackAxisName` 仍由本模块配置承载，但轴装配与 PVT 写入归 [[api/MotionControlWorkflow]] + [[api/SeamTrajectoryBuilder]]（ADR-040，本类不再有 `AttachYAxis`）；
 - `SelectIntelligentLaser()` / `SelectVirtual()` / `Select(name)` 切换当前相机，`Active` 惰性按 `Config.DefaultKind` 创建；
-- `ConnectionState` 由 `_working`（工作流经 `SetWorking` 驱动）+ 选中相机派生，延续 ADR-015 的「相机态与流程态解耦」；`SetWorking(false)` 同时收尾 PVT 段；
-- 配置由 `Config`（XML）承载：`DefaultKind` / `AutoConnectOnStart` / `SensorIp` / 虚拟模拟参数 / **PVT 四项** / **DISPLAY 三项**；`LoadConfig` / `SaveConfig` 无参。
+- `ConnectionState` 由 `_working`（工作流经 `SetWorking` 驱动）+ 选中相机派生，延续 ADR-015 的「相机态与流程态解耦」；`SetWorking` 现只驱动连接态派生（⛔ 不再起止 PVT 段，ADR-040）；
+- 配置由 `Config`（XML）承载：`DefaultKind` / `AutoConnectOnStart` / `SensorIp` / 虚拟模拟参数 / **`SeamTrackAxisName`** / **DISPLAY 三项**；`LoadConfig` / `SaveConfig` 无参。
 
-## 两条数据链路（ADR-039 核心）
+## 两条数据链路（ADR-035 + ADR-040）
 
 ```
 英莱/虚拟 SDK 回调
    ├─ RaiseResultReady(LineLaserSeamResult) ──► Manager 结果处理
-   │        └─ SeamPvtFeeder.Feed → 攒批 → BeginMove/ContinueMove（IPVTMotion）
-   │        └─ 转发 ResultReady → LineLaserWorkflow（触发焊接工艺计算）
+   │        └─ 缓存 → 转发 ResultReady
+   │              ├─ LineLaserWorkflow（触发焊接工艺计算）
+   │              └─ MotionControlWorkflow → SeamTrajectoryBuilder.Feed
+   │                     （滤波/超限剔除/单调约束/标定转换 → Y 轴 PVT，ADR-040）
    └─ RaiseProfileReady(PointCloudData) ────► Manager 轮廓处理
             ├─ RunRecordManager.AddFrame（产品记录）
             ├─ ProfileSnapshot 双缓冲 → MainPage 轮询（版本号比对）
@@ -109,27 +118,31 @@ LineLaserCam/
 | 关注点 | 承载者 | 位置 |
 |---|---|---|
 | 相机注册 / 选中 / 连接态派生 / 配置 | `LineLaserManager` | `LineLaserCam/LineLaserManager.cs` |
-| 结果 → Y 轴 PVT 点计算与下载 | `LineLaserManager` + `SeamPvtFeeder` | `LineLaserCam/LineLaserManager.cs`（同文件内嵌类） |
+| 结果 → Y 轴轨迹计算与 PVT 写入 | `SeamTrackingAlgorithm`（算点）+ `MotionControlWorkflow`（写控制器） | `WeldParamControl/Algorithms/SeamTrackingAlgorithm.cs` · `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` |
 | 轮廓 → 产品记录 / 点缓冲 / Mat 生成 | `LineLaserManager` + `ProfileMatRenderer` | `LineLaserCam/LineLaserManager.cs`（同文件内嵌类） |
 | 连接态 + 焊接过程态 + 执行步 | `LineLaserWorkflow`（继承非泛型 `DeviceWorkflowBase`） | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` |
-| 焊缝跟踪轴装配（注入 `IPVTMotion`） | `MotionControlWorkflow` | `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` |
+| 焊缝跟踪轴装配（按 `SeamTrackAxisName` 取轴 + 订阅 `ResultReady`）+ 结果驱动 | `MotionControlWorkflow` | `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` |
 
 ## 设计决策
 
 - 线激光族采用**抽象层 + 实现层 + 业务层**三层，业务层只面向抽象编程（仿 [[modules/MotionControl]] 的 L1/L2/L3 铁律，本模块无 Native 层）。
 - 相机选择、事件订阅、连接态与配置统一归口 `LineLaserManager`，`CameraSelector` 随之删除。
-- **业务一律归业务层**：实现层只发两个中性回调，跨模块依赖只取 `IPVTMotion` 一类能力抽象（ADR-039）。
-- 详阅 [[decisions/ADR-034-LineLaserThreeLayerRefactor]]、[[decisions/ADR-035-LineLaserResponsibilitySplit]]、[[decisions/ADR-013-CameraConnectionStateDecoupled]]、[[decisions/ADR-034-LineLaserThreeLayerRefactor]]（后两条为历史决策）。
+- **业务一律归业务层**：实现层只发两个中性回调（ADR-035）。
+- **不持有运动语义**：结果侧只转发，Y 轴轨迹构造与 PVT 写入归 [[modules/WeldParamControl]]，本模块不注入运动能力（ADR-041）。
+- 详阅 [[decisions/ADR-034-LineLaserThreeLayerRefactor]]、[[decisions/ADR-035-LineLaserResponsibilitySplit]]、~~[[decisions/ADR-040-SeamGuideTrajectoryBuilder]]~~ → [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]]、[[decisions/ADR-013-CameraConnectionStateDecoupled]]（最后一条为历史决策）。
 
 ## 协作关系
 
 | 协作对象 | 数据接口 |
 |----------|----------|
 | [[modules/DeviceControl]] | `LineLaserWorkflow` 经 `LineLaserManager.Instance` 订阅 `ResultReady`、驱动 `SetWorking` |
-| [[modules/MotionControl]] | `MoveControlData` 消费线激光特征；模拟模式共用虚拟相机；**Y 轴以 `IPVTMotion` 注入线激光管理器** |
-| [[modules/EmguALG]] | `ImageAlgorithm.ConvertContourToMat` / `PipelineManager` |
+| [[modules/MotionControl]] | `MoveControlData` 消费线激光特征；模拟模式共用虚拟相机；**Y 轴轨迹由运控工作流驱动 `SeamTrajectoryBuilder` 生成**（轴名取自本模块配置 `SeamTrackAxisName`） |
+| [[modules/WeldParamControl]] | `SeamTrajectoryBuilder` 消费本模块 `ResultReady`（经 `MotionControlWorkflow` 转发喂入） |
+| [[modules/EmguALG]] | 轮廓 Mat 渲染走 `EmguALG/LineLaserContour/`（ADR-039）；⛔ 原 `PipelineManager` 与 `ConvertContourToMat(PointCloudData…)` 已随 ADR-038 删除 |
 | [[modules/UIDesign]] | `ILCamPage`（英莱相机页）、`MainPage`（轮廓曲线）经管理器取相机 |
 | [[modules/Comm]] | `GlobalCommData.ShowLog` 日志（抽象层与业务层共用） |
+
+> **参照范式**：本模块是 [[standards/ModuleOrganizationPattern]] 的**场景 A（基于第三方库英莱 SDK）**样本——`ILineLaser/LineLaserCameraBase` 抽象 + 英莱/虚拟双实现 + `LineLaserManager` 唯一入口（相机实例唯一持有者）。
 
 ---
 

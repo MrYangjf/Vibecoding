@@ -1,7 +1,7 @@
 ﻿---
-title: ADR-031 主控设计三态模型重构（SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus）
+title: ADR-027 主控设计三态模型重构（SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus）
 date: 2026-09-02
-tags: [决策, 架构, 设备控制, 主控设计, 三态模型, 状态机, 重构, ADR-028]
+tags: [决策, 架构, 设备控制, 主控设计, 三态模型, 状态机, 重构, ADR-027]
 status: accepted
 ---
 
@@ -16,7 +16,9 @@ status: accepted
 > - `WorkflowStateBase.cs` → 现役 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`
 >
 
-# ADR-031 主控设计三态模型重构
+# ADR-027 主控设计三态模型重构
+
+> ⚠️ **沿革横幅（2026-09-14，ADR-048）**：下文表内 `AdaWeldSystem.MainDeviceControl.DeviceState` 与 §3 的 `AdaWeldSystem.MainDeviceControl.FlowState` **已统一**为 `AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`（目录 `DeviceStateApiCore/` 自 2026-09-01 起即为此名，命名空间 2026-09-14 随目录对齐）。三态模型本身（`SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus`）与六抽象契约**不变**。同批：根目录 `DeviceControlWork.cs` / `DeviceStatusWork.cs` 归位 `AdaWeldSystem.MainDeviceControl`。见 [[decisions/ADR-048-NamespaceDirectoryAlignment]]。
 
 > **2026-09-02 接受**：用户提交新主控设计（`主控设计.xlsx`，原档约定见 [[decisions/ADR-028-ArchitectureRawSource]]），对设备控制层状态模型做根本性重定义。
 > 本 ADR 取代此前「设备四态 + 泛型 TStep 基类」的设计。

@@ -8,6 +8,7 @@ source: raw/mecavision/（SDK 原文核验抽取，2026-09-08）
 # MecaVision MVSDK 原生 API 速查
 
 > **真相源**：`raw/mecavision/MecaVision_SDK…/MecaVision/Demo/C#/MVSDK/MVSDK.cs`（官方 C# 封装，**6885 行**，唯一类 = 静态类 `MvApi`）。
+> **C 原生声明基线（2026-09-14 新增）**：`raw/mecavision/MecaVision_SDK…/MecaVision/SDK/Include/` —— `CameraApi.h`（`extern "C"` 全部 API，328 KB）/ `CameraApiLoad.h` / `CameraDefine.H`（枚举·结构体）/ `CameraStatus.h`（错误码）/ `RawDecodeApi.h` / `mvocx.h`。本页的枚举、结构体与错误码可回溯该处核对——**`MVSDK.cs` 是 C# 镜像，头文件才是 C 原文**（原藏于 `Demo/VC++/Include/`，VC++ 示例裁剪时抽存）。
 > 本页全部 API 名与签名由脚本从该文件抽取核验（2026-09-08），**与厂商原文逐字一致**。
 > 落地架构约束见 [[decisions/ADR-037-MecaVisionMonitorCamera]]；开发指导见 [[guides/MecaVision-DevGuide]]；模块上下文见 [[modules/MonitorCam]]。
 

@@ -1,4 +1,4 @@
-﻿---
+---
 title: 代码精简规范（精简代码区域 · 详尽版）
 date: 2026-08-26
 tags: [规范, 代码精简, 注释规范, 日志规范, 重构, 检查脚本]
@@ -245,7 +245,7 @@ python3 scripts/csharp_review.py <目标文件.cs> --json     # JSON 输出（�
 |------|------|---------|------|
 | 第一轮 | 2026-08-21 | Comm / LineLaserCam / FileOperate / DeviceStateMachine | 日志归集 + 去符号 + 注释精简 |
 | 第二轮 | 2026-08-21 | Workflow（Safety/PCL） / PCLOperate / SafetyInterlock | 状态机日志去符号 + FailedItems 去符号 + 注释精简 |
-| 第三轮 | 2026-08-21 | EmguALG / MotionControl / WeldParamControl / SqlLiteDatabase / Workflow残留 / IntelligentLaserCam补漏 | 异常消息去符号 + 剩余模块注释精简 + 符号漏网补漏 |
+| 第三轮 | 2026-08-21 | EmguALG / MotionControl / WeldParamControl / SQLiteDatabase / Workflow残留 / IntelligentLaserCam补漏 | 异常消息去符号 + 剩余模块注释精简 + 符号漏网补漏 |
 
 > 未覆盖（不在精简范围）：`*.Designer.cs`（设计器自动生成）、厂商 SDK 原生代码（SmartRay ApiCore 等）、`3rdDepend/`
 

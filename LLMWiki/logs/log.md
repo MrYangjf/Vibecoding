@@ -1,3 +1,457 @@
+## [2026-09-14 19:42:28] refactor+ingest | 命名空间-目录严格对齐（ADR-048）：代码 68 文件 + wiki 全库回写（用户指令：修复 c1-c4）
+
+**触发**：用户指令「修复 c1-c4 的问题」——即上一轮 Phase 0 报告的四组「命名空间-目录错位」。AskUserQuestion 三项裁定：①对齐强度=**严格对齐**；②冲突时**命名空间跟随目录**；③**所有第三方原厂 SDK 和参照都不要修改**。
+
+**Phase 2 Code（上一轮完成，本轮复核）**：68 文件命名空间改写（UIDesign 45 / Comm 7 / EmguALG.Core 4 / MainDeviceControl 5 / SQLiteDBControl 7）+ 删失效 using 83 条 / 补 133 条 + csproj 字节级同步 + `PCLOperate/3DModel/`→`Models/` 目录改名。
+
+**Phase 3 Ingest（本轮）**：
+- **代码侧权威核验（Python，含 BOM 归一）**：全仓 **143 个 `.cs`**（排除 `.Designer.cs` 与厂商目录）逐文件比对 `namespace` 与目录路径 → **真实不一致 0**；4 例为 `ProductFileControl/Abstractions|Records` 扁平裁定（ADR-046/047），1 例 `Properties/AssemblyInfo.cs` 无 namespace（惯例）。
+- **wiki 回写 16 页**：`api/CommandCore`（⚠️ 原写「禁止新增 DeviceStateApiCore」与本轮裁定直接冲突，已改）· `api/LineLaserWorkflow` · `api/FaultRecordManager`（deprecated 档，保留）· `modules/UIDesign` · `modules/DeviceControl` · `modules/Comm` · `modules/SQLiteDatabase` · `modules/PointCloudData` · `modules/MonitorCam` · `modules/MotionControl` · `modules/IntelligentLaserCam` · `architecture/DeviceControlArchitecture`（含 mermaid 删除 `LineLaserCamApi` 三边） · `guides/Namespace-Compilation`（CS0118 整节前提已消解，加沿革横幅） · `guides/DeltaEtherCAT-UIDesign` · `people/DatabaseSpecialist` · `people/3DSpecialist`（文件树重写：`PointCloudData/3DModel.cs` 等 10 项不存在 → 现役 `PCLOperate/{Models,DataIO,Render}` 7 文件） · `people/UISpecialist`（含 `TCPIPComm.cs`/`AntdUI.Window` 两处陈旧） · `index/index` · `project/overview`。
+- **新建 `decisions/ADR-048-NamespaceDirectoryAlignment.md`**（判据 + 四组映射表 + 两类登记例外 + 废止条款清单 + 校验方式）；ADR-Index **4 处计数** 001~047 → **001~048**；index.md **5 处**（最后更新 / 目录表 47→48 条 / 编号说明 / ADR-Index 行 / 新增 ADR-048 摘要行）。
+- **ADR 沿革横幅 5 页**（废止「命名空间保持不变」条款）：ADR-016 §3 · ADR-027 · ADR-038 · ADR-043 §7 · ADR-045 §4。ADR 页内「当时文件位于 Sub2UI/」一类**历史叙述不改写**（ADR 是时点记录）。
+- **修正上一轮脚本缺陷 2 类**：① `modules/DeviceControl.md` 出现 `...DeviceStateApiCoreApiCore`（同行 two-pass 双替换）——已修 + 新脚本加「new 不得含另一 old」自重叠防护；② CRLF 文件的多行 old 串用 `\n` 不命中——补跑 CRLF 变体 5 处。**行尾不变式修正**：多行增删本就改变 `\r\n` 计数，正确判据是「纯 CRLF 文件不得新增裸 LF、纯 LF 文件不得新增 CRLF、CRCRLF 恒为 0」。
+
+**Phase 4 Lint**：`wiki_audit.py` 红链 0 / 孤儿 0 / index 重复 0 / **ADR 001~048 连续共 48 个无空洞** / 无未登记 / 无二级子目录 / 无过小分类 / 无重复页（163 页）；`lint_scan.py` 死链 0 / 孤儿 0 / ADR 编号冲突 0 / 外链失效 0；`drift_scan_precise.py` **待修正 0 处**。行尾终态：全库改动页 CRCRLF 0，CRLF 页未引入裸 LF。
+
+**本轮登记待办（未处置，另行跟踪）**：① `UIDesign/SubDialog/MotionControlDialog/` 为**空占位目录**（csproj 含 1 条 Folder 条目、磁盘 0 文件），而 wiki 均述「5 个业务子目录」——需用户裁定保留或删除；② `EmguALG.LineLaserConfig` 与 `LineLaserCam.LineLaserConfig` 跨命名空间重名（**潜在 CS0104**，当前 0 处引用冲突，未处置）；③ `modules/UIDesign.md`「已知问题」节三连重复链 `[[guides/WinForms-Designer]]×3`（pre-existing，非本轮引入）。
+
+**遗留**：⚠️ **真编译待 Visual Studio**（沙盒无 C# 编译器）。
+
+## [2026-09-14 19:17:27] audit | 全库体检 + KB 编号陈旧修正 + FileOperate 文件名对齐类型名（用户指令：旧要求清理 + 代码层级对齐检测）
+
+**触发**：用户指令两轮——①检测知识库各章节清理旧要求只留最新；②代码层级对齐知识库、登记漂移/todo/未完善代码、修复命名空间/文件名/类名层级混乱。
+
+**Phase 0 体检结论**：三扫描器全绿（红链 0 / 孤儿 0 / 重复行 0 / ADR 001~047 连续全登记 / 漂移待修正 0）；KB 旧要求此前已按三档分诊处理完毕，无残留旧架构约束。csproj 双向核验 168=168、缺失 0、未注册 0。命名空间-目录错位共 4 组（UIDesign 旧 Sub1UI/Sub2UI/Sub3UI 命名空间 ~45 文件、MainDeviceControl 根两管控类挂 DeviceWorkflow、EmguALG/Core 与 Comm 平铺、已裁定保留组 SQLiteDBControl/DeviceStateApiCore/PCLOperate.3DModel/MVSDK）；重名类型 2 组（KUKAXMLConfig=合法 partial 不动；EmguALG `LineLaserConfig` 与 LineLaserCam `LineLaserConfig` 跨命名空间重名=潜在 CS0104，本轮未处置）。
+
+**Phase 2 动作（用户确认范围=编号修正 + 文件名对齐）**：① index.md 头部横幅与目录表「001~044/44 条」→「001~047/47 条」（页内自相矛盾消除）；② 工作区 MEMORY.md 同步 001~047；③ `FileOperate/IniFile.cs`→`INIFile.cs`、`FileOperate/XMLfile.cs`→`XdocumentReaderWriter.cs`（文件名对齐类型名），csproj 两条目字节级同步（行尾不变断言通过）；④ 代码注释 3 处（LineLaserConfig.cs/WeldAlgorithmsConfig.cs/DeltaMotionConfig.cs）+ wiki 8 文件路径引用同步（FileOperate/overview/Namespace-Compilation/DeltaEtherCAT-UIDesign/KUKARobot/AntdUI lesson/DeviceControlArchitecture/drift_scan RENAMED 字典 XMLfile.cs 条目）；ADR-005/029/034 历史页旧名保留（由 RENAMED 登记背书）。
+
+**代码 TODO/未完善登记（真实待办 15 处，骨架/占位性质，均已有 wiki 对应 OPEN 项）**：DeviceControlWork.cs:465/557/628/1028（批次 4.5/4.6 Preworking 五项检查·Working 四路子流程·心跳报文·指令闭环·模拟测试）· LaserWeldHeadWorkflow.cs:93/144/153（温度阈值监控 R009 骨架期）· MonitorCameraWorkflow.cs:470（R010 轴控制合规检查）· WeldParamControlWorkflow.cs:143（摆幅 WeaveWidth 查表，ADR-041 已知 TODO）· WeldParamAdjustmentAlgorithm.cs:334 + WeldAlgorithmsConfig.cs:87（按距离分段计算待实现）· CommPage.cs:195/201（Phase E S7 接入）· RealtimeMonitorAlgorithm.cs:306/307（咬边/飞溅占位）· LaserWeldHeadController.cs:165/310（框架占位）· MontionControl.cs:109（台达侧总线检查未实现）。
+
+**Phase 2 校验**：改名落盘 Glob 复核 3 文件在位；全库 .cs 旧名残留 0；wiki 现行页旧名残留 0（仅 ADR 历史页按规保留）；三扫描器复跑全绿；Dispose(bool) 违规 0（现有 DisposeManaged 为基类钩子非 Dispose(bool)）。**真编译待 Visual Studio。**
+
+## [2026-09-14 18:48:36] fix | ADR-047 合并脚本缺陷：using 指令误插入 SeamTrackRecord 类体内（真编译报错）
+
+- 现象：Visual Studio 真编译报错，根因为合并脚本 `add_usings` 锚点在文件追加内容后失准，把 5 条 `using`（System/System.IO/System.Linq/System.Text/AdaWeldSystem.FileOperate）插到 `SeamTrackRecord` 类体内部（C# 不允许）。
+- 修复：using 块上移至文件顶部（与原 3 条合并排序），删除类体内错误块；顺手纠正 WeldParamAdjustRecord 类头注释（改名时锚点未命中的旧语义残留）。
+- 教训：**此前静态校验只查大括号平衡，未查 using 指令位置——新增校验规则：`using X;` 指令行出现于 `namespace` 行之后即报错**（本轮 14 文件复检 0 异常）。
+
+## [2026-09-14 17:36:33] coding | ProductFileControl 记录类文件自包含 + WeldParamAdjustRecord 改名 + SmartRay 链删除（ADR-047）
+
+**触发**：用户指令——ProductFileControl 下除 Manager 外不应有游离文件：SmartRayConverter 未使用删除；RecordFileStore/RecordFrame/WeldActionRecord 一体三件不属任何层级，由记录类吸收；SeamAdjustRecord 取名错误（实为根据焊缝调整激光功率/送丝速度等时记录）。用户裁定：改名 `WeldParamAdjustRecord`、同文件吸收、SmartRay 整链删除。
+
+**Phase 0 关键发现**：SmartRayConverter 唯一引用链 AddSmartRayFrame 模块外 0 调用（死代码）；RecordFrame 表面 0 模块外消费实为 `var frames = GetAllFrames()` 的 var 隐蔽类型引用（HelixRenderForm:267）——**API 全部保持 public，零变化**。
+
+**Phase 2 动作**：git mv 不可用（文件未入索引）→ 新建 WeldParamAdjustRecord.cs + 删旧；RecordFileStore+RecordFrame 并入 SeamTrackRecord.cs（internal store + public DTO）；WeldActionRecord 并入 WeldParamAdjustRecord.cs；ProductRecordBase/Manager 类型名与注释同步；删 4 文件（PowerShell File.Delete）；csproj 4 删 1 改（插曲：首轮删除脚本中途抛异常未写回，复跑补删）；双向核验 168 条 0 缺失 0 未登记。
+
+**Phase 2 校验**：旧名残留（SeamAdjustRecord/SeamAdjustItem/AddSmartRayFrame/SmartRayConverter）全库 0；四文件大括号平衡 0；访问性合规（internal store 无 public 暴露）；ADR-008 双记录同 .pDat 机制原样保留；ADR-043 事件订阅结构不变。**真编译待 Visual Studio。**
+
+**Ingest**：ADR-047 新建；ADR-046 沿革横幅；ADR-Index 4 处同步 + **补登前轮遗漏的 ADR-045/046 表格行**；modules/ProductFileManager（目录树/职责表/API/相关链接）；index.md（模块行+决策行+编号 001~047）；drift REMOVED/RENAMED +5。
+
+## [2026-09-14 17:03:06] refactor | Comm Implementations 单文件化：配置/数据结构并入各自实现类（ADR-045 增补）
+
+**触发**：用户指令——Implementations 只留 5 个通讯实现，配置与数据结构并入各自实现类文件。
+
+**动作**：
+- `KUKADataTypes.cs` 拆分：RSI 类型（RSIDataType/RSIErrorType/KUKAPosition/KUKARobotData/KUKACorrectionData/RSIDataEventArgs/RSIErrorEventArgs）→ `KukaRsiComm.cs`；EKI 类型（EKIDataType/EKIMode/EKIEnvironment/KUKAFrame/EKIStatus/EKIDataEventArgs/EKIConnectionEventArgs/EKIErrorEventArgs）→ `KukaEkiComm.cs`；管理层事件参数（KUKADataReceivedEventArgs/KUKAConnectionEventArgs）→ `CommunicationManager.cs`。
+- `KUKAXMLConfig.cs` 拆分：RSIElement/RSIConfig + RSI 半边方法 → `KukaRsiComm.cs`；EKIElement/EKIConfig + EKI 半边方法 → `KukaEkiComm.cs`；`KUKAXMLConfig` 改 **partial class**（消费方 FileEditorPage/CommPage 零改动）。
+- `ILModbusData.cs` 全量并入 `InLaserModbusComm.cs`。
+- 删除 3 文件（PowerShell File.Delete）；csproj 删 3 条目；双向核验 172 条 0 缺失 0 未登记。
+- 消费方核查：全部类型名与命名空间不变，跨文件消费方（Manager/DeviceControlWork/WeldParamControlWorkflow/CommPage/FileEditorPage）零改动。
+- Ingest：modules/Comm 目录树、ADR-045 目录树、modules/KUKARobot（横幅+结构树+职责+概要+组件表 5 处）、api/KUKARobot §4/§5 加注、guides/Namespace-Compilation 沿革注；drift REMOVED 表登记 3 项。
+
+**插曲**：partial 拆分初版切掉 RSI 半边 LoadRSIConfig 方法收尾 `}` 与 EKI 半边 GenerateEKIXML 签名——Python 定向补回；四文件大括号平衡终验全 0。
+
+## [2026-09-14 16:49:48] fix | 双模块重构真编译报错修复（4 处）
+
+**触发**：用户 Visual Studio 编译报错 4 项。修复：①④ `SeamTrackRecord`/`SeamAdjustRecord` 构造函数 `public`→`internal`（`RecordFileStore` 为 internal，公共签名不得暴露——记录类只由同程序集 Manager 构造，符合 ADR-042）；② `ProductFileRecordManager` 改 `new WeldResultRecord()`（该类走 DB 落库，不使用 store）；③ `SiemensS7Comm.IsConnected` 自动属性 `{ get; protected set; }` 改私有字段 `_isConnected` + get-only override（基类 `CommChannelBase.IsConnected` 为 get-only，override 不得加 set；其余 4 实现均为计算属性不受影响）。
+
+**静态校验**：override 带 set 残留 0；`IsConnected =` 直接赋值残留 0（KukaEkiComm:169 为 `EKIConnectionEventArgs` 对象初始化器，合法）；Manager 公共签名暴露 RecordFileStore 0；记录类外部构造 0（仅 Manager）。
+
+## [2026-09-14 16:40:56] refactor+ingest | Comm + ProductFileControl 双模块重构（ADR-045/046，ADR-043 订阅方闭环）
+
+**触发**：用户指令——Comm 模块丢弃原设定重构（抽象类 + 5 实现 + Manager，不做以太网/Profinet 封装；SystemComm 管日志/配置/全局变量）；ProductFileControl 重构（抽象类 + 实现文件夹[焊缝追踪/焊缝参数调整/成功与产品信息记录(数据库)] + Manager）。用户裁定：命名空间统一 `AdaWeldSystem.ProductFileControl`、以太网废弃重写 `EthernetXmlComm`、同轮整体切换（H4）。
+
+**Phase 2 Code 要点**：
+- Comm：`Comm/Communication/` 三层——`Abstractions/CommChannelBase`（零第三方）+ `Implementations/`（`SiemensS7Comm`/`KukaRsiComm`/`KukaEkiComm`/`EthernetXmlComm`★重写/`InLaserModbusComm` + KUKADataTypes/KUKAXMLConfig/ILModbusData）+ `CommunicationManager`（单例唯一口：8 XML + INI + KUKA 门面 ConnectRobot/DisconnectRobot/SendRobotData/RobotDataReceived/RobotConnected 按 RobotCommMode 路由）。删除 `TCPIPComm.cs`/`GSDMLGenerator.cs`/`KUKARobotManager.cs`；`SystemComm.cs` 迁入 `SystemComm/`；事件改名防 CS0108（RsiDataReceived/XmlDataReceived/ModbusErrorEventArgs）；`CommunicationType.Profinet` 枚举成员与 UI 文案同轮清除。
+- ProductFileControl：`Abstractions/ProductRecordBase`（入队 O(1) + 后台 WorkerLoop→Persist）+ `Records/` 三记录类（SeamTrackRecord→.pDat/.ply、SeamAdjustRecord→.pDat、WeldResultRecord→SQLiteDatabase 按日期分表）+ internal `RecordFileStore`（原 RunRecordManager 1046 行文件机制平移）+ `ProductFileRecordManager` 单例（**构造订阅 WeldParamManager 三记录事件，ADR-043 TODO 闭环**）。删除 `RunRecordManager.cs`；消费方 5 文件迁移。
+- 静态校验抓真 Bug：5 实现类构造函数名未随类名改、DeviceStatusWork 参数类型残留、类型化事件遮蔽基类等，全部修复；csproj 双向核验 0 缺失 0 未登记；旧符号残留终扫 0；Dispose(bool) 21 命中全为 Designer.cs 合规。
+
+**Phase 3 Ingest**：新增 ADR-045 / ADR-046；ADR-Index 4 处编号同步（001~044→001~046）；重写 [[modules/Comm]] 与 [[modules/ProductFileManager]]；[[modules/KUKARobot]] 历史名称提示横幅；[[api/GlobalCommData]] 路径/实例名更新；[[api/ProfinetGSDML]] Tier 1 废弃；ADR-004/006/026 沿革横幅（Tier 2）；[[lessons/AlgorithmControlRecordIsolation]] 订阅方状态 ✅；index.md 七章 + 模块表更新；drift 扫描器 RENAMED/REMOVED 表登记 8 项（本轮删除/改名 .cs）。
+
+**遗留**：真编译待 Visual Studio；英莱 Modbus 与 SDK 互斥的裁决在 LineLaserCam 上层。
+
+## [2026-09-14 15:55:08] refactor+ingest | WeldParamControl 算法配置合一：SeamGuideConfig + WeldParamAdjustmentConfig → WeldAlgorithmsConfig（ADR-044）
+
+**触发**：用户指令——「两个算法配置合并成一个文件吧，命名为 `WeldAlgorithmsConfig`。」
+
+**Phase 0 Query**（Step 0.1~0.7 全步执行）：
+- Step 0.1 读 `wiki/index/index.md`：命中 [[modules/WeldParamControl]]、[[api/WeldParamManager]]、[[api/WeldParamAdjustmentAlgorithm]]、[[api/SeamTrackingAlgorithm]]、ADR-041/042/043、[[standards/ModuleOrganizationPattern]]。
+- Step 0.2 读 ADR：**ADR-041 H7 / ADR-042 H7 / ADR-043 §5** —— 配置实例与读写器只归 Manager 独占，对外只读引用 + 无参 Load/Save。
+- Step 0.3 读 Lessons：**[[lessons/AlgorithmControlRecordIsolation]] §5** 明确「配置类只负责把我序列化成给定 reader、不自持 reader；**多个配置节可共用同一个 reader / 同一个文件**」→ 与本次合并同向，不冲突。
+- Step 0.4/0.5 读 modules + api：确认模块页 L37-39 目录树、L49 两节共文件；API 页 L50/51 两配置属性 + L101-104 四方法。
+- Step 0.6 读 history：无相关既有变更。
+- Step 0.7 **Grep 双 pattern 交叉验证**（`SeamGuideConfig` / `WeldParamAdjustmentConfig` 两轮，文件集合一致）：`SeamGuideConfig` 4 文件（定义 / Manager / `SeamTrackingAlgorithm` / `MotionControlWorkflow` 2 处只读）；`WeldParamAdjustmentConfig` 3 文件（定义 / Manager / `WeldParamAdjustmentAlgorithm`）。另核：两类的 `public const SectionName` **仅本文件内引用**；4 个 Manager 配置方法 **零外部消费者** → 无兼容层负担。
+
+**Phase 1 Plan**：
+- 粒度存在三解（单类合并 / 单文件双类 / 容器 + 子节对象），依用户既有 review-and-confirm 流程**先呈报后动码**；用户裁定 **「单类合并」**。
+- ADR 预测：属 ADR-043 §5 的收紧 → 新建 **ADR-044**，并在 ADR-043 加沿革横幅（Tier 2）。
+
+**Phase 2 Code**（Step 2.1~2.6）：
+- Step 2.1 备份 `AdaWeldSystem_backup_20260914_154328.tar.gz`（132MB）。
+- Step 2.2 实现：
+  - **新增 `WeldParamControl/WeldAlgorithmsConfig.cs`**（单类 · 16 属性 = 线激光引导 13 + 参数调整 3）；`public const SeamGuideSection = "SEAM_GUIDE"` / `AdjustmentSection = "WELD_PARAM_ADJUST"`；`LoadConfig(reader)` / `SaveConfig(reader)` 各覆盖两节（内部私有 `LoadSeamGuide`/`SaveSeamGuide`/`LoadAdjustment`/`SaveAdjustment`）。**XML 节名与文件路径不变 → 存量配置零迁移**。
+  - **删除** `SeamGuideConfig.cs`、`WeldParamAdjustmentConfig.cs`（安全守卫 `SAFE_DELETE_BULK_GUARD_ERROR: state lock timeout` 拦截，改用 PowerShell `[System.IO.File]::Delete()` 完成）。
+  - `WeldParamManager.cs`：新增字段 `_algorithmsConfig`；两属性 `SeamGuideConfig`/`AdjustmentConfig` → **一属性 `AlgorithmsConfig`**；四方法 → **一对** `LoadAlgorithmsConfig()`（载入后把**同一实例**分发给两个算法）/ `SaveAlgorithmsConfig()`；构造函数两行 → 一行；修正 1 处悬空 `cref`（`AdjustmentConfig` → `AlgorithmsConfig`）。
+  - `SeamTrackingAlgorithm.cs` / `WeldParamAdjustmentAlgorithm.cs`：`Config` / `SetConfig` / `LoadConfig` 类型全量替换为 `WeldAlgorithmsConfig`。
+  - `MotionControlWorkflow.cs`：2 处 `Manager.Instance.SeamGuideConfig.X` → `AlgorithmsConfig.X`。
+  - `AdaWeldSystem.csproj`：2 条旧条目 → 1 条新条目。
+- Step 2.3 自审：改动文件无 `Dispose(bool)`；无遗留 `using`。
+- Step 2.4 csproj **逐条 `os.path.exists` 双向核验**：`Include` 171 条 / **缺失 0**；磁盘 `.cs` 170 / **未登记 0**；旧条目 0 残留。
+- Step 2.5 影响面：`SeamGuideConfig` / `WeldParamAdjustmentConfig` **全仓 0 处残留**（含 UI 层）。
+- Step 2.6 静态校验 **24/24 通过**：含残留符号 0、旧文件已删、新类/两节常量/一对 Load·Save 齐备、XML 节名保留、Manager API 面 8 项、算法类型 2 项、`MotionControlWorkflow` 2 处、5 文件 BOM+CRLF 且 CRCRLF 0、**cref 全部可解析**。⚠️ **真编译待 Visual Studio**（沙盒无 C# 编译器）。
+
+**Phase 3 Ingest**：
+- **新增 `decisions/ADR-044-WeldAlgorithmsConfigMerge.md`**（7 条决策 + 目录结构 + 零迁移说明）；`ADR-043` 加 ⚠️ 沿革横幅（Tier 2，其余结论继续有效）；`ADR-Index.md` **四处计数同步**（表头 001~044 / 沿革补条 / `## 全部 ADR（001~044）` / 表格补行）。
+- `modules/WeldParamControl.md`：新增 ADR-044 横幅、目录树两行并一行、L54 说明、算法转换说明、`Config` 来源、配置表、配置管理方法 4 行 → 2 行、⛔ 独占说明、`TriggerAdjustment` 说明、tags 加 `配置合一, ADR-044`。
+- `api/WeldParamManager.md`：属性表两行 → 一行、方法表 4 行 → 2 行、⛔ 说明、`TriggerAdjustment` 行、迁移对照补 2 行、关联补 ADR-044、tags。
+- `api/WeldParamAdjustmentAlgorithm.md`：`Config`/`SetConfig`/`LoadConfig` 类型、运行配置节标题与归属说明、横幅、关联、tags。
+- `api/SeamTrackingAlgorithm.md`：`Config`/`SetConfig` 类型、注意事项、关联、tags。
+- `lessons/AlgorithmControlRecordIsolation.md`：§5 补「**配置类划分跟随『谁写盘』而非『字段分几组』**」判据 + 关联 + tags。
+- `index/index.md`：最后更新、速查表、§七计数 43→44、模块/Manager/参数调整算法/教训 4 条摘要、编号说明 + 沿革、`ADR-Index` 行、ADR-043 摘要行、**新增 ADR-044 摘要行**。
+- `tools/drift_scan_precise.py`：`REMOVED` 登记 `SeamGuideConfig.cs` / `WeldParamAdjustmentConfig.cs`（删除文件必先登记）。
+
+**Phase 4 Lint**：
+- `wiki_audit.py`：红链 **0** / 孤儿 **0** / index 重复 **0** / **ADR 001~044 连续共 44 个无空洞** / 无未登记 / 无二级子目录 / 无过小分类。
+- `lint_scan.py`：死链 **0** / 孤儿 **0** / ADR 编号冲突 **0** / 外链失效 **0**（**159 页**）。
+- `drift_scan_precise.py`：**本轮页面 0 待修正**；总数报「待修正 4 处」经核实**全部属并行 `Comm/` 重构会话**（`modules/KUKARobot.md` 三处 `RSICommunication.cs`/`EKICommunication.cs`/`KUKARobotManager.cs` + `people/GeneralTechSpecialist.md` 一处 `TCPIPComm.cs`，磁盘四个文件均已不存在）——**未处置，避免与并行的 in-flight 重构冲突**。
+- 人工清单：① **陈旧检测抓到 6 处活跃页/父决策的旧类名引用并修正**——`architecture/DeviceControlArchitecture`（2 处）、`people/WeldProcessSpecialist`（2 处）、`project/overview`（2 处）、`standards/ModuleOrganizationPattern`（违规样例表 2 行「正解」列）、`lessons/AlgorithmControlRecordIsolation` §5 标题、`decisions/ADR-041`（补沿革横幅）；ADR-040/043 与已废弃页（`SeamPvtFeeder` / `SeamTrajectoryBuilder`）按**决策史**保留；② **行尾/编码**——新 ADR-044 页 **LF noBOM**，CRLF 存量页（`modules/WeldParamControl` / `api/WeldParamManager`）保持 CRLF，`drift_scan_precise.py` CRLF 经比照未改动脚本（`wiki_audit.py`/`lint_scan.py` 同为 CRLF）确认为**存量**，5 个改动 `.cs` **BOM+CRLF**，全库 CRCRLF **0**；③ **双向链接**——ADR-044 被 10 处引用（含与 ADR-041/043 互链），其 9 条出链全部现存；④ **代码漂移**——类 16 属性 / 两节常量 / Manager 一属性一对方法 / 同实例分发两算法，逐项与 wiki 描述吻合；⑤ **csproj** 171 条 **缺失 0 / 未登记 0**。
+
+**遗留项**：① ⚠️ **真编译待 Visual Studio**；② 记录订阅方未实现（ADR-043 TODO，未变）；③ `LineLaserManager.cs` 的 `AddFrame` Manager 层直连落盘（ADR-043 遗留，未变）；④ `ProductFileControl/` 目录名与命名空间暂不一致（未变）。
+
+## [2026-09-14 14:00:17] refactor+ingest | WeldParamControl 算法纯净性与记录隔离：算法去记录化 + 新增 WeldParamAdjustmentConfig
+
+**触发**：用户质疑——「`ExecuteAdjustment` 算法和 `SeamTrackingAlgorithm` 应该都不包含记录本地的功能……算法的核心是计算。保存这一个动作由其他模块实现（`ProductFileControl`）。过程中只是触发保存事件去执行（保存动作可能耗时，但是不能影响功能的实现，隔离开控制与记录）。另外 `ExecuteAdjustment` 算法的配置数量现在是固定的，需要按照 `SeamTrackingAlgorithm` 加入配置结构由 Manager 管理，在算法中实现。」
+
+**Phase 0 Query**：Grep 交叉验证——
+- `WeldParamAdjustmentAlgorithm`：**3 处直接落盘**（`StoreChartData` → `RunRecordManager.Instance.RecordProcessFrame`；`RecordActionToRunFileRecord` → `RecordAdjustment`；`ExecuteAdjustment` → `AbortRecording`），并 `using AdaWeldSystem.ProductFileManager` → ⛔ 违规。
+- `SeamTrackingAlgorithm`：**无任何**记录/持久化符号，仅 `GlobalCommData.ShowLog` → ✅ 合规，未改动。
+- 运行参数硬编码 `MaxConsecutiveFailures = 5; IsCountType = true; CountNum = 5;`，`Manager` 内另有同名属性 → 配置双份。
+- **顺带发现阻塞级问题**：磁盘 `ProductFileManager/` 已改名 `ProductFileControl/`，但 csproj L146-149 仍指旧路径 → 4 条 `<Compile Include>` 全部缺失（双向核对：缺失 4 / 未登记 4），该状态必然编译失败。
+
+**Phase 1 Plan**：呈报三方案，用户裁定 **① 三个独立记录事件**；**② 仅同步 csproj 路径（命名空间不动）**；**③ 记录订阅方暂列 TODO**（`ProductFileControl` 结构待一并优化，本轮不实现）。
+
+**Phase 2 Code**：
+- **`WeldParamAdjustmentAlgorithm.cs`**：删除 `using AdaWeldSystem.ProductFileManager` / `System.Text`；删除 `StoreChartData` 内的 `RecordProcessFrame` 与整个 `RecordActionToRunFileRecord` 方法；`AbortRecording` 调用改为 `RaiseAbortRecord()`；新增三个事件（`FrameRecordRequested` / `AdjustmentRecordRequested` / `AbortRecordRequested`）与对应 `RaiseXxx` 私有方法；新增 `_config` + 只读 `Config` + `SetConfig(WeldParamAdjustmentConfig)`；`LoadConfig(object)` 改为转型新配置（不再转发 `AutoParam`）；`ExecuteAdjustment` 签名收敛为 `(AutoParam autoParam, double robotX = 0, List<Point> contourPoints = null)`，分段方式改读 `IsCountType` / `CountNum`（透传 `_config`）。
+- **`WeldParamAdjustmentConfig.cs`**（**新增**）：照 `SeamGuideConfig` 范式——节名 `WELD_PARAM_ADJUST`，三项（`MAX_CONSECUTIVE_FAILURES`=5 / `IS_COUNT_TYPE`=TRUE / `COUNT_NUM`=5），`LoadConfig(reader)` / `SaveConfig(reader)`，**不自持 reader**。
+- **`WeldParamData.cs`**：新增 `WeldFrameRecordEventArgs`（过程快照 7 项，**不含帧索引**——帧索引属记录侧）与 `WeldAdjustmentRecordEventArgs`（继承前者）。
+- **`WeldParamManager.cs`**：`_seamGuideFile` → `_configFile`（一个 reader 服务两节）；新增 `AdjustmentConfig` 只读属性 + 无参 `LoadAdjustmentConfig()` / `SaveAdjustmentConfig()`（构造时顺序载入）；三个记录事件显式 `add`/`remove` 透传；`TriggerAdjustment()` 改传 2 参；三处 `_paramAdjustmentAlgorithm.LoadConfig(CurrentAutoParam)` → `Reset()`；删除构造函数内的硬编码初始化。
+- **`AdaWeldSystem.csproj`**：4 条 `ProductFileManager\` → `ProductFileControl\`；新增 `WeldParamControl\WeldParamAdjustmentConfig.cs`。
+- **静态校验**（沙盒无 C# 编译器，Python 替代，**45 项全过**）：算法无记录/IO/序列化符号；三事件齐备且触发；配置接入完备；`ExecuteAdjustment` 形参收敛；csproj 双向一致（缺失 0 / 未登记 0）；5 个改动文件单 BOM + CRLF + CRCRLF 0；全库无非 Designer 的 `Dispose(bool)`。
+
+**Phase 3 Ingest**：
+- **新增 `decisions/ADR-043-AlgorithmPurityAndRecordIsolation.md`**；`ADR-Index.md` 补登（001~043）；`index/index.md` §7 补行、编号说明与「最后更新」更新、§五新增教训行、4 条摘要行（模块 / Manager / 参数调整算法 / ProductFileManager 位置）+ 2 处 `H1~H8`→`H1~H9`。
+- **新增 `lessons/AlgorithmControlRecordIsolation.md`**（三重危害 + 五条正解 + 同类未处置项）。
+- **`standards/ModuleOrganizationPattern.md`**：§五新增 **H9**（实现层只计算，不得落盘；留痕走事件且订阅方异步落盘）；§七新增 2 条检查项；§八新增 3 行违规样例（实现层直接落盘 / 计算路径同步落盘 / 运行参数硬编码）。
+- **`modules/WeldParamControl.md`**：新增 ADR-043 横幅、目录树补配置类、实现 b 改写、Manager 配置表与事件表、配置管理方法补 2 行、数据类表补 2 类、遗留项补「记录订阅方待落地」。
+- **`modules/ProductFileManager.md`**：目录位置更正为 `ProductFileControl/`（命名空间不动）+ 记录订阅方 TODO 横幅。
+- **`api/WeldParamAdjustmentAlgorithm.md`**：API 表全量重写（含 `Config` / `SetConfig` / 三事件）+ 运行配置节 + 执行流程改写 + 关联补 ADR-043/教训页。
+- **`api/WeldParamManager.md`**：`AdjustmentConfig` 行、事件表补 3 行、配置管理方法补 2 行、`TriggerAdjustment` 说明、迁移对照补 2 行、遗留项补「记录订阅方未实现」。
+
+**Phase 4 Lint**：三扫描全绿复核通过——
+- `wiki_audit.py`：红链 **0** / 孤儿 **0** / index 重复条目 **0** / **ADR 001~043 连续共 43 个无空洞** / 无未登记 ADR / 无二级子目录 / 无过小分类；全库 158 页。
+- `lint_scan.py`：死链 **0** / 孤儿 **0** / ADR 编号冲突 **0** / 外链失效 **0**。
+- `drift_scan_precise.py`：**待修正 0 处 → 通过**。
+- 人工清单复核：① **矛盾检测**——发现并修正 `ADR-Index.md` 表头/计数行仍写 `001~042`（表头第 11 行、`## 全部 ADR` 第 72 行 → `001~043`，并补 ADR-043 编号沿革条目；第 15/19 行属历史叙述，保留）；② **行尾/编码**——新建 wiki 页（ADR-043 / 教训页）**LF noBOM**，`index.md`/`log.md`/`ADR-Index.md` LF，CRLF 存量页（`WeldParamControl.md`/`ProductFileManager.md`/`WeldParamManager.md`）保持 CRLF，4 个改动 `.cs` **BOM+CRLF**，全库 CRCRLF **0**；③ **双向链接**——ADR-043 被 10 处引用、教训页被 5 处引用、`H9` 被 3 处引用，出链均指回现存页；④ **代码漂移**——`Dispose(bool)` 非 Designer 重写 **0**（21 处命中全在 `.Designer.cs`，合规），`SaveXdocument()` 仅出现在 `WeldParamManager`（534/553 行），落盘职责归 Manager ✅；⑤ **csproj 双向核对**——172 条 `<Compile Include>`，**缺失 0 / 未登记 0**。
+
+**遗留项**：① ⚠️ **真编译待 Visual Studio**（沙盒无 C# 编译器）；② **记录订阅方未实现（TODO）**——三个事件无消费者，过程记录暂缺，待 `ProductFileControl` 结构优化后接入（须入队后异步落盘）；③ `LineLaserManager.cs:362` 仍有 `RunRecordManager.Instance.AddFrame`（**Manager 层**直连落盘），本轮未处置；④ `ProductFileControl/` 目录名与 `AdaWeldSystem.ProductFileManager` 命名空间暂不一致。
+
+**⚠️ 并行会话提示**：本页顶部另有 `[2026-09-14 13:57:29] SQLiteDBControl 层级固定` 条目，系**另一并行会话**产出（非本轮），两条记录并存属预期。
+
+## [2026-09-14 13:57:29] refactor+ingest | SQLiteDBControl 层级固定：WeldAutoParamProfile 并入 AutoParamHelper
+
+**触发**：用户手动调整 `SQLiteDatabase/` → `SQLiteDBControl/`（抽象基类移入 `ISQLiteHelper/`），并要求 `WeldAutoParamProfile` 不再作为层级根目录的独立文件——它是 `AutoParamHelper` 的数据结构辅助，须并入 `Helpers/AutoParamHelper.cs`。
+
+**Phase 0 Query**：Glob 确认当前实际结构（`SQLiteCore/`、`ISQLiteHelper/`、`Helpers/`、`SQLiteDatabaseManager.cs`）；Grep `WeldAutoParamProfile` 消费者仅 `WeldParamManager.cs`（4 处）+ `AutoParamHelper.cs`（5 处），命名空间保持 `AdaWeldSystem.SQLiteDatabase`；Grep 发现 wiki 目录描述仍写 `SQLiteDatabase/`，与代码目录 `SQLiteDBControl/` 漂移。
+
+**Phase 1 Plan**：类型名不变（避免改调用方），仅移动类型定义到 `AutoParamHelper.cs` 文件末尾同命名空间顶层；删除独立文件 + csproj 条目；同步 wiki 目录描述。
+
+**Phase 2 Code**：
+- **`Helpers/AutoParamHelper.cs`**：文件末尾追加 `WeldAutoParamProfile` 类（原 XML 注释保留），命名空间不变。
+- **删除** `SQLiteDBControl/WeldAutoParamProfile.cs`。
+- **`AdaWeldSystem.csproj`**：移除 `SQLiteDBControl\WeldAutoParamProfile.cs` Compile 条目。
+- **静态校验**（沙盒无 C# 编译器，Python 替代）：类型已入 `AutoParamHelper.cs`；旧文件不存在；csproj 无 `WeldAutoParamProfile` 残留；`SQLiteDBControl/*` 条目逐条 `os.path.exists` 全过；无 stray 文件。
+
+**Phase 3 Ingest**：
+- `modules/SQLiteDatabase`：目录路径改 `SQLiteDBControl/`、补 `ISQLiteHelper/`、删 `WeldAutoParamProfile.cs` 独立行、核心文件表并入说明、历史变更补二次调整。
+- `people/DatabaseSpecialist`：负责文件目录树同步。
+- `project/overview`：目录树同步（含 `ISQLiteHelper/`）、模块文件数 8→7。
+- `project/vibecoding-workflow`：模块变更范围表路径 `SQLiteDatabase/` → `SQLiteDBControl/`。
+
+**Phase 4 Lint**：三扫描全绿——`wiki_audit`（红链 0 / 孤儿 0 / 索引重复 0 / 二级子目录 0 / 过小分类 0 / ADR 1~43 连续且全部登记）；`lint_scan`（死链 0 / 孤儿 0 / ADR 冲突 0 / 外部链接 0）；`drift_scan_precise`（待修正 0，已标注历史保留 41）。csproj 双向核验：缺失 0 / `SQLiteDBControl` 段 7 条全登记。**顺带修复**：`wiki_audit` 报 `ADR-043` 未登记进 index——补登记 `index/index.md`（编号说明 42→43 条）。
+
+**遗留项**：真编译待 Visual Studio。
+
+## [2026-09-14 13:22:29] refactor+ingest | WeldParamControl 配置归属纠偏：SeamGuideConfig 归 Manager 独占，SeamGuideSample 归 Algorithms/
+
+**触发**：用户质疑两点——①`SeamGuideSample` 作用是什么；②`SeamGuideConfig` 应由 Manager 使用和管理，为何外部仍单独声明实例调用。核实后确认存在**两份活实例**（工作流 `_seamGuide` 与算法 `_config`）并靠 `LoadSeamGuideConfig(config)` 反向 push 同步，违反 ADR-041 §6「Manager 统一管理配置」与 ADR-042 依赖铁律「外部只经 Manager」。
+
+**Phase 0 Query**：Grep 交叉验证 `SeamGuideSample`（唯一消费者 = `SeamTrackingAlgorithm`）与 `SeamGuideConfig`（消费者 = Manager / `WeldParamControlWorkflow` / `MotionControlWorkflow` / `SeamTrackingAlgorithm`）；`SaveSeamGuide()` 全场 0 外部消费者；`raw/` 原档无 `SEAM_GUIDE` / `SeamGuide` 任何描述（纯自研，可自由重构）；运行时 `Config/XML/WeldParamControlWorkflow.xml` 内容为 `<Root />`，**零迁移成本**；顺带发现 4 个 `.cs` 存在**双 BOM**。
+
+**Phase 1 Plan**：呈报三方案，用户裁定 **B2（Manager 自持独立配置文件 `Config/XML/WeldParamControl.xml`）** + **`SeamGuideSample` 移入 `Algorithms/`**。
+
+**Phase 2 Code**：
+- **`WeldParamManager.cs`**：新增常量 `SeamGuideConfigFileName = "WeldParamControl"` 与私有 `XdocumentReaderWriter _seamGuideFile`（构造函数创建）；构造函数末尾调 `LoadSeamGuideConfig()`；原 `LoadSeamGuideConfig(SeamGuideConfig)` 重载替换为**无参** `LoadSeamGuideConfig()` + 新增 `SaveSeamGuideConfig()`（末尾 `SaveXdocument()`，ADR-029）。
+- **`WeldParamControlWorkflow.cs`**：删除 `_seamGuide` 字段、`SeamGuide` 只读属性、`SaveSeamGuide()` 方法；`LoadConfig` / `SaveConfig` 只读写 `TimeOutSeconds`，不再触碰 `SEAM_GUIDE`；构造函数不再 push 配置。
+- **`MotionControlWorkflow.cs`**：`AttachSeamTrackAxis()` 删除配置 push；`TryFlushSeamBuffer` / `FlushSeamBuffer` 改读 `WeldParamManager.Instance.SeamGuideConfig.{MinRemainBuffer, DefaultFrameSeconds}`，本类不再引用 `WeldParamControlWorkflow`。
+- **`SeamGuideSample.cs`**：`WeldParamControl/` → `WeldParamControl/Algorithms/`，命名空间改 `...WeldParamControl.Algorithms`，`<see cref>` 收敛为同命名空间引用；`csproj` 路径同步。
+- **编码**：`SeamGuideConfig.cs` / `SeamGuideSample.cs` / `SeamTrackingAlgorithm.cs` / `WeldParamAdjustmentAlgorithm.cs` 四个文件**双 BOM（2×U+FEFF）清理为单 BOM**，CRLF 与 CRCRLF=0 保持。
+- **静态校验**（沙盒无 C# 编译器，Python 替代，19 项全过）：`WeldParamControlWorkflow` 无 `_seamGuide`/`SeamGuide`/`SaveSeamGuide` 残留；`MotionControlWorkflow` 不再引用该工作流；全库无「接受配置实例」的重载；Manager 新 API 齐备且落盘；`SeamGuideSample` 新旧路径唯一；`csproj` 引用全部落盘且无未登记 `.cs`；`WeldParamControl` 全部单 BOM。
+
+**Phase 3 Ingest**：
+- **ADR-041**：状态行改为「同日三次修订」；决策新增第 10 条「配置实例不得外流」；第 6 条补 Manager 持有 `SeamGuideConfig` + 自有配置文件；第 9 条改为「`SeamGuideConfig` 留根目录 / `SeamGuideSample` 归 `Algorithms/`」；目录树与约束同步。
+- **模块页**：`modules/WeldParamControl`（目录树、Manager 方法表、配置归属横幅）、`project/overview`（目录树与文件数 10→8）、`people/WeldProcessSpecialist`（负责文件、职责边界）。
+- **API 页**：`api/WeldParamManager`（`SeamGuideConfig` 只读属性 + 无参 Load/Save + 归属警示 + 迁移对照）、`api/WeldParamControlWorkflow`（配置表删 `SEAM_GUIDE` 行、删除 API 声明、关联行）、`api/MotionControlWorkflow`（装配不再 push、关联行）、`api/SeamTrackingAlgorithm`（使用模式、约束、配置提供方）、`api/SeamTrajectoryBuilder`（迁移对照标注已删除）。
+- **架构与索引**：`architecture/DeviceControlArchitecture` §8.2 配置层补 `SeamGuideConfig`；`index/index.md` 三条摘要（模块 / Manager / Workflow）。
+- **标准页**：`standards/ModuleOrganizationPattern` §七新增 2 条检查项（配置实例只由 Manager `new`、配置读写无参），§八新增 2 行违规样例（**配置实例外流/外部回灌**、**配置持久化点留在配置类**——后者是前者根因）。
+- **顺带清理陈旧引用**：`modules/LineLaserCam` 关注点表两行（`SeamTrajectoryBuilder`、`AttachAxis(IPVTMotion)` 均为已删符号）。
+
+**Phase 4 Lint**：三扫描全绿（红链 0 / 孤儿页 0 / 索引重复 0 / 二级子目录 0 / 过小分类 0 / ADR 1~42 连续 / drift 待修正 0）。
+
+**收尾复验补正（2026-09-14 13:24）**：交付前逐条 `os.path.exists` 复核 csproj 与磁盘，发现上述 Phase 2 的「csproj 路径同步」**实际未生效**——`AdaWeldSystem.csproj:141` 仍为旧路径 `WeldParamControl\SeamGuideSample.cs`（文件已迁至 `Algorithms/`），**该状态会导致编译失败**。已补正为 `WeldParamControl\Algorithms\SeamGuideSample.cs`；补正后全 csproj 缺失文件数 **0**、`WeldParamControl` 段 9 条全部落盘。根因：原「19 项校验」对 csproj 采用 `grep` 命中判据，而非逐条存在性判断，故漏检。教训：**文件移动/改名后，`<Compile Include>` 必须逐条存在性核对**（已写入项目 MEMORY.md 高频踩坑节）。
+
+**遗留项**：真编译待 Visual Studio；线激光标定界面尚未接入（后续调 `SaveSeamGuideConfig()` 落盘）。
+
+## [2026-09-14 11:45:12] refactor+ingest | WeldParamControl 架构纠偏第二轮：删除 WeldDataManager 与 SeamGuide 目录，焊缝跟踪算法归位 Manager
+
+**触发**：用户连续纠正——①`SeamGuide/` 子目录与 `WeldDataManager` 超出原始改造需求（"我只有一个 Manager"）；②焊缝跟踪算法应仅为「线激光结果 + 机器人坐标 → PVT 点」的几何轨迹计算；③配置须由 `WeldParamManager` 统一管理。
+
+**Phase 0 Query**：复用第一轮检索结果；定位 `WeldDataManager.cs`、`WeldParamControl/SeamGuide/`（`ISeamTrajectoryBuilder`/`SeamTrajectoryBuilder`/`SeamGuideConfig`/`SeamGuideSample`）、`Algorithms/WeldSeamTrackingAlgorithm.cs`；确认 ADR-040 描述的机制已演进。
+
+**Phase 1 Plan**：呈报「单 Manager + 算法与控制器分离 + SeamTrackingAlgorithm 只输出 PVT 点」方案，用户以「由 Manager 统一管理配置」确认。
+
+**Phase 2 Code**：
+- **删除 4 文件/1 目录**：`WeldParamControl/WeldDataManager.cs`、`WeldParamControl/SeamGuide/ISeamTrajectoryBuilder.cs`、`WeldParamControl/SeamGuide/SeamTrajectoryBuilder.cs`、`WeldParamControl/SeamGuide/` 空目录；`SeamGuideConfig.cs`/`SeamGuideSample.cs` 迁到 `WeldParamControl/` 根目录。
+- **新增/重命名 2 文件**：`Algorithms/WeldParamAdjustmentAlgorithm.cs`（原 `WeldSeamTrackingAlgorithm` 重命名，名实相符）、`Algorithms/SeamTrackingAlgorithm.cs`（新增线激光几何轨迹跟踪，不持有 `IPVTMotion`，`Feed/Tick/Drain/Reset` 返回 `PVTPoint[]`）。
+- **重构 `WeldParamManager.cs`**：并入原 `WeldDataManager` 全部配置持久化职责（`ConfigHelper`/`AutoParamHelper`/`CurrentAutoParamId`/INI/增删改查），同时持有三个算法实现；新增 `LoadSeamGuideConfig` / `FeedSeamTracking` / `TickSeamTracking` / `DrainSeamTracking` / `ResetSeamTracking` / `SeamTrackingHasFault` / `SeamTrackingFaultReason` 等轨迹算法代理。
+- **重构 `MotionControlWorkflow.cs`**：移除 `SeamTrajectoryBuilder` 引用，改通过 `WeldParamManager` 取 `PVTPoint[]` 并写入控制器；新增 `_seamBuffer` / `_seamRunning` / `EnqueueSeamPoints` / `UpdateSeamTracking` / `FlushSeamBuffer` / `TryFlushSeamBuffer`。
+- **迁移 6 个代码引用文件**：`WeldParamControlWorkflow.cs`、`AutoParamForm.cs`、`ConfigForm.cs`、`ParamConfigPage.cs`、`RunRecordManager.cs`/`WeldActionRecord.cs` 注释、`SystemComm.cs` 注释、`LineLaserManager.cs` 注释；`WeldDataManager.Instance` → `WeldParamManager.Instance`，`SeamTrajectoryBuilder.Instance` → `WeldParamManager.Instance` 代理，`WeldSeamTrackingAlgorithm` → `WeldParamAdjustmentAlgorithm`。
+- **同步 `AdaWeldSystem.csproj`**：移除 `WeldDataManager.cs`、`SeamGuide/ISeamTrajectoryBuilder.cs`、`SeamGuide/SeamTrajectoryBuilder.cs`、`Algorithms/WeldSeamTrackingAlgorithm.cs`；新增 `Algorithms/WeldParamAdjustmentAlgorithm.cs`、`Algorithms/SeamTrackingAlgorithm.cs`、根目录 `SeamGuideConfig.cs`/`SeamGuideSample.cs`。
+- **静态校验**（沙盒无 C# 编译器，Python 替代）：旧符号 `WeldDataManager` / `SeamTrajectoryBuilder` / `ISeamTrajectoryBuilder` / `WeldSeamTrackingAlgorithm` 代码残留 **0** 处；csproj 引用与磁盘一致；`WeldParamControlWorkflow`/`MotionControlWorkflow` 所需 API 在 `WeldParamManager` 中均已定义。
+- **编码对齐**：新增 `.cs` 文件统一转为 **UTF-8 BOM + CRLF**。
+
+**Phase 3 Ingest**：
+- **更新 ADR-040**：状态由 accepted 改为 **deprecated**，frontmatter 加 `superseded_by: ADR-041-WeldParamControlAlgorithmArchitecture`，H1 前加 ⛔ 演进横幅。
+- **重写 `ADR-041`**：补入「删除 `WeldDataManager`、轨迹算法纳入 `WeldParamManager`、配置统一管理、算法与控制器分离、三个实现类」等决策。
+- **新增/重命名 API 页**：`api/SeamTrackingAlgorithm.md`（新增）、`api/WeldParamAdjustmentAlgorithm.md`（新增）、`api/WeldDataManager.md` 改为沿革迁移页、`api/SeamTrajectoryBuilder.md` 改为沿革迁移页。
+- **重写/更新模块与 API 页**：`modules/WeldParamControl.md`、`api/WeldParamManager.md`、`api/MotionControlWorkflow.md`、`api/WeldParamControlWorkflow.md`、`api/LineLaserManager.md`、`modules/LineLaserCam.md`、`api/IntelligentLaserCam.md`、`architecture/DeviceControlArchitecture.md`、`project/overview.md`、`people/WeldProcessSpecialist.md`。
+- **更新索引与编号总表**：`index/index.md`、`decisions/ADR-Index.md` 标注 ADR-040 deprecated；`standards/ModuleOrganizationPattern.md` 实例表同步三个算法；`decisions/ADR-009-WorkflowAsAdjustmentDriver.md`、`api/GlobalCommData.md` 符号改名同步。
+
+**Phase 4 Lint**：
+- 首轮 `wiki_audit.py` / `lint_scan.py` 报红链 1 处：`api/WeldParamAdjustmentAlgorithm.md -> [[api/WeldParamLookupAlgorithm]]`（查表算法无独立 API 页）。修复：改为纯文本 `` `WeldParamLookupAlgorithm`（查表算法，由 [[api/WeldParamManager]] 持有）``。
+- 修复后重跑三扫描全绿：
+  - `wiki_audit.py`：红链 **0** · 孤儿页 **0** · 索引重复行 **0** · 二级子目录 **0** · 过小分类 **0**；ADR 编号 **1~42 连续、空洞 0、未登记 0**。
+  - `lint_scan.py`：死链 0 / 孤儿页 0 / ADR 编号冲突 0 / 外部文件链接失效 0。
+  - `drift_scan_precise.py`：**0 待修正**（已登记 `REMOVED`：WeldDataManager.cs / ISeamTrajectoryBuilder.cs / SeamTrajectoryBuilder.cs / WeldSeamTrackingAlgorithm.cs）。
+- **行尾核验**：新增/手写编辑的 wiki 页经抽样为 LF；工作区既有 CRLF 页未扩大差异。
+
+**遗留项**：真编译待 Visual Studio；`CurrentRobotX` 恒为 0（`RobotWeldData.PosX` 无写入方）；`WeldProcessCompleted(EventArgs)` / `WeldProcessCompleted` 保留历史命名；`CalcGalvoAmplitude` 仍为 TODO 占位。
+
+## [2026-09-14 11:30:00] refactor+ingest | SQLiteDatabase 改造：纠正命名并重构为 Core + HelperBase + Helpers + Manager 范式
+
+**触发**：用户提出 `SqlLiteDatabase` 命名纠正，并要求按「基于第三方代码的范式」重构：一个封装 SQLite 的 `SQLiteCore/`、一个 Helper 抽象基类、一个按功能实现的 `Helpers/` 文件夹、一个对外唯一入口 `SQLiteDatabaseManager`。
+
+**Phase 0 Query**：读现有 `SqlLiteDatabase/` 9 个 `.cs`；Grep 定位外部调用方（`Comm/SystemComm.cs`、`WeldParamControl/WeldParamManager.cs`、`UIDesign/UserManagerDialog/*.cs`）；检索 LLMWiki 中 `SqlLiteDatabase` 相关链接与约束；确认 `FaultRecordManager` 已随 ADR-031 移除。
+
+**Phase 1 Plan**：与用户确认最终结构——删除 `IDatabaseManager` 冗余接口，保留单一抽象基类 `DatabaseHelperBase`；功能类统一 `*Helper` 后缀；对外唯一入口 `SQLiteDatabaseManager` 单例。
+
+**Phase 2 Code**：
+- **备份**：`AdaWeldSystem_backup_20260914_112216.tar.gz`。
+- **新建目录与文件**：`SQLiteDatabase/SQLiteCore/SQLiteDataBase.cs`、`SQLiteDatabase/DatabaseHelperBase.cs`、`SQLiteDatabase/Helpers/{AuthHelper,AutoParamHelper,ConfigHelper,ProductDatabaseHelper}.cs`、`SQLiteDatabase/SQLiteDatabaseManager.cs`、`SQLiteDatabase/WeldAutoParamProfile.cs`。
+- **命名空间与类名**：`AdaWeldSystem.SqlLiteDatabase` → `AdaWeldSystem.SQLiteDatabase`；`SQLiteDataBase` 不再实现已删除的 `IDatabaseManager`；`DatabaseManagerBase` → `DatabaseHelperBase`。
+- **调用方迁移**：`GlobalCommData.mAuthManager` → `mAuthHelper`（来自 `SQLiteDatabaseManager.Instance.AuthHelper`）；`WeldParamManager` 改暴露 `AutoParamHelper`/`ConfigHelper` 并由 `SQLiteDatabaseManager.Instance` 获取；UI 调用点同步改为 `WeldParamManager.Instance.ConfigHelper.*`。
+- **csproj 更新**：删除 9 条旧 `SqlLiteDatabase\*` Compile，新增 8 条 `SQLiteDatabase\*` Compile。
+- **删除旧目录**：`AdaWeldSystem/SqlLiteDatabase/`。
+- **静态校验**：Python 脚本检查「旧命名空间/旧类名残留 0」、「新文件齐全」、「旧目录已删」——全部通过。
+
+**Phase 3 Ingest**：
+- **新增/重写** `wiki/modules/SQLiteDatabase.md`：按新结构重写目录、核心文件、使用方式、协作关系、历史变更。
+- **重命名** `wiki/modules/SqlLiteDatabase.md` → `wiki/modules/SQLiteDatabase.md`。
+- **更新** `wiki/index/index.md`：模块链接与摘要、FaultRecordManager 状态改为已移除。
+- **更新** `wiki/api/GlobalCommData.md`、`wiki/api/WeldParamManager.md`、`wiki/modules/WeldParamControl.md`、`wiki/people/DatabaseSpecialist.md`、`wiki/people/WeldProcessSpecialist.md`、`wiki/project/overview.md`、`wiki/architecture/DeviceControlArchitecture.md`：`SqlLiteDatabase` → `SQLiteDatabase`，旧 Manager 类名 → `*Helper`。
+- **更新** `wiki/api/WeldDataManager.md`（已废弃）：迁移对照表改用新 Helper 名。
+- **更新** `wiki/api/FaultRecordManager.md`、`wiki/modules/Safety.md`、`wiki/modules/ProductFileManager.md`：补充故障恢复模块已移除的说明。
+- **更新** `wiki/decisions/ADR-026-ProductLifecycleRecordModule.md`、`ADR-041-WeldParamControlAlgorithmArchitecture.md`：术语沿革注释或当前 Helper 名。
+- **更新** `wiki/guides/Config-Data-Tools.md`、`wiki/project/vibecoding-workflow.md`、`wiki/modules/Comm.md` 中的模块/类名引用。
+- **本日志条目**：记录本轮改造要点。
+
+**Phase 4 Lint**：
+- `wiki_audit.py`：红链 1 处（非本次引入：`api/WeldParamAdjustmentAlgorithm.md -> [[api/WeldParamLookupAlgorithm]]`）；孤儿页 0；index 重复行 0；二级子目录 0；ADR 编号 1~42 连续。
+- `lint_scan.py`：死链 1 处（同上，非本次引入）；ADR 冲突 0；外部文件链接失效 0。
+- `drift_scan_precise.py`：待修正 **0** 处；已标注历史保留 41 处（informational）。
+- 本轮代码改造未引入新漂移。
+
+## [2026-09-14 11:16:03] ingest | 设计范式入库：模块组织范式标准（Core + 抽象层 + 实现层 + Manager 四件套）
+
+**触发**：用户提出「设计范式更新进资源库」——把已在线激光 / 监控相机 / 运控 / 算法 / 焊接工艺五个模块分别落地的同一结构收敛为**项目级标准**，并按「是否基于第三方库」区分 Core 是否强制。
+
+**Phase 0 Query**：`index.md` 确认设计范式属**强制规范** → `standards/`（原无此类标准页，仅 CodeSimplification / UiStateSimplification / WorkflowResponsibilityBoundary / StepDrivenWorkflow）；读 ADR-036 / 037 / 038 / 041 得五个落地先例；原档依据 `raw/knowledge/算法程序改造指导_抽象实现Manager三层_v2.0.md`（该文基线为另一形态，落地以代码现实为准，ADR-038 三处错位表已证）；Grep 定位 `EmguALG/Abstractions|Core|Manager`、`MonitorCam/IMonitorCam|MecaVisionCam`、`MotionControl/IMotion|DeltaEtherCAT`、`LineLaserCam/ILineLaser|IntelligentLaserCam|VirtualCam`、`WeldParamControl/Abstractions|Algorithms`，五模块结构同构。
+
+**Phase 1 Plan**：新建标准页 + 沉淀 ADR-042（同 ADR-022「规范沉淀为标准页」先例）+ 索引与编号总表同步 + 5 个模块页回链。用户回「入库」确认后执行。
+
+**Phase 2 Code**：本次**无 C# 代码变更**，无需备份与 csproj 登记（纯知识库写入）。
+
+**Phase 3 Ingest**：
+- **新增** `wiki/standards/ModuleOrganizationPattern.md`：一句话范式「抽象层 + 实现层 + Manager 三件套；基于第三方库开发时另加 Core」；两场景对照表（**场景 A 第三方库 Core 必需** / **场景 B 纯自研 Core 按需**，判据=是否有自成一体的算法结构）；四组件判定标准（Core 三种落地位置：独立 `Core/`、实现层内 `Native/`、与实现类同文件）；依赖方向四向铁律；**H1~H8 硬规则**；5 实例对照表（EmguALG / MonitorCam / LineLaserCam / MotionControl 场景 A；**WeldParamControl 场景 B——唯一无 Core 的自研样本**）；新增模块检查清单；高频违规样例。
+- **新增** `wiki/decisions/ADR-042-ModuleOrganizationPatternStandard.md`（D1 四件套 / D2 两场景 / D3 标准页路由 / D4 依赖铁律 / D5 Manager 四职责；负面遗留记录「不改既有模块目录名 `IMotion/` `IMonitorCam/`」）。
+- **更新** `wiki/index/index.md`：场景速查路由新增「新增/改造一个模块 / 抽象层·实现层·Manager 怎么摆」行；§四 standards 表新增一行；目录计数「4 规范」→「5 规范」、「39 条（001~039）」→「42 条（001~042）」（原计数陈旧）；§七编号说明与 §7.0 ADR-Index 摘要行同步 001~042；§7.1 表补 ADR-042 行；顶部「最后更新」改为 2026-09-14。
+- **更新** `wiki/decisions/ADR-Index.md`：现行编号 001~042、沿革追加、全部 ADR 表补 ADR-042 行。
+- **更新** 5 个模块页加回链：`modules/EmguALG` / `modules/MonitorCam` / `modules/LineLaserCam` / `modules/MotionControl` / `modules/WeldParamControl`。
+- **顺带修正模块页陈旧引用**（Step 4.2 陈旧检测命中）：`modules/MotionControl` 协作关系三行（`WeldProcess.ComputeAndCacheHorizontalMove`、`ICameraRun`/`CameraRun`、`PipelineManager.AlgorithmCompleted`/`SeamFeatureResult` 均已被 ADR-034/036/038/041 删除）；`modules/LineLaserCam` 协作表 EmguALG 行（`PipelineManager` / `ConvertContourToMat(PointCloudData…)` 已随 ADR-038 删除）。
+- **修正后重跑**：`modules/EmguALG` / `MonitorCam` / `MotionControl` / `LineLaserCam` / `WeldParamControl` 五页漂移命中 **0**；本次新增页面引入新漂移 **0**。
+
+**Phase 4 Lint**：
+- `wiki_audit.py`：红链 **0** · 孤儿页 **0** · 索引重复行 **0** · 二级子目录 **0** · 过小分类 **0**；ADR 编号 **1~42 连续、空洞 0、未登记 0**；新增页 `standards/ModuleOrganizationPattern` **201 行**（<600 免 TOC）、入链 8。
+- `lint_scan.py`：死链 0 / 孤儿页 0 / ADR 编号冲突 0 / 外部文件链接失效 0。
+- `drift_scan_precise.py`：**待修正 1 处 —— 非本次引入**：`api/SeamTrajectoryBuilder.md:5  SeamTrajectoryBuilder.cs（未登记的新漂移）`。根因是**代码侧在途重构**：`AdaWeldSystem` 工作区存在未提交改动（`WeldProcess.cs` / `WeldDataManager.cs` 已删、`SeamGuide/` 被拆平、`Algorithms/WeldSeamTrackingAlgorithm.cs` → `SeamTrackingAlgorithm.cs`、新增 `WeldParamAdjustmentAlgorithm.cs`），而 `AdaWeldSystem.csproj` 第 143~147 行仍登记 `WeldSeamTrackingAlgorithm.cs` 与 `SeamGuide/ISeamTrajectoryBuilder.cs`、`SeamGuide/SeamTrajectoryBuilder.cs` 三个已不存在/已改名的路径。属上一轮 WeldParamControl 重构的收尾欠账，**本次不动 C# 与 csproj**，留待该轮补做（按规则须先登记 `drift_scan_precise.py` 的 `REMOVED` 表）。
+- **行尾核验（Key Rule 13/14）**：本次新增 2 页与 `index.md` / `ADR-Index.md` / `logs/log.md` 均为**纯 LF**；`modules/*` 五页工作区为 CRLF——经实验证实（Edit 工具**保留原文件行尾**：LF 入 LF 出、CRLF 入 CRLF 出）**系既有工作区状态，非本轮污染**（抽样未改动页 `standards/CodeSimplification.md`、`api/AlgorithmManager.md`、`modules/DeviceControl.md` 同为 CRLF）；`core.autocrlf=true` 保证入库仍为 LF。
+
+## [2026-09-14 10:13:26] refactor+ingest | WeldParamControl 架构纠偏：WeldProcess 单例拆解为「抽象基类 + 双实现 + 唯一 Manager」
+
+**触发**：用户纠正「WeldParamControl 是管理所有焊接参数和焊接算法的，提供计算公式和接口、配置，但**不单独开流程**（WeldProcess 删除），流程在 WeldParamControlWorkflow 中执行；须有抽象类（对外属性与函数接口）、若干**非单例**实现类（a. 线激光焊缝追踪算法 b. 焊接参数查表调整算法）、一个 Manager 管理全部算法实现与配置且为**唯一外部访问接口**」。
+
+**Phase 0 Query**：定位 `WeldParamControl/WeldProcess.cs`（425 行巨型单例：数据类 + 查表公式 + 焊缝跟踪 + 流程驱动混装）；Grep 全库确认引用方 6 处（`WeldDataManager`、`WeldParamControlWorkflow`、`LineLaserWorkflow`、`SeamTrajectoryBuilder`、`AutoParamForm`、`RunRecordManager`/`WeldActionRecord` 注释）；ADR-041 缺位，`modules/WeldParamControl.md` 仍按旧结构描述。
+
+**Phase 1 Plan**：呈报四层拆分方案（数据 / 抽象 / 实现 / 门面），用户确认后进入实现。
+
+**Phase 2 Code**：
+- **新增 5 文件**：`Abstractions/WeldAlgorithmBase.cs`（抽象基类：`Name`/`IsReady`/`LoadConfig(AutoParam)`/`Reset()`）；`Algorithms/WeldParamLookupAlgorithm.cs`（实现 a：查表 + `FeedSpeedCal`/`LaserPowerCal` 静态公式）；`Algorithms/WeldSeamTrackingAlgorithm.cs`（实现 b：`ExecuteAdjustment`/`TriggerAdjustment`，构造注入 lookup + `RobotWeldData`）；`WeldParamManager.cs`（`Lazy<T>` 单例门面，含 `event` 显式 add/remove 透传）；`WeldParamData.cs`（原 `WeldProcess.cs` 12~425 行精确提取，含 `RobotWeldData`/`AutoParam`/`ChartVar`/`SeamCalData` 等）。
+- **删除** `WeldProcess.cs`；**迁移** 6 个引用文件全部改指 `WeldParamManager.Instance`，`LoadProfileIntoWeldProcess`→`LoadProfileIntoLookupTable`、`BuildProfileFromWeldProcess`→`BuildProfileFromLookupTable`；`csproj` 移除 1 条 + 新增 5 条 `Compile Include`。
+- **静态校验**（沙盒无 C# 编译器，Python 替代）：旧符号 `WeldProcess`/`GetListValue` 残留 **0** 处；类型定义完整；csproj 注册与磁盘一致；实现类成员均 `override`（无 CS0108）；`WeldParamControlWorkflow` 引用的 9 个成员在 Manager 中均存在。**两轮纪律**：首版校验脚本按命名空间短名粗判 using 产生 6 处误报 → 二版改「类型级证据」判据，反证 `WeldAlgorithmBase.cs` 的 `using System;` 确为冗余并删除。
+- **编码对齐**：4 个新 `.cs` 初建为无 BOM + LF，统一转为项目约定的 **UTF-8 BOM + CRLF**，复检 CRLF 计数正确、CRCRLF=0。
+
+**Phase 3 Ingest**：新建 `decisions/ADR-041-WeldParamControlAlgorithmArchitecture.md` + `api/WeldParamManager.md`；整页重写 `modules/WeldParamControl.md`、`people/WeldProcessSpecialist.md`；增量更新 `ADR-Index`（001~041）、`ADR-009`（符号改名沿革 + GetCurrentRobotX 真实化）、`api/WeldParamControlWorkflow`、`api/WeldDataManager`、`architecture/DeviceControlArchitecture`（8.2 数据链路图）、`project/overview`、`index/index`，及 `api/LineLaserWorkflow`/`api/MoveControlData`/`api/IntelligentLaserCam` 三处符号标注。代码侧注释同步：`RunRecordManager`/`WeldActionRecord`；需求书 8.5.2 核心类表与单例表。
+
+**Phase 4 Lint**：`wiki_audit` 红链 0 / 孤儿 0 / index 重复 0 / ADR 001~041 连续无空洞 / 无过小分类 / 无二级子目录；`lint_scan` 扫 152 页，死链 0 / 孤儿 0 / ADR 冲突 0 / 外链失效 0；`drift_scan_precise` 索引 174 个 `.cs`，**待修正 0 处**（已标注 42 处）；行尾：14 个 wiki 文件 + 需求书 **CRCRLF 全 0**；`git diff --numstat` 无本轮整文件重写。临时脚本已清理。
+
+**注**：⚠️ **真编译待 Visual Studio**——沙盒无 C# 编译器，本页所有「校验通过」均为**静态一致性检查**，非编译结果。遗留项：`CurrentRobotX` 恒为 0（`RobotWeldData.PosX` 无写入方，保持兼容未改）；`WeldProcessCompleted`/`WeldProcessCompletedEventArgs` 保留历史命名；`CalcGalvoAmplitude` 仍为 TODO 占位。
+
+## [2026-09-14 09:18:00] cleanup+ingest | 厂商原档裁剪：MecaVision Demo 只留 C#，C 原生头文件抽存 SDK/Include/
+
+**触发**：用户「raw/mecavision/Demo/ 下 10 种非 C# 示例（VC++/LabView/Delphi）可再裁」。
+
+**Phase 0 勘察（关键发现改变了裁剪前提）**：`Demo/` 实为 **12 种语言**（非 10 种）、26.07 MB。逐目录量化后发现 `Demo/VC++/` **藏有全库唯一的 C 原生接口声明**——`Include/CameraApi.h`（328 KB，`#ifndef _MVCAMAPI_H_` / `MVSDK_API extern "C" __declspec(dllimport)`）、`CameraApiLoad.h`、`CameraDefine.H`（枚举·结构体）、`CameraStatus.h`（错误码）、`RawTransTest/RawDecodeApi.h`、`OCX/mvocx.h`；全库 141 个 `.h` 均在 `Demo/VC++`（其余为 `resource.h`/`StdAfx.h`/`targetver.h` MFC 样板），**`SDK/` 目录本身无任何头文件**（`.Interface` 实为 PE 二进制）。`Demo/QT/Include` 与 `Demo/QT5/Include` 携带同 md5 的重复副本。
+
+**Phase 1 决策**：向用户呈报该发现并给出三选项，用户选定「只留 C# + VC++ 的 6 个头文件」。
+
+**Phase 2 执行**：
+- **抽取**：6 个原生头文件 → `MecaVision/SDK/Include/`（与它们描述的原生库同处），逐个 md5 校验一致。
+- **删除**：10 种非 C# 语言示例（LabView 3.86 MB / Java 1.43 MB / VB.NET 1.28 MB / QT 1.01 MB / QT5 0.99 MB / VB6 0.47 MB / Delphi6 0.31 MB / C++ Builder 0.14 MB / Visual FoxPro8 0.03 MB / Python 0.02 MB）+ VC++ 全目录（15.38 MB，560 文件）。
+- **结果**：`Demo/` **26.07 MB → 1.29 MB**（净释放 24.78 MB），仅剩 `C#`（172 文件，`MVSDK.cs` 6884 行完好）；`MecaVision/` 总体 87 MB → 61 MB。
+- **回滚保障**：删前核验 `LLMWiki_backup_20260913_211524.tar.gz` 含全部待删内容（Delphi6 命中 58 · LabView 命中 121）。
+
+**Phase 3 Ingest**：`guides/MecaVision-DevGuide` §1 资产表新增 `SDK/Include/` 行（C 不可变基线：`MVSDK.cs` 为 C# 镜像，头文件才是 C 原文）+ 2026-09-14 裁剪说明；`api/MecaVisionMVSDK-Native` 页首补「C 原生声明基线」引用；`index.md` 更新来源索引行与该页摘要两处。
+
+**Phase 4 Lint**：`wiki_audit` 红链 0 / 孤儿 0 / 重复 0 / 索引重复 0 / 二级子目录 0 / 过小分类 0 / ADR 001~040 连续；`lint_scan` 死链 0 / 孤儿 0 / ADR 冲突 0；`drift_scan_precise` 待修正 0 处。行尾核验：`index.md` LF 391 / `MecaVisionMVSDK-Native` CRLF 207 / `DevGuide` CRLF 201，**CRCRLF 全 0**；`git diff --numstat` 无整文件重写。临时脚本已清理。
+
+**注**：本次为 `raw/`（原档只读层）的**用户显式授权**例外——按 ADR-028「原档不可改」原则，raw 层变更须留档，故记于此。
+
+## [2026-09-14 08:55:46] cleanup+ingest | 知识库卫生治理：查漏补缺 · 消除冲突 · 清废弃与非知识库文件
+
+**触发**：用户「按 skill 流程，检查知识库文件查漏补缺，消除冲突，删除废弃文件和非知识库文件（大模型做任务遗留在知识库中的）」。
+
+**Phase 0 普查**：三扫描基线全绿（`wiki_audit` 红链 0/孤儿 0/重复行 0/二级子目录 0/过小分类 0 · ADR 001~040 连续；`lint_scan` 死链 0/孤儿 0/ADR 冲突 0/外链失效 0；`drift_scan_precise` 待修正 0 处）。7 个废弃概念（`GoStep`/`FailFlow`/`CommandTable`/`IsLiveMode`/`ChangeMode`/`SeamPvtFeeder`/`AttachYAxis`）经 Grep 逐页核查**均已正确标注 ⛔/已删除**，无「当现役描述」的语义冲突。问题集中在**残留文件层**与**内容缺口层**。
+
+**删除（非知识库 / 残留 / 构建产物）**：
+- `scripts/_tmp_api_dump.py`（一次性脚本，8-31，全库 0 引用，**已误入库**）
+- `scripts/__pycache__/csharp_review.cpython-313.pyc`（Python 字节码缓存，**已误入库**）
+- `raw/codebase/`（**0 字节空目录**）
+- `raw/tools/crg_build.py`（**已退役**的 code-review-graph 工具脚本）
+- `raw/skills/AdaWeldsys_Skills/05-Tools/CodeGraph.md`（同源退役文档，连带删除空目录 `05-Tools/`）
+- `tools/drift_scan.py`（旧版粗放漂移扫描器，已被 `drift_scan_precise.py` 取代，0 引用）
+
+**清理（厂商原档）**：`raw/mecavision/` 乱码目录名 `MecaVision_SDK+²¦¦+¦-Á+¸+-ÁÁ` → 订正为 `MecaVision_SDK`；删除 `bin/obj` 与全部示例编译产物（`.exe .pdb .tds .ilk .exp .cache`）。**121 MB → 87 MB**（净减 34 MB），**源码计数前后一致**（cs93 / h159 / cpp103 / vb47 / vcxproj28）；厂商 `SDK/`（46.8 MB 运行库）、`Drivers/`、`Document/` 与全部示例源码保留。
+
+**查漏补缺**：
+- `wiki/project/vibecoding-workflow.md`：**回灌 Key Rules 15~17**（三档退役分诊 / 批量替换自引用自检 / `grep -n "^> "` 引用块陷阱），并**扩写 13~14**（CRCRLF 事故 + 整文件 diff 甄别）——补上 skill 自 2026-09-03 起「领先本页」的长期缺口，现共 17 条。
+- `AGENTS.md`：修正**死引用** `tools/KarpathyWikiManager.html`（文件不存在）→ 改指 `tools/` 三个扫描器；目录树补 `raw/architecture|delta|mecavision` 与 `tools/|scripts/|skills/`、标注 `raw/codebase` 已删；「Lint 工作流」补自动化扫描命令段。
+- **新建 `Vicoding管理平台/.gitignore`**（仓库此前从无）——覆盖 `bin/ obj/ *.pyc __pycache__/ .vs/ *_backup_*.tar.gz _tmp_*.py`，从根上堵住 `.pyc` 误入库。
+- `wiki/index/index.md`：移除已删文件的悬空来源索引行、「来源索引」路径全部校验存在性、mecavision 行更新新路径与治理记录、维护说明补 `check_adr_status.py` / `truncate_log.py` 两条 + 标注旧 `drift_scan.py` 已删、`vibecoding-workflow` 行改 17 条、`WikiDriftCorrectionPitfalls` 行改「九坑」。
+
+**副本同步**：`skills/vibecoding-llmwiki/SKILL.md`（仓库副本）内容落后于用户级（Rule 13/14 旧短版、Tier2 列重排前旧 ADR 号），**4 行差异**；以用户级为准字节覆盖 → 两副本 `diff` 为空（38753 B / CRLF / BOM）。
+
+**知识沉淀**：`lessons/WikiDriftCorrectionPitfalls` 新增**坑八**（非知识库文件混入 `wiki/`/`raw/`：残留脚本、`.pyc`、SDK `bin/obj`、0 字节目录、退役工具脚本、死工具引用；根因=无 `.gitignore` + 退役工具只清文档不清脚本）与**坑九**（Skill 双副本「版本号相同内容不同」漂移）；页尾「收尾判据」新增**知识库卫生判据** 10 条。**Skill 同步改进**：Phase 4 新增 **Step 4.3 知识库卫生巡检**（10 项清单：非 `.md` 文件 / 残留脚本 / `raw/` 构建产物 / 空目录 / 退役工具物理文件 / 来源索引存活 / 悬空引用 / `AGENTS.md` 实况一致 / `.gitignore` / 双副本一致性），两副本重新同步至 **40781 B**（CRLF+BOM，`diff` 为空）。
+
+**备份**：`Vicoding管理平台/LLMWiki_backup_20260913_211524.tar.gz`（61.7 MB，改动前全量）。
+
+**遗留（未处理，供决策）**：① ~~`raw/mecavision/Demo/` 仍含 10 种非 C# 语言的示例（VC++/LabView/Delphi/Java/VB6/QT 等，约 26 MB），可按需进一步裁剪~~ → **2026-09-14 09:18 已处理**（`Demo/` 只留 C# 例程，C 原生头文件抽存 `SDK/Include/`，见上一条日志）；② 工作区根 `_pdf_render/`、`_ui_patch_backup/` 与 3 个旧备份 tar 包（~540 MB）属非 LLMWiki 范围，本轮仅上报未动；③ 13 个 wiki 页缺 frontmatter `title:`（软一致性，`wiki_audit` 不检查）；④ 真编译待 VS（无 C# 编译器，规则 12）。
+
+## [2026-09-11 23:45:07] docs+ingest | 修复遗留：ADR 页 frontmatter/H1/tags 自引用编号订正 + 失效编号 041~044 活引用清理
+
+**触发**：用户「按 skill 修复方式修复遗留问题」。上一轮遗留两项——①真编译待 VS（沙箱无 C# 编译器，规则 12，不可修）；②**ADR 页 frontmatter `title` 仍为 09-08 时代旧编号**（2026-09-09 两度重排遗留）。本轮修 ②，并清理同源的失效编号活引用。
+
+**问题范围（Phase 0）**：40 个 ADR 页中 **35 页** frontmatter `title` 与 H1 编号仍停留 09-08 时代（如 `ADR-003-CallbackAcquisition.md` 写作 `ADR-005`）；其中 4 页（023/034/035/036）`tags` 亦携带旧自身号；`ADR-027/028/029` 的 `tags` 为旧自身号 +1（028/029/030）。另有已废编号 **041~044** 的 **7 处活引用**（`ADR-037` title/H1、`ADR-011`、`ADR-Index`、`guides/MecaVision-DevGuide`、`people/ImageAlgorithmSpecialist`）。5 页本已正确（001/002/038/039/040）。
+
+**修复（Phase 2）**：
+- 字节级 Python 脚本订正 35 页 `title` + H1（+4 页 `tags`）自引用编号 → 现行（=文件名）编号；`raw.split(b"\n")` → `b"\n".join()` 重组，**行终止符全程不重建**，保 LF/CRLF 与 BOM 不变。
+- 手工订正 5 处：`ADR-027/028/029` 的 `tags`；`ADR-011` / `ADR-Index` 的 `ADR-042` → `ADR-038`；`guides/MecaVision-DevGuide` 的 `ADR-041` → `ADR-037`；`people/ImageAlgorithmSpecialist` 5 处 `ADR-042` → `ADR-038`。
+- **保留不动**（按 ADR-Index「归档文本保旧号」政策）：`ADR-010` 横幅内 `ADR-012 后移除`、`ADR-024` 正文 `（2026-09-02，ADR-028）`（语义歧义，待另做交叉引用审计）；`ADR-037/038` 的 `tags`（`ADR-009`/`ADR-003`，属主题引用非自身号）。
+
+**踩坑与纠正（记入 lessons）**：首版脚本用 `text.split("\n")` + `"\r\n".join()` 重组，把 CRLF 写成 **`\r\r\n`（CRCRLF）**，35 页全部整文件级 diff；而收工断言 `count(b"\r\n")==原值` 因非重叠匹配恰好成立，**未能拦截**。从 23:39 的 tar 备份**整目录回滚**后改字节级实现重做，并改用三重断言（`\r\n` / `\r\r\n` / `\n` 计数比原值）+ `changed-lines` 自证（每页仅 2~3 行变化）。
+
+**校验（Phase 2.6）**：40/40 页 `文件名 == title == H1`；`ADR-04x` 全库 0 残留；`tags` 仅 037/038 两处主题引用例外；`git diff --numstat` 除 `ADR-020`（**仓库历史遗留**：其 blob 以 CRLF 入库，`autocrlf=false` 下骤降为 4+4，与本次无关）外均为 2+2/3+3。备份 `LLMWiki_backup_20260911_233935.tar.gz`（64.6 MB）。
+
+**Wiki（Phase 3）**：`lessons/WikiDriftCorrectionPitfalls.md` 新增**坑七**（`split`/`join` 不匹配 → CRCRLF + 断言盲区 + 回滚重做纪律），并扩充「收尾判据」（增 `\r\r\n` 计数检查、历史遗留 blob 甄别、批量改写前 tar 备份）；`ADR-Index` 与 `index/index.md` §7 编号说明补记本次订正；不新增模块/API/ADR 页。
+
+**Lint（Phase 4）**：`wiki_audit` / `lint_scan` / `drift_scan_precise` 三扫描全绿（红链 0 / 孤儿 0 / ADR 001~040 连续无未登记 / 死链 0 / drift 待修正 0）。
+
+## [2026-09-11 23:12:00] coding+ingest | ADR-040 线激光引导 Y 轴轨迹构造（PVT 写入权从线激光迁至 WeldParamControl）
+
+**触发**：用户要求 weldparamcontrol 增加「线激光结果引导 Y 轴」支持——新增中性结果构造类搓合「线激光结果 + 机器人坐标 + 时间戳」，做轨迹计算（滤波 / 排除奇怪点与无结果点 / 按标定转运动目标位置）后写入 PVT；线激光结果**不再直写 PVT**（需算法优化与距离标定）。用户四项裁定：①`SeamGuideConfig` 并入 weldparamcontrol（不单独配置）；②标定简化为比例/零点/方向三参数（`偏差=(特征Y−零点)×比例×方向`，`目标=轴当前值+偏差`）；③三级修正（无值容差记 0 继续·超限报警 / 超限剔除 / 窗口内单向移动抑制微小回调）；④每 **250ms 必输出一段 PVT**（线激光前置焊枪前 50mm、最快 500ms 到达，需提前缓存且点持续写入）。
+
+**新增代码（4 文件，`WeldParamControl/SeamGuide/`）**：
+- `SeamGuideSample.cs`：中性样本结构（`Timestamp`/`RobotX`/`AxisCurrentPos`/`LineLaserSeamResult`/`MeasuredFps`/`Valid`/`FeatureY`）。
+- `SeamGuideConfig.cs`：标定与修正参数，并入 `WeldParamControlWorkflow.xml` 的 `SEAM_GUIDE` 段（`EnableGuide`/`AxisMmPerLaserMm`/`LaserZeroMm`/`GuideSign`/`NoValueToleranceMm=2.0`/`OutlierLimitMm=2.0`/`MonotonicWindowMm=50`/`MonotonicDeadbandMm=0.2`/`BatchSize=4`/`MinRemainBuffer=200`/`DefaultFrameSeconds=1/60`/`MaxOutputIntervalMs=250`/`MaxPendingPoints=8000`）；`LoadConfig`/`SaveConfig` 走 `XdocumentReaderWriter`（`SetChild` 防重复节点）。
+- `ISeamTrajectoryBuilder.cs`：契约 `AttachAxis`/`Detach`/`SetConfig`/`Feed`/`Tick`/`Reset`/`Finish` + `IsRunning`/`PendingCount`/`LastErrorCode`/`HasFault`/`FaultReason`。
+- `SeamTrajectoryBuilder.cs`（单例）：`ProcessSample` = 无值容差（累计跨度超 `NoValueToleranceMm` → `SetFault` 报警）→ 超限剔除（跳变超 `OutlierLimitMm` 则保持上一有效偏差）→ `ApplyMonotonic`（`MonotonicWindowMm` 行程窗口 + `MonotonicDeadbandMm` 死区锁定方向，压掉线激光抖动回调）→ `target = AxisCurrentPos + dev` → `AddPoint`；`Tick()` 超 `MaxOutputIntervalMs`(250ms) 即 `Flush(false)`，`Finish` 补保持点收尾。
+
+**修改代码**：
+- `LineLaserCam/LineLaserManager.cs`：删内嵌 `SeamPvtFeeder`（原 118~326）、`_pvtFeeder` 字段 / 构造创建 / `ApplyConfig` 套用 / `Feed` 调用 / `SetWorking` 起止段 / `AttachYAxis` / `Dispose` 内 `Detach()` / `using AdaWeldSystem.MotionControl.IMotion`；`OnCameraResultReady` 只留 `_lastResult = e.Result` + 事件转发。
+- `LineLaserCam/LineLaserConfig.cs`：删 `PvtBatchSize`/`PvtFrameSeconds`/`PvtMinRemainBuffer`（含默认值 / Load / Save），保留 `SeamTrackAxisName`（仍写 `PVT/SEAM_TRACK_AXIS`）。
+- `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs`：加 `_seamTracker`/`_seamAxis`/`_seamTrackingActive`；`AttachSeamTrackAxis()` 取轴 → `SetConfig` → `AttachAxis` → 订阅 `LineLaserManager.ResultReady`；新增 `DetachSeamTrackAxis()` / `OnSeamResultReady(…Feed(e.Result, e.MeasuredFps, _seamAxis.GetPosition()))` / `UpdateSeamTracking()`（起止沿 `Reset`/`Finish` + `Tick()` + `HasFault`→`Fail`）；`StepReady` 内调用；`DoStopping` 开头 `Finish`；`InitializeOff`/`DisposeManaged` 内 `Detach`。
+- `MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs`：加 `_seamGuide`/`SeamGuide` 属性；构造 `LoadConfig` + `SetConfig`；`LoadConfig`/`SaveConfig` 增 `SEAM_GUIDE`；新增 `SaveSeamGuide()`。
+- `AdaWeldSystem.csproj`：注册 4 个新文件。
+
+**校验（静态，真编译待 VS）**：`errors=0 warnings=0`；4 新文件花括号平衡、无 `Dispose(bool)`；`SeamPvtFeeder`/`AttachYAxis`/`_pvtFeeder` 全库 0 残留；`LineLaserConfig` PVT 三项已移除、`SeamTrackAxisName` 保留；`MotionControlWorkflow` 含 `UpdateSeamTracking`/`OnSeamResultReady`/`DetachSeamTrackAxis`/`GetPosition()`；`WeldParamControlWorkflow` 含 `SeamGuide`/`SaveSeamGuide`；`SeamTrajectoryBuilder` 含三级修正参数与 `BeginMove`/`ContinueMove`。
+
+**Wiki（Phase 3 Ingest）**：新建 `decisions/ADR-040-SeamGuideTrajectoryBuilder.md`、`api/SeamTrajectoryBuilder.md`；`api/SeamPvtFeeder.md` 标 ⛔ 已废弃 + 迁移对照；`ADR-Index` 扩至现行 001~040（补登 039/040）；更新 `modules/LineLaserCam`、`modules/WeldParamControl`、`api/LineLaserManager`、`api/MotionControlWorkflow`、`api/WeldParamControlWorkflow`、`api/IntelligentLaserCam`、`api/VirtualCam`、`decisions/ADR-035`（加部分取代声明）、`index/index`（多处条目 + 编号说明）。
+
+**Lint（Phase 4）**：`wiki_audit.py` 红链 0 / 孤儿 0 / 重复条目 0 / ADR 1~40 连续无空洞且无未登记 / 无二级子目录 / 无过小分类 / 无重复页；`lint_scan.py` 死链 0 / 孤儿 0 / ADR 冲突 0 / 外部链接失效 0；`drift_scan_precise.py` 待修正 **0 处**（42 处历史保留 informational）。三扫描全绿。
+
+**代码备份**：本轮未新做 tar，沿用 `AdaWeldSystem_backup_20260911_2047.tar.gz`。
+
+## [2026-09-11 20:47:00] coding | SqlLiteDatabase 按 MotionControl 范式分层（进行中）
+
+**来源**：按 VibeCoding 计划对数据库、焊接算法、文件追溯、点云计算四模块进行 MotionControl 式改造；本轮先完成 SqlLiteDatabase 的 L2/L3/Manager 分层与 Dispose 合规修正。
+
+**操作**：
+1. 新增 `SqlLiteDatabase/IDatabaseManager.cs`（L2 抽象接口），声明连接管理、CRUD、表管理全套契约。
+2. `SqlLiteDatabase/SqliteCore/SQLiteDataBase.cs` 改为实现 `IDatabaseManager`（L3），删除 `Dispose(bool)` 与析构函数，改用标准 `IDisposable.Dispose()`。
+3. `SqlLiteDatabase/SqliteCore/DatabaseManagerBase.cs` 的 `Database` 属性类型由 `SQLiteDataBase` 改为 `IDatabaseManager`，删除 `Dispose(bool)` 与析构函数。
+4. 新增 `SqlLiteDatabase/WeldAutoParamProfile.cs` 中性传输对象，避免 DB 层反向依赖业务类型。
+5. `SqlLiteDatabase/AutoParamManager.cs` 移除 `using AdaWeldSystem.WeldParamControl`，API 改为 `SelectTable(string)`/`LoadProfile`/`SaveProfile`/`UpdateProfile`。
+6. `SqlLiteDatabase/ConfigManager.cs` 移除 `using AdaWeldSystem.WeldParamControl`，`AddConfig`/`UpdateConfig` 改为中性字段签名。
+7. `WeldParamControl/WeldDataManager.cs` 增加 `LoadProfileIntoWeldProcess`/`SaveCurrentProfile`，作为 DB 层与 `WeldProcess` 之间的桥接。
+8. `UIDesign/SubDialog/ParamContolDialog/AutoParamForm.cs` 改用 `WeldDataManager` 新 API。
+9. `AdaWeldSystem.csproj` 注册新文件 `SqlLiteDatabase\IDatabaseManager.cs`、`SqlLiteDatabase\WeldAutoParamProfile.cs`。
+10. Python 静态校验通过：SqlLiteDatabase 无反向 using、无 `Dispose(bool)`/`~`、接口方法均有实现、csproj 已注册。
+
+**遗留**：`WeldProcess` 仍是 God Class（数据+平滑+查表+下发+记录），将在 WeldParamControl 拆分中继续解耦。
+
+**新增 Wiki 页面**：无（本轮为代码改造，全量 Ingest 在四模块改造完成后统一进行）
+**删除 Wiki 页面**：无
+**更新 Wiki 页面**：无
+**代码备份**：AdaWeldSystem_backup_20260911_2047.tar.gz
+
 ## [2026-09-09 18:41:55] coding+ingest | MonitorCam 业务边界澄清 + EmguALG 五层细化（ADR-039）
 
 **来源**：用户裁定——监控相机是 2D 面阵相机，无 Live/PIL 模式；画面显示采用单次触发采集刷新；EmguALG 项目层级重构为 Abstractions/Core/RealtimeMonitor/LineLaserContour/Manager 五层。
@@ -28,6 +482,26 @@
 **删除 Wiki 页面**：无
 **更新 Wiki 页面**：modules/EmguALG、modules/MonitorCam、api/AlgorithmManager、api/MonitorCamManager、api/MonitorCameraWorkflow、decisions/ADR-038-EmguALGThreeLayer、index/index
 **代码备份**：AdaWeldSystem_backup_20260909_180840.tar.gz
+
+## [2026-09-11 20:45:43] docs | Dispose(bool) 准则描述修正
+
+**来源**：用户裁定——`Dispose(bool)` 不要乱写/改写的直接触发场景限定为 UI `.designer.cs`，手写或改写会破坏设计器生成逻辑导致显示异常；并非绝对全域禁令。
+
+**操作**：
+1. 修正 `decisions/ADR-001-DisposePattern.md`：
+   - 明确 UI `.designer.cs` 中的 `Dispose(bool)` 由设计器生成，手写/改写会直接破坏设计器生成逻辑、导致显示异常。
+   - UI 后置 `.cs` 文件应通过 `DisposeComponents()` 释放外部资源，不直接重写 `Dispose(bool)`。
+2. 修正 `decisions/ADR-020-DisposePatternFullCoverage.md`：
+   - 非 UI 类不写 `Dispose(bool)` 是因为采用标准 `IDisposable.Dispose()`。
+   - UI 类中 `Dispose(bool)` 限制的直接触发场景是 `.designer.cs` 设计器文件。
+3. 更新 `lessons/CodeSimplification-Scope-DesignerOnly.md`：
+   - 在正确边界表中增加 `*.Designer.cs` 中的 `Dispose(bool)` 一行，指向 ADR-001/020。
+4. 同步 `.workbuddy/memory/MEMORY.md` §1 通用规约中的 Dispose 描述（已在前序会话完成）。
+
+**新增 Wiki 页面**：无
+**删除 Wiki 页面**：无
+**更新 Wiki 页面**：decisions/ADR-001-DisposePattern、decisions/ADR-020-DisposePatternFullCoverage、lessons/CodeSimplification-Scope-DesignerOnly
+**代码备份**：无
 
 ---
 

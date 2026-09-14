@@ -1,11 +1,11 @@
 ﻿---
-title: ADR-041 监控相机三层重构并切换麦格威（IMonitorCam / MecaVisionCam / MonitorCamManager）
+title: ADR-037 监控相机三层重构并切换麦格威（IMonitorCam / MecaVisionCam / MonitorCamManager）
 date: 2026-09-08
 tags: [决策, 监控相机, MecaVision, MVSDK, 海康, ADR-009, ADR-038, ADR-039]
 status: accepted
 ---
 
-# ADR-041：监控相机三层重构并切换麦格威（IMonitorCam / MecaVisionCam / MonitorCamManager）
+# ADR-037：监控相机三层重构并切换麦格威（IMonitorCam / MecaVisionCam / MonitorCamManager）
 
 > 2026-09-08 落地：本 ADR 由「仅切换 SDK 实现」修订为「三层重构 + 切换」，目录结构对齐 MotionControl（ADR-036/037）与线激光（ADR-038/039）范式。
 

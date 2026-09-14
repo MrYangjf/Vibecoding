@@ -17,17 +17,12 @@ source: raw/skills/AdaWeldsys_Skills/02-Development/3DSpecialist.md
 
 ## 负责文件
 
-PointCloudData/
-├── 3DModel.cs
-├── DataIO.cs
-├── Render.cs
-├── RunFileRecord/RunRecordManager.cs
-├── File3DManager.cs
-├── PointCloudFilter.cs
-├── MeshBuilder.cs
-├── ColorMapper.cs
-├── CoordinateTransformer.cs
-└── BoundingBoxCalculator.cs
+PCLOperate/                            ← 点云模块（目录 = 命名空间 = AdaWeldSystem.PCLOperate）
+├── Models/                            Point3D, PointCloudData                ns ...PCLOperate.Models
+├── DataIO/                            PointCloudReader, PointCloudWriter     ns ...PCLOperate.DataIO
+└── Render/                            PointCloudViewer, RenderConfig, SurfaceTriangulator   ns ...PCLOperate.Render
+
+> **2026-09-14 目录对齐（ADR-048）**：原 `3DModel/` → `Models/`；模块目录名 `PointCloudData/` → `PCLOperate/`（wiki 页名仍为 [[modules/PointCloudData]]）。原列出的 `File3DManager` / `PointCloudFilter` / `MeshBuilder` / `ColorMapper` / `CoordinateTransformer` / `BoundingBoxCalculator` 在现仓库中**不存在**（历史规划，已并入上述三目录）。
 
 ## 技术要点
 

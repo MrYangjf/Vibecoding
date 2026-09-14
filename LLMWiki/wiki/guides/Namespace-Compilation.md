@@ -33,6 +33,8 @@ tags: [指导, 编译错误, 命名空间, 汇总]
 
 2026-07-01，通过 /vibeCoding 创建了 `Comm/KUKARobot/` 文件夹及 5 个 C# 通讯代码文件：
 
+> ⚠️ 沿革注（2026-09-14）：下文路径为决策当时旧名。现役对应：RSICommunication→`KukaRsiComm.cs`、EKICommunication→`KukaEkiComm.cs`、KUKARobotManager→门面并入 `CommunicationManager.cs`、KUKADataTypes/KUKAXMLConfig→独立文件移除（并入各实现类文件，`KUKAXMLConfig` 改 partial）。案例教训本身仍有效。
+
 ```
 Comm/KUKARobot/
 ├── KUKADataTypes.cs
@@ -61,7 +63,7 @@ Comm/KUKARobot/
   <Compile Include="Comm\KUKARobot\KUKARobotManager.cs" />
 
   <!-- 后续文件... -->
-  <Compile Include="FileOperate\IniFile.cs" />
+  <Compile Include="FileOperate\INIFile.cs" />
 </ItemGroup>
 ```
 
@@ -139,7 +141,7 @@ find . -name "*.cs" -not -path "./bin/*" -not -path "./obj/*" \
 
 > **注**：原故障案例中的 `DeviceStateMachineBase.cs`（现役 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`） / `DeviceState` 四态枚举 / `IDeviceStateMachine` 接口均已于 2026-08-28 删除（旧 `DeviceStateMachine/` 目录整体移除），现由 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` 的**三态**枚举取代。案例机制（每个 `.cs` 是独立编译单元、须显式 using）不变。
 
-2026-07-31 新增 `DeviceStateMachineBase.cs`（现役 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`） 时，类中使用了 `GlobalCommData.ShowLog()` 和 `DeviceState` 枚举，但忘记添加 `using AdaWeldSystem.Comm;`。编译报错：
+2026-07-31 新增 `DeviceStateMachineBase.cs`（现役 `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs`） 时，类中使用了 `GlobalCommData.ShowLog()` 和 `DeviceState` 枚举，但忘记添加 `using AdaWeldSystem.Comm.SystemComm;`。编译报错：
 
 ```
 CS0103: 当前上下文中不存在名称"GlobalCommData"
@@ -151,23 +153,23 @@ CS0246: 找不到类型或命名空间名称"DeviceState"(是否缺少 using 指
 在文件顶部补全 `using` 引用：
 
 ```csharp
-using AdaWeldSystem.Comm;          // 用于 GlobalCommData
+using AdaWeldSystem.Comm.SystemComm;          // 用于 GlobalCommData
 // 现行三态枚举（替代旧 DeviceState）：
-using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus
+using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;   // SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus
 ```
 
 **常见易遗漏的 using 引用**
 
 | 类型 | 所需 using | 说明 |
 |------|-----------|------|
-| `GlobalCommData` | `using AdaWeldSystem.Comm;` | 全局通讯/日志静态类 |
-| `SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` | `using AdaWeldSystem.MainDeviceControl.DeviceState;` | 三态枚举（**注意**：物理目录是 `DeviceStateApiCore/`，命名空间仍是 `...DeviceState`） |
-| `WeldStatusChangedEventArgs` / `SubDeviceStateChangedEventArgs` | `using AdaWeldSystem.MainDeviceControl.DeviceState;` | 状态变更事件参数 |
-| `DeviceWorkflowBase` | `using AdaWeldSystem.MainDeviceControl.FlowState;` | 非泛型工作流基类（**注意**：物理目录是 `DeviceStateApiCore/`，命名空间仍是 `...FlowState`） |
+| `GlobalCommData` | `using AdaWeldSystem.Comm.SystemComm;` | 全局通讯/日志静态类（ADR-048 起随目录） |
+| `SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 三态枚举（目录与命名空间一致，ADR-048） |
+| `WeldStatusChangedEventArgs` / `SubDeviceStateChangedEventArgs` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 状态变更事件参数 |
+| `DeviceWorkflowBase` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 非泛型工作流基类（目录与命名空间一致，ADR-048） |
 | `LineLaserWorkflow` 等 5 个子工作流 | `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;` | 子设备工作流 |
-| `MessageLevel` | `using AdaWeldSystem.Comm;` | 日志级别枚举（与 GlobalCommData 同命名空间） |
-| `KUKARobotManager` | `using AdaWeldSystem.Comm.KUKARobot;` | KUKA 机器人管理器 |
-| `S7PLCCommunication` | `using AdaWeldSystem.Comm.SiemensS7;` | S7 PLC 通讯 |
+| `MessageLevel` | `using AdaWeldSystem.Comm.SystemComm;` | 日志级别枚举（与 GlobalCommData 同命名空间） |
+| KUKA 门面（`ConnectRobot`/`SendRobotData`） | `using AdaWeldSystem.Comm.Communication;` | `CommunicationManager`（`KUKARobotManager` 已删，ADR-045） |
+| `SiemensS7Comm` | `using AdaWeldSystem.Comm.Communication.Implementations;` | S7 PLC 通讯实现 |
 
 **正确做法**
 
@@ -225,8 +227,9 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 - [ ] 迁移后的文件是否已在 `.csproj` 中更新路径？
 
 ### 补充案例：子命名空间与枚举同名 → CS0118（2026-08-28）
+> ⚠️ **沿革横幅（2026-09-14，ADR-048）**：本节的**触发前提已消解**——`DeviceStateApiCore/` 目录对齐后，枚举 `DeviceState` 所在命名空间为 `AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`，**不再存在「枚举名与父作用域子命名空间同名」的情形**，全库代码中的 `using DeviceState = ...` 别名已全部清除。本节保留为 **C# 简单名称解析（由内向外、父作用域成员优先于 using）** 的通用知识；**新代码不需要、也不应再加别名**。
 
-**触发场景**：主控架构重构后，`DeviceState` 既是枚举名又是命名空间名——枚举 `DeviceState` 定义于命名空间 `AdaWeldSystem.MainDeviceControl.DeviceState` 内（`DeviceStateBase.cs`）。
+**触发场景**：2026-08-28 主控架构重构后，枚举 `DeviceState` 与所在命名空间末段同名——枚举 `DeviceState` 当时定义于命名空间 `AdaWeldSystem.MainDeviceControl.DeviceState` 内（`DeviceStateBase.cs`）。**该前提已于 2026-09-14 随 ADR-048 消解**（命名空间改为 `...DeviceStateApiCore`，见本节顶部横幅），以下为机制存档。
 
 **坑点**：位于**兄弟命名空间**（如 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`、`.FlowState`）的文件，裸写 `DeviceState` 时，C# 名称解析沿作用域链上溯，在父作用域 `AdaWeldSystem.MainDeviceControl` 中先命中**同名子命名空间**（命名空间成员含子命名空间），而非其中的枚举 → 用作类型时报：
 
@@ -237,13 +240,13 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 **修复（2026-08-31 修订——8/28 的修法被证伪）**：
 
 > **关键澄清**：C# 简单名称解析**由内向外**逐层走，在到达 using 指令前就命中父作用域成员即停止。因此：
-> - **子树外**文件（如 `AdaWeldSystem.Sub3UI` 下的 UI 页）：走完自身作用域链未命中 → 查 using → `using AdaWeldSystem.MainDeviceControl.DeviceState;` **有效**（ILCamPage 等用它即可）。
+> - **子树外**文件（如 `AdaWeldSystem.UIDesign.TabPage` 下的 UI 页）：走完自身作用域链未命中 → 查 using → `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` **有效**（ILCamPage 等用它即可）。
 > - **子树内**文件（位于 `AdaWeldSystem.MainDeviceControl.*` 命名空间下的 7 个文件：6 个工作流 + `DeviceStateApiCore/DeviceWorkflowBase.cs`）：在 `AdaWeldSystem.MainDeviceControl` 层就命中同名子命名空间并停止，**using 指令永远轮不到** → 必须在**命名空间声明内部**放置 using 别名：
 >
 > ```csharp
 > namespace AdaWeldSystem.MainDeviceControl.DeviceWorkflow
 > {
->     using DeviceState = AdaWeldSystem.MainDeviceControl.DeviceState.DeviceState;
+>     using DeviceState = AdaWeldSystem.MainDeviceControl.DeviceStateApiCore.DeviceState;   // ⛔ ADR-048 后此别名已不需要
 >     // 别名在「本级声明」解析优先于向外走，恰好压过同名子命名空间；
 >     // 放在文件顶部（编译单元级）无效——向外走会先在 MainDeviceControl 层停下。
 > ```
@@ -252,11 +255,11 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 >
 > （旧版记录 7 个工作流含 `MainDeviceWorkflow.cs` / `SafetyWorkflow.cs`：前者已于 2026-09-02 更名 `DeviceControlWork.cs` 并移出 `DeviceWorkflow/`，后者更名 `DeviceStatusWork.cs` 并移出；`SafetyFlow.cs`（已移除） / `SafetyInterlock.cs`（已移除） 于 2026-08-31 三合一合并。均已校正。）
 >
-> ⚠️ **目录 ≠ 命名空间**：`DeviceStateApiCore/` 只是物理目录，其中 `DeviceStateBase.cs` 仍属 `...MainDeviceControl.DeviceState`，`DeviceWorkflowBase.cs` 仍属 `...MainDeviceControl.FlowState`。
+> ✅ **目录 = 命名空间（2026-09-14，ADR-048）**：`DeviceStateApiCore/` 内三文件（`DeviceStateBase.cs` / `CommandCore.cs` / `DeviceWorkflowBase.cs`）统一为 `...MainDeviceControl.DeviceStateApiCore`，原「目录 ≠ 命名空间」的例外已废止。
 >
-> 另：`ProductFileManager/FaultRecoveryManager.cs` 也在命名空间内用了同一别名——它虽在 `MainDeviceControl` 子树外，但写法同样合法，不必改。
+> 另：曾举 `ProductFileManager/FaultRecoveryManager.cs` 为同类别名用例——该文件已随 ADR-031（2026-09-04）整体移除，且 `ProductFileControl/` 扁平命名空间下已无同名遮蔽，无需别名。
 >
-> ⚠️ **2026-09-01 目录收敛后判据不变**：`DeviceState/` 与 `FlowState/` 已合并为物理目录 `DeviceStateApiCore/`，但**命名空间未改名**，故本节「同名子命名空间遮蔽」的陷阱与修复方式**完全照旧**。判据看**命名空间**而非目录——只要文件仍在 `AdaWeldSystem.MainDeviceControl.*` 子树内，就必须用命名空间内部 using 别名。
+> ✅ **2026-09-14 判据收敛（ADR-048）**：`DeviceStateApiCore/` 同时是目录名与命名空间末段，枚举 `DeviceState` 不再与任何命名空间段同名 → 「同名子命名空间遮蔽」不再可能发生，**新代码无需、也不应再加 using 别名**。历史别名写法已从全库代码清除。
 
 **规避约定（修订）**：枚举名不要与所在命名空间末段同名；若已同名（历史原因保留），**父命名空间子树内**的使用方必须在**命名空间声明内部**使用 using 别名（文件顶 using 无效），**子树外**使用方用普通 using 即可。全项目冲突扫描确认 `DeviceState` 是唯一一处类型名/命名空间段名碰撞。
 
@@ -269,7 +272,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceState;   // SubDeviceState / SubDevi
 
 **检测方法**（本项目环境无编译器时的静态兜底，比逐项 grep 更可靠）：
 
-1. 大括号平衡用**词法状态机**判定（normal/line/block/string/char 五状态），禁用「先剥字符串再剥注释」的朴素正则——注释内的引号与 verbatim 字符串尾部 `\"` 都会造成误报（`XMLfile.cs` 的 `@"\Config\XML\"` 即典型）。
+1. 大括号平衡用**词法状态机**判定（normal/line/block/string/char 五状态），禁用「先剥字符串再剥注释」的朴素正则——注释内的引号与 verbatim 字符串尾部 `\"` 都会造成误报（`XdocumentReaderWriter.cs` 的 `@"\Config\XML\"` 即典型）。
 2. 平衡只说明总数对，还要做**深度拓扑**：在 `#region/#endregion` 锚点处校验深度应恒为 2（namespace=1 + class=2）。孤儿块会使锚点深度漂移，从而精确定位结构破坏区间。
 
 **规避约定**：重构移动方法后，立即用 region 锚点深度自检；凡复制粘贴事件触发片段（`var handler = ...; handler(this, new ...EventArgs{...});`）必须整块核对唯一性。

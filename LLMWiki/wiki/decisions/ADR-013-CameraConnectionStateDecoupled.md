@@ -1,5 +1,5 @@
 ---
-title: ADR-015 相机连接状态与工作流程状态解耦
+title: ADR-013 相机连接状态与工作流程状态解耦
 date: 2026-07-21
 tags: [决策, 相机, 状态机, 状态栏]
 status: accepted
@@ -10,7 +10,7 @@ source: 用户需求 + AdaWeldSystem/LineLaserCam/Api/CameraSelector.cs、AdaWel
 > 聚合派生改为 `LineLaserManager`（`SetWorking` 驱动），`CameraSelector` 已物理删除，
 > 见 [[decisions/ADR-034-LineLaserThreeLayerRefactor]]、[[decisions/ADR-036-LineLaserManagerSingleEntry]]。
 
-# ADR-015 相机连接状态与工作流程状态解耦
+# ADR-013 相机连接状态与工作流程状态解耦
 
 > 状态：已采纳（2026-07-21）
 > 关联：[[api/LineLaserManager]]、[[api/LineLaserWorkflow]]、[[modules/LineLaserCam]]、[[modules/DeviceControl]]、[[modules/UIDesign]]

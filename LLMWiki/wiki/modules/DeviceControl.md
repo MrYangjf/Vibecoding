@@ -23,7 +23,7 @@ source: AdaWeldSystem/MainDeviceControl/ 模块源码
 
 | 枚举 | 取值 | 用途 | 命名空间 | 属性 |
 |---|---|---|---|---|
-| `SubDeviceState` | `Disconnected`(0) / `Connected`(1) | 子设备连接态（只两态） | `...MainDeviceControl.DeviceState` | `Instance.State` |
+| `SubDeviceState` | `Disconnected`(0) / `Connected`(1) | 子设备连接态（只两态） | `...MainDeviceControl.DeviceStateApiCore` | `Instance.State` |
 | `SubDeviceWeldStatus` | **新档（裁定 C2，改码目标）**：`NoReset`(0)/`Standby`(1)/`PreWork`(2)/`Working`(3)/`Stopping`(4)/`ErrorAborted`(5)/`ManualStopped`(6)　⛔ 现状代码仍为旧取值 `Standby`(0)/`PreWork`(1)/`Starting`(2)/`Working`(3)... —— **删除 `Starting`、新增 `NoReset`(0)**，余值顺延 | 子设备焊接过程态（7 态） | 同上 | `Instance.WeldStatus` |
 | `MainDeviceStatus` | `Running`(0)/`Alarm`(1)/`EStop`(2)/`Stop`(3)/`NoReset`(4)/`Reseting`(5) | 主设备运行态（6 态，过程状态） | 同上 | `DeviceControlWork.Instance.Status` |
 
@@ -67,14 +67,14 @@ source: AdaWeldSystem/MainDeviceControl/ 模块源码
 
 ```
 MainDeviceControl/
-├── DeviceControlWork.cs            整机运行编排单例（7 常驻线程 + §7.5 九公共方法）  ns ...DeviceWorkflow
-├── DeviceStatusWork.cs             安全/IO/状态管控（3 常驻线程）                   ns ...DeviceWorkflow
+├── DeviceControlWork.cs            整机运行编排单例（7 常驻线程 + §7.5 九公共方法）  ns ...MainDeviceControl
+├── DeviceStatusWork.cs             安全/IO/状态管控（3 常驻线程）                   ns ...MainDeviceControl
 ├── DeviceStateApiCore/             基类 API 核心（2026-09-01 由 DeviceState/ + FlowState/ 合并）
-│   │                               ※ 目录合并但命名空间不变，下分两个：
-│   │                                 ...DeviceState / ...FlowState（详见下方「目录 ≠ 命名空间」）
-│   ├── DeviceStateBase.cs          设备态/过程态基类 + 三枚举 + 事件参数    ns ...DeviceState
-│   ├── CommandCore.cs              机器人指令协议（const string）           ns ...DeviceState
-│   └── DeviceWorkflowBase.cs       工作流基类（非泛型）                     ns ...FlowState
+│   │                               ※ 2026-09-14 起命名空间随目录对齐（ADR-048）：
+│   │                                 统一为 ...DeviceStateApiCore
+│   ├── DeviceStateBase.cs          设备态/过程态基类 + 三枚举 + 事件参数    ns ...DeviceStateApiCore
+│   ├── CommandCore.cs              机器人指令协议（const string）           ns ...DeviceStateApiCore
+│   └── DeviceWorkflowBase.cs       工作流基类（非泛型）                     ns ...DeviceStateApiCore
 └── DeviceWorkflow/                 命名空间 AdaWeldSystem.MainDeviceControl.DeviceWorkflow
     ├── LineLaserWorkflow.cs        线激光
     ├── MonitorCameraWorkflow.cs    监控相机
@@ -87,9 +87,9 @@ MainDeviceControl/
       现行规范唯一出处 = [[architecture/DeviceControlArchitecture]]
 ```
 
-> **目录 ≠ 命名空间（2026-09-01 起）**：`DeviceState/` 与 `FlowState/` 已合并为物理目录 `DeviceStateApiCore/`，但**命名空间刻意保持不变**——`DeviceStateBase.cs` / `CommandCore.cs` 仍为 `AdaWeldSystem.MainDeviceControl.DeviceState`，`DeviceWorkflowBase.cs` 仍为 `AdaWeldSystem.MainDeviceControl.FlowState`。理由：改名会波及 7 个工作流及全部消费方的 `using`，收益为零。以下小节标题沿用**命名空间语义**标注。
+> **命名空间已随目录对齐（2026-09-14，ADR-048）**：`DeviceState/` 与 `FlowState/` 合并为物理目录 `DeviceStateApiCore/` 后，三文件命名空间先保持不变（2026-09-01）；本轮按「命名空间 = 路径」统一为 `AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`。同批：根目录两个管控类 `DeviceControlWork.cs` / `DeviceStatusWork.cs` 由 `...DeviceWorkflow` 归位 `AdaWeldSystem.MainDeviceControl`；`DeviceWorkflow/` 5 个工作流不变。
 
-### DeviceStateApiCore/DeviceStateBase.cs（ns ...DeviceState）
+### DeviceStateApiCore/DeviceStateBase.cs（ns ...DeviceStateApiCore）
 
 定义三枚举 `SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` 及事件参数 `SubDeviceStateChangedEventArgs`(OldState/NewState/Reason/Timestamp)、`WeldStatusChangedEventArgs`(OldStatus/NewStatus/Reason/Timestamp)；非泛型抽象基类 `DeviceStateBase`：
 
@@ -127,7 +127,7 @@ MainDeviceControl/
 > **纪律**：异步连接线程在失败分支**必须**调 `MarkConnectFailed`，
 > 只调 `SetState(Disconnected, ...)` 不足以让等待方收敛。
 
-### DeviceStateApiCore/CommandCore.cs（ns ...DeviceState）
+### DeviceStateApiCore/CommandCore.cs（ns ...DeviceStateApiCore）
 
 > **✅ 2026-09-04 已落地（ADR-030 批次 0.3 / 0.4，裁定 C3）**：⛔ `CommandTable.cs` **已删除**，现役 **`CommandCore.cs`**——
 > 指令载体由 `const int` + 三枚举（`RobotPose` / `RobotCommand` / `DeviceCommand`）改为 **`const string` 固定指令**，
@@ -146,7 +146,7 @@ MainDeviceControl/
 → `CommCommandWork` 线程 `DequeueCommand()` → `DispatchCommand(cmd)`。
 位姿类指令**仅记录不驱动流程**（裁定 C3），`RxAbort` 转 `EstopMachine`。
 
-### DeviceStateApiCore/DeviceWorkflowBase.cs（ns ...FlowState；非泛型，ADR-028）
+### DeviceStateApiCore/DeviceWorkflowBase.cs（ns ...DeviceStateApiCore；非泛型，ADR-028）
 
 > **✅ 2026-09-04 批次 1 已落地**。下表为**改造前后对照**（改造前成员 → 现行成员），不是现状描述。按 2026-09-03 原档与用户裁定：
 >
@@ -322,7 +322,7 @@ return _initialized ? SubDeviceState.Connected : SubDeviceState.Disconnected;
 
 ## UI 接入
 
-须引入 `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;`（读连接态另需 `using AdaWeldSystem.MainDeviceControl.DeviceState;`）
+须引入 `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;`（读连接态另需 `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;`）
 
 **三个属性不可混淆**：
 

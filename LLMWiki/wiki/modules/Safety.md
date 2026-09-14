@@ -1,4 +1,4 @@
-﻿---
+---
 title: Safety 模块 — 安全检查流程（DeviceStatusWork）+ 故障恢复
 date: 2026-09-02
 tags: [模块, 安全互锁, 安全检查, 故障恢复, 状态机, PLC, DeviceStatusWork, ADR-028]
@@ -88,7 +88,7 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 > **2026-09-01 已迁出**至 [[modules/ProductFileManager]]（命名空间 `AdaWeldSystem.ProductFileManager`），本节仅保留安全检查侧的使用要点，完整契约见 [[api/FaultRecoveryManager]]。
 
 - **单例**：`FaultRecoveryManager.Instance`（`Lazy<T>`）。
-- **持久化**：由 [[api/FaultRecordManager]]（[[modules/SqlLiteDatabase]]）承载，SQLite `DataBase/FaultRecord.db` 表 `FaultRecord`（ADR-027 下沉）。
+- **持久化**：原由 [[api/FaultRecordManager]]（[[modules/SQLiteDatabase]]）承载；2026-09-04 随故障恢复模块整体移除（[[decisions/ADR-031-ErrorReportingHierarchy]] D3）。
 - **恢复策略**：`RegisterRecoveryStrategy(string deviceKey, Func<bool> strategy)`；`GetRetryCount()` 提供重试上限（通讯 3 / 线激光 3 / 监控 2 / 机器人 3）。
 - **安全类故障不自动恢复**（必须人工）：安全检查侧仅调用 `RecordFault("Safety", ...)` 记录，不注册恢复策略。
 - **执行方式**：`ThreadPool.QueueUserWorkItem` 异步执行，不阻塞状态转换链。

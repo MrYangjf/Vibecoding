@@ -9,7 +9,7 @@ tags: [专员, UI, WinForms, AntdUI]
 ## 职责边界
 
 - 所有用户界面的设计与实现（WinForms + AntdUI，原 SunnyUI 已迁出，见 [[decisions/ADR-015-UIFrameworkMigration]]）
-- 页面导航结构搭建（ParentUI → Sub1UI → Sub2UI → Sub3UI）
+- 页面导航结构搭建（MainWindow → ControlPage → TabPage → SubDialog；原 ParentUI → Sub1UI → Sub2UI → Sub3UI，2026-08-05/09-07 两次目录重命名，ADR-048 命名空间随目录）
 - 为算法/3D/相机/运动控制等模块提供可视化交互界面
 - 控件布局、事件绑定、数据绑定
 - 3D渲染区域集成（ElementHost + HelixToolkit）
@@ -33,7 +33,7 @@ UIDesign/                          ← 现役 4 个子目录：MainWindow / Cont
 │   ├── CommPage.cs
 │   ├── MonitorCamPage.cs
 │   └── MotionControlPage.cs
-└── SubDialog/                     ← 对话窗，2026-09-07 由扁平 SubView/ 按业务域拆分为 5 个子目录
+└── SubDialog/                     ← 对话窗，2026-09-07 由扁平 SubView/ 按业务域拆分为 5 个业务子目录（命名空间 = AdaWeldSystem.UIDesign.SubDialog.<业务域>，ADR-048）
     ├── DataReviewerDialog/        （FileTraceForm / HelixRenderForm / RecordConfigForm / RenderParamForm）
     ├── FormMainDialog/            （InitWaitingForm ← 原 InitWaitingPanel）
     ├── IntelligentLaserDialog/    （ILAlgoForm / ILAlgorithmEditForm / ILParamForm / ILScanForm）
@@ -48,12 +48,12 @@ UIDesign/                          ← 现役 4 个子目录：MainWindow / Cont
 > `LLCamWorkJob.cs` → `UIDesign/TabPage/ILCamPage.cs`；`LLCameraSetting.cs` → `UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs`；
 > `XMLEditor.cs` → `UIDesign/TabPage/FileEditorPage.cs`；`Helix3Drender.cs` → `UIDesign/SubDialog/DataReviewerDialog/HelixRenderForm.cs`；
 > `EmguAlgoPage.cs` → 已移除（职责并入 `UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs`）；
-> `TCPServer.cs` → 未落地（现役仅 `Comm/CommBase/Ethernet/TCPIPComm.cs` 客户端侧）；
-> `TCPClinet.cs` → 历史拼写错误名，现役 `Comm/CommBase/Ethernet/TCPIPComm.cs`
+> `TCPServer.cs` → 未落地（现役通用 TCP 服务端/客户端统一由 `Comm/Communication/Implementations/EthernetXmlComm.cs` 承载，ADR-045）；
+> `TCPClinet.cs` → 历史拼写错误名；旧文件 `Comm/CommBase/Ethernet/TCPIPComm.cs` 已随 ADR-045 删除，现役同名职责为 `Comm/Communication/Implementations/EthernetXmlComm.cs`
 
 ## 技术要点
 
-- Sub2UI 页面继承 `UserControl`（AntdUI 无 `UIPage` 基类，页面以 `UserControl` 承载），Sub3UI 弹窗继承 `AntdUI.Window`
+- `ControlPage` / `TabPage` 页面继承 `UserControl`（AntdUI 无 `UIPage` 基类）；`SubDialog` 弹窗同为 `UserControl`，由 `AntdUI.Modal.open` 承载（ADR-016，**禁** `AntdUI.Window` + PageHeader）
 - 控件优先在 Designer.cs 静态定义
 - 所有 Workflow 事件处理必须检查 InvokeRequired
 - 按钮尺寸：常规 100x35 ~ 140x35，Symbol 按钮 86x35

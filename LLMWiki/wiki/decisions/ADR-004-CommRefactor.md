@@ -1,5 +1,5 @@
 ---
-title: ADR-006 Comm 模块重构决策
+title: ADR-004 Comm 模块重构决策
 date: 2026-07-02
 tags: [决策, 通讯, 状态管理, 重构]
 status: accepted
@@ -8,11 +8,12 @@ status: accepted
 > ⚠️ 历史名称提示：本页为**历史决策记录**，正文中的下列文件名为决策当时的旧名，
 > 保留原文以留存上下文，现役对应如下：
 >
-> - `GlobalCommData.cs` → 现役 `Comm/SystemComm.cs`
-> - `SystemStatus.cs` → 已移除（已并入 Comm/SystemComm.cs）
+> - `GlobalCommData.cs` → 现役 `Comm/SystemComm/SystemComm.cs`
+> - `SystemStatus.cs` → 已移除（已并入 Comm/SystemComm/SystemComm.cs）
 >
+> **沿革横幅（2026-09-14）**：本页裁定的 Comm 结构（`CommBase/` / `PLC/` / `Robot/KUKARobot/` 平铺 + KUKARobotManager 门面）**已被 [[decisions/ADR-045-CommModuleRefactor]] 整体取代**（抽象层 + 实现层 + Manager；KUKARobotManager/TCPIPComm/GSDMLGenerator 删除、Profinet 封装不做）。状态管理结论由三态模型承接（ADR-027）。
 
-# ADR-006 Comm 模块重构决策
+# ADR-004 Comm 模块重构决策
 
 ## 背景
 

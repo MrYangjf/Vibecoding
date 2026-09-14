@@ -248,11 +248,13 @@ X 坐标来源**已具备**：`Comm/Robot/KUKARobot/RSICommunication.cs`（RSI U
 | 协作对象 | 数据接口 |
 |----------|----------|
 | [[modules/DeviceControl]] | `MotionControlWorkflow` 承载运控启停编排；私有阶段枚举经 `MapWeldStatus` 映射为焊接过程态 `SubDeviceWeldStatus` |
-| [[modules/WeldParamControl]] | `WeldProcess.ComputeAndCacheHorizontalMove` 委派至 `MoveControlData`；`WeldProcess.CurrentRobotX` 供真实机器人X读取 |
-| [[modules/LineLaserCam]] | 共享 `ICameraRun`（`CameraRun` 真实相机）；`Comm/SystemComm` 枚举 |
-| [[modules/EmguALG]] | `PipelineManager.AlgorithmCompleted` / `SeamFeatureResult` |
+| [[modules/WeldParamControl]] | `WeldParamManager.CurrentRobotX` 供真实机器人 X 读取；`MoveControlData` 承接标定计算与水平移动缓存（⛔ 原 `WeldProcess.ComputeAndCacheHorizontalMove` 已随 ADR-041 删除 `WeldProcess` / ADR-038 删该链） |
+| [[modules/LineLaserCam]] | 模拟模式取虚拟相机 `LineLaserManager.Instance.VirtualCamera`（⛔ `CameraSelector` / `ICameraRun` / `CameraRun` 已随 ADR-034 / ADR-036 删除）；`Comm/SystemComm` 枚举 |
+| [[modules/EmguALG]] | ⛔ 原 `PipelineManager.AlgorithmCompleted` / `SeamFeatureResult` 上报链已随 ADR-038 整条删除（焊缝特征改由线激光直接获取） |
 | [[modules/Comm]] | `GlobalCommData.ShowLog` 日志（L2 不使用，仅 L3/业务层） |
-| [[modules/UIDesign]] | `MotionControlPage`（标定/模拟/参数写入，位于 Sub2UI） |
+| [[modules/UIDesign]] | `MotionControlPage`（标定/模拟/参数写入，位于 `UIDesign.TabPage`） |
+
+> **参照范式**：本模块是 [[standards/ModuleOrganizationPattern]] 的**场景 A（基于第三方库台达 EtherCAT）**样本——`IMotion/` 抽象（零依赖）+ `DeltaEtherCAT/`（含 `Native/`）+ `MontionManager` 唯一入口与三张注册表。
 
 ---
 

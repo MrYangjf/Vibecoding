@@ -1,11 +1,11 @@
 ﻿---
-title: ADR-010 WeldActionRecord 归属与双记录设计
+title: ADR-008 WeldActionRecord 归属与双记录设计
 date: 2026-07-15
 tags: [决策, 工作流, 记录, 数据模型]
 status: superseded（部分：归属目录已迁 ProductFileManager；双记录设计仍有效）
 ---
 
-# ADR-010 WeldActionRecord 数据模型归属与双记录设计
+# ADR-008 WeldActionRecord 数据模型归属与双记录设计
 
 ## 状态
 已采纳（2026-07-15）｜**部分已被取代（2026-09-01 治理标注）**

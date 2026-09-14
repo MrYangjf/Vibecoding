@@ -1,10 +1,10 @@
 ﻿---
-title: ADR-023 Dispose 模式全覆盖 — 非 UI 类统一标准 IDisposable
+title: ADR-020 Dispose 模式全覆盖 — 非 UI 类统一标准 IDisposable
 date: 2026-08-19
 tags: [决策, 资源释放, IDisposable, DisposeComponents, 全覆盖]
-status: accepted
+status: accepted
 
-# ADR-023 Dispose 模式全覆盖 — 非 UI 类统一标准 IDisposable
+# ADR-020 Dispose 模式全覆盖 — 非 UI 类统一标准 IDisposable
 
 ## 背景
 
@@ -19,7 +19,7 @@ status: accepted
 2. **非 UI 类（后端类）一律使用标准 `IDisposable.Dispose()`**，禁止编写 `DisposeComponents()`：
    - 释放逻辑直接放入 `Dispose()` 实现
    - 类声明实现 `IDisposable`
-   - 禁止在非 UI 类中重写 `Dispose(bool)`（此禁令本就针对设计器场景；非 UI 类按需使用标准 .NET Dispose pattern 亦可）
+   - 禁止在非 UI 类中重写 `Dispose(bool)`：非 UI 类直接实现标准 `IDisposable.Dispose()` 即可；UI 类中 `Dispose(bool)` 的限制直接触发场景是 `.designer.cs` 设计器文件，手写/改写会导致设计器显示异常
 3. **级联释放链**：主窗体关闭 → `MainDeviceThread.Instance.Dispose()` → 停止子线程 + 关闭机器人 + Shutdown 焊接头 + `GlobalCommData.mCommunicationManager.Dispose()`（释放全部通讯实例）。
 
 ## 落地范围（2026-08-19）

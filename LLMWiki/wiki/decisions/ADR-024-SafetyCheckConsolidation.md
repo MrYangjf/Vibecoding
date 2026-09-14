@@ -1,5 +1,5 @@
 ﻿---
-title: ADR-028 安全检查三文件合并为单一安全检查流程
+title: ADR-024 安全检查三文件合并为单一安全检查流程
 date: 2026-08-31
 tags: [决策, 架构, 安全互锁, 安全检查, 文件合并, SafetyWorkflow, MainDeviceControl]
 status: accepted
@@ -18,7 +18,7 @@ status: accepted
 > ③ 文中 `DeviceWorkflowBase<TStep>` 泛型基类已删，现为非泛型 `DeviceWorkflowBase`。
 > 现行架构以 [[architecture/DeviceControlArchitecture]] 为唯一真相源。
 
-# ADR-028 安全检查三文件合并为单一安全检查流程
+# ADR-024 安全检查三文件合并为单一安全检查流程
 
 > **后续更名（2026-09-02，ADR-028）**：本文决策的「合并产物 `DeviceWorkflow/SafetyWorkflow.cs`」已**整体更名为 `DeviceStatusWork.cs`**，并由「继承 `DeviceWorkflowBase<SafetyWorkflowState>` 的工作流」改为「**独立管控类 + IOWork/EMGWork/StatusWork 三线程**」（旧 `SafetyWorkflowState` 枚举已删除）。"三文件合一、单一入口"的核心结论继续有效，现行形态见 [[api/DeviceStatusWork]] 与 [[modules/Safety]]。
 

@@ -1,8 +1,8 @@
 ﻿---
-title: ADR-027 流程与子设备对象权责边界（R1~R5）
+title: ADR-023 流程与子设备对象权责边界（R1~R5）
 date: 2026-08-31
 status: accepted
-tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-027]
+tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-023]
 ---
 
 > ⚠️ 历史名称提示：本页为**历史决策记录**，正文中的下列文件名为决策当时的旧名，
@@ -11,7 +11,7 @@ tags: [决策, 架构, 工作流, 权责边界, 事件, 子设备, ADR-027]
 > - `MainDeviceWorkflow.cs` → 现役 `MainDeviceControl/DeviceControlWork.cs`
 >
 
-# ADR-027 流程与子设备对象权责边界
+# ADR-023 流程与子设备对象权责边界
 
 > **唯一可执行细则见 [[standards/WorkflowResponsibilityBoundary]]**（由 `index.md` 路由，触发即读，免用户重复输入）。本 ADR 只记录"为什么这样决策"。
 >

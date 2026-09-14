@@ -1,5 +1,5 @@
 ﻿---
-title: ADR-012 运控调整模块架构决策
+title: ADR-010 运控调整模块架构决策
 date: 2026-07-16
 tags: [决策, 运控, 模块, 解耦, VirtualCam, MotionControl]
 status: accepted
@@ -16,7 +16,7 @@ source: 用户反馈「新增功能必须遵循代码规则」+ 本模块设计
 > 虚拟相机与选择器已归并 `LineLaserCam` 三层（[[decisions/ADR-034-LineLaserThreeLayerRefactor]]）。
 >
 
-# ADR-012 运控调整模块架构决策
+# ADR-010 运控调整模块架构决策
 
 ## 背景
 

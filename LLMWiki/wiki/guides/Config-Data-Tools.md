@@ -242,7 +242,7 @@ public class AutoParam
 }
 ```
 
-这样 `AutoParamManager` 以 `identityInfo` 作为表名时，表名变为 `DefaultParam`，不再是保留关键字，SQL 可以正常执行。
+这样 `AutoParamHelper` 以 `identityInfo` 作为表名时，表名变为 `DefaultParam`，不再是保留关键字，SQL 可以正常执行。
 
 **备选方案**：在数据库封装层统一对所有标识符加方括号或双引号转义，例如 `[Default]`。但此方案改动范围大，且容易遗漏，不推荐单独使用。
 

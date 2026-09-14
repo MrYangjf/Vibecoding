@@ -1,11 +1,11 @@
 ﻿---
-title: ADR-022 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+title: ADR-019 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 date: 2026-08-12
 tags: [决策, UI, AntdUI, GridPanel, FlowPanel, 布局]
 status: accepted
 ---
 
-# ADR-022 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+# ADR-019 布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 
 ## 背景
 
