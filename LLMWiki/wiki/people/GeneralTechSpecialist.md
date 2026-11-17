@@ -21,7 +21,7 @@ source: raw/skills/AdaWeldsys_Skills/02-Development/GeneralTechSpecialist.md
 Comm/
 ├── SystemComm.cs              ← 全局通讯/状态/事件定义中心（GlobalCommData + 枚举/事件参数）
 ├── CommunicationManager.cs    ← 通讯持久化配置与通用 TCP 实例管理
-├── Ethernet/TCPIPComm.cs      ← 通用 TCP 服务端/客户端   （已移除 2026-09-14，现役 Comm/Communication/Implementations/EthernetXmlComm.cs，ADR-045）
+├── Ethernet/TCPIPComm.cs      ← 通用 TCP 服务端/客户端   （已移除 2026-09-14，现役 Comm/Communication/Implementations/EthernetXmlComm.cs，ADR-011）
 ├── SiemensS7Comm.cs
 ├── ProfinetComm.cs
 ├── DeviceErrorCode.cs

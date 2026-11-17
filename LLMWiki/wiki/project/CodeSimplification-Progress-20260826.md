@@ -1,5 +1,7 @@
 # 代码精简修复进度表（新版标准）
 
+> **2026-10-29 现行状态**：本页为 2026-08-26 历史快照，计数已过时。现行欠账见 [[architecture/CodeMap]] §5.7；工具链与放行条件见 [[standards/CodeSimplification-Tooling]]。成员顺序已按「**region 内排序、跨 region 不比较**」口径**清零**（0 处 / 0 文件），全库 `MSBuild /t:Rebuild` errors=0。
+
 > **已归档（2026-09-01）**：本页是 2026-08-26 的一次**过程性进度快照**，不是规范，故自 `standards/` 迁出；2026-09-01 `archive/` 分类取消后归 `project/`。
 > 规范正文见 [[standards/CodeSimplification]]；表中计数与当前代码已不同步，仅作历史追溯。
 
@@ -15,26 +17,26 @@ date: 2026-08-26 · 范围：LineLaserCam 模块(17) + IL* UI(4) = 20 文件 / 1
 | 文件 | 基线警告 | 基线提示 | 当前警告 | 当前提示 | 状态 | 备注 |
 |---|---|---|---|---|---|---|
 | LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs | 64 | 56 | 2 | 56 | 已修复 | 英莱相机核心；剩2=Log参数误报+B类Thread.Sleep(留业务确认) |
-| LineLaserCam/SmartRayCam/ApiCore/SensorHelper.cs | 9 | 0 | 9 | 0 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/SmartRayCam/CameraRun.cs | 7 | 15 | 7 | 15 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/SmartRayCam/ApiCore/SensorImageData.cs | 6 | 2 | 6 | 2 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/Api/CameraSelector.cs | 5 | 10 | 5 | 10 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/HikRobotCam/HikCameraRun.cs | 4 | 17 | 4 | 17 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorHelper.cs | 9 | 0 | 9 | 0 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/CameraRun.cs | 7 | 15 | 7 | 15 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorImageData.cs | 6 | 2 | 6 | 2 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/Api/CameraSelector.cs | 5 | 10 | 5 | 10 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/HikRobotCam/HikCameraRun.cs | 4 | 17 | 4 | 17 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | LineLaserCam/VirtualCam/VirtualCam.cs | 4 | 16 | 4 | 16 | 待修复 | |
-| LineLaserCam/SmartRayCam/ApiCore/PackagedImage.cs | 4 | 0 | 4 | 0 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloudMSR.cs | 3 | 1 | 3 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloud.cs | 3 | 1 | 3 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/PackagedImage.cs | 4 | 0 | 4 | 0 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloudMSR.cs | 3 | 1 | 3 | 1 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorPointCloud.cs | 3 | 1 | 3 | 1 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs | 2 | 8 | 1 | 9 | 已修复(留1误报) | UI·A类已清；CheckRange(double/long)为合法重载误报，留业务确认 |
-| LineLaserCam/HikRobotCam/ApiCore/HikCameraDevice.cs | 2 | 29 | 2 | 29 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/HikRobotCam/ApiCore/HikCameraDevice.cs | 2 | 29 | 2 | 29 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs | 2 | 28 | 0 | 21 | 已修复 | UI·A类已清（本次修复断裂的嵌套类 IlJobParamRow + 区域错乱） |
-| LineLaserCam/SmartRayCam/CameraPresetManager.cs | 2 | 25 | 2 | 25 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/CameraPresetManager.cs | 2 | 25 | 2 | 25 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/TabPage/ILCamPage.cs | 2 | 22 | 0 | 22 | 已修复 | UI·A类已清（功能型 region 保留，info 级） |
-| LineLaserCam/HikRobotCam/ApiCore/HikCameraManager.cs | 1 | 7 | 1 | 7 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/SmartRayCam/ApiCore/SensorState.cs | 1 | 5 | 1 | 5 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/HikRobotCam/ApiCore/HikCameraManager.cs | 1 | 7 | 1 | 7 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorState.cs | 1 | 5 | 1 | 5 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILScanForm.cs | 1 | 4 | 0 | 5 | 已修复 | UI·A类已清 |
-| LineLaserCam/Api/ICameraRun.cs | 1 | 2 | 1 | 2 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/SmartRayCam/ApiCore/SensorManager.cs | 0 | 1 | 0 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
-| LineLaserCam/SmartRayCam/ApiCore/Sensor.cs | 0 | 1 | 0 | 1 | 待修复 | （2026-09-08 已删除：ADR-038 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/Api/ICameraRun.cs | 1 | 2 | 1 | 2 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/SensorManager.cs | 0 | 1 | 0 | 1 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
+| LineLaserCam/SmartRayCam/ApiCore/Sensor.cs | 0 | 1 | 0 | 1 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | **合计** | **122** | **250** | **54** | **245** | | 英莱5文件已修复（仅留误报/业务确认项） |
 
 | 文件夹 | 文件数 | 基线警告 | 基线提示 | 当前警告 | 当前提示 | 状态 | 备注 |
@@ -47,7 +49,7 @@ date: 2026-08-26 · 范围：LineLaserCam 模块(17) + IL* UI(4) = 20 文件 / 1
 
 ## 修复约束（来自 CodeSimplification.md）
 - 不改 public/protected 方法签名与枚举成员名；不碰 designer.cs；#region 必须配对；Dispose 不动。
-- A 类（文件整理/注释）：补 #region（按成员类型）、`///` 注释标准化（无论公私，写了就要 summary 一行 + param/returns 完整；public/protected 建议写，private 可选）、类级 summary ≤20字。
+- A 类（文件整理/注释）：补 #region（按成员类型）、`///` 注释标准化（无论公私，写了就要 summary 一行 + param/returns 完整；public/protected 建议写，private 可选）、类级 summary ≤20字。 ⚠ **2026-10-26 口径已更新（本页为历史记录，冲突以此为准）**：① `#region` 类型/语义并存，只强制配对完整性 ② public 改为「新增或改动必写，存量欠账不追溯」③ **private 明确为「允许且建议写 `///` 做总结（不强制，且不得据此删除既有 private `///`）」** ④ 功能重叠阈值对齐 70%。现行口径见 [[standards/CodeSimplification]] 与 [[standards/CodeSimplification-Tooling]]。
 - B 类（逻辑）：删无意义 null 检查（new/值类型/this/本文件私有参数）、删无效锁 `lock(new object())`、过度属性改只读、过度等待/缓存/资源管理按需清理。
 - C 类（函数）：合并功能重叠、内联单层 private、删死函数（均须 Grep 确认引用）。
 - 每文件夹修复后复跑脚本至清零或仅剩需业务确认的 B 类项；本项目无法编译，靠 Grep 影响半径 + 标准自检兜底。

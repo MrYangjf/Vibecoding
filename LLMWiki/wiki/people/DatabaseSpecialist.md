@@ -38,7 +38,7 @@ SQLiteDBControl/
 - 数据库路径: `Application.StartupPath + @"\DataBase\"`
 - Newtonsoft.Json 序列化参数字典到 SQLite
 - `AutoParam.identityInfo` 作为数据库表名/配置标识
-- 命名空间: `AdaWeldSystem.SQLiteDBControl`（子命名空间 `SQLiteCore` / `ISQLiteHelper` / `Helpers`，ADR-048）
+- 命名空间: `AdaWeldSystem.SQLiteDBControl`（子命名空间 `SQLiteCore` / `ISQLiteHelper` / `Helpers`，ADR-005）
 - 对外唯一入口: `SQLiteDatabaseManager.Instance`
 
 ## 协作关系

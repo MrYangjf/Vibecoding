@@ -121,7 +121,7 @@ ini.SaveToFile();
 using AdaWeldSystem.FileOperate;
 
 // 1. 创建实例
-string configPath = @"Config\INI\MyApp.ini";
+string configPath = @"Config\MyModule\Setting_INI\MyApp.ini";
 INIFile ini = new INIFile(configPath);
 
 // 2. 读取配置
@@ -188,9 +188,9 @@ ini.SaveToFile();
 
 #### 路径规范
 
-- 优先使用相对于程序目录的相对路径，如 `@"Config\INI\xxx.ini"`
+- 优先使用相对于程序目录的三段式相对路径，如 `@"Config\MyModule\Setting_INI\xxx.ini"`（ADR-033：`Config/<模块>/<主题>_<格式>/`）
 - 确保目录存在。目录不存在时 `SaveToFile()` 可能失败
-- 遵循 [[decisions/ADR-005-ConfigLayout]] 配置目录布局规范
+- 遵循 ADR-033（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） 配置目录布局规范
 
 #### 多线程安全
 

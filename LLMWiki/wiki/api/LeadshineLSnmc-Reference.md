@@ -3,6 +3,7 @@ title: 雷赛 LSnmcControler 参考基线
 date: 2026-09-05
 tags: [API, 运控, 雷赛, Leadshine, 参考基线, EtherCAT]
 source: "E:\\SoftwareGit\\HonorMachineTest\\PcomDeviceInterface\\MotionControl\\（IMotion/ 抽象层 + LSnmcControler/ 实现层）"
+type: reference（外部项目离线参考，本项目无代码对应）
 ---
 
 # 雷赛 LSnmcControler 参考基线

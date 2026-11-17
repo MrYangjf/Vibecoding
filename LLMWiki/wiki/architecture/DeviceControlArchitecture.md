@@ -2,20 +2,40 @@
 title: 设备控制架构 — MainDeviceControl（三态模型 + RunStep 驱动工作流）
 date: 2026-09-03
 tags: [架构, 设备控制, 状态机, 三态模型, SubDeviceState, SubDeviceWeldStatus, MainDeviceStatus, 工作流, MainDeviceControl, 线程模型, CommandCore]
-source: LLMWiki/raw/architecture/主控设计.xlsx + 激光焊接系统业务流程图.pdf（原档唯一修改入口，见 ADR-029）+ AdaWeldSystem/MainDeviceControl/ 模块源码
+source: LLMWiki/raw/architecture/主控设计.xlsx + 激光焊接系统业务流程图.pdf（原档唯一修改入口，见 ADR-007）+ AdaWeldSystem/MainDeviceControl/ 模块源码
 ---
 
 # 设备控制架构 — MainDeviceControl
 
+
+## 章节导航
+
+- [1. 核心概念：三态模型](#1-核心概念三态模型)
+- [2. 目录结构](#2-目录结构)
+- [3. 三态基座 `DeviceStateBase`](#3-三态基座-devicestatebase)
+- [4. 流程基类 `DeviceWorkflowBase`（非泛型）](#4-流程基类-deviceworkflowbase非泛型)
+- [5. `RunStep` 驱动与超时控制](#5-runstep-驱动与超时控制)
+- [6. 五个子工作流与差异化职责](#6-五个子工作流与差异化职责)
+- [7. 运行编排 `DeviceControlWork`（独立单例）](#7-运行编排-devicecontrolwork独立单例)
+- [8. 焊接工艺控制流程（WeldParamControlWorkflow）](#8-焊接工艺控制流程weldparamcontrolworkflow)
+- [9. 安全互锁与状态管控](#9-安全互锁与状态管控)
+- [10. 运动控制（台达 EtherCAT 主站）](#10-运动控制台达-ethercat-主站)
+- [11. 模块依赖与调用链（代码层事实）](#11-模块依赖与调用链代码层事实)
+- [12. 与其他模块的关系](#12-与其他模块的关系)
+- [13. UI 接入约定](#13-ui-接入约定)
+- [14. 维护约定](#14-维护约定)
+- [15. 落地清单（改码 Plan）](#15-落地清单改码-plan)
+- [16. 参考实现与代码模板（改码前必读）](#16-参考实现与代码模板改码前必读)
+
 > **本页是设备控制架构的唯一规范页**，也是全项目架构的唯一真相源。
-> **架构原档（唯一修改入口，共 3 份）**：`LLMWiki/raw/architecture/` 下 `主控设计.xlsx` + `激光焊接系统业务流程图20260904.md`（**业务流主源**）+ `激光焊接系统业务流程图.pdf`（图形备份）。2026-09-04 起业务流以 **md 版为主源**（PDF 文本层提取不全，用户人工全量转写）。**改架构先改原档，再同步本页**（约定见 [[decisions/ADR-028-ArchitectureRawSource]]）。
+> **架构原档（唯一修改入口，共 3 份）**：`LLMWiki/raw/architecture/` 下 `主控设计.xlsx` + `激光焊接系统业务流程图20260904.md`（**业务流主源**）+ `激光焊接系统业务流程图.pdf`（图形备份）。2026-09-04 起业务流以 **md 版为主源**（PDF 文本层提取不全，用户人工全量转写）。**改架构先改原档，再同步本页**（约定见 [[decisions/ADR-034-ArchitectureRawSource]]）。
 >
 > | 原档 | 模式 | 回答的问题 | 判读方式 |
 > |---|---|---|---|
 > | 主控设计.xlsx | 静态结构 | 「有什么」——目录 / 类职责 / 三态枚举真值 / 基类契约（17 项）/ 两个独立管控类的成员级清单 | openpyxl 直读（Sheet 名 `主控程序文件层级设计`，列：根文件夹/子文件夹·文件/文件/主要内容描述/实现） |
 > | 激光焊接系统业务流程图20260904.md（主源） | 业务状态流 + 检查清单 + **IO 统一触发架构 + 机器人命令全表** | 「怎么走」——上电→复位→Preworking 五项检查→Working 四路子流程→三终止分支→急停锁止；另含 §2 三触发源统一收敛、§3.4 双态映射、§10 共 21 条命令设计 | **md 为人工校对全量转写**（706 行），优先读它 |
 >
-> **2026-09-03 完全重写（ADR-030）**：本页按原档细化后的**全新设计整体重写**，不是对旧版内容的补充。旧版中由早期「步骤驱动」「自动/手动双流程」「三态模型」三项决策建立、且与新原档冲突的框架已由用户裁定清除，**本页不再保留其表述**：
+> **2026-09-03 完全重写（ADR-020）**：本页按原档细化后的**全新设计整体重写**，不是对旧版内容的补充。旧版中由早期「步骤驱动」「自动/手动双流程」「三态模型」三项决策建立、且与新原档冲突的框架已由用户裁定清除，**本页不再保留其表述**：
 >
 > | 已清除的旧设计 | 取代它的新设计 | 见 |
 > |---|---|---|
@@ -26,18 +46,18 @@ source: LLMWiki/raw/architecture/主控设计.xlsx + 激光焊接系统业务流
 > | `SubDeviceWeldStatus.Starting` | 删除 `Starting`，新增 `NoReset`（值 0） | §1.2 |
 > | 基类统一 `Log` 出口 | 每个子流程各自重写 `SubDeviceLog()`（`public`） | §4.1、§2「日志出口约定」 |
 >
-> 冲突裁决：**原档 > 本页 > 源码注释**；源码与原档不一致须交用户裁定（ADR-029 §3）。
+> 冲突裁决：**原档 > 本页 > 源码注释**；源码与原档不一致须交用户裁定（ADR-007 §3）。
 > **不按版本代际（V1/V2/V3）描述架构**——架构只维护「当前事实」这一份，变更直接改本页。
 > 目录：`AdaWeldSystem/MainDeviceControl/`
-> 目标平台：.NET Framework 4.8（C# 7.3，[[decisions/ADR-002-CS73-Constraint]]）；离线构建（[[decisions/ADR-018-NuGetLocalization]]）
-> UI：WinForms + AntdUI（[[decisions/ADR-015-UIFrameworkMigration]]）
+> 目标平台：.NET Framework 4.8（C# 7.3，[[decisions/ADR-001-CS73-Constraint]]）；离线构建（[[decisions/ADR-004-NuGetLocalization]]）
+> UI：WinForms + AntdUI（[[decisions/ADR-008-UIFrameworkMigration]]）
 
 **章节导航**
 
 | 章 | 内容 | 章 | 内容 |
 |---|---|---|---|
 | §1 | 核心概念：三态模型 | §8 | 焊接工艺控制流程 |
-| §2 | 目录结构 + 继承链 | §9 | 安全互锁与状态管控（ADR-025/037/038） |
+| §2 | 目录结构 + 继承链 | §9 | 安全互锁与状态管控（ADR-011/037/038） |
 | §3 | 三态基座 `DeviceStateBase` | §10 | 运动控制（CAMBOX 硬件实时跟踪） |
 | §3.1 | 机器人指令协议 `CommandCore` | §11 | 模块依赖与调用链（代码层事实） |
 | §4 | 流程基类 `DeviceWorkflowBase`（17 项契约） | §12 | 与其他模块的关系 |
@@ -58,21 +78,21 @@ source: LLMWiki/raw/architecture/主控设计.xlsx + 激光焊接系统业务流
 
 | 层 | 枚举 | 回答的问题 | 归属 |
 |---|---|---|---|
-| 连接态 | `SubDeviceState`（2 态） | 这个子设备连上了吗 | 子设备共有 |
-| 焊接过程态 | `SubDeviceWeldStatus`（7 态） | 这个子设备焊接走到哪一步了 | 子设备共有 |
+| 连接态 | `SubDeviceState`（2 态） | 这个模组连上了吗 | 模组共有 |
+| 焊接过程态 | `SubDeviceWeldStatus`（7 态） | 这个模组焊接走到哪一步了 | 模组共有 |
 | 主设备运行态 | `MainDeviceStatus`（6 态） | 整机当前处于什么运行阶段 | `DeviceControlWork` 独有 |
 | 执行步 | `int RunStep` | 流程内部当前执行到哪个步骤 | 各子流程私有 |
 
-### 1.1 连接态 `SubDeviceState`（子设备，2 态）
+### 1.1 连接态 `SubDeviceState`（模组，2 态）
 
-所有子设备**共有**、**不可扩展**。原档 R004 明确「子设备 4 态修改为 2 态」：
+所有模组**共有**、**不可扩展**。原档 R004 明确「模组 4 态修改为 2 态」：
 
 | 状态 | 值 | 含义 |
 |---|---|---|
 | `Disconnected` | 0 | 未连接 / 未初始化 |
 | `Connected` | 1 | 已连接 / 待机 |
 
-### 1.2 焊接过程态 `SubDeviceWeldStatus`（子设备，7 态，对外名片）
+### 1.2 焊接过程态 `SubDeviceWeldStatus`（模组，7 态，对外名片）
 
 原档 R005 给定**完整顺序与语义**（用户裁定 C2：删除 `Starting`，新增 `NoReset`，其余值顺延）。枚举值按原档顺序从 0 起：
 
@@ -86,7 +106,7 @@ source: LLMWiki/raw/architecture/主控设计.xlsx + 激光焊接系统业务流
 | 5 | `ErrorAborted` | 异常终止 | 故障导致的终止 |
 | 6 | `ManualStopped` | 手动停止 | 人工触发的停止 |
 
-> ⚠️ `SubDeviceWeldStatus.NoReset` 与 `MainDeviceStatus.NoReset` **同名但分属两个枚举**，语义层次不同（前者是子设备焊接态，后者是整机运行态），不可复用为同一常量。
+> ⚠️ `SubDeviceWeldStatus.NoReset` 与 `MainDeviceStatus.NoReset` **同名但分属两个枚举**，语义层次不同（前者是模组焊接态，后者是整机运行态），不可复用为同一常量。
 
 ### 1.3 主设备运行态 `MainDeviceStatus`（6 态，过程状态）
 
@@ -148,7 +168,8 @@ DeviceControlWork                 独立单例，不继承任何基类
 DeviceStatusWork                  独立单例，不继承任何基类
 ```
 
-> ⚠️ **目录名 ≠ 命名空间**：`DeviceStateApiCore/` 下的类分属 `...DeviceState` 与 `...FlowState` 命名空间，**禁止新增 `...DeviceStateApiCore` 命名空间**。详见 [[guides/Namespace-Compilation]]。
+> ⛔ ~~**目录名 ≠ 命名空间**：`DeviceStateApiCore/` 下的类分属 `...DeviceState` 与 `...FlowState` 命名空间，**禁止新增 `...DeviceStateApiCore` 命名空间**。~~
+> ⚠️ **已由 [[decisions/ADR-005-NamespaceDirectoryAlignment]] 演进（2026-09-14）**：命名空间一律 = `AdaWeldSystem` + 相对目录路径（点分隔），`DeviceStateApiCore/` 现役命名空间即 `...MainDeviceControl.DeviceStateApiCore`。详见 [[guides/Namespace-Compilation]]。
 
 ### 日志出口约定（用户裁定 C7）
 
@@ -222,7 +243,7 @@ DeviceStatusWork                  独立单例，不继承任何基类
 
 ### 4.2 全阻塞流程（10 项）
 
-「全阻塞」指：**由外部线程调用，方法同步执行完成后才返回**。这些方法**不自带常驻线程**——它们是被 `DeviceControlWork` 的常驻线程反复调用的执行体。
+「全阻塞」指：**由外部线程调用，方法同步执行完成后才返回**。这些方法**不自带常驻线程**——它们是被 `DeviceControlWork` 的常驻线程反复调用的执行体。**禁的是模组工作流自起常驻/长生命周期线程**；**短生命周期线程允许**（如 `ConnectOn/ConnectOff` 内 `new Thread(IsBackground=true)` 动作即退出释放），但须 `finally` 中做好资源与标志释放管理。
 
 | 方法 | 签名 | 说明 |
 |---|---|---|
@@ -274,16 +295,17 @@ DeviceStatusWork                  独立单例，不继承任何基类
 
 > ⚠️ 基类**不再提供**常驻监听线程（`StartRunLoop` / `BeatMs` / `RunLoopPriority` 已按裁定 C1 全部删除）。线程的唯一归属是 `DeviceControlWork`（§7.3）。
 
-### 4.6 子设备配置路径约定（裁定 D1）
+### 4.6 模组配置路径约定（裁定 D1）
 
-`LoadConfig()` / `SaveConfig()` 在基类中**只有契约、不持有路径**。路径由**每个子设备 workflow 各自持有**：
+`LoadConfig()` / `SaveConfig()` 在基类中**只有契约、不持有路径**。路径由**每个模组 workflow 各自持有**：
 
 | 层 | 职责 |
 |---|---|
 | 基类 `DeviceWorkflowBase` | 只声明 `public abstract void LoadConfig()` / `SaveConfig()`，**不知道配置文件叫什么、在哪** |
-| 子设备 workflow | 定义自己的配置名 / 路径成员（如 `ConfigFileName` + `Config`），并重写两个方法 |
+| 模组 workflow | 定义自己的配置名 / 路径成员（如 `ConfigFileName` + `Config`），并重写两个方法 |
 
-- 落盘位置统一为 `Config/XML/`（沿用 [[decisions/ADR-005-ConfigLayout]] 的 `Config` 分层约定），由 `XdocumentReaderWriter` 内部拼装，**子设备只给文件名**。
+- 落盘位置按 [[decisions/ADR-033-ConfigArchitectureStandard]] 三段式 `Config/<模块>/<主题>_<格式>/`，由模组显式传入模块级 `relativeDirectory`、`XdocumentReaderWriter` 内部拼装（2026-09-21 起 `Config/XML/`、`Config/INI/` 平铺目录已废止并删除）。
+- 按 [[decisions/ADR-033-ConfigArchitectureStandard]] **按功能类别分层**：一级 = 模块/设备族，二级 = `<主题>_<格式>`（如 `Config/MotionControl/Motion_XML/`、`Config/LineLaser/LineLaser_XML/`、`Config/WeldParamControl/Algorithm_XML/`）；模组配置成员除文件名外显式传入模块级 `relativeDirectory`（见 §16.8）。⚠️ 2026-09-20 一度写成 `Config/XML/<Module>/`，2026-09-21 复正为上式。
 - 参考实现（§16.2）里的 `LoadConfig(XmlReader)` / `SaveConfig(XmlWriter)` **不作为模板**——那是流式 API，与本项目配置体系不一致。
 - 完整模板与四条铁律见 **§16.8**。
 - `ClearProduct()`（清料）按裁定 D2 **不入基类契约**。
@@ -343,8 +365,8 @@ public override void FlowProcess()
 
 两个流程联动 `SubDeviceState` 与 `SubDeviceWeldStatus`：
 
-1. 子设备状态为 **ON**（`Connected`）时，`ResetProcess` 才可执行
-2. 子设备 `ResetProcess` **成功后**，`SubDeviceWeldStatus` 由 `NoReset` → `Standby`
+1. 模组状态为 **ON**（`Connected`）时，`ResetProcess` 才可执行
+2. 模组 `ResetProcess` **成功后**，`SubDeviceWeldStatus` 由 `NoReset` → `Standby`
 3. 进入 `Standby` 后，**接受机器人指令修改工作状态**
 4. **每一步反馈 OK 才能执行等待下一步指令**——即等待机器人下发下一步指令，而非自动连续推进
 
@@ -352,7 +374,7 @@ public override void FlowProcess()
 
 执行默认状态（复位前的状态清理）。
 
-**自有成员**：接收到的指令；声明子设备对象（线激光对象 / 控制器对象 / 焊接头对象 / 监控相机）；实例化值判断（线激光结果阈值等，原档标注「暂时空缺」）、流程状态判断。
+**自有成员**：接收到的指令；声明模组对象（线激光对象 / 控制器对象 / 焊接头对象 / 监控相机）；实例化值判断（线激光结果阈值等，原档标注「暂时空缺」）、流程状态判断。
 
 ### 6.2 差异化职责对照（原档 9-03 细化）
 
@@ -364,7 +386,7 @@ public override void FlowProcess()
 | `MotionControlWorkflow` | `AssemblyProcess.cs` | **检测送丝位置和焊接质量阈值** | 现役，无该检测 |
 | `WeldParamControlWorkflow` | `RollPressProcess.cs` | **无实体设备，连接 / 断开直接执行 bool 变量即可** | 仍走完整流程方法，需简化 |
 
-> `WeldParamControlWorkflow` 的特殊性：它没有硬件实体，**不参与上电级联**（ADR-027 权责边界），`InitializeOn` / `ConnectOn` 只需置一个 bool 变量即可返回，不应走真实的设备连接流程。
+> `WeldParamControlWorkflow` 的特殊性：它没有硬件实体，**不参与上电级联**（ADR-023 权责边界），`InitializeOn` / `ConnectOn` 只需置一个 bool 变量即可返回，不应走真实的设备连接流程。
 
 ---
 
@@ -390,26 +412,29 @@ public override void FlowProcess()
 
 | 线程 | 类别 | 职责 |
 |---|---|---|
-| `thLaserHeadWork` | 子设备工作线程 | 循环驱动 `LaserWeldHeadWorkflow.FlowProcess()` |
-| `thLineLaserWork` | 子设备工作线程 | 循环驱动 `LineLaserWorkflow.FlowProcess()` |
-| `thMonitorCamWork` | 子设备工作线程 | 循环驱动 `MonitorCameraWorkflow.FlowProcess()` |
-| `thMotionControlWork` | 子设备工作线程 | 循环驱动 `MotionControlWorkflow.FlowProcess()` |
-| `thWeldParamControlWork` | 子设备工作线程 | 循环驱动 `WeldParamControlWorkflow.FlowProcess()` |
+| `thLaserHeadWork` | 模组工作线程 | 循环驱动 `LaserWeldHeadWorkflow.FlowProcess()` |
+| `thLineLaserWork` | 模组工作线程 | 循环驱动 `LineLaserWorkflow.FlowProcess()` |
+| `thMonitorCamWork` | 模组工作线程 | 循环驱动 `MonitorCameraWorkflow.FlowProcess()` |
+| `thMotionControlWork` | 模组工作线程 | 循环驱动 `MotionControlWorkflow.FlowProcess()` |
+| `thWeldParamControlWork` | 模组工作线程 | 循环驱动 `WeldParamControlWorkflow.FlowProcess()` |
 | `thHeartInspectWork` | 通讯线程 | 机器人通讯**心跳检测** |
 | `thCommCommandWork` | 通讯线程 | 机器人**指令交互**（常驻循环判断） |
 
-**5 条子设备工作线程**的循环体（`LaserHeadWork` / `LineLaserWork` / `MonitorCamWork` / `MotionControlWork` / `WeldParamControlWork`）执行约定：
+**5 条模组工作线程**的循环体（`LaserHeadWork` / `LineLaserWork` / `MonitorCamWork` / `MotionControlWork` / `WeldParamControlWork`）执行约定：
 
 1. 循环调用对应子流程的 `FlowProcess()`
 2. **判断设备状态，未 `Running` 不执行**
-3. **不执行时 `Thread.Sleep(10)`，防止空转速度太快、进程爆炸**
+3. ~~**不执行时 `Thread.Sleep(10)`，防止空转速度太快、进程爆炸**~~
+   ⛔ 已由 ADR-042（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） 演进（2026-09-16）：节拍休眠归编排层 `SubDeviceWork()`——运行态 `Sleep(BeatWorkMs=10)`、静默期 `Sleep(BeatIdleMs=100)`，由编排层统一休眠；**流程体与 `case` 体内禁止任何 Sleep/轮询/无界同步等待**。
 
 **`CommCommandWork`** 执行约定：
 
 1. 接受机器人通讯指令
 2. **等待子流程抛出完成结果**
 3. **反馈机器人完成结果**
-4. **未执行动作时 `Thread.Sleep(100)`**（比子设备线程的 10 ms 更长）
+4. ~~**未执行动作时 `Thread.Sleep(100)`**（比模组线程的 10 ms 更长）~~ ⛔ 同上（ADR-042）：休眠归编排层（`BeatIdleMs=100`），本线程不再自带 Sleep。
+
+> **线程红线澄清（2026-09-20 用户裁定）**：本页「模组工作流禁自起线程」指**禁自带常驻/长生命周期线程**——主工作线程即全阻塞的 `FlowProcess()`（由 `DeviceControlWork` 常驻线程驱动），统筹模组工作。`ConnectOn/ConnectOff` 等**短生命周期线程允许**（动作即退出释放），但须 `IsBackground = true` 且 `finally` 中释放 `_manualBusy` 等标志与资源。
 
 ### 7.3 私有方法（原档 R013）
 
@@ -437,11 +462,11 @@ public override void FlowProcess()
 
 | 方法 | 说明 |
 |---|---|
-| `MachineFlowWorkOpen()` | 实例化**所有子设备工作线程（5 个）并 Start** |
+| `MachineFlowWorkOpen()` | 实例化**所有模组工作线程（5 个）并 Start** |
 | `MachineCommandWorkOpen()` | 实例化**通讯工作线程（1 个）并 Start** |
-| `InitializeMachine()` | 设备初始化加载：**子设备实例化 → 连接子设备 → 开启通讯** |
-| `ClearMachine()` | 执行所有子设备的 `ClearStatus()`，**强制设备状态 `NoReset`**（初始化默认加载、复位前强制加载） |
-| `ResetMachine()` | 执行所有子设备的 `ResetProcess()` + 设备状态链，**链路不对则退出**：`NoReset → Reseting → Stop`。**单次执行线程** |
+| `InitializeMachine()` | 设备初始化加载：**模组实例化 → 连接模组 → 开启通讯** |
+| `ClearMachine()` | 执行所有模组的 `ClearStatus()`，**强制设备状态 `NoReset`**（初始化默认加载、复位前强制加载） |
+| `ResetMachine()` | 执行所有模组的 `ResetProcess()` + 设备状态链，**链路不对则退出**：`NoReset → Reseting → Stop`。**单次执行线程** |
 | `StartMachine()` | 切换设备状态链 `Stop → Running`，**真正执行由常驻子线程判断** |
 | `ClearAlarm()` | 清除当前报警，设备进入停止 |
 | `EstopMachine()` | 执行急停动作 |
@@ -466,7 +491,7 @@ InitializeMachine ────────────────────�
   └─ Alarm IO Work + 机器人服务器 Command                   │
   │                                                        │
   ▼                                                        │
-所有子设备已连接？                                          │
+所有模组已连接？                                          │
   ├─ N ──► Initialize Fail ────────────────────────────────┘
   └─ Y
      ▼
@@ -476,7 +501,7 @@ ResetMachine（设备复位）────────────────�
   └─ 线激光 / 监控相机：直接复位 OK                          │
   │                                                        │
   ▼                                                        │
-子设备复位成功？                                            │
+模组复位成功？                                            │
   ├─ N ──► Reset Fail ─────────────────────────────────────┘
   └─ Y
      ▼
@@ -486,25 +511,25 @@ ResetMachine（设备复位）────────────────�
 StartMachine: Preworking ── 设备运行检查（五项，见 §7.7）
   │
   ▼
-子设备运行检测 OK？
+模组运行检测 OK？
   ├─ N ──► Pre-Working Fail
   └─ Y
      ▼
-StartMachine: Working ── 子设备焊接开始（四路，见 §7.8）
+StartMachine: Working ── 模组焊接开始（四路，见 §7.8）
      │
-     ├──────────► 子设备手动终止 ──────────► Stop
-     ├──────────► 子设备异常终止 ──────────► Alarm
+     ├──────────► 模组手动终止 ──────────► Stop
+     ├──────────► 模组异常终止 ──────────► Alarm
      ├──────────► StartMachine: Robot Alarm ► Alarm
      └──────────► 焊接完成 ──► StopMatchine：Complete
                                     │
                                     ▼
-                        子设备焊接完成动作 → 子设备正常停止
+                        模组焊接完成动作 → 模组正常停止
                                     │
                                     ▼
                         报警判断：故障树和代码
 
 旁路（任意时刻）：
-EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 子设备停机锁止
+EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 模组停机锁止
 ```
 
 **语义映射说明**：
@@ -579,7 +604,7 @@ EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 子设备�
 | `IoClearAlarm` | `IO_CLEAR_ALARM` | ClearAlarm_IO | `ClearAlarm` |
 | `IoMotionBusFault` | `IO_MOTION_BUS_FAULT` | —— | `DoMotionBusFault`（电平型，IOWork 监督置位） |
 
-**子设备级 7 条**：`IoSubConnect` / `IoSubReset` / `IoSubPrework` / `IoSubWork` /
+**模组级 7 条**：`IoSubConnect` / `IoSubReset` / `IoSubPrework` / `IoSubWork` /
 `IoSubStop` / `IoSubManualStop` / `IoSubAlarmStop`。
 
 > `IoSubConnect` 与 `IoSubReset` 属 InitializeMachine / ResetMachine **内部自动调用**（原档 §10.3），
@@ -614,11 +639,11 @@ EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 子设备�
    坐标类解析 string 后**仅记录**，动作类机器人可直接写 IO 量——
    两条路径最终都收敛到虚拟 IO 层，由扫描器统一执行。
 
-#### 7.9.6 子设备焊接态的外部下发入口
+#### 7.9.6 模组焊接态的外部下发入口
 
 `SetWeldStatus` 是 `protected`，整机层无法直接赋值。基类 `DeviceWorkflowBase` 新增
 **非抽象**公共方法 `RequestWeldStatus(target, reason)` 作为唯一受控外部入口，
-供 `DeviceControlWork.CascadeWeldStatus` 向 5 个子设备统一下发迁移请求。
+供 `DeviceControlWork.CascadeWeldStatus` 向 5 个模组统一下发迁移请求。
 （非抽象成员，5 个子类无需实现，不破坏 17 项抽象契约。）
 
 ---
@@ -636,14 +661,14 @@ EMG IO Work → EMG STOP / SAFE IO → 设备急停 → EMG Stop → 子设备�
 ### 8.2 数据链路（焊缝信息 = 英莱线激光的结果）
 
 ```
-配置层（INI / ConfigHelper / AutoParamHelper + WeldAlgorithmsConfig → Config/XML/WeldParamControl.xml）
+配置层（INI / ConfigHelper / AutoParamHelper + WeldAlgorithmsConfig → Config/WeldParamControl/Algorithm_XML/WeldParamControl.xml）
   ↓ WeldParamManager 构造时统一载入
 WeldParamManager.Instance.CurrentAutoParam + 查找表 + 轨迹算法配置（含线激光引导标定）
   ↓
 线激光结果（焊缝宽度）+ 机器人 RobotX
   ↓
 WeldParamControlWorkflow.ComputeAndOutput()（只置 _pendingCompute）
-  ↓ 调用 WeldParamManager.TriggerAdjustment()【无参，ADR-009】
+  ↓ 调用 WeldParamManager.TriggerAdjustment()【无参，ADR-013】
   ↓ WeldParamAdjustmentAlgorithm.ExecuteAdjustment：滑动平滑 + 查表匹配 + 灵敏度判定
 WeldParamOutput（功率/送丝/速度/摆幅）
   ↓ SendToRobot → 下发机器人
@@ -651,12 +676,12 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 **关键点**：
 - 英莱回调**本就含特征点与宽度**，链路本就通；本工作流补的是「计算后下发到机器人」这一环
-- `WeldParamManager.TriggerAdjustment()` 是**无参**方法（内部取用 Manager 的配置与 `CurrentRobotX`），**不要给它加参数**（2026-09-14 ADR-041：原 `WeldProcess` 已删除）
-- `WeldParamManager` 同时承担配置持久化（原 `WeldDataManager` 职责 + 焊接算法配置 `WeldAlgorithmsConfig`（线激光引导 `SEAM_GUIDE` + 参数调整 `WELD_PARAM_ADJUST` 两节合一），自有 `Config/XML/WeldParamControl.xml`）与算法持有，是 WeldParamControl 模块唯一外部入口；⛔ 外部不得持有或 `new` 配置实例（ADR-041 第三次修订 / ADR-044）
+- `WeldParamManager.TriggerAdjustment()` 是**无参**方法（内部取用 Manager 的配置与 `CurrentRobotX`），**不要给它加参数**（2026-09-14 ADR-008：原 `WeldProcess` 已删除）
+- `WeldParamManager` 同时承担配置持久化（原 `WeldDataManager` 职责 + 焊接算法配置 `WeldAlgorithmsConfig`（线激光引导 `SEAM_GUIDE` + 参数调整 `WELD_PARAM_ADJUST` 两节合一），自有 `Config/WeldParamControl/Algorithm_XML/WeldParamControl.xml`）与算法持有，是 WeldParamControl 模块唯一外部入口；⛔ 外部不得持有或 `new` 配置实例（ADR-008 第三次修订 / ADR-043）
 
 ### 8.3 不入上电级联
 
-`WeldParamControlWorkflow` **不纳入** `DeviceControlWork` 上电初始化（`InitializeMachine`）级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（见 [[decisions/ADR-009-WorkflowAsAdjustmentDriver]]）。
+`WeldParamControlWorkflow` **不纳入** `DeviceControlWork` 上电初始化（`InitializeMachine`）级联，由 `LineLaserWorkflow` 在连续成功帧达到阈值时触发，保持单一驱动源（见 [[decisions/ADR-043-WeldParamControlConsolidated|ADR-043（焊缝参数控制综合）]]）。
 
 ### 8.4 振镜摆幅待实现
 
@@ -666,17 +691,17 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 
 ## 9. 安全互锁与状态管控
 > **代码模板**：见 §16.5 状态层模板（`MachineStatusWork.cs` → `DeviceStatusWork.cs`）。
-> **ADR-031/038 增补（2026-09-04）**：主设备态初始值 `NoReset`（报错置 Alarm、消除报警回 NoReset、只有复位流程成功才到 Stop）；初始化时序通讯优先；故障恢复模块已整体移除；状态切换零日志（详见 [[decisions/ADR-030-MainDeviceStateSemantics]] / [[decisions/ADR-031-ErrorReportingHierarchy]]）。
+> **ADR-008/038 增补（2026-09-04）**：主设备态初始值 `NoReset`（报错置 Alarm、消除报警回 NoReset、只有复位流程成功才到 Stop）；初始化时序通讯优先；故障恢复模块已整体移除；状态切换零日志（详见 [[decisions/ADR-014-MainDeviceStateSemantics]] / [[decisions/ADR-015-ErrorReportingHierarchy]]）。
 
-### 9.1 文件归属（ADR-025 合并 + ADR-028 归并）
+### 9.1 文件归属（ADR-011 合并 + ADR-034 归并）
 
 **安全检查只有一个文件**：`MainDeviceControl/DeviceStatusWork.cs`（设计来源参考 `PcomDeviceInterface/MachineStatusWork.cs`（现役 `MainDeviceControl/DeviceStatusWork.cs`） 的 IOWork/EMGWork/StatusWork 三线程模型，见 `主控设计.xlsx` 的「设备安全/IO/状态管控」泳道）。
 
-`DeviceStatusWork` 是**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**，由三个常驻监控线程内聚而成，各自经 `DeviceControlWork` 单一控制源变更主设备运行态（权责边界见 ADR-027）：
+`DeviceStatusWork` 是**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**，由三个常驻监控线程内聚而成，各自经 `DeviceControlWork` 单一控制源变更主设备运行态（权责边界见 ADR-023）：
 
 | 线程 | 入口方法 | 优先级 | 职责 |
 |---|---|---|---|
-| IO 轮询 | `IOWork()` | AboveNormal | 周期安全互锁检查（急停除外）与设备态轮询；失败首次 `ReportAlarm(reason)`，恢复 `ReportAlarmCleared`（ADR-032：不再 RecordFault） |
+| IO 轮询 | `IOWork()` | AboveNormal | 周期安全互锁检查（急停除外）与设备态轮询；失败首次 `ReportAlarm(reason)`，恢复 `ReportAlarmCleared`（ADR-021：不再 RecordFault） |
 | 急停处置 | `EMGWork()` | Highest | 急停按钮轮询；按下 `EStopMachine("急停按钮按下")`，释放后 `EStopCancel()` + `ReportAlarmCleared` |
 | 状态反射 | `StatusWork()` | Normal | 反射 `DeviceControlWork.Status`（MainDeviceStatus）到三色灯（`WriteBit`，地址待标定），状态切换才写 |
 
@@ -703,12 +728,12 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 | `SafetyInterlockResult` | 检查结果 | `IsPassed` / `FailedItems` / `Reason` / `CheckTime` |
 | `SafetyInterlockChecker` | 检查器工具类 | 由 `DeviceStatusWork` 持有调用，`Thresholds` 暴露配置；急停由 `EMGWork` 专责，故 `CheckPlc` 不再检查急停位 |
 
-`FaultRecoveryManager.cs` / `FaultRecordManager.cs`（表 `FaultRecord`）：**2026-09-04 经用户裁定整体移除**（ADR-032 D3）——架构上不存在「故障恢复」定义，所有 `RecordFault` 调用面已删除，报警语义由 `ReportAlarm` / `ReportAlarmCleared` 承载。历史设计见 [[api/FaultRecoveryManager]]（已挂 ⛔ 废弃横幅）与 [[lessons/FaultRecoveryDeviceKey]]。
+`FaultRecoveryManager.cs` / `FaultRecordManager.cs`（表 `FaultRecord`）：**2026-09-04 经用户裁定整体移除**（ADR-021 D3）——架构上不存在「故障恢复」定义，所有 `RecordFault` 调用面已删除，报警语义由 `ReportAlarm` / `ReportAlarmCleared` 承载。历史设计见 api/FaultRecoveryManager（⛔ 已移除删除，ADR-008/032）（已挂 ⛔ 废弃横幅）与 [[lessons/FaultRecoveryDeviceKey]]。
 
-> **已删除（不要再引用）**：`SafetyFlow.cs`、`SafetyInterlock.cs` 两个独立文件已并入 `DeviceStatusWork.cs`（ADR-025 + ADR-028）。旧 `SafetyWorkflowState` 枚举、旧四态 `DeviceState` 映射均已删除。
+> **已删除（不要再引用）**：`SafetyFlow.cs`、`SafetyInterlock.cs` 两个独立文件已并入 `DeviceStatusWork.cs`（ADR-011 + ADR-034）。旧 `SafetyWorkflowState` 枚举、旧四态 `DeviceState` 映射均已删除。
 > **门控口径**：`DeviceControlWork` 直接读 `DeviceStatusWork.Instance.IsSafe`；**监控未启动时不门控（返回 true）**，避免 PLC 未标定环境阻断整机。
 > 2026-09-03 按裁定 C3 移除 `IsRobotPoseSafe()`——**不再监控机器人 pose**，设备无权限管理机器人状态。`IsSafe` 反映的是**本机安全 IO**（急停 / 安全门 / 互锁），与机器人 pose 无关，门控能力不受影响。
-> **启动方式**：`StartWork()` 由 `DeviceControlWork.StartMachine` 调用，随整机启动而启动；PLC 未连接时 `Check()` 恒定失败，启动监控即会门控整机（与 ADR-025 口径一致）。
+> **启动方式**：`StartWork()` 由 `DeviceControlWork.StartMachine` 调用，随整机启动而启动；PLC 未连接时 `Check()` 恒定失败，启动监控即会门控整机（与 ADR-011 口径一致）。
 > **急停专责**：急停按钮由 `EMGWork` 线程独占处置（置 `EStop`），与 `IOWork` 的互锁报警（`Alarm`）分离，避免两态互相翻转。
 > **待办**：PLC 点位（含三色灯输出）须按现场点位表标定；`IoPollIntervalMs/EmgPollIntervalMs/StatusPollIntervalMs=50`（20Hz）接入真实 PLC 后评估是否调整。
 
@@ -725,7 +750,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 | 硬件 | 冷却水温度 | ≤ 上限（默认 35，word14） |
 | 硬件 | 焊接头温度 | ≤ 上限（默认 60，word16） |
 | 模式 | 自动模式 | `RequireAutoMode` 为真时 PLC 模式字 = Auto（word20） |
-| 设备 | 子设备在线/就绪 / 运控已回零 / 心跳正常 | 由各设备态与互锁扩展项判定 |
+| 设备 | 模组在线/就绪 / 运控已回零 / 心跳正常 | 由各设备态与互锁扩展项判定 |
 
 ### 9.3 故障分类与恢复策略
 
@@ -739,16 +764,17 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 | 安全故障 | 急停、安全门、气压不足 | **不自动恢复**，排除后人工复位 | 0 次 |
 | 系统故障 | 软件异常 | 记录日志 + `FaultRecord` 持久化，重启软件 | 0 次 |
 
-**恢复闭环**：故障检测 → 安全停机（`EmergencyStop`：关激光/停送丝/机器人停）→ `RecordFault` 持久化（时间、设备、状态、错误码、参数快照）→ 操作员逐条确认 → 人工排除 → 设备复位 → 整机复位验证（所有子设备就绪 + 互锁通过）。
+**恢复闭环**：故障检测 → 安全停机（`EmergencyStop`：关激光/停送丝/机器人停）→ `RecordFault` 持久化（时间、设备、状态、错误码、参数快照）→ 操作员逐条确认 → 人工排除 → 设备复位 → 整机复位验证（所有模组就绪 + 互锁通过）。
 
-> **历史坑（机制已移除）**：故障恢复设备键名必须用**英文 key**（`RecordFault` 需与 `RegisterRecoveryStrategy` 注册 key 一致，中文设备名 `IndexOf` 子串匹配永远失败）。FaultRecoveryManager 已于 2026-09-04 整体移除（ADR-032 D3），此坑仅存档。详见 [[lessons/FaultRecoveryDeviceKey]]
+> **历史坑（机制已移除）**：故障恢复设备键名必须用**英文 key**（`RecordFault` 需与 `RegisterRecoveryStrategy` 注册 key 一致，中文设备名 `IndexOf` 子串匹配永远失败）。FaultRecoveryManager 已于 2026-09-04 整体移除（ADR-021 D3），此坑仅存档。详见 [[lessons/FaultRecoveryDeviceKey]]
 
 ---
 
 ## 10. 运动控制（台达 EtherCAT 主站）
 
-**核心理念**：运动实时链路 100% 硬件总线化，PC 退化为非实时轨迹规划器。决策依据 [[decisions/ADR-032-MotionControllerDeltaReplacement]]、[[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]。
-⚠️ 正运动（ZMotion）CAMBOX 方案已于 2026-09-07 随控制器换轨整体移除；**台达侧承接焊缝跟踪的高级运动方案 OPEN**（候选 ECAM2 电子凸轮 / 虚拟主轴 + GearIn / PVT），未定前不得照搬旧 CAMBOX 参数实施。
+**核心理念**：运动实时链路 100% 硬件总线化，PC 退化为非实时轨迹规划器。决策依据 [[decisions/ADR-027-MotionControllerDeltaReplacement]]、ADR-027（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）。
+⚠️ 正运动（ZMotion）CAMBOX 方案已于 2026-09-07 随控制器换轨整体移除。~~**台达侧承接焊缝跟踪的高级运动方案 OPEN**（候选 ECAM2 电子凸轮 / 虚拟主轴 + GearIn / PVT），未定前不得照搬旧 CAMBOX 参数实施。~~
+✅ **方案已定（2026-09-16，ADR-027/058）**：现行 = **CSP 实时目标逐拍写入**——`SeamMapTrackingAlgorithm` 计算示教锚定 Y 空间地图目标（ADR-043），`MotionControlWorkflow.OutputCspTick()` 在 `FlowProcess` CSP 分支内每拍写入（实测 dt 限幅，钳位 `[0.001,0.1]s`）；ECAM2 / 虚拟主轴候选未采用（`EtherCATEcam2Native.cs` 为前瞻性预留，零消费）。
 
 ### 10.1 数据流（全链路）
 
@@ -756,7 +782,7 @@ WeldParamOutput（功率/送丝/速度/摆幅）
 KUKA 机器人运动内核（RSI FastIPO，4ms 硬实时）
     ToolRelX + TimeStamp  ──EtherCAT TxPDO（4ms 等时同步）──▶
 台达 PCI-L221 EtherCAT 主站（CardNo + NodeId + SlotNo 寻址）
-    主轴从站（机器人进给）──▶ 凸轮/齿轮跟随（方案 OPEN：ECAM2 / 虚拟轴+GearIn）──▶ Y 纠偏伺服从轴
+    主轴从站（机器人进给）──▶ CSP 实时目标逐拍写入（ADR-027/058 已定案）──▶ Y 纠偏伺服从轴
                                               ▲
                                               │ 轨迹点写入（台达 API 随方案定）
                                               │
@@ -780,7 +806,7 @@ KUKA 机器人运动内核（RSI FastIPO，4ms 硬实时）
 |---|---|
 | 主轴 | 机器人进给主轴，由 EtherCAT 总线周期刷新位置（等效虚拟光栅尺主轴） |
 | Y 纠偏伺服从轴 | 焊缝横向纠偏（凸轮/齿轮跟随的从轴） |
-| 振镜 / 自动对焦 | **归焊接头**，运控不承担（ADR-036 D5） |
+| 振镜 / 自动对焦 | **归焊接头**，运控不承担（ADR-033 D5） |
 
 ### 10.3 初始化与使能序列（台达）
 
@@ -788,7 +814,7 @@ KUKA 机器人运动内核（RSI FastIPO，4ms 硬实时）
 CS_ECAT_Master_Open            → 取 ExistCardCount
 CS_ECAT_Master_Initial         → 异步初始化
 轮询 CS_ECAT_Master_Check_Initial_Done  → 0=完成 / 1=进行中 / 99=失败（最长 30s）
-扫描从站（OpState==3 为 Operational）→ 建立轴/IO 对象
+扫描从站（OpState==8 为 Operational）→ 建立轴/IO 对象
 使能：CS_ECAT_Slave_Set_Move_Mode(NodeId, SlotNo, 8=CSP) → CS_ECAT_Slave_Set_Svon(...,1) → 轮询状态字 bit2（3s 超时）
 ```
 
@@ -816,7 +842,7 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
                     T_laser（激光采集时刻）
 
 插值：S_meas = S1 + (S2 - S1) × (T_laser - T1) / (T2 - T1)
-前置：Cam_Key = S_meas + LaserFrontOffset
+前置：Cam_Key = S_meas + LaserFrontOffset   # ⚠️ LaserFrontOffset 已随 ADR-043（2026-09-17）删除；本段凸轮表前置补偿为历史 OPEN 方案，现役 CSP 走示教锚定目标
 ```
 
 > **杜绝**「PC 收到数据的瞬间读轴位置」的老旧做法——传输延迟会直接转化为纠偏误差。
@@ -825,7 +851,7 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 
 | 异常类型 | 检测方式 | 保护动作 | 恢复方式 |
 |---|---|---|---|
-| EtherCAT 断连 | 从站 `OpState != 3` / `Check_Initial_Done` 异常 | 跟随立即停止，Y 轴锁止，报警停机 | 人工排查后复位重启 |
+| EtherCAT 断连 | 从站 `OpState != 8` / `Check_Initial_Done` 异常 | 跟随立即停止，Y 轴锁止，报警停机 | 人工排查后复位重启 |
 | 机器人停止运动 | 主轴位置长时间不变 | Y 轴保持当前位置，不晃动 | 机器人恢复后自动继续 |
 | 激光丢帧/无轮廓 | 帧超时 / 算法无结果 | 停止加点，延续原有轨迹，不突变 | 恢复出帧后自动继续加点 |
 | 超偏 | \|Y_offset\| > MaxDeviation | 丢弃当前点，保留上一有效位置 | 偏差回落范围内自动恢复 |
@@ -842,9 +868,29 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 | L3 实现 | `MotionControl/DeltaEtherCAT/`（7 文件） | 台达实现；单位换算（`Equiv` = 工程单位/脉冲）**只在此层** |
 | L1 原生 | `MotionControl/DeltaEtherCAT/Native/`（7 文件） | `CS_ECAT_*` P/Invoke，只被 L3 调用 |
 
-> 已删除的正运动组件：`CamBoxTracker` / `EncoderAxis` / `RSIPositionBuffer` / `InterpolationEngine` / `ZMotion*` / `MotionManager` / `MotionConfig`（2026-09-07，见 [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]]）。
+> 已删除的正运动组件：`CamBoxTracker` / `EncoderAxis` / `RSIPositionBuffer` / `InterpolationEngine` / `ZMotion*` / `MotionManager` / `MotionConfig`（2026-09-07，见 ADR-027（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]））。
 
 详见 [[modules/MotionControl]]、[[api/MontionManager]]、[[api/MotionControlWorkflow]]、[[guides/DeltaEtherCAT-DevGuide]]。
+
+### 10.8 硬件故障树归属（故障文本只由硬件 Manager 产出）
+
+> **硬规则（2026-11-09，ADR-095）**：硬件故障/报错内容都归硬件 Manager，硬件故障树在各自的硬件 Manager 中；流程执行的失败只是表象，核心是硬件失效。
+
+| 层 | 允许 | 禁止 |
+|---|---|---|
+| **硬件 Manager**（持有该硬件的类：`MontionManager`、`WeldHeadSlaveDevice`、相机/线激光/Modbus/温控各自 Manager） | 读取并解释状态字、报警位、总线态、从站扫描、厂商返回码，产出可展示的成品诊断文本 | 把位/码的语义解释责任推给上层 |
+| **流程层**（`DeviceWorkflow/`） | 标识「哪一步失败、属于哪个硬件对象」，附 Manager 诊断引用，补流程上下文（拍数、命令值、重试次数） | 自拼硬件细节文案；解析状态字/报警位/返回码造句 |
+| **UI 层**（`UIDesign/`） | 展示成品文本；按控件宽度截断 | 加工硬件语义；按位/按码自行造句 |
+
+**判据（新增诊断时按序回答）**
+
+1. 这段文本里的状态字/报警位/总线态/返回码，属于哪个硬件对象？→ 该对象的 Manager 是唯一产出点。
+2. 流程层还需要表达什么？→ 只写「第几步、哪条指令、哪个轴/从站」与 Manager 返回串的引用。
+3. UI 需要更长或更短？→ 只允许截断或加固定标签，不允许重排语义、替换措辞。
+
+**反例**：流程层 `GetStatusWord()` 直拼「状态字 0x…」；UI 按 `HeadAlarmStatus` 四个位各写一套文案；流程层 `ReadSlaveStatus` 拼总线/报警状态。**正例**：`MontionManager.DescribeAxisDiagnosis` / `DescribeAxisStatusWord` / `DescribeAxisCspRuntime`、`HeadAlarmStatus.Describe()`、`WeldHeadSlaveDevice.DescribeTemperatureThreshold`。
+
+详见 [[decisions/ADR-095-hardware-fault-tree-ownership]]。
 
 ---
 
@@ -856,14 +902,14 @@ T1 ─── S1 ─── T2 ─── S2 ─── T3 ─── S3 ─── ..
 
 | 模块 | 职责 | 备注 |
 |---|---|---|
-| `MainDeviceControl` | 设备控制中枢：三态基类 + 5 个子设备工作流 + 2 个整机管控类 | 依赖最广，见本页 §2 目录结构 |
-| `LineLaserCam` | 线激光相机（`ILineLaser/` 抽象 + `IntelligentLaserCam/` + `VirtualCam/` + 业务层） | 旧 `Api/` 独立命名空间 `LineLaserCamApi` 已删除（ADR-038 三层重构） |
+| `MainDeviceControl` | 设备控制中枢：三态基类 + 5 个模组工作流 + 2 个整机管控类 | 依赖最广，见本页 §2 目录结构 |
+| `LineLaserCam` | 线激光相机（`ILineLaser/` 抽象 + `IntelligentLaserCam/` + `VirtualCam/` + 业务层） | 旧 `Api/` 独立命名空间 `LineLaserCamApi` 已删除（ADR-007 三层重构） |
 | `MonitorCam` | 监控相机（`MonitorCameraRun` + `Api` 算法管理） | 健康巡检已下沉 `MonitorCameraRun` |
 | `MotionControl` | 运控（台达 EtherCAT 三层：`IMotion/` L2 · `DeltaEtherCAT/` L3 · `Native/` L1；业务层 `MontionManager` + 三张注册表 / `MoveControlData`） | 见本页 §10 |
 | `WeldParamControl` | 焊接工艺（`WeldParamManager` 统一管理参数、算法与配置持久化） | 由 `WeldParamControlWorkflow` 驱动 |
 | `Comm` | 顶层通讯（`CommunicationManager` / PLC / Robot / KUKA / Modbus） | 机器人与 PLC 连接唯一持有者 |
 | `EmguALG` | 算法管道（`PipelineManager` / 焊缝识别 / ROI / 实时监视） | |
-| `UIDesign` | UI 层，命名空间随目录（`UIDesign.MainWindow` / `.ControlPage` / `.TabPage` / `.SubDialog.<业务域>`，ADR-048） | AntdUI，见 [[decisions/ADR-015-UIFrameworkMigration]] |
+| `UIDesign` | UI 层，命名空间随目录（`UIDesign.MainWindow` / `.ControlPage` / `.TabPage` / `.SubDialog.<业务域>`，ADR-005） | AntdUI，见 [[decisions/ADR-008-UIFrameworkMigration]] |
 | `LaserWeldHead` | 焊接头（接口 + 控制器 + 数据模型） | |
 | `FileOperate` | 文件与日志 | |
 | `SQLiteDatabase` | SQLite 持久化（权限 / 配置 / 自动参数 / 产品数据） | |
@@ -955,19 +1001,19 @@ graph TD
 | `ProductFileManager` ↔ `MainDeviceControl` | 记录归口 ↔ 设备控制层 | 低 | **2026-09-01 新增且刻意保留**：`DeviceWorkflow/` 下 5 个子工作流 + 2 个管控类引用本模块记故障，`FaultRecord.State` 反向引用 `MainDeviceControl.DeviceStateApiCore` 的 `SubDeviceWeldStatus`（七态）枚举。仅限枚举级，不涉及工作流层；断开须改 State 为 string 或下沉枚举，已评估后放弃 |
 
 > 上述环由 `using` 静态推导得出，**改造前须确认是真实耦合还是冗余 using**（冗余 using 应直接删除而非重构）。
-> 环数由 4 组增至 5 组（2026-09-01，ADR-027 §3），新增的 `ProductFileManager` ↔ `MainDeviceControl` 为**有意设计**，非待清理项。
+> 环数由 4 组增至 5 组（2026-09-01，ADR-023 §3），新增的 `ProductFileManager` ↔ `MainDeviceControl` 为**有意设计**，非待清理项。
 
 ---
 
 ### 11.4 核心调用链（当前事实）
 
-1. **图像采集链**：`LineLaserCam`（`CameraSelector` 选 SmartRay / HikRobot / VirtualCam / IntelligentLaserCam）→ `MainDeviceControl/LineLaserWorkflow` → `EmguALG.PipelineManager`
+1. **图像采集链**：`LineLaserCam`（现役 IntelligentLaserCam / VirtualCam，经 `LineLaserManager` 唯一入口；~~`CameraSelector` 选 SmartRay / HikRobot~~ 已随 ADR-007 删除）→ `MainDeviceControl/LineLaserWorkflow` → ~~`EmguALG.PipelineManager`~~ `EmguALG` 算法（PipelineManager 已随旧 Job 体系删除，ADR-007）
 2. **焊缝参数链**：线激光焊缝结果 → `WeldParamControl.WeldParamManager` → `WeldParamControlWorkflow.ComputeAndOutput()` → 下发机器人
-3. **运控纠偏链**：`MainDeviceControl/MotionControlWorkflow` → `MotionControl.MontionManager.Instance` 装配台达控制器 → `DeltaEtherCAT/` 轴对象 → 输出 Y 纠偏（跟踪用高级运动方案 OPEN：ECAM2 / 虚拟轴+GearIn / PVT）
+3. **运控纠偏链**：`MainDeviceControl/MotionControlWorkflow` → `MotionControl.MontionManager.Instance` 装配台达控制器 → `DeltaEtherCAT/` 轴对象 → **CSP 实时目标逐拍输出 Y 纠偏**（ADR-027/058 已落地；~~跟踪用高级运动方案 OPEN：ECAM2 / 虚拟轴+GearIn / PVT~~）
 4. **监控链**：`MonitorCam.MonitorCameraRun` → `MonitorCameraWorkflow`（健康巡检在 `MonitorCameraRun` 内）→ UI `UIDesign.TabPage/MonitorCamPage`
-5. **模拟链**：`DeviceControlWork`（`SimTestMode`，归并自原 SimulationWorkflow）→ `LineLaserWorkflow` 选虚拟相机 + 共享 robotX → 同生产链路上报 → `MotionControlWorkflow` 切「运动/仅记录」
-6. **安全链**：`DeviceStatusWork`（三线程：IOWork 50ms 互锁轮询 → `SafetyInterlockChecker.Check()`；EMGWork 50ms 急停轮询 → `EStopMachine`；StatusWork 50ms 反射）→ 失败 `ReportAlarm`（ADR-032：状态切换零日志）
-7. **自动初始化链**：`DeviceControlWork.InitializeMachine()` → **通讯优先开启（机器人/PLC 与子设备同级）→ 焊接头 → 运控 → 线激光 → 监控相机**（ADR-031 D2）→ 全部就绪保持 NoReset 待复位，失败置 Alarm
+5. **模拟链**：`DeviceControlWork`（~~`SimTestMode` 模式选择~~ → 2026-09-17 ADR-032 起单一开关 + 按连接态自动分支）→ `LineLaserWorkflow` 选虚拟相机 + 共享 robotX → 同生产链路上报 → `MotionControlWorkflow` 切「运动/仅记录」
+6. **安全链**：`DeviceStatusWork`（三线程：IOWork 50ms 互锁轮询 → `SafetyInterlockChecker.Check()`；EMGWork 50ms 急停轮询 → `EStopMachine`；StatusWork 50ms 反射）→ 失败 `ReportAlarm`（ADR-021：状态切换零日志）
+7. **自动初始化链**：`DeviceControlWork.InitializeMachine()` → **通讯优先开启（机器人/PLC 与模组同级）→ 焊接头 → 运控 → 线激光 → 监控相机**（ADR-008 D2）→ 全部就绪保持 NoReset 待复位，失败置 Alarm
 
 ---
 
@@ -994,13 +1040,13 @@ graph TD
 | [[modules/LineLaserCam]] | 英莱线激光相机，焊缝信息源头 |
 | [[modules/EmguALG]] | 算法管道 `PipelineManager`，承载 `SeamFeatureResult` 上报 |
 | [[modules/MotionControl]] | 运控硬件层，台达 PCI-L221 EtherCAT 主站（三层架构） |
-| [[modules/UIDesign]] | UI 层，读 `DeviceControlWork.Instance.Status`（整机运行态）与子设备 `Instance.WeldStatus` / `Instance.State` |
+| [[modules/UIDesign]] | UI 层，读 `DeviceControlWork.Instance.Status`（整机运行态）与模组 `Instance.WeldStatus` / `Instance.State` |
 
 ---
 
 ## 13. UI 接入约定
 
-UI 读取状态时须区分三个层级（ADR-028 三态模型）：
+UI 读取状态时须区分三个层级（ADR-034 三态模型）：
 
 | 属性/事件 | 含义 | 用途示例 |
 |---|---|---|
@@ -1010,41 +1056,41 @@ UI 读取状态时须区分三个层级（ADR-028 三态模型）：
 
 **注意**：`WeldStatus` 与 `State` 是两个**不同**的属性，不要混淆。UI 文件中同时出现两者是正常的。
 
-**变更事件统一契约（ADR-028）**：整机状态订阅 `DeviceControlWork.Instance.StatusChanged`（参数 `MainDeviceStatusChangedEventArgs`）；子设备订阅 `Instance.WeldStatusChanged`（参数 `WeldStatusChangedEventArgs`）与 `Instance.StateChanged`。原泛型 `WorkflowStepChangedEventArgs<TStep>` / `LineLaserWorkflowStateChangedEventArgs` 等自有参数类已删除。
+**变更事件统一契约（ADR-034）**：整机状态订阅 `DeviceControlWork.Instance.StatusChanged`（参数 `MainDeviceStatusChangedEventArgs`）；模组订阅 `Instance.WeldStatusChanged`（参数 `WeldStatusChangedEventArgs`）与 `Instance.StateChanged`。原泛型 `WorkflowStepChangedEventArgs<TStep>` / `LineLaserWorkflowStateChangedEventArgs` 等自有参数类已删除。
 
-> **权责边界（ADR-027，2026-08-31）**：流程只输出「进度」，不输出「数据」。图像/连接态/健康度由子设备对象输出（如 `MonitorCameraRun.FrameCompletedEvent` / `StatusChanged`），算法结果由流程以只读属性暴露（如 `MonitorCameraWorkflow.LastResult`）。流程不得转发子设备事件（订阅方直接订阅 `MotionControlWorkflow.Instance.Tracker`），不得自造 `XxxCompleted` / `ErrorAborted` / `ManualStopped` 事件。执行细则见 [[standards/WorkflowResponsibilityBoundary]]。
+> **权责边界（ADR-023，2026-08-31）**：流程只输出「进度」，不输出「数据」。图像/连接态/健康度由模组对象输出（如 `MonitorCameraRun.FrameCompletedEvent` / `StatusChanged`），算法结果由流程以只读属性暴露（如 `MonitorCameraWorkflow.LastResult`）。流程不得转发模组事件（订阅方直接订阅 `MotionControlWorkflow.Instance.Tracker`），不得自造 `XxxCompleted` / `ErrorAborted` / `ManualStopped` 事件。执行细则见 [[standards/WorkflowResponsibilityBoundary]]。
 
 **UI 侧范式（推状态 + 拉数据）**：先订阅设备与流程的状态事件，状态转完成后再拉取流程只读属性渲染数据。
 
 各 UI 文件须引入 `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;`（读设备态/事件参数时另需 `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;`）。
 
-当前接入的 UI 文件：`FormMain.cs`、`ILCamPage.cs`、`MonitorCamPage.cs`、`MotionControlPage.cs`、`MainPage.cs`
+当前接入的 UI 文件：`FormMain.cs`、`ILCamPage.cs`、`MonitorCamPage.cs`、`SystemControlPage.cs`、`MainPage.cs`
 
 ---
 
 ## 14. 维护约定
 
-- **本页只写当前事实**，不做版本代际对比、不保留历史方案描述。架构演进的「为什么」记在 [[decisions/ADR-023-WorkflowResponsibilityBoundary]]、[[decisions/ADR-024-SafetyCheckConsolidation]] 等 ADR 里，本页只给结论。
-- **改架构先改原档，再同步本页，最后改代码**（ADR-029）。冲突裁决链：**原档 > 本页 > 源码注释**；代码与本页不一致时**不得直接以代码为准回改本页**，须先确认是「原档已改待落地」还是「代码擅自偏离」——前者登记 §15，后者改回代码。
+- **本页只写当前事实**，不做版本代际对比、不保留历史方案描述。架构演进的「为什么」记在 [[decisions/ADR-016-WorkflowResponsibilityBoundary]]、[[decisions/ADR-017-SafetyCheckConsolidation]] 等 ADR 里，本页只给结论。
+- **改架构先改原档，再同步本页，最后改代码**（ADR-007）。冲突裁决链：**原档 > 本页 > 源码注释**；代码与本页不一致时**不得直接以代码为准回改本页**，须先确认是「原档已改待落地」还是「代码擅自偏离」——前者登记 §15，后者改回代码。
 - 2026-09-01 起全库**不再保留历史架构页**（原 `V2-Architecture` / `V3-Architecture` / `V3-MotionControlArchitecture` 等代际页面已删除，其仍有效的技术内容已并入本页第 9、10 章）。
-- **本页是架构唯一真相源**：原 `project/architecture.md`（模块依赖图）与 `archive/` 分类已于 2026-09-01 合并入本页 / 移出，全库不再保留第二个架构页。历史归档内容（SunnyUI 迁移、代码精简进度快照）归 [[project/SunnyUI-Legacy]]、[[project/CodeSimplification-Progress-20260826]]。
-- **原档驱动（ADR-029）**：架构变更入口是 `raw/architecture/` 原档，**2026-09-04 起为 3 份**（`主控设计.xlsx` + `激光焊接系统业务流程图20260904.md` 主源 + `激光焊接系统业务流程图.pdf` 图形备份）。改动流程：用户改原档 → 告知 AI → AI 重读原档 → 同步本页 → 交叉更新 modules/api/standards/index → 跑 `tools/` 三脚本 → log.md 记录。
-- **原档与代码不一致时的处理**：按 ADR-029 §3 **必须交用户裁定**，AI 不得单方改码或改原档。裁定结论记入 ADR-030 后更新本页；已裁定但未改码的项统一登记在 §15，**落地一项划掉一项**。
+- **本页是架构唯一真相源**：原 `project/architecture.md`（模块依赖图）与 `archive/` 分类已于 2026-09-01 合并入本页 / 移出，全库不再保留第二个架构页。历史归档内容（SunnyUI 迁移、代码精简进度快照）归 project/SunnyUI-Legacy（归档页 2026-09-17 删除，迁移史见 [[decisions/ADR-008-UIFrameworkMigration]]）、[[project/CodeSimplification-Progress-20260826]]。
+- **原档驱动（ADR-007）**：架构变更入口是 `raw/architecture/` 原档，**2026-09-04 起为 3 份**（`主控设计.xlsx` + `激光焊接系统业务流程图20260904.md` 主源 + `激光焊接系统业务流程图.pdf` 图形备份）。改动流程：用户改原档 → 告知 AI → AI 重读原档 → 同步本页 → 交叉更新 modules/api/standards/index → 跑 `tools/` 三脚本 → log.md 记录。
+- **原档与代码不一致时的处理**：按 ADR-007 §3 **必须交用户裁定**，AI 不得单方改码或改原档。裁定结论记入 ADR-020 后更新本页；已裁定但未改码的项统一登记在 §15，**落地一项划掉一项**。
 - **完全重构原则（用户 2026-09-03 确立）**：新结构文档是**全新设计与细化**，不是对旧文档的补充。改码与改文档时**不得沿用旧设计思维填补空缺**——原档未覆盖处才参考现有代码事实，原档已改处一律以新表述为准。
 
 ---
 
 ## 15. 落地清单（改码 Plan）
 
-> 本节是**唯一登记「原档已定、代码未改」的地方**。原档 > 本页 > 源码注释（ADR-029 §3）。
-> 2026-09-03：C1~C7 七项冲突**已由用户裁定**（记录见 [[decisions/ADR-029-RawDesignRefinement20260903]]），本页已按裁定完全重写。
+> 本节是**唯一登记「原档已定、代码未改」的地方**。原档 > 本页 > 源码注释（ADR-007 §3）。
+> 2026-09-03：C1~C7 七项冲突**已由用户裁定**（记录见 [[decisions/ADR-035-RawDesignRefinement20260903]]），本页已按裁定完全重写。
 > **元原则（用户 2026-09-03 明确）**：新结构文档是**全新设计与细化**，不是对旧文档的补充，**是完全的重构**。改码时不得沿用旧设计思维填补空缺，一律以本页 §1~§7 的新表述为准。
 
 ### 15.1 七项冲突的裁定结论（已生效）
 
 | # | 冲突点 | 裁定 | 落地要求 |
 |---|---|---|---|
-| **C1** | 子设备 `FlowProcess` 驱动线程归属 | **以新档为准，旧设计全部清除** | `DeviceControlWork` 起 7 条常驻线程（5 子设备 + 2 通讯）；**删除**基类 `DeviceWorkflowBase` 的常驻监听线程机制（`StartRunLoop` / `BeatMs` / `RunLoopPriority`） |
+| **C1** | 模组 `FlowProcess` 驱动线程归属 | **以新档为准，旧设计全部清除** | `DeviceControlWork` 起 7 条常驻线程（5 模组 + 2 通讯）；**删除**基类 `DeviceWorkflowBase` 的常驻监听线程机制（`StartRunLoop` / `BeatMs` / `RunLoopPriority`） |
 | **C2** | `SubDeviceWeldStatus` 枚举 | **以新档为准，旧设计全部清除** | 删 `Starting`，新增 `NoReset`（值 0），其余值顺延（§1.2） |
 | **C3** | 机器人指令协议 | **以新档为准** | 改名 `CommandCore.cs`；指令用 **const string**；**机器人指令按字符串解析**；**原定义完全删掉**（三个枚举 + `RobotPoseCode` + 全部 const int）；**不再监控机器人 pose**；消费方先 `// todo` |
 | **C4** | `InitializeOn/Off` 与 `ConnectOn/Off` | **两者并存，不重叠** | `InitializeOn`/`InitializeOff` = **阻塞**连接 / 断开；`ConnectOn`/`ConnectOff` = **非阻塞**，动作即退出释放（§4.4） |
@@ -1094,18 +1140,18 @@ UI 读取状态时须区分三个层级（ADR-028 三态模型）：
 | 1.4 | `SubDeviceLog()` 声明为 `public abstract`，每个子类各自重写 | 见 §2 日志出口约定 |
 | 1.5 | **删除**基类常驻监听线程机制（`StartRunLoop` / `BeatMs` / `RunLoopPriority`） | 与批次 2 的 7 条线程**必须同批落地**，否则无人驱动 `FlowProcess` |
 
-> ⚠️ 见 [[lessons/StepDrivenWorkflowPitfalls]] 坑三（基类新增抽象成员 → 5 子类同时编译失败）与 [[lessons/StepMemberNameCollision]]（CS0102）。
+> ⚠️ 见 [[lessons/StepDrivenWorkflowPitfalls]]（七.3 / 七.6；基类新增抽象成员 → 5 子类同时编译失败见同页坑三，CS0102 见七.6）。
 
 #### 批次 2 — `DeviceControlWork` 重构（7 线程）
 
 | # | 改动 |
 |---|---|
-| 2.1 | 新增 5 条子设备线程：`thLaserHeadWork` / `thLineLaserWork` / `thMonitorCamWork` / `thMotionControlWork` / `thWeldParamControlWork` |
+| 2.1 | 新增 5 条模组线程：`thLaserHeadWork` / `thLineLaserWork` / `thMonitorCamWork` / `thMotionControlWork` / `thWeldParamControlWork` |
 | 2.2 | 新增 2 条通讯线程：`thHeartInspectWork`（心跳）、`thCommCommandWork`（指令交互） |
 | 2.3 | 新增 6 个私有方法：`CommWork` / `OnCommRecived` / `CommCommandWork` / `MachineStatusTrans` / `WeldStatusTrans` + 5 个 `XxxWork()` 循环体 |
 | 2.4 | 新增 9 个公共方法（§7.5）：`MachineFlowWorkOpen` / `MachineCommandWorkOpen` / `InitializeMachine` / `ClearMachine` / `ResetMachine` / `StartMachine` / `ClearAlarm` / `EstopMachine` / `EstopCancel` |
 | 2.5 | 新增 `Current` + `Last` 双份 `MainDeviceStatus` 快照、4 个标志位 |
-| 2.6 | 防空转：子设备线程 `Sleep(10)`、指令线程 `Sleep(100)` |
+| 2.6 | 防空转：模组线程 `Sleep(10)`、指令线程 `Sleep(100)` |
 | 2.7 | 按 §7.4 调用 `Comm` 提供的通讯方法完成 Open + Connect On |
 
 #### 批次 3 — `DeviceStatusWork` 线程命名统一
@@ -1208,7 +1254,7 @@ abstract class StationProcess
 > **§16.2 骨架的剔除项（改码时不要照抄）**
 > 1. `ClearProduct()` —— 裁定 D2，**不实现**。
 > 2. `LoadConfig(XmlReader)` / `SaveConfig(XmlWriter)` —— 裁定 D1，改为**无参** + 本项目 `XdocumentReaderWriter`（§16.8）。
-> 3. `CylinderExtend` / `CylinderRetract` 等气缸原语、原语区中的具体硬件操作 —— 属参考项目设备语义，本项目按 §6.2 各子设备的差异化职责替换。
+> 3. `CylinderExtend` / `CylinderRetract` 等气缸原语、原语区中的具体硬件操作 —— 属参考项目设备语义，本项目按 §6.2 各模组的差异化职责替换。
 
 **可复制的范式（基类层）**
 
@@ -1217,7 +1263,7 @@ abstract class StationProcess
 | 步控用**公共字段**不用属性 | 字段可直接 `WorkStep = 12`，子类改步零样板 | `RunStep` 同此 |
 | 原语统一 `protected bool` | 成功 true / 失败 false；失败时**内部已**打日志并置 Alarm | 各 Workflow 的自有原语同此 |
 | 原语**自带超时循环** | `while (非急停) { if (到位) break; else if (超时) break; }` | 见 §16.3 |
-| `#region` 按设备类型分组 | 轴操作方法 / 气缸操作方法 | 本项目按类型中文名（ADR-023） |
+| `#region` 按设备类型分组 | 轴操作方法 / 气缸操作方法 | 本项目按类型中文名（ADR-027） |
 | `moManager` 由基类持有 | 构造函数不取，由编排层赋值注入 | `MontionManager` 注入点 |
 
 ### 16.3 子流程模板（`RollPressProcess.cs` / `AssemblyProcess.cs` → 5 个 Workflow）
@@ -1295,7 +1341,7 @@ class XxxProcess : StationProcess
 
 | # | 范式 | 强制程度 |
 |---|---|---|
-| S1 | `FlowProcess()` 首行必须是**启用门控**：未启用则 `Thread.Sleep(100); return;` | 强 |
+| S1 | `FlowProcess()` 首行必须是**启用门控**：未启用则直接 `return;`（~~旧模板 `Thread.Sleep(100);`~~ ⛔ 已由 ADR-042 废止——休眠归编排层 `SubDeviceWork`，流程体内禁 Sleep） | 强 |
 | S2 | 步控体为 `switch (RunStep)`，**每个 `case` 内部用 bool 判定推进** | 强 |
 | S3 | **每次改 `RunStep` 必须同紧跟一句刷新步骤计时**（原档 `StepWorkTime`） | 强（漏写即超时误判） |
 | S4 | 原语返回 false 时 `break`（停在本步，下周期重试），**不跳失败步、不抛异常** | 强 |
@@ -1454,6 +1500,8 @@ public class MachineControlWork
 | M8 | 私有构造内 `MontionManager.Instance` 并注入各子流程 `moManager` | 中 |
 | M9 | 子流程复位按**依赖关系分组**并发（无依赖的同组 `WaitAll`，有依赖的串行） | 中 |
 
+> **M1 是常驻线程范式**：模组工作流不得自起常驻/长生命周期线程（主工作即全阻塞 `FlowProcess`，由编排层常驻线程驱动）。**短生命周期线程允许**（如 `ConnectOn/ConnectOff` 内 `new Thread(IsBackground=true)` 动作即退出释放），但须 `finally` 中做好资源与标志释放管理。
+
 ### 16.5 状态层模板（`MachineStatusWork.cs` → `DeviceStatusWork.cs`）
 
 骨架（去业务，留结构）：
@@ -1576,32 +1624,32 @@ public class MachineStatusWork
 | 步控字段 | `WorkStep` | `RunStep` | **改名**，语义不变 |
 | 步骤计时 | `WorkStartTime`（`DateTime`，单一字段） | `StepWorkTime` + `TimeOutSeconds`（拆分） | **按原档拆两个成员** |
 | 超时来源 | 全局 `CommenData.CylinderMoveTimeOut`（ms） | 基类属性 `TimeOutSeconds`（int，**秒**） | 按原档；注意**单位换算** |
-| 配置读写 | `LoadConfig(XmlReader)` / `SaveConfig(XmlWriter)`（**流式 API**） | `LoadConfig()` / `SaveConfig()` 无参 | ✅ **已裁定 D1**：采用**本项目 XML 写法**（`XdocumentReaderWriter`），不引入 `XmlReader`/`XmlWriter`；子设备各自持有配置路径。见 §16.8 |
+| 配置读写 | `LoadConfig(XmlReader)` / `SaveConfig(XmlWriter)`（**流式 API**） | `LoadConfig()` / `SaveConfig()` 无参 | ✅ **已裁定 D1**：采用**本项目 XML 写法**（`XdocumentReaderWriter`），不引入 `XmlReader`/`XmlWriter`；模组各自持有配置路径。见 §16.8 |
 | 设备连接 | 无（参考项目无此契约） | `InitializeOn`/`InitializeOff`/`ConnectOn`/`ConnectOff` | **新增**，见 §4.4 |
-| 子设备日志 | 无（统一走 `CommenData.ShowLog`） | `SubDeviceLog()`，**public**，每个子流程各自重写 | **新增**（裁定 C7） |
+| 模组日志 | 无（统一走 `CommenData.ShowLog`） | `SubDeviceLog()`，**public**，每个子流程各自重写 | **新增**（裁定 C7） |
 | 焊接态切换 | 无 | `WeldStatusTrans()` | **新增** |
 | 清料流程 | `ClearProduct()` 抽象成员 | 原档未提及 | ✅ **已裁定 D2**：**暂不保留、暂不实现**。待结合 `ProductFile` 一并设计，基类与 5 子类**均不新增**此成员 |
 | 单例暴露 | `public static Instance` 字段 / `GetInstance()` 混用 | — | 沿用各文件现有风格，不强行统一 |
 | 抽象成员可见性 | `abstract class`（internal） | — | 本项目基类须与现有 `DeviceWorkflowBase` 一致 |
 
-**已裁定项（2026-09-03，见 [[decisions/ADR-029-RawDesignRefinement20260903]]）**
+**已裁定项（2026-09-03，见 [[decisions/ADR-035-RawDesignRefinement20260903]]）**
 
 | # | 裁定 | 落地口径 |
 |---|---|---|
-| **D1** | **用本项目的 XML 文档写法**，不引入参考的 `XmlReader`/`XmlWriter`；**子设备 workflow 中增加配置路径** | `LoadConfig()` / `SaveConfig()` 无参，内部走 `FileOperate/XdocumentReaderWriter`；每个子设备 workflow 自带一个配置路径成员（见 §4.6、§16.8） |
+| **D1** | **用本项目的 XML 文档写法**，不引入参考的 `XmlReader`/`XmlWriter`；**模组 workflow 中增加配置路径** | `LoadConfig()` / `SaveConfig()` 无参，内部走 `FileOperate/XdocumentReaderWriter`；每个模组 workflow 自带一个配置路径成员（见 §4.6、§16.8） |
 | **D2** | **`ClearProduct()` 暂不保留、暂不实现** | 清料需结合 `ProductFile` 一并设计；基类与 5 子类均不新增该成员，避免 5 个空实现污染契约 |
 
 ### 16.8 D1 落地模板：本项目 XML 配置读写
 
-**为什么不用参考的 `XmlReader`/`XmlWriter`**：参考项目是流式读写（调用方持有读取器逐个节点解析），本项目已有统一的配置读写器 `AdaWeldSystem/FileOperate/XdocumentReaderWriter.cs`（`XdocumentReaderWriter`，基于 `XDocument` / LINQ to XML），**默认目录 `AppDomain.CurrentDomain.BaseDirectory + "Config\XML\"`**，构造时传入文件名（无扩展名自动补 `.xml`），目录不存在自动创建、文件不存在自动新建并保存。引入两套 XML 体系会分裂配置管理，故统一走本项目写法。
+**为什么不用参考的 `XmlReader`/`XmlWriter`**：参考项目是流式读写（调用方持有读取器逐个节点解析），本项目已有统一的配置读写器 `AdaWeldSystem/FileOperate/XdocumentReaderWriter.cs`（`XdocumentReaderWriter`，基于 `XDocument` / LINQ to XML），**落盘目录由构造参数 `relativeDirectory` 决定**（如 `Config\LineLaser\LineLaser_XML`；单参构造已废弃），构造时传入文件名（无扩展名自动补 `.xml`），目录不存在自动创建、文件不存在自动新建并保存。引入两套 XML 体系会分裂配置管理，故统一走本项目写法。构造为两级参数 `new XdocumentReaderWriter(relativeDirectory, xmlName)`：各模块传入模块级 relativeDirectory（如 `Config\MotionControl\Motion_XML`、`Config\LineLaser\LineLaser_XML`、`Config\WeldParamControl\Algorithm_XML`），实现**按功能类别多级目录**（[[decisions/ADR-033-ConfigArchitectureStandard]] / [[decisions/ADR-033-ConfigArchitectureStandard]]），目录不存在时自动创建。
 
-**子设备 workflow 增加的配置路径成员（每个子设备各一个）**
+**模组 workflow 增加的配置路径成员（每个模组各一个）**
 
 ```csharp
-/// <summary>子设备配置文件名（不含扩展名），落在 Config/XML/ 下。</summary>
+/// <summary>模组配置文件名（不含扩展名），落在本流程功能类别目录下。</summary>
 protected virtual string ConfigFileName { get { return "LineLaserWorkflow"; } }
 
-/// <summary>子设备配置读写器，惰性创建。</summary>
+/// <summary>模组配置读写器，惰性创建。</summary>
 private XdocumentReaderWriter _config;
 
 /// <summary>配置读写器（首次访问时按 ConfigFileName 创建）。</summary>
@@ -1614,14 +1662,14 @@ protected XdocumentReaderWriter Config
 **重写范式（5 个子流程各自实现，方法本身无参）**
 
 ```csharp
-/// <summary>加载本子设备的配置。</summary>
+/// <summary>加载本模组的配置。</summary>
 public override void LoadConfig()
 {
     TimeOutSeconds = Config.GetElementValue("TimeOutSeconds", "30").ToInt();  // 按实际类型解析
     // 其余阈值 / 参数逐项读取
 }
 
-/// <summary>保存本子设备的配置。</summary>
+/// <summary>保存本模组的配置。</summary>
 public override void SaveConfig()
 {
     Config.SetElementValue("TimeOutSeconds", TimeOutSeconds.ToString());
@@ -1631,7 +1679,7 @@ public override void SaveConfig()
 
 > **铁律**
 > 1. `SaveConfig()` 末尾**必须调用 `Config.SaveXdocument()`** —— `SetElementValue` 只改内存中的 `XDocument`，不落盘。
-> 2. 配置路径**只在本子设备 workflow 内定义**，不在基类硬编码具体文件名；基类只暴露 `LoadConfig()` / `SaveConfig()` 契约。
+> 2. 配置路径**只在本模组 workflow 内定义**，不在基类硬编码具体文件名；基类只暴露 `LoadConfig()` / `SaveConfig()` 契约。
 > 3. 读值一律走**带默认值的重载**（`GetElementValue(name, defaultValue)`），避免首次运行文件为空时抛异常。
 > 4. `XdocumentReaderWriter` 非线程安全；配置读写只在初始化 / 停机等非并发阶段调用，运行期 **禁止**在 `FlowProcess()` 内读写配置。
 

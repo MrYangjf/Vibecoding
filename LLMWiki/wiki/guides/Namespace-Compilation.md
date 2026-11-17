@@ -162,13 +162,13 @@ using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;   // SubDeviceState / 
 
 | 类型 | 所需 using | 说明 |
 |------|-----------|------|
-| `GlobalCommData` | `using AdaWeldSystem.Comm.SystemComm;` | 全局通讯/日志静态类（ADR-048 起随目录） |
-| `SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 三态枚举（目录与命名空间一致，ADR-048） |
+| `GlobalCommData` | `using AdaWeldSystem.Comm.SystemComm;` | 全局通讯/日志静态类（ADR-005 起随目录） |
+| `SubDeviceState` / `SubDeviceWeldStatus` / `MainDeviceStatus` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 三态枚举（目录与命名空间一致，ADR-005） |
 | `WeldStatusChangedEventArgs` / `SubDeviceStateChangedEventArgs` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 状态变更事件参数 |
-| `DeviceWorkflowBase` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 非泛型工作流基类（目录与命名空间一致，ADR-048） |
-| `LineLaserWorkflow` 等 5 个子工作流 | `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;` | 子设备工作流 |
+| `DeviceWorkflowBase` | `using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;` | 非泛型工作流基类（目录与命名空间一致，ADR-005） |
+| `LineLaserWorkflow` 等 5 个子工作流 | `using AdaWeldSystem.MainDeviceControl.DeviceWorkflow;` | 模组工作流 |
 | `MessageLevel` | `using AdaWeldSystem.Comm.SystemComm;` | 日志级别枚举（与 GlobalCommData 同命名空间） |
-| KUKA 门面（`ConnectRobot`/`SendRobotData`） | `using AdaWeldSystem.Comm.Communication;` | `CommunicationManager`（`KUKARobotManager` 已删，ADR-045） |
+| KUKA 门面（`ConnectRobot`/`SendRobotData`） | `using AdaWeldSystem.Comm.Communication;` | `CommunicationManager`（`KUKARobotManager` 已删，ADR-011） |
 | `SiemensS7Comm` | `using AdaWeldSystem.Comm.Communication.Implementations;` | S7 PLC 通讯实现 |
 
 **正确做法**
@@ -227,9 +227,9 @@ using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;   // SubDeviceState / 
 - [ ] 迁移后的文件是否已在 `.csproj` 中更新路径？
 
 ### 补充案例：子命名空间与枚举同名 → CS0118（2026-08-28）
-> ⚠️ **沿革横幅（2026-09-14，ADR-048）**：本节的**触发前提已消解**——`DeviceStateApiCore/` 目录对齐后，枚举 `DeviceState` 所在命名空间为 `AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`，**不再存在「枚举名与父作用域子命名空间同名」的情形**，全库代码中的 `using DeviceState = ...` 别名已全部清除。本节保留为 **C# 简单名称解析（由内向外、父作用域成员优先于 using）** 的通用知识；**新代码不需要、也不应再加别名**。
+> ⚠️ **沿革横幅（2026-09-14，ADR-005）**：本节的**触发前提已消解**——`DeviceStateApiCore/` 目录对齐后，枚举 `DeviceState` 所在命名空间为 `AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`，**不再存在「枚举名与父作用域子命名空间同名」的情形**，全库代码中的 `using DeviceState = ...` 别名已全部清除。本节保留为 **C# 简单名称解析（由内向外、父作用域成员优先于 using）** 的通用知识；**新代码不需要、也不应再加别名**。
 
-**触发场景**：2026-08-28 主控架构重构后，枚举 `DeviceState` 与所在命名空间末段同名——枚举 `DeviceState` 当时定义于命名空间 `AdaWeldSystem.MainDeviceControl.DeviceState` 内（`DeviceStateBase.cs`）。**该前提已于 2026-09-14 随 ADR-048 消解**（命名空间改为 `...DeviceStateApiCore`，见本节顶部横幅），以下为机制存档。
+**触发场景**：2026-08-28 主控架构重构后，枚举 `DeviceState` 与所在命名空间末段同名——枚举 `DeviceState` 当时定义于命名空间 `AdaWeldSystem.MainDeviceControl.DeviceState` 内（`DeviceStateBase.cs`）。**该前提已于 2026-09-14 随 ADR-005 消解**（命名空间改为 `...DeviceStateApiCore`，见本节顶部横幅），以下为机制存档。
 
 **坑点**：位于**兄弟命名空间**（如 `AdaWeldSystem.MainDeviceControl.DeviceWorkflow`、`.FlowState`）的文件，裸写 `DeviceState` 时，C# 名称解析沿作用域链上溯，在父作用域 `AdaWeldSystem.MainDeviceControl` 中先命中**同名子命名空间**（命名空间成员含子命名空间），而非其中的枚举 → 用作类型时报：
 
@@ -246,33 +246,33 @@ using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;   // SubDeviceState / 
 > ```csharp
 > namespace AdaWeldSystem.MainDeviceControl.DeviceWorkflow
 > {
->     using DeviceState = AdaWeldSystem.MainDeviceControl.DeviceStateApiCore.DeviceState;   // ⛔ ADR-048 后此别名已不需要
+>     using DeviceState = AdaWeldSystem.MainDeviceControl.DeviceStateApiCore.DeviceState;   // ⛔ ADR-005 后此别名已不需要
 >     // 别名在「本级声明」解析优先于向外走，恰好压过同名子命名空间；
 >     // 放在文件顶部（编译单元级）无效——向外走会先在 MainDeviceControl 层停下。
 > ```
 >
-> **实测清单（2026-09-02 ADR-028 后校正为 7 个）**：`MainDeviceControl/DeviceWorkflow/` 下 **5 个**子设备工作流 —— `{LineLaser, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead}Workflow.cs`（已移除） —— 外加 `MainDeviceControl/DeviceControlWork.cs`、`MainDeviceControl/DeviceStatusWork.cs`（两个整机管控类），再加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
+> **实测清单（2026-09-02 ADR-034 后校正为 7 个）**：`MainDeviceControl/DeviceWorkflow/` 下 **5 个**模组工作流 —— `{LineLaser, MonitorCamera, MotionControl, WeldParamControl, LaserWeldHead}Workflow.cs`（已移除） —— 外加 `MainDeviceControl/DeviceControlWork.cs`、`MainDeviceControl/DeviceStatusWork.cs`（两个整机管控类），再加 `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs`。
 >
 > （旧版记录 7 个工作流含 `MainDeviceWorkflow.cs` / `SafetyWorkflow.cs`：前者已于 2026-09-02 更名 `DeviceControlWork.cs` 并移出 `DeviceWorkflow/`，后者更名 `DeviceStatusWork.cs` 并移出；`SafetyFlow.cs`（已移除） / `SafetyInterlock.cs`（已移除） 于 2026-08-31 三合一合并。均已校正。）
 >
-> ✅ **目录 = 命名空间（2026-09-14，ADR-048）**：`DeviceStateApiCore/` 内三文件（`DeviceStateBase.cs` / `CommandCore.cs` / `DeviceWorkflowBase.cs`）统一为 `...MainDeviceControl.DeviceStateApiCore`，原「目录 ≠ 命名空间」的例外已废止。
+> ✅ **目录 = 命名空间（2026-09-14，ADR-005）**：`DeviceStateApiCore/` 内三文件（`DeviceStateBase.cs` / `CommandCore.cs` / `DeviceWorkflowBase.cs`）统一为 `...MainDeviceControl.DeviceStateApiCore`，原「目录 ≠ 命名空间」的例外已废止。
 >
-> 另：曾举 `ProductFileManager/FaultRecoveryManager.cs` 为同类别名用例——该文件已随 ADR-031（2026-09-04）整体移除，且 `ProductFileControl/` 扁平命名空间下已无同名遮蔽，无需别名。
+> 另：曾举 `ProductFileManager/FaultRecoveryManager.cs` 为同类别名用例——该文件已随 ADR-008（2026-09-04）整体移除，且 `ProductFileControl/` 扁平命名空间下已无同名遮蔽，无需别名。
 >
-> ✅ **2026-09-14 判据收敛（ADR-048）**：`DeviceStateApiCore/` 同时是目录名与命名空间末段，枚举 `DeviceState` 不再与任何命名空间段同名 → 「同名子命名空间遮蔽」不再可能发生，**新代码无需、也不应再加 using 别名**。历史别名写法已从全库代码清除。
+> ✅ **2026-09-14 判据收敛（ADR-005）**：`DeviceStateApiCore/` 同时是目录名与命名空间末段，枚举 `DeviceState` 不再与任何命名空间段同名 → 「同名子命名空间遮蔽」不再可能发生，**新代码无需、也不应再加 using 别名**。历史别名写法已从全库代码清除。
 
 **规避约定（修订）**：枚举名不要与所在命名空间末段同名；若已同名（历史原因保留），**父命名空间子树内**的使用方必须在**命名空间声明内部**使用 using 别名（文件顶 using 无效），**子树外**使用方用普通 using 即可。全项目冲突扫描确认 `DeviceState` 是唯一一处类型名/命名空间段名碰撞。
 
 ### 补充案例：方法后孤儿代码块导致类提前闭合（2026-08-28）
 
 **触发场景**：`LineLaserWorkflow.cs` 中 ~~`MapToDeviceState`~~ 方法完整闭合后，紧跟着一段 ~~`SetStep`~~ 的事件触发片段（`var handler = StateChanged; if (handler != null) {...}`）——前一轮重构的复制粘贴残留。该片段位于**类级别**（引用了不存在的 `oldStep` → CS0103），且末尾多出的 `}` 提前关闭了整个类，导致后续约 700 行全部落在命名空间级别，产生**连锁编译错误**。
-> ⛔ **2026-09-03 符号沿革**：`MapToDeviceState` 与 `SetStep` 均已在 ADR-030 完全重构中**删除**（映射改 `MapWeldStatus(phase)`，改执行步改 `RunStep` 赋值）。本案例的**根因与检测方法完全有效**，符号名仅作历史记录。
+> ⛔ **2026-09-03 符号沿革**：`MapToDeviceState` 与 `SetStep` 均已在 ADR-020 完全重构中**删除**（映射改 `MapWeldStatus(phase)`，改执行步改 `RunStep` 赋值）。本案例的**根因与检测方法完全有效**，符号名仅作历史记录。
 
 **根因**：粘贴/重写方法时只替换了方法体前半部分，旧尾部未删净。
 
 **检测方法**（本项目环境无编译器时的静态兜底，比逐项 grep 更可靠）：
 
-1. 大括号平衡用**词法状态机**判定（normal/line/block/string/char 五状态），禁用「先剥字符串再剥注释」的朴素正则——注释内的引号与 verbatim 字符串尾部 `\"` 都会造成误报（`XdocumentReaderWriter.cs` 的 `@"\Config\XML\"` 即典型）。
+1. 大括号平衡用**词法状态机**判定（normal/line/block/string/char 五状态），禁用「先剥字符串再剥注释」的朴素正则——注释内的引号与 verbatim 字符串尾部 `\"` 都会造成误报（`XdocumentReaderWriter.cs` 里形如 `@"Config\LineLaser\LineLaser_XML"` 的 verbatim 路径即典型）。
 2. 平衡只说明总数对，还要做**深度拓扑**：在 `#region/#endregion` 锚点处校验深度应恒为 2（namespace=1 + class=2）。孤儿块会使锚点深度漂移，从而精确定位结构破坏区间。
 
 **规避约定**：重构移动方法后，立即用 region 锚点深度自检；凡复制粘贴事件触发片段（`var handler = ...; handler(this, new ...EventArgs{...});`）必须整块核对唯一性。
@@ -307,7 +307,7 @@ using AdaWeldSystem.MainDeviceControl.DeviceStateApiCore;   // SubDeviceState / 
 
 **现场 B：`EmguALG/ImageAlgorithm.cs`**
 
-`public static class ImageAlgorithm`（算法算子集中约定：原 ADR-003 已于 2026-09-09 删除，现行见 ADR-038-EmguALGThreeLayer）。region 8 的 6 个数据模型（`WeldDefectType`/`WeldDefect`/`PreWeldAlignmentConfig`/`PreWeldAlignmentResult`/`WeldQualityConfig`/`WeldQualityResult`）被定义在类体内（8 空格缩进）→ 真实名为 `AdaWeldSystem.EmguALG.ImageAlgorithm.PreWeldAlignmentResult`，消费方期望 `AdaWeldSystem.EmguALG.PreWeldAlignmentResult`。
+`public static class ImageAlgorithm`（算法算子集中约定：原 ADR-004 已于 2026-09-09 删除，现行见 ADR-022-EmguALGThreeLayer）。region 8 的 6 个数据模型（`WeldDefectType`/`WeldDefect`/`PreWeldAlignmentConfig`/`PreWeldAlignmentResult`/`WeldQualityConfig`/`WeldQualityResult`）被定义在类体内（8 空格缩进）→ 真实名为 `AdaWeldSystem.EmguALG.ImageAlgorithm.PreWeldAlignmentResult`，消费方期望 `AdaWeldSystem.EmguALG.PreWeldAlignmentResult`。
 
 > 矛盾标注：该错误曾在 MonitorCam 模块首次 Ingest + Lint（2026-07-13 11:15:30）时未被检出——当时 Wiki 描述的是「命名空间级别」的预期设计，与缺陷代码表面一致，但代码实际把类型放进了既有类内部。
 

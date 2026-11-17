@@ -2,15 +2,19 @@
 title: MecaVision MVSDK 原生 API 速查
 date: 2026-09-08
 tags: [API, 相机, 监控相机, MecaVision, MVSDK, 麦格威]
+status: deprecated
 source: raw/mecavision/（SDK 原文核验抽取，2026-09-08）
 ---
 
 # MecaVision MVSDK 原生 API 速查
 
+> ⛔ **本页已废弃（2026-09-29，ADR-047）**：麦格威 MVSDK 实现层已整体退役（`MecaVisionCam.cs` / `MVSDK.cs` 删除），监控相机现行走海康官方 MVS——见 [[api/HikCam]] 与 [[decisions/ADR-047-MonitorCamSwitchToHikMvs]]。本页 API 速查仅作历史存档（`raw/mecavision/` SDK 原档仍保留可查）。
+>
+
 > **真相源**：`raw/mecavision/MecaVision_SDK…/MecaVision/Demo/C#/MVSDK/MVSDK.cs`（官方 C# 封装，**6885 行**，唯一类 = 静态类 `MvApi`）。
 > **C 原生声明基线（2026-09-14 新增）**：`raw/mecavision/MecaVision_SDK…/MecaVision/SDK/Include/` —— `CameraApi.h`（`extern "C"` 全部 API，328 KB）/ `CameraApiLoad.h` / `CameraDefine.H`（枚举·结构体）/ `CameraStatus.h`（错误码）/ `RawDecodeApi.h` / `mvocx.h`。本页的枚举、结构体与错误码可回溯该处核对——**`MVSDK.cs` 是 C# 镜像，头文件才是 C 原文**（原藏于 `Demo/VC++/Include/`，VC++ 示例裁剪时抽存）。
 > 本页全部 API 名与签名由脚本从该文件抽取核验（2026-09-08），**与厂商原文逐字一致**。
-> 落地架构约束见 [[decisions/ADR-037-MecaVisionMonitorCamera]]；开发指导见 [[guides/MecaVision-DevGuide]]；模块上下文见 [[modules/MonitorCam]]。
+> 落地架构约束见 ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）；开发指导见 [[guides/MecaVision-DevGuide]]；模块上下文见 [[modules/MonitorCam]]。
 
 ## 章节导航
 
@@ -202,6 +206,6 @@ structs = set(re.findall(r"public\s+struct\s+(\w+)", t))
 ## 相关页面
 
 - [[guides/MecaVision-DevGuide]] —— 开发指导（落地步骤/映射表/踩坑）
-- [[decisions/ADR-037-MecaVisionMonitorCamera]] —— 监控相机切换麦格威架构决策
+- ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） —— 监控相机切换麦格威架构决策
 - [[modules/MonitorCam]] —— 监控相机模块现状
 - [[api/MonitorCamManager]] —— 现役运行控制（本 API 的唯一消费入口）

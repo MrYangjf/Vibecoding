@@ -157,7 +157,7 @@ using EtherCAT_DLL_x64;      // strDLL_Path = "EtherCAT_DLL_x64.dll"  (x64)
 | `Master_Open` 返回卡数 0 | 驱动未装 / 板卡未插好 | 设备管理器；确认 STEP 1 |
 | `BadImageFormatException` | 位数不匹配（x86 库配 x64 进程，或反之） | 查 §4；确认 `PlatformTarget` 与 DLL 名 |
 | `DllNotFoundException: EtherCAT_DLL_x64.dll` | `bin` 输出目录缺库 | 查 §5 第 7/8 项；确认构建已跑 `CopyNative3rdDependToOutput` |
-| `Check_Initial_Done` 长期返回 1 或 99 | 从站未上电 / ESI 不匹配 / 网线未接 | `OpState==3` 判据；用 EcNavi (`app\EcNavi_x64.exe`) 扫描 |
+| `Check_Initial_Done` 长期返回 1 或 99 | 从站未上电 / ESI 不匹配 / 网线未接 | `OpState==8`(位掩码 0x08) 判据；用 EcNavi (`app\EcNavi_x64.exe`) 扫描 |
 | `0x1002` 错误码 | **模式切换失败**（`ERR_ECAT_MODE_CHANGE_FAILED`） | 不是「从站初始化失败」——规范页早期误注，已订正 |
 | EcNavi 找不到从站型号 | 缺 ESI 文件 | 放 `C:\EtherCAT\ESI\`，由硬件厂商提供 |
 
@@ -168,5 +168,5 @@ using EtherCAT_DLL_x64;      // strDLL_Path = "EtherCAT_DLL_x64.dll"  (x64)
 - [[guides/DeltaEtherCAT-DevGuide]] — 台达落地开发规范（API / 调用范式 / 错误码）
 - [[modules/MotionControl]] — 运控模块（三层架构）
 - [[api/DeltaEtherCAT-Native]] — 台达原生 API 全量速查
-- [[decisions/ADR-032-MotionControllerDeltaReplacement]] — 台达替换决策
-- [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地（含原生依赖段改写）
+- [[decisions/ADR-027-MotionControllerDeltaReplacement]] — 台达替换决策
+- ADR-027（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） — 正运动移除与台达落地（含原生依赖段改写）

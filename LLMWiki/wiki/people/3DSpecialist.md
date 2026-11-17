@@ -22,7 +22,7 @@ PCLOperate/                            ← 点云模块（目录 = 命名空间 
 ├── DataIO/                            PointCloudReader, PointCloudWriter     ns ...PCLOperate.DataIO
 └── Render/                            PointCloudViewer, RenderConfig, SurfaceTriangulator   ns ...PCLOperate.Render
 
-> **2026-09-14 目录对齐（ADR-048）**：原 `3DModel/` → `Models/`；模块目录名 `PointCloudData/` → `PCLOperate/`（wiki 页名仍为 [[modules/PointCloudData]]）。原列出的 `File3DManager` / `PointCloudFilter` / `MeshBuilder` / `ColorMapper` / `CoordinateTransformer` / `BoundingBoxCalculator` 在现仓库中**不存在**（历史规划，已并入上述三目录）。
+> **2026-09-14 目录对齐（ADR-005）**：原 `3DModel/` → `Models/`；模块目录名 `PointCloudData/` → `PCLOperate/`（wiki 页名仍为 [[modules/PointCloudData]]）。原列出的 `File3DManager` / `PointCloudFilter` / `MeshBuilder` / `ColorMapper` / `CoordinateTransformer` / `BoundingBoxCalculator` 在现仓库中**不存在**（历史规划，已并入上述三目录）。
 
 ## 技术要点
 

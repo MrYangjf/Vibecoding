@@ -3,6 +3,7 @@ title: HonorMachineTest IO 监控与执行参考基线
 date: 2026-09-07
 tags: [API, IO, 线程模型, 参考基线, DeviceStatusWork, 流程编排]
 source: "E:\\SoftwareGit\\HonorMachineTest\\PcomDeviceInterface\\Work\\（MachineControlWork.cs（外部参考项目原文件名，本项目现役 DeviceControlWork.cs） + MachineStatusWork.cs（外部参考项目原文件名，本项目现役 DeviceStatusWork.cs） + Process/）"
+type: reference（外部项目离线参考，本项目无代码对应）
 ---
 
 # HonorMachineTest IO 监控与执行参考基线
@@ -159,7 +160,7 @@ if (CommenData.CurrentStatus != MachineStatus.Alarm
 | 项 | 原因 |
 |---|---|
 | 物理 IO 直读（`montionManager.InputXxx.IsON()` 散落全方法） | 本项目为虚拟 IO 中转，三种触发源统一入口 `SetVirtualIo`，扫描器不区分来源 |
-| `CommenData.CurrentStatus` 全局静态状态 | 本项目已收敛为 `DeviceControlWork.Current`（单一控制源，ADR-027） |
+| `CommenData.CurrentStatus` 全局静态状态 | 本项目已收敛为 `DeviceControlWork.Current`（单一控制源，ADR-023） |
 | `MessageBox.Show` 出现在流程层（`ClearMachineStatus` 里点检提示） | 违反分层，UI 交互不得下沉到设备流程 |
 | `Task.WaitAll` 阻塞主线程等复位 | 本项目初始化链已改为「出结果即退出」，等待有界且可区分失败/超时 |
 | 无 `IsClose` 优雅退出（`while(true)`） | 本项目 `_running` + `IsCloseWork` 标志位，禁 Abort |

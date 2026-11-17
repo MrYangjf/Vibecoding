@@ -1,7 +1,9 @@
 ﻿---
 title: C# 语言与编译常见陷阱汇总
 date: 2026-08-18
+updated: 2026-10-30
 tags: [教训, C#, 编译错误, 汇总]
+status: active
 ---
 
 # C# 语言与编译常见陷阱汇总
@@ -39,7 +41,7 @@ public MyClass() { X = 1; }
 
 #### 完整禁止清单
 
-参见 [[decisions/ADR-002-CS73-Constraint]]
+参见 [[decisions/ADR-001-CS73-Constraint]]
 
 ---
 
@@ -153,7 +155,7 @@ static class GlobalCommData
 
 - 新增枚举时，先搜索整个项目确认是否已有同名定义
 - 枚举统一定义在最上层使用它的命名空间中
-- 参见 [[decisions/ADR-017-EnumDeduplication]]
+- 参见 [[decisions/ADR-003-EnumDeduplication]]
 
 ---
 
@@ -185,6 +187,20 @@ static class GlobalCommData
 
 - 命名空间重构后，类的物理目录变化导致命名空间层级变化
 - 多个目录下的文件定义了同名类型，合并到不同命名空间层级后产生遮蔽
+
+### 2.3 父命名空间的 using 不导入嵌套命名空间（Emgu `CvEnum`）
+
+#### 问题描述
+
+`using Emgu.CV;` 之后写 `CvEnum.CapProp.FrameCount` 仍报 **CS0103「当前上下文中不存在名称 CvEnum」**：`Emgu.CV.CvEnum` 是**子命名空间**，父命名空间的 using 不能替代对该子命名空间的引用。
+
+#### 修复方案
+
+显式补 `using Emgu.CV.CvEnum;`，使用处简化为 `CapProp.FrameCount` / `CapProp.Fps` / `CapProp.PosFrames`。
+
+#### 经验
+
+反射能证明 `Emgu.CV.CvEnum` 是命名空间（`GetType("Emgu.CV.CvEnum.CapProp")` 可取到），但**静态校验抓不到作用域解析**；此类 CS0103 只有真编译暴露。2026-10-30 监控相机回放轮命中（静态 25/25 PASS 后由 VS18 BuildTools MSBuild `/t:Rebuild` 报出 3 处 CS0103）。
 
 ---
 
@@ -289,7 +305,7 @@ MSBuild ... /t:Build
 ### 3.3 接口与基类成员不同步导致 CS1061（接口类型上找不到成员）
 
 > 2026-08-19 实战：故障恢复新增 `FaultOccurred` 事件时只加在了状态机基类，漏加了对应接口，导致订阅处 `sm.FaultOccurred += ...` 编译报 CS1061。**泛型教训**：事件若声明在基类，接口契约必须同步声明，否则通过接口类型订阅会编译失败。
-> 注：当时的 `DeviceStateMachineBase` / `IDeviceStateMachine` / `MainDeviceThread` 已于 2026-08-28 架构整合中删除（`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-028），此处保留事件-接口同步的通用教训。
+> 注：当时的 `DeviceStateMachineBase` / `IDeviceStateMachine` / `MainDeviceThread` 已于 2026-08-28 架构整合中删除（`MainDeviceThread` → `MainDeviceWorkflow` → 现为 `DeviceControlWork`，ADR-034），此处保留事件-接口同步的通用教训。
 
 #### 问题描述
 
@@ -365,3 +381,6 @@ MSBuild ... /t:Build
 5. `NamespaceClassNamingConflict.md` — 命名空间与类同名冲突
 6. `XElementToStringConversion.md` — XElement 到 string 隐式转换编译错误
 7. `ZMotionNative-DuplicateDllImport-CS0111.md` — ZMotionNative 重复引入 DllImport 方法导致 CS0111
+## 相关页面
+
+- [[index/index]]

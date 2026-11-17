@@ -43,7 +43,7 @@ python3 <skill_dir>/scripts/csharp_review.py <目标文件.cs> --verbose
 **A 类检查要点**：
 - 成员顺序：私有变量 → 公共变量 → 构造函数 → 私有函数 → 公共函数
 - 每个区域用 `#region`/`#endregion` 包裹，region 名用中文类型名
-- private 方法不写 `///` 注释；public 方法必须写
+- `public`/`protected` 方法**新增或改动必写** `///`（存量欠账不追溯，不设全库清零目标）；`private` 方法**允许且建议写** `///` 做总结（不强制，且**不得据此删除既有 private `///`**）；无论公私，写了就要 summary 一行 + param/returns 完整
 - `/// <summary>` 20 字内，只说"做什么"不写过程；每个 `<param>` 有实质说明；有返回值写 `<returns>`
 
 **B 类检查要点**（9 项禁止，每项在 references 中有 AI 常犯错误展开）：

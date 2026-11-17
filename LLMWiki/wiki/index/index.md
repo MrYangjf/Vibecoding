@@ -1,19 +1,10 @@
 # Wiki Index — AdaWeldSystem 知识库索引
 
-> 内容导向索引。AI 回答查询前必须先读取本文件定位相关页面。
-> 最后更新：2026-09-14（新增 **ADR-044** 焊接算法配置合一 → ~~`SeamGuideConfig`~~ + ~~`WeldParamAdjustmentConfig`~~ 合并为单一 `WeldAlgorithmsConfig`（XML 两节名与文件路径不变、存量配置零迁移），Manager 收敛为一实例 `AlgorithmsConfig` + 一对 `LoadAlgorithmsConfig()` / `SaveAlgorithmsConfig()`；同日新增 **ADR-043** 算法纯净性与记录职责隔离 → `WeldParamAdjustmentAlgorithm` 去记录化（改触发 `FrameRecordRequested` / `AdjustmentRecordRequested` / `AbortRecordRequested` 事件）+ 新增教训页 [[lessons/AlgorithmControlRecordIsolation]]；`ProductFileManager/` 目录改名 `ProductFileControl/`（命名空间不动），csproj 路径已同步；此前同日新增 **ADR-041** WeldParamControl 算法分层、**ADR-042** 模块组织范式沉淀 → 新增标准页 [[standards/ModuleOrganizationPattern]]（Core + 抽象层 + 实现层 + Manager 四件套，按是否基于第三方库分两场景）；ADR 现行 **001~048 连续**（041~048 均为 2026-09-14 当日新增/废弃演进），[[decisions/ADR-Index]] 同步补登。**同日新增 ADR-048 命名空间与目录严格对齐**——`namespace = AdaWeldSystem + 目录路径`，覆盖 UIDesign/MainDeviceControl/Comm/SQLiteDBControl 四组错位共 68 文件，并在 wiki 全库回写目录/命名空间表述（厂商 SDK 与 `ProductFileControl/` 扁平目录为登记例外）。此前 2026-09-11：新增 **ADR-040** 线激光引导 Y 轴轨迹构造；2026-09-09：全库知识治理删除 4 项整页失效 ADR 并重排为 001~038、新增 ADR-039）
-> **架构真源**：`raw/architecture/` 三份原档（ADR-028） > `wiki/architecture/DeviceControlArchitecture.md` > 代码注释。**任何架构问题以 ADR-027 三态模型为准**，`decisions/` 下的旧 ADR 均为决策史，不代表现行约束。
-> **三态模型（ADR-027）**：旧「设备四态 `DeviceState` + 泛型 `DeviceWorkflowBase<TStep>` + 流程态」模型已全部删除，改为 `SubDeviceState`(连接态) / `SubDeviceWeldStatus`(焊接过程态) / `MainDeviceStatus`(主设备运行态) 三态 + 各工作流私有阶段枚举；「步骤驱动」「自动手动双流程」两套旧模型均已于 2026-09-03 清除，现行规范唯一出处 = [[architecture/DeviceControlArchitecture]]
-> **架构原档沉淀 `raw/architecture/`（ADR-028）**：**2026-09-04 扩为 3 份**——`主控设计.xlsx`（成员级静态结构）+ `激光焊接系统业务流程图20260904.md`（业务流 + 检查清单 + IO 触发 + 命令全表，**主源**）+ `激光焊接系统业务流程图.pdf`（图形备份）；旧两份 PDF 及 3 张渲染图已删除。为架构唯一修改入口，改原档→同步架构页）
-> **原档 9-03 细化（ADR-029，✅ accepted，用户已裁定）**：基类 17 项契约 + 5 子工作流差异化职责 + `DeviceControlWork` 7 线程模型（5 子设备 + 2 通讯）+ **Preworking 五项运行检查 / Working 四路焊接子流程**（代码基本缺失）。**7 项冲突已逐条裁定——新档是完全重构而非对旧文档的补充**：清除基类监听线程 / `GoStep` 改步 / 命令三槽 / const int 指令表 / 机器人 pose 监控。**架构页已按裁定整体重写**，落地清单见 [[architecture/DeviceControlArchitecture]] §15
-> 近期变更以 `logs/log.md` 为准（本索引仅结构化索引，不内联日志内容，遵循 AGENTS.md 规范）。
+> 内容导向路由索引。AI 回答查询前先读本文件定位相关页面，再读目标页。
+> **最后更新：2026-10-30（全库治理轮：ADR 编号重编为 001~078 连续；本文件由 `tools/wiki_index_build.py` 生成，勿手工编辑分类表）**
 >
-> **路径说明**：本文件位于 `wiki/index/index.md`，是知识库索引的**唯一规范位置**。
->
-> **三层「规范性」分类判据（2026-09-01 确立）**：
-> `standards/` = **必须遵守**的强制规范（由下方速查路由自动触发）
-> `lessons/` = **踩过什么坑**的教训门禁（编码前逐条确认规避）
-> `guides/` = **怎么做**的操作型指导与参考手册（查阅型，非强制非教训）
+> **格式契约**：见 [[standards/WikiPageFormatSpec]]——各页结构、字段、增长规则与脚本工具链的唯一规范。
+> **详细叙事一律在 `logs/log.md`**，本页只做路由。
 
 ---
 
@@ -23,34 +14,56 @@
 
 | 你要做的事 | 直接读这 1~3 页 | 硬约束提示 |
 |---|---|---|
-| **代码精简 / 注释精简 / 日志规范** | [[standards/CodeSimplification]] | 强制排除的只有 `*.Designer.cs`，见 [[lessons/CodeSimplification-Scope-DesignerOnly]] |
-| **UI 状态判断 / 按钮 text / 连接态刷新** | [[standards/UiStateSimplification]] | 与 CodeSimplification 互补，二者都要看 |
-| **流程与子设备权责 / 这个事件该不该放流程** | [[standards/WorkflowResponsibilityBoundary]] | 判据「数据是设备的，进度是流程的」，R1~R5 |
-| **新增/改造一个模块 / 抽象层·实现层·Manager 怎么摆 / 封装第三方库** | [[standards/ModuleOrganizationPattern]] | 判据「抽象层 + 实现层 + Manager 三件套；第三方库场景另加 Core」；所有功能实现类须继承抽象类，Manager 是唯一对外访问口（ADR-042） |
-| **流程怎么推进 / 步骤编号 / 卡在哪一步 / 超时判定** | **[[architecture/DeviceControlArchitecture]] §5 + §16.3**（⛔ 旧标准 [[standards/StepDrivenWorkflow]] 已于 2026-09-03 整页废弃） | 现行：`RunStep` 由**每个 `case` 内 bool 判定**推进（**无 `GoStep` 入口**）；步号段位、改步必刷新步骤计时见架构页 §5；步号常量与单步方法命名见 [[lessons/StepMemberNameCollision]]；**停机久了再开机报超时**见 [[lessons/DeviceControlWorkInheritanceBypass]] 坑五 |
-| **写日志 / 日志标签怎么定 / `Tag` 有什么用** | [[api/GlobalCommData]] + [[standards/CodeSimplification]] §三 | `Tag` 是**日志标签**（不是死成员）；设备日志直连 `GlobalCommData.ShowLog`，通讯报文走 `ShowCommunicationLog`；子工作流用基类 `Tag` + `Log(...)`，独立管控类用 `_tag` |
-| **用户改了 `raw/architecture/` 原档，要同步架构** | [[architecture/DeviceControlArchitecture]] §15 + [[decisions/ADR-029-RawDesignRefinement20260903]] | 原档 > 架构页 > 源码注释；**冲突须用户裁定**（ADR-028 §3）；裁定后按 §15.2 五个批次推进改码 |
-| **设备状态 / 工作流 / 上电初始化 / 状态机** | [[architecture/DeviceControlArchitecture]] → [[modules/DeviceControl]] | 三态模型：`SubDeviceState`(连接态) / `SubDeviceWeldStatus`(焊接过程态) / `MainDeviceStatus`(主设备运行态)；状态写入唯一入口 `SetState`/`SetWeldStatus`/`SetStatus`，禁手工赋值 |
-| **新增或修改一个工作流** | **[[architecture/DeviceControlArchitecture]] §4 + §16**（契约与代码模板）+ [[modules/DeviceControl]] | ⚠️ 改码前必读 §16。现行契约 **17 项**（5 属性 + 10 阻塞方法 + 2 非阻塞方法）：`FlowProcess`/`ResetProcess` 双流程由 `RunStep` 驱动；连接分**阻塞组** `InitializeOn`/`InitializeOff` 与**非阻塞组** `ConnectOn`/`ConnectOff`；状态清理 `ClearStatus`、计时刷新 `ResetWorkTime`、焊接态切换 `WeldStatusTrans`；**每个子流程各自重写 `SubDeviceLog()`（public）**；配置读写 `LoadConfig()`/`SaveConfig()` **无参**，走本项目 `XdocumentReaderWriter`，**子设备各自持有配置路径**（§4.6 / §16.8）。过程态经 `SetWeldStatus(MapWeldStatus(...))`；**子流程不自带线程** |
-| **安全检查 / 安全互锁 / 故障恢复** | [[api/DeviceStatusWork]] + [[api/FaultRecoveryManager]] | 故障恢复 2026-09-01 已归口 [[modules/ProductFileManager]]；记录 key 与注册 key 必须同源，见 [[lessons/FaultRecoveryDeviceKey]] |
-| **线激光相机（族总览 / 取相机 / 切模拟）** | [[modules/LineLaserCam]] + [[api/LineLaserManager]] | 三层：`ILineLaser/` 抽象 + 英莱/虚拟实现 + `LineLaserManager` 唯一入口；⛔ `CameraSelector`/`ICameraRun`/SmartRay/海康 3D 已删 |
-| **线激光结果怎么用 / Y 轴轨迹 / 主页面取点 / 显示开关** | [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]] + [[api/SeamTrackingAlgorithm]] + [[api/LineLaserManager]] | 结果侧 `LineLaserManager` **只转发 `ResultReady`**（不写 PVT）；Y 轴轨迹由 [[api/WeldParamManager]] 持有的 [[api/SeamTrackingAlgorithm]] 计算 `PVTPoint[]`，[[api/MotionControlWorkflow]] 写入控制器（滤波/超限剔除/单调约束/标定转换，≤250ms 一段）；**主页面轮询** `Profile` 快照（33ms + 版本号）；**手动页订阅** `MatUpdated`；显示处理默认关，UI 调 `SetDisplayOptions` 决定何时开 |
-| **英莱相机参数 / Job / 传感器** | [[modules/IntelligentLaserCam]] + [[lessons/IntelligentLaser-Pitfalls]] | 参数以设备为唯一真相源，禁离线缓存 |
-| **监控相机 / 焊中质检** | [[modules/MonitorCam]] + [[api/MonitorCamManager]] | 三层结构（ADR-037）：健康巡检在 `MonitorCamManager`，不在工作流 |
-| **监控相机换麦格威（MecaVision MVSDK）** | [[guides/MecaVision-DevGuide]] + [[api/MecaVisionMVSDK-Native]] + ADR-037 | 新 SDK 走 `MecaVisionCameraApi` 实现现有 `IMonitorCameraApi`（不新建平行模块）；API 名已对 SDK 原文核验零臆造；⛔ 例程 bin 的 `MVSDK.dll` 勿用 |
-| **EmguALG 算法三层改造（2026-09-08）** | [[modules/EmguALG]] + [[api/AlgorithmManager]] | 三层 Abstractions + WireFeedDistance/WeldQuality + AlgorithmManager；删旧 Job 流水线；决策 ADR-038（真编译待 VS） | #算法 #EmguALG #三层架构 |
-| **运控（台达 EtherCAT，2026-09-07 换轨）** | [[modules/MotionControl]] + [[api/MontionManager]] + [[guides/DeltaEtherCAT-DevGuide]] | ⛔ 正运动已整体移除；三层 L1 `Native/` · L2 `IMotion/` · L3 `DeltaEtherCAT/` + 业务层 `MontionManager`；焊缝跟踪高级运动方案 OPEN |
-| **台达 EtherCAT 运动控制模块（全新设计）** | [[guides/DeltaEtherCAT-DevGuide]] + [[api/DeltaEtherCAT-Native]] + [[api/LeadshineLSnmc-Reference]] | 目录结构与对外消费按原档；雷赛为参考基线；振镜/对焦归焊接头；API 名以 SDK 头文件为准 |
-| **焊接工艺计算 / 功率送丝摆幅** | [[modules/WeldParamControl]] + [[api/WeldParamManager]] + [[api/WeldParamControlWorkflow]] | `TriggerAdjustment()` 无参；不入上电级联；算法分层（ADR-041）+ 算法去记录化/配置化（ADR-043）+ 算法配置合一（ADR-044） |
-| **AntdUI 控件用法 / 迁移 / 设计范式** | [[guides/AntdUI-Reference]] | 禁用 SunnyUI |
-| **WinForms 设计器报错 / 控件不显示** | [[guides/WinForms-Designer]] | Designer.cs 不可手改 |
-| **跨线程更新 UI / InvokeRequired** | [[guides/WinForms-UI-Threading]] | 后台线程禁止模态弹窗 |
-| **编译错误 / 命名空间 / 新文件不参与编译** | [[guides/Namespace-Compilation]] | 新建 .cs 必须注册 .csproj（§1.1） |
-| **日志追加位置 / 批量重命名 / .csproj / VibeCoding** | [[guides/Project-Tools]] | 日志必须追加到**文件顶部** |
-| **源码/知识库云端备份 / 推送拉取 GitHub / 本地远端一致性校验** | [[guides/SourceBackup-GitHub]] | 双仓（代码 + LLMWiki）；SSH over 443；忽略 3rdDepend |
-| **INI / SQLite / XML 配置读写** | [[guides/Config-Data-Tools]] | — |
-| **产品记录 / 过程数据归档** | [[modules/ProductFileManager]] | ADR-026 + ADR-046（三记录类 + Manager，ADR-043 订阅方已闭环） |
-| **改任何 C# 代码前的通用门禁** | [[lessons/CSharp-Language-Pitfalls]] | C# 7.3，禁 C# 8+ 语法（ADR-002） |
+| 不知道某功能在哪块代码 / 代码依附关系 / 要不要全盘扫代码 | [[architecture/CodeMap]]（总览·代码记忆卡）+ [[architecture/CodeMap-Files]]（详表） | ⛔ Phase0 先读总览建立代码记忆，命中再读具体代码块；禁一上来全库 Grep；逐文件查详表 |
+| 第一次评审优化（41 条需求）在做什么 / 改动落在哪 | [[project/ReviewOptimization-P1-StructureDesign]] + [[architecture/CodeMap]] | P1 五份产物；⛔ P2 落地后结构冻结，只可追加不可挪位 |
+| 代码精简 / 注释精简 / 日志规范 | [[standards/CodeSimplification]] | 强制排除仅 `*.Designer.cs`；约束归知识库，0 消费预留成员禁删 |
+| UI 状态判断 / 按钮 text / 连接态刷新 | [[standards/UiStateSimplification]] | 与 CodeSimplification 互补，二者都要看 |
+| 流程与子设备权责 / 这个事件该不该放流程 | [[standards/WorkflowResponsibilityBoundary]] | 判据「数据是设备的，进度是流程的」，R1~R5 |
+| 新增/改造一个模块 / 抽象层·实现层·Manager 怎么摆 | [[standards/ModuleOrganizationPattern]] | 判据「抽象层+实现层+Manager 三件套」；Manager 唯一对外访问口 |
+| 流程怎么推进 / 步骤编号 / 卡在哪一步 / 超时判定 | [[architecture/DeviceControlArchitecture]] §5 + §16.3 | 现行 `RunStep` 由每个 `case` 内 bool 判定推进，无 `GoStep` 入口 |
+| 写日志 / 日志标签怎么定 / `Tag` 有什么用 | [[api/GlobalCommData]] + [[standards/CodeSimplification]] §三 | `Tag` 是日志标签非死成员；设备日志直连 `ShowLog` |
+| 用户改了 `raw/architecture/` 原档，要同步架构 | [[architecture/DeviceControlArchitecture]] §15 + [[decisions/ADR-035-RawDesignRefinement20260903]] | 原档 > 架构页 > 源码注释；冲突须用户裁定后按 §15.2 推进 |
+| 设备状态 / 工作流 / 上电初始化 / 状态机 | [[architecture/DeviceControlArchitecture]] → [[modules/DeviceControl]] | 三态模型；状态写入唯一入口 `SetState`/`SetWeldStatus`/`SetStatus` |
+| 新增或修改一个工作流 | [[architecture/DeviceControlArchitecture]] §4 + §16 + [[modules/DeviceControl]] | ⚠️ 改码前必读 §16；现行契约 17 项，配置读写无参，子设备各自持有配置路径 |
+| 安全检查 / 安全互锁 / 故障恢复 | [[api/DeviceStatusWork]] + [[modules/ProductFileManager]] | 故障恢复已归口产品记录模块；记录 key 与注册 key 必须同源 |
+| 线激光相机（族总览 / 取相机 / 切模拟） | [[modules/LineLaserCam]] + [[api/LineLaserManager]] | 三层：`ILineLaser/` 抽象 + 英莱/虚拟实现，Manager 唯一入口 |
+| 线激光结果怎么用 / Y 轴轨迹 / 主页面取点 | [[decisions/ADR-042-SeamTrackingConsolidated]] + [[api/SeamMapTrackingAlgorithm]] + [[api/MotionControlWorkflow]] | 结果侧只转发 `ResultReady`；CSP 默认、PVT 备用，主页面轮询快照 |
+| 英莱相机参数 / Job / 传感器 | [[api/IntelligentLaserCam]] + [[lessons/IntelligentLaser-Pitfalls]] | 参数以设备为唯一真相源，禁离线缓存 |
+| 监控相机 / 焊中质检 | [[modules/MonitorCam]] + [[api/MonitorCamManager]] | 巡检在 Manager 不在工作流；实现层海康 MVS；页 Tabs 化（设置/回放） |
+| 监控相机换麦格威（MecaVision MVSDK） | [[guides/MecaVision-DevGuide]] + [[api/MecaVisionMVSDK-Native]] | ⛔ 载体已退役：现行实现走海康 MVS，见 [[api/HikCam]] |
+| EmguALG 算法三层改造 | [[modules/EmguALG]] + [[api/AlgorithmManager]] | 三层 Abstractions + 实时监测 + Manager 统一调度 |
+| 运控（台达 EtherCAT） | [[modules/MotionControl]] + [[api/MontionManager]] + [[guides/DeltaEtherCAT-DevGuide]] | ⛔ 正运动已移除；三层 Native/IMotion/DeltaEtherCAT + Manager 业务层 |
+| 台达 EtherCAT 运动控制模块（全新设计） | [[guides/DeltaEtherCAT-DevGuide]] + [[api/DeltaEtherCAT-Native]] | 目录结构与对外消费按原档；API 名以 SDK 头文件为准 |
+| 焊接工艺计算 / 功率送丝摆幅 | [[modules/WeldParamControl]] + [[api/WeldParamManager]] + [[api/WeldParamControlWorkflow]] | `TriggerAdjustment()` 无参；算法分层 + 去记录化 + 配置合一 |
+| AntdUI 控件用法 / 迁移 / 设计范式 | [[guides/AntdUI-Reference]] | 禁用 SunnyUI |
+| WinForms 设计器报错 / 控件不显示 | [[guides/WinForms-Designer]] | Designer.cs 不可手改 |
+| 跨线程更新 UI / InvokeRequired | [[guides/WinForms-UI-Threading]] | 后台线程禁止模态弹窗 |
+| 编译错误 / 命名空间 / 新文件不参与编译 | [[guides/Namespace-Compilation]] | 新建 .cs 必须注册 .csproj（§1.1） |
+| 日志追加位置 / 批量重命名 / .csproj / VibeCoding | [[guides/Project-Tools]] | 日志须追加到文件顶部；见 [[standards/WikiPageFormatSpec]] §2.5 |
+| 源码/知识库云端备份 / 推送拉取 GitHub | [[guides/SourceBackup-GitHub]] | 双仓（代码 + LLMWiki）；SSH over 443；忽略 3rdDepend |
+| INI / SQLite / XML 配置读写 | [[guides/Config-Data-Tools]] | 配置读写与工具手册 |
+| 产品记录 / 过程数据归档 | [[modules/ProductFileManager]] | 三记录类 + Manager；订阅方已闭环 |
+| 改任何 C# 代码前的通用门禁 | [[lessons/CSharp-Language-Pitfalls]] | C# 7.3，禁 C# 8+ 语法（ADR-001） |
+| 写/改静态校验脚本 / 编译错误根因排查 | [[lessons/StaticVerifierJudgements]] + [[lessons/StaticCheckSemanticBlindSpots]] + [[lessons/SignatureAndWiringConsistency]] | 判据全文库九章；绿灯≠构建过（语义错误只有编译器能定） |
+| 判据不生效 / 阈值自锁 / 改配置默认值没生效排查 | [[lessons/JudgementThresholdScaleMismatch]] + [[lessons/AlgorithmControlRecordIsolation]] | 阈值须大于信号量子；配置默认值≠生效值（现场 INI 会覆盖） |
+| 改 UI 布局 / 设计器删控件 / 图表重排后编译报错 | [[lessons/UiLayoutChangeSyncPitfalls]] + [[lessons/UiRefreshUnifiedEntry]] | 改版后全量 Grep 后置引用逐条收敛；状态刷新走 `RefreshUi` 单入口 |
+| 删一个 UI 功能模块 / 控件本体与专属字段怎么连带清理 | [[lessons/UiModuleRemovalCleanup]] + [[guides/AntdUI-Reference]] | 控件 4 落点+专属字段+Span 占位同批清；零引用≠死成员，须查读取点 |
+| 启动即崩 / 界面未生成就开硬件 / UI 回调空引用 | [[lessons/StartupInitializationOrderGates]] | 静态构造禁重入日志；`IsUiReady` 门控按拍重试；回调判句柄状态 |
+| 查 AntdUI 控件 / 设备 SDK 用法 | [[lessons/DocDemoDllLookupOrder]] | 顺序不可跳级：源码文档 → 官方 demo → DLL 侦查（设备 SDK 先厂商 demo） |
+| AntdUI Modal.Config 编译报错（Form→Target 误报） | [[lessons/AntdUI-Modal-Config-Overload-Cascade]] | 第三参数未定义触发重载解析级联；owner 用 `Form.ActiveForm` |
+| 模拟测试 / 虚拟相机 / 轨迹记录 | [[lessons/SimulationAutoBranching]] | 连接态纯计算派生不缓存；记录模式另开一路防早退丢轨迹 |
+| 第三方原生 DLL 报 NullReferenceException | [[lessons/MecaVision-NativeDllLoadNRE]] | 静态构造 LoadLibrary 失败静默返回 Zero；3rdDepend 落文件≠部署完成 |
+| GitHub 推送拉取失败 / Wiki 批量改页脚本 | [[lessons/GitHubSyncPitfalls]] + [[lessons/WikiDriftCorrectionPitfalls]] | 推送前四查；wiki 页 LF 入库，脚本按字节读写原样回写 |
+| 流程规则 / 编码前要过哪些门禁 | [[rules/Rules-Index]]（编号唯一权威） | ⛔ rules/ 只收流程执行类；index 第十二节 → Rules-Index → 规则页 |
+| 批量改 wiki 页 / 行尾乱了 / diff 变整文件 | [[lessons/WikiDriftCorrectionPitfalls]] | ⛔ 按字节读写；joiner 必须与 splitter 匹配；整文件 diff 先归因 |
+| 批量替换脚本 / 锚点命中 0 / 替换串含被替换串 | [[lessons/StaticVerifier-Batch-Script-Traps]] | ⛔ 先干跑校验全部锚点；失败集可二分即先自审判据 |
+| 新增规则 / 规则要演进 / KR 编号怎么分配 | [[rules/Rules-Index]] + [[standards/WikiPageFormatSpec]] §三 | ⛔ 先合并后新建；新号 = max+1；废止不回收编号 |
+| 出包 / 备份包 / output 与 backup 的区别 | [[rules/KR-011-Backup-Output-Timing]] | ⛔ backup 在改码前、output 在定稿后；时机不可互换 |
+| 无编译器 / 静态检查能不能算通过 | [[rules/KR-010-No-Compiler-Honesty]] | ⛔ 静态检查 ≠ 构建通过；语义缺陷只有编译器能定 |
+| Skill 与 wiki 冲突 / 该信哪个 | [[rules/KR-004-Skill-Demoted]] + [[rules/KR-013-Skill-Pointer-Discipline]] | ⛔ wiki 优先；Skill 只写机制，不写死内容页名 |
+| 页面格式 / 摘要多长 / 这页该不该拆 / 能不能新建页 | [[standards/WikiPageFormatSpec]] | ⛔ index 摘要 ≤120 字符；ADR/教训/规则一律先合并后新建 |
+| 规则归哪类 / 内容类规则能不能进 rules | [[standards/WikiPageFormatSpec]] §2.4b | ⛔ rules/ 只收流程执行类；内容类归 lessons/standards/decisions |
+| 硬件故障文案写在哪 / 流程层能不能拼状态字报警码 | [[architecture/DeviceControlArchitecture]] §10.8 + [[decisions/ADR-095-hardware-fault-tree-ownership]] | ⛔ 故障文本只由硬件 Manager 产出；流程只附诊断引用，UI 只展示成品 |
 
 ---
 
@@ -58,348 +71,279 @@
 
 | 章节 | 内容 | 何时看 |
 |---|---|---|
-| [一、项目总览](#一项目总览) | 概览、架构、工作流规范 | 接手项目 / 全局理解 |
-| [二、模块详解](#二模块详解) | 16 个模块页面 | 定位代码归属 |
-| [三、API 参考](#三api-参考) | 35 个公开接口页面 | 调用前查契约 |
-| [四、规范标准 standards](#四规范标准-standards强制) | 5 规范 + 4 深反例 | **必须遵守** |
-| [五、历史教训 lessons](#五历史教训-lessons门禁) | 19 条坑 | **编码前门禁** |
-| [六、操作指导 guides](#六操作指导-guides怎么做) | 12 本手册 | 查「怎么做」 |
-| [七、设计决策 ADR](#七设计决策-adr) | 48 条（001~048 连续），按有效性分组（编号总表 + 1 条已裁定关闭的 OPEN） | 理解「为什么」/ 查约束 |
-| [八、归档文档](#八归档文档) | 2 页历史 | 追溯，不引用 |
+| [一、项目总览](#一项目总览) | 3 个页面 · 概览 / 架构 / 工作流规范 | 概览 / 架构 / 工作流规范 |
+| [二、模块详解](#二模块详解) | 16 个页面 · 模块边界与协作 | 模块边界与协作 |
+| [三、API 参考](#三api参考) | 45 个页面 · 公共契约（调用前查） | 公共契约（调用前查） |
+| [四、规范标准](#四规范标准) | 13 个页面 · 强制遵守（违反即不合格） | 强制遵守（违反即不合格） |
+| [五、历史教训](#五历史教训) | 47 个页面 · 47 条坑 · 编码前门禁（逐条规避） | 编码前门禁（逐条规避） |
+| [六、操作指导](#六操作指导) | 14 个页面 · 怎么做（查阅型） | 怎么做（查阅型） |
+| [五、历史教训 lessons](#五历史教训) | 47 条坑 | 编码前门禁 |
+| [七、设计决策 ADR](#七设计决策) | 100 条（001~107 连续，另 7 个旧号并入他页） | 理解「为什么」/ 查约束 |
+| [八、历史归档](#八历史归档现归-project) | 5 个页面 · 项目级台账与审计 | 追溯，不引用 |
 | [九、专员职责](#九专员职责) | 10 个角色 | 分派任务 |
 | [十、来源索引](#十来源索引) | raw/ 映射 | 溯源 |
-
-> **设备控制架构（必读）**：涉及设备状态、工作流、上电初始化、状态机时，先读 [[architecture/DeviceControlArchitecture]]。
-> 核心（**2026-09-02 ADR-027 三态模型**）：**设备四态 `DeviceState` 已删除**，改为三态——连接态 `SubDeviceState`(Disconnected/Connected) + 焊接过程态 `SubDeviceWeldStatus`(NoReset/Standby/PreWork/Working/Stopping/ErrorAborted/ManualStopped，7 态) + 主设备运行态 `MainDeviceStatus`(Running/Alarm/EStop/Stop/NoReset/Reseting)。状态写入唯一入口 `SetState`/`SetWeldStatus`/`SetStatus`，**禁止手工 `State=`/`WeldStatus=` 赋值**。
-> **非泛型基类（ADR-027）**：`Step`/`WeldStatus`/`State`/`SetWeldStatus`/`StateSwitched`/`WeldStatusChanged` 统一由非泛型 `DeviceWorkflowBase`（`DeviceStateBase`）承载；旧 `WorkflowStateBase<TStep>`/`DeviceWorkflowBase<TStep>` 已删除。子工作流只保留**私有**阶段枚举（`_phase`/`_flowState`）+ 映射 + 业务。
-> 工作流实现类位于 `MainDeviceControl/DeviceWorkflow/`，见 [[modules/DeviceControl]]、[[decisions/ADR-027-ThreeStateModelRefactor]]（现行有效）。
-> **架构不按版本代际（V1/V2/V3）描述**，只维护当前事实；历史归档内容见「八、历史归档（现归 project/）」。
-> **易误判**：`ConnectOn`/`ConnectOff`/`StateSwitched`/`WeldStatusChanged`/`State`/`WeldStatus` 由基类提供，具体工作流内 grep 不到属正常；`Instance.WeldStatus`（焊接过程态）与 `Instance.State`（连接态）是两个不同属性；主设备运行态走 `DeviceControlWork.Instance.Status`（`MainDeviceStatus`）。
-
----
+| [十二、流程规则](#十二流程规则) | 13 条（KR-001~KR-013） | Skill 流程执行强制规则 |
 
 ## 一、项目总览
 
 | 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[project/overview]] | 项目整体介绍、技术栈、**13 个顶层模块清单（2026-09-01 实测文件数）**、统计数据 | #项目 #概览 #模块清单 |
-| [[architecture/DeviceControlArchitecture]] | **设备控制架构（唯一规范页，1551 行）**：MainDeviceControl 两层目录（**2026-09-01 `DeviceState/` + `FlowState/` 合并为 `DeviceStateApiCore/`，命名空间不变**）+ **三态模型** + 状态写入唯一入口 + 焊接工艺数据链路 + 安全互锁与故障恢复 + CAMBOX 硬件实时跟踪全章 + 模块依赖与调用链（第 11 章）+ UI 接入约定。**2026-09-03 按 ADR-030 裁定整体重写（完全重构，非增量补充）**：§1 三态枚举真值（**`SubDeviceWeldStatus` 删 `Starting` 加 `NoReset`**）· **§3.1 `CommandCore` const string 指令协议（删除 pose 监控）** · **§4 基类 17 项契约（5 属性 + 10 阻塞方法 + 2 非阻塞方法；§4.4 阻塞/非阻塞职责边界）** · **§5 `RunStep` bool 驱动与超时控制** · **§6.2 五子工作流差异化职责** · **§7.2 七条常驻线程** · **§7.5 九个公共方法** · **§7.6 新业务主链** · **§7.7 Preworking 五项运行检查** · **§7.8 Working 四路焊接子流程** · **§15 落地清单（五批次改码 Plan，改码前必读）** · **§16 参考实现与代码模板（改码前必读）**：原档 R007~R014 逐类标注的 5 个参考实现（`StationProcess.cs` / `RollPressProcess.cs` / `AssemblyProcess.cs` / `MachineControlWork.cs` / `MachineStatusWork.cs`）骨架提炼 + 强制范式 S1~S8 / M1~M9 / T1~T6 + 与原档差异。不按 V1/V2/V3 代际描述，只维护当前事实 | #架构 #设备控制 #状态机 #三态模型 #流程态 #CAMBOX #安全互锁 #MainDeviceControl #依赖 #静态推导 #原档驱动 #完全重构 #RunStep #CommandCore |
-| [[project/skill-evolution]] | Skill 体系演进历史、版本变更轨迹 | #Skill #演进 |
-| [[project/vibecoding-workflow]] | VibeCoding 工作流规范（LLMWiki 原生版）；Phase 0 用 Grep 定位符号 + 按行号精确读取（Step 0.7，已废弃 code-review-graph 图谱）；**2026-09-03 补「核心规则」+ Step 2.6 正确性验证（无 C# 编译器 → Python 静态校验，须显式声明「真编译待 VS」）；2026-09-12 回灌规则 15~17（三档退役分诊 / 批量替换自引用自检 / `grep -n "^> "` 引用块陷阱）并扩写 13~14（CRCRLF 事故），现共 17 条**，与 `~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md` 对齐，冲突时以 Skill 为准 | #工作流 #规范 #VibeCoding #Step2.6 #静态校验 |
-
----
+|---|---|---|
+| [[project/overview]] | AdaWeldSystem 项目概览 | #项目 #概览 #架构 |
+| [[project/skill-evolution]] | Skill 体系演进历史 | #项目 #Skill #演进 |
+| [[project/vibecoding-workflow]] | VibeCoding 工作流 — LLMWiki 原生版 | #工作流 #VibeCoding #开发流程 |
 
 ## 二、模块详解
 
 | 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[modules/EmguALG]] | 图像算法模块（**2026-09-08 ADR-038 三层改造**）：Abstractions + RealtimeMonitor(WireFeedDistance/WeldQuality) + LineLaserContour + Manager/AlgorithmManager 统一调度；SeamRecognition/PipelineManager/焊缝上报链已删除；`ProfileMatRenderer` 迁入 LineLaserContour（ADR-039） | #图像算法 |
-| [[modules/PointCloudData]] | 3D点云数据处理：Models、DataIO、Render；**RunFileRecord 已迁出 [[modules/ProductFileManager]]（ADR-027）** | #3D #点云 |
-| [[modules/LineLaserCam]] | **线激光相机模块**（2026-09-08 三层重构 ADR-034 + 二次分工 ADR-035 + **2026-09-11 三次分工 ADR-040**）：L2 `ILineLaser/`（抽象基类 `LineLaserCameraBase` + 枚举 + 中性事件参数 `LineLaserSeamResult`/`LineLaserCalibration`）+ L3 英莱 `IntelligentLaserCam/` 与虚拟 `VirtualCam/`（**只发回调不做业务**）+ 业务层 `LineLaserManager` 单例（结果只转发 + 轮廓记录/快照/按需 Mat）+ `ProfileMatRenderer`/`ProfileSnapshot`；⛔ **`SeamPvtFeeder` 已删（PVT 写入迁至 WeldParamControl）**；⛔ SmartRayCam、HikRobotCam、旧 `Api/`、`CameraSelector`、`ICameraRun` 已删除 | #相机 #线激光 #三层架构 #管理器 #ADR-034 #ADR-035 #ADR-040 |
-| [[modules/IntelligentLaserCam]] | 英莱(IntelligentLaser) 线激光相机模块，继承 `LineLaserCameraBase`；**ADR-035 后只做回调触发**（触发 `ResultReady`/`ProfileReady` 即返回，绘制与业务全上移 Manager），文件 1746→1324 行；硬件状态检测/帧率切换保护/实测 FPS/UI 层不直引 SDK；校准数据存中性 `LineLaserCalibration`；**相机 IP 由 `LineLaserManager.Config.SensorIp` 下发** | #相机 #英莱 #线激光 #ADR-034 #ADR-035 |
-| [[modules/MotionControl]] | 运控调整独立模块：**2026-09-07 控制器换轨台达 EtherCAT**（⛔ `API/` 与 `ZMotion/` 子目录、`MotionManager`、`MotionConfig` 已全部删除）；现行三层 `IMotion/`(L2) + `DeltaEtherCAT/`(L3) + `DeltaEtherCAT/Native/`(L1) + 业务层 `MontionManager`/`Cylinder`；`MoveControlData`（标定+计算+缓存）保持不变；`MotionControlWorkflow` 位于 `MainDeviceControl/DeviceWorkflow/`，见 [[api/MotionControlWorkflow]]；单位换算只在 L3（`Equiv`=mm/pulse）、IO 为 NPN 低电平有效 | #运控 #水平移动 #模拟 #台达 #EtherCAT |
-| [[modules/WeldParamControl]] | 焊接参数控制模块：**2026-09-14 ADR-041 算法分层**——⛔ ~~`WeldProcess`~~ / ~~`WeldDataManager`~~ 删除，改为「抽象基类 `WeldAlgorithmBase`（`Abstractions/`）+ **三个非单例实现类**（`WeldParamLookupAlgorithm` 查表 / `WeldParamAdjustmentAlgorithm` 宽度驱动参数调整 / `SeamTrackingAlgorithm` 线激光几何轨迹跟踪）+ `WeldParamManager` 唯一入口」；`WeldParamData.cs` 承载数据类，配置持久化由 `WeldParamManager` 统一管理（**含 `WeldAlgorithmsConfig`：两节合一（`SEAM_GUIDE` + `WELD_PARAM_ADJUST`），Manager 独占实例 + 自有 `Config/XML/WeldParamControl.xml`，外部不得 new 回灌**）；~~`SeamGuide/`~~ / ~~`SeamTrajectoryBuilder`~~ 已删除并演进为 `SeamTrackingAlgorithm`，`SeamGuideSample` 归 `Algorithms/`；**`TriggerAdjustment()` 无参**；配套 [[api/WeldParamControlWorkflow]] 负责「计算后下发机器人」，振镜摆幅为查表项（当前 TODO 返回 0）；**2026-09-14 ADR-043 算法纯净性**：算法（`WeldParamAdjustmentAlgorithm`）**去记录化**——不再直连 `RunRecordManager` 落盘，改为触发 `FrameRecordRequested` / `AdjustmentRecordRequested` / `AbortRecordRequested` 事件（Manager 透传、记录模块异步落盘）；运行参数外提为配置（节 `WELD_PARAM_ADJUST`，与 `SEAM_GUIDE` 同文件，Manager 独占），`ExecuteAdjustment` 去掉分段形参；**ADR-044 配置合一**：~~`SeamGuideConfig`~~ / ~~`WeldParamAdjustmentConfig`~~ 两类合并为 `WeldAlgorithmsConfig`（Manager 一实例 `AlgorithmsConfig` + 一对 `LoadAlgorithmsConfig()` / `SaveAlgorithmsConfig()`）；⛔ 本模块不承载流程 | #焊接 #工艺 #自适应 #算法分层 #Manager #Y轴 #PVT #记录隔离 #配置合一 #ADR-040 #ADR-041 #ADR-043 #ADR-044 |
-| [[modules/LaserWeldHead]] | 激光焊接头模块：**`API/ILaserWeldHeadController.cs`** + Controller + Data（3 文件）；原 `LaserWeldHeadStateMachine.cs` 已移除，状态机职责现由 `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs` 承接 | #焊接头 #模块 |
-| [[modules/MonitorCam]] | 监控相机模块：焊前对中/焊中质检；**2026-09-08 ADR-037（accepted）三层重构 + 切换麦格威**：`IMonitorCam/`（抽象）+ `MecaVisionCam/`（实现 + Native/MVSDK.cs 官方 6885 行）+ `MonitorCamManager.cs`（业务中枢）；海康实现已删除；**2026-09-09 ADR-039 删除 Live/PIL 模式，画面由单次触发采集刷新** | #相机 #监控 |
-| [[modules/FileOperate]] | 文件操作工具库：INI、Log、XML | #工具 |
-| [[modules/Comm]] | **通讯模块（2026-09-14 ADR-045 重构）**：`Comm/SystemComm/`（全局日志/配置/全局变量）+ `Comm/Communication/` 三层——抽象层 `CommChannelBase`（零第三方）+ `Implementations/` 5 实现（`SiemensS7Comm`/`KukaRsiComm`/`KukaEkiComm`/`EthernetXmlComm`★以太网重写（BytesIO+预定义 XML）/`InLaserModbusComm` 英莱 Modbus·与 SDK 互斥）+ `CommunicationManager` 单例唯一口（8 XML + INI 开关 + KUKA 门面 ConnectRobot/SendRobotData/RobotDataReceived）；**Profinet/GSDML 已删除**、`KUKARobotManager` 门面并入 Manager；旧 `CommBase/`、`PLC/`、`Robot/` 目录已废 | #通讯 #ADR-045 |
-| [[modules/DeviceControl]] | **设备控制核心模块（三态模型）** `MainDeviceControl/`：**`DeviceStateApiCore/` 基类层**（`DeviceStateBase` 三态枚举 + `DeviceWorkflowBase` 非泛型工作流基类 + `CommandTable` 机器人握手表）+ **根目录两个独立管控类**（`DeviceControlWork` 整机运行编排 / `DeviceStatusWork` 安全·IO·状态三线程，二者**均不继承**工作流基类）+ **`DeviceWorkflow/` 实现层 5 个工作流**（LineLaser / MonitorCamera / MotionControl / WeldParamControl / LaserWeldHead）；⚠️ 目录名 ≠ 命名空间，`DeviceStateApiCore/` 下仍分属 `...DeviceState` / `...FlowState`；状态写入唯一入口 `SetState`/`SetWeldStatus`/`SetStatus`（禁手工赋值），执行步由 `RunStep` 驱动（`GoStep` 已废） | #模块 #设备控制 #状态机 #三态模型 #执行步 #MainDeviceControl #非泛型 #ADR-027 |
-| [[modules/Safety]] | **2026-08-31 三文件合并（ADR-024）+ 2026-09-02 三线程重设计（ADR-027）** 安全/IO/状态管控：代码位于 `MainDeviceControl/DeviceWorkflow/`——`DeviceStatusWork.cs`（`IOWork` 互锁检查 / `EMGWork` 急停 / `StatusWork` 三色灯 三线程，参考 `MachineStatusWork.cs`；`SafetyFlow` 配置 + `SafetyInterlockChecker` 判定）；**原 SafetyFlow.cs / SafetyInterlock.cs 已删除**；**2026-09-01 `FaultRecoveryManager.cs` 已迁出归口 [[modules/ProductFileManager]]（ADR-026 §3）**，本模块仅作消费方 | #模块 #安全互锁 #安全管控 #PLC #三线程 #ADR-024 |
-| [[modules/ProductFileManager]] | **产品生命周期记录模块（2026-09-14 ADR-046 重构 + ADR-047 文件自包含，目录=命名空间=`ProductFileControl/`）**：抽象层 `Abstractions/ProductRecordBase`（入队 O(1)+后台落盘）+ `Records/` 三记录类（`SeamTrackRecord` 焊缝结果+机器人信息→.pDat/.ply，**内含 RecordFrame+RecordFileStore** · `WeldParamAdjustRecord`★改名 焊缝驱动的参数调整→.pDat（ADR-008 双记录仍有效），**内含 WeldActionRecord** · `WeldResultRecord` 成功/产品信息→**数据库**按日期分表）+ `ProductFileRecordManager` 单例唯一口（**订阅 ADR-043 三事件，订阅方已闭环**）；独立文件 RecordFileStore.cs/RecordFrame.cs/WeldActionRecord.cs/SmartRayConverter.cs 已移除（SmartRay 转换链 0 消费删除）；旧 `RunRecordManager` 已删除 | #模块 #产品记录 #过程数据 #数据库 #Manager #ADR-046 #ADR-047 |
-| [[modules/KUKARobot]] | KUKA 机器人通讯：RSI 实时传感器接口 + EKI 以太网数据交换（协议知识；实现类已迁 `Comm/Communication/Implementations/`，门面并入 Manager，见 ADR-045） | #通讯 #KUKA #机器人 |
-| [[modules/SQLiteDatabase]] | SQLite 数据库模块（目录 `SQLiteDBControl/`）：`SQLiteCore/SQLiteDataBase` + `ISQLiteHelper/DatabaseHelperBase` + `Helpers/*Helper` + `SQLiteDatabaseManager` 单例入口；负责权限/配置/自动参数/产品数据持久化 | #数据库 |
-| [[modules/UIDesign]] | UI 界面模块：**目录重命名（2026-08-05）** MainWindow/ControlPage/TabPage/SubDialog/；运控参数页 `MotionControlPage` 位于 TabPage，接入 NavPage（参数界面）工艺配置节点，重指向 [[modules/MotionControl]]/[[api/VirtualCam]]）；ControlPage 含 NavPage×2（NavPage 统一导航页面，替代 ImagePage/ParamPage，通过 LoadTabs 实例化两次；2026-08-06 导航从 Segmented 改回 Menu，Vertical 模式，BackActive=White，BackHover=Gray，Round=false） | #UI |
-
----
+|---|---|---|
+| [[modules/Comm]] | Comm 模块 — 通讯与全局状态 | #通讯 #全局状态 #TCP/IP #S7 |
+| [[modules/CommentConstraintRegistry-CrossLine]] | 注释跨行合并迁出台账 | #注释 #迁移 #工程约束 #C18 |
+| [[modules/CommentConstraintRegistry]] | 注释迁出约束台账 | #注释 #迁移 #工程约束 #C16 |
+| [[modules/DeviceControl]] | DeviceControl 模块 — 设备控制（三态模型：SubDeviceState / SubDeviceWeldStatus / MainDeviceStatus | #设备控制 #状态机 #连接态 #焊接过程态 |
+| [[modules/EmguALG]] | EmguALG 模块 — 视觉算法（五层：Abstractions / Core / RealtimeMonitor / LineLaserContour / Manager | #图像算法 #EmguCV #五层架构 #送丝距离 |
+| [[modules/FileOperate]] | FileOperate 模块 — 文件操作工具库 | #工具 #文件 #INI #XML |
+| [[modules/KUKARobot]] | KUKARobot 模块（已并入 api/KUKARobot | #KUKA #机器人 #通讯 #RSI |
+| [[modules/LineLaserCam]] | LineLaserCam 模块 — 线激光相机 | #相机 #线激光 #三层架构 #管理器 |
+| [[modules/MonitorCam]] | MonitorCam 模块 — 自动焊接头监控相机（三层：IMonitorCam / HikCam / MonitorCamManager | #相机 #监控 #焊前对中 #焊中质检 |
+| [[modules/MotionControl]] | MotionControl 模块 — 运控调整 | #运控 #水平移动 #模拟测试 #运动轴 |
+| [[modules/PointCloudData]] | PointCloudData 模块 — 3D点云数据处理 | #3D #点云 #HelixToolkit |
+| [[modules/ProductFileManager]] | ProductFileManager 模块 — 产品生命周期记录 | #产品记录 #过程数据 #生产信息 #文件 |
+| [[modules/SQLiteDatabase]] | SQLiteDatabase 模块 — SQLite数据库 | #数据库 #SQLite #权限 #配置 |
+| [[modules/Safety]] | Safety 模块 — 安全检查流程（DeviceStatusWork）+ 故障恢复 | #安全互锁 #安全检查 #故障恢复 #状态机 |
+| [[modules/UIDesign]] | UIDesign 模块 — UI界面 | #UI #WinForms #AntdUI |
+| [[modules/WeldParamControl]] | WeldParamControl 模块 — 焊接参数控制与工艺计算 | #焊接 #工艺 #自适应 #功率 |
 
 ## 三、API 参考
 
 | 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[api/LineLaserWorkflow]] | 线激光工作流（`MainDeviceControl/DeviceWorkflow/`）：9 态分步状态机（PreWork→Starting→Working→Stopping），Working 态事件驱动触发焊接工艺计算；`WeldStatus`（焊接过程态）与 `State`（连接态）双属性；**焊缝信息即英莱线激光结果**（FeatureY/FeatureZ + Width0/Width1）；继承非泛型 `DeviceWorkflowBase`（ADR-027），状态转换走基类 `SetWeldStatus`；**2026-09-01 修正**：删工作流自建手动流程（`StartManualMode`/`StopManualMode`/`IsManualMode`），严格继承基类 `ManualStart`/`ManualStop`。⚠️ 早期「基类监听线程 + 执行步 0/10/…/900」步骤驱动机制已于 2026-09-03 清除 | #API #工作流 #状态机 #英莱 #三态模型 #非泛型 #执行步 #ADR-027 |
-| [[api/MonitorCamManager]] | 监控相机业务中枢（原 MonitorCameraRun，ADR-037 改名承接）：Lazy 单例、**ADR-039 删除 Live/PIL 模式**、单次触发采集、健康巡检（`StartSupervision`/`StatusChanged` 等，ADR-023 R1 自工作流下沉） | #API #相机 #监控 #健康巡检 |
-| [[api/MonitorCameraWorkflow]] | 监控相机工作流（`MainDeviceControl/DeviceWorkflow/`）：**只做编排**（触发采集→调用算法→读取结果→推进流程态）；7 态（删 `Displaying`，R5）；**零自定义事件**，2026-08-31 移除 DisplayEvent/ResultEvent/ErrorAborted/ManualStopped/StatusChanged 五个越权事件，结果改 `LastResult`/`LastOverlay` 只读属性供 UI 拉取（ADR-023）。含完整迁移对照表；**2026-09-01 步骤驱动改造**：`WaitOne(5000)` → `WaitOne(0)` 非阻塞探测，执行步 0/10/20/30/800/900；**同日二次审查修复 `new Initialize()` 隐藏基类反模式**（体移入 `InitializeFlow()`，回归基类包装器） | #API #工作流 #监控 #权责边界 #ADR-023 #执行步 |
-| [[api/DeviceControlWork]] | **整机主控（DeviceControlWork，单例，不继承基类）**（`MainDeviceControl/DeviceControlWork.cs`）：**2026-09-04 ADR-029 批次 0~3 + 4.4 已落地**——7 条常驻线程（5 子设备工作线程 + 心跳 `thHeartInspectWork` + 指令交互 `thCommCommandWork`）+ §7.5 九个公共方法（`MachineFlowWorkOpen`/`MachineCommandWorkOpen`/`InitializeMachine`/`ClearMachine`/`ResetMachine`/`StartMachine`/`ClearAlarm`/`EstopMachine`/`EstopCancel`）；`MainDeviceStatus` 6 态经 `MachineStatusTrans` 校验后写入；上电初始化 5 步后拉起全部线程；机器人指令走 [[api/CommandCore]] 的 const string 队列（**不再监控 pose**，命令三槽已拆）；内部执行步机制（`WorkStep`/`GoStep`/`FailFlow`）已整体删除；模拟测试改由按需线程 `thSimTestWork` 承载 | #API #主控 #工作流 #ADR-027 #ADR-029 #7线程 |
-| [[api/FaultRecoveryManager]] | 故障恢复管理器单例（**2026-09-01 迁至 `ProductFileManager/`，命名空间 `AdaWeldSystem.ProductFileManager`**，ADR-026 §3；原 `MainDeviceControl/DeviceWorkflow/`）；自动恢复策略 `RegisterRecoveryStrategy`；**2026-08-31 起承载 `FaultCategory` 与 `FaultRecord`**（自已删除的 SafetyInterlock.cs 迁入，ADR-024）；**SQLite 持久化已下沉 [[api/FaultRecordManager]]**（ADR-026，仅留 `Persist` 做领域对象→string[] 适配）；6 消费方须 `using AdaWeldSystem.ProductFileManager`；⚠️注册 key 与记录 key 必须同源，见 [[lessons/FaultRecoveryDeviceKey]] | #API #故障恢复 #SQLite #单例 #归口 #ADR-026 |
-| [[api/FaultRecordManager]] | **已移除（ADR-031）**：原故障记录数据库管理器；2026-09-04 随故障恢复模块整体删除 | #API #故障恢复 #SQLite #数据库 #ADR-026 #ADR-031 #已移除 |
-| [[api/DeviceStatusWork]] | **安全/IO/状态管控（DeviceStatusWork，单例，不继承基类）**（`MainDeviceControl/DeviceStatusWork.cs`，参考 `MachineStatusWork.cs`）：**2026-09-04 批次 3 已落地**——三线程 `thIOWork`(互锁→Alarm) + `thEMGWork`(急停→EStop) + `thLightStatusWork`(反射三色灯)，循环标志位 `IsIOWorking`/`IsEMGWorking`/`IsLightStatusWorking`，入口 `MachineIOWorkOpen()`/`MachineIOWorkClose()`（取代旧 `StartWork`/`CloseWork`）；`SafetyFlow`(阈值与 PLC 地址 + 三色灯地址) + `SafetyInterlockResult` + `SafetyInterlockChecker`；`IsSafe` 供主设备门控（未启动返 true）；急停处置调 `DeviceControlWork.EstopMachine`（旧名 `EStopMachine` 已改名；**反逻辑物理 IO 专责**：无信号=急停、IO 上电=设备通知安全才允许取消，无虚拟 IO 直通同步，2026-09-08）；**2026-09-08 运控总线监督** `ScanMotionBusFault()`（普通 Alarm 走 IOWork，电平型 IoMotionBusFault 闭锁，NG→OK 不自动消警） | #API #安全检查 #互锁 #PLC #ADR-024 #ADR-027 #ADR-029 |
-| [[api/CommandCore]] | **2026-09-04 新增（ADR-029 裁定 C3）** 机器人指令协议静态常量类（`MainDeviceControl/DeviceStateApiCore/CommandCore.cs`）：以 const string 取代已删除的 `CommandTable.cs`（const int 六件套 `RobotPose`/`RobotCommand`/`DeviceCommand`/`RobotPoseCode`/`SignalCode`/`InteractionTable` 全部移除）；Rx* 9 条接收指令 + Tx* 9 条下发指令 + `Normalize`/`IsKnownCommand`；**不再监控机器人 pose**，位姿类指令仅记录不驱动流程 | #API #指令协议 #机器人 #CommandCore #ADR-029 |
-| [[api/MotionControlWorkflow]] | **运控工作流**（`MainDeviceControl/DeviceWorkflow/`）：**2026-09-07 换轨改造**——删除全部 ZMotion 依赖（CamBoxTracker/EncoderAxis/RSIPositionBuffer/InterpolationEngine），私有阶段枚举改 `MotionControlPhase`（Idle/Initializing/Ready/Stopping/Error），步位 10/20/700，初始化改 `MontionManager.Instance.Initialization("台达运控", ref msg)`，对外契约不变；⛔ 原 CAMBOX 硬件实时跟踪随正运动移除，台达侧承接方案 OPEN；**2026-09-01 步骤驱动改造**：`MonitorLoop` 并入基类监听线程（`BeatMs=20`），`Start()` 由「同步完成动作」改为「受理指令」 | #API #工作流 #运控 #台达 #执行步 |
-| [[api/WeldParamManager]] | **2026-09-14 新增（ADR-041）** 焊接参数管理器（单例）：WeldParamControl 模块**唯一外部访问入口**，统一管理配置与**三个非单例算法实现**（`WeldParamLookupAlgorithm` 查表 / `WeldParamAdjustmentAlgorithm` 宽度驱动参数调整 / `SeamTrackingAlgorithm` 线激光几何轨迹跟踪），透传输出（功率/送丝/速度/缝宽）、四份查找表、5 份 `ChartVar`、`WeldProcessCompleted` 与**三个记录请求事件**（`FrameRecordRequested` / `AdjustmentRecordRequested` / `AbortRecordRequested`），提供轨迹算法 `Feed/Tick/Drain/Reset` 代理；**独占一份配置** `WeldAlgorithmsConfig`（两节合一：`SEAM_GUIDE` + `WELD_PARAM_ADJUST`），存自有 `Config/XML/WeldParamControl.xml`，对外只读属性 `AlgorithmsConfig` + 无参 `LoadAlgorithmsConfig()` / `SaveAlgorithmsConfig()`（ADR-044）；`TriggerAdjustment()` **无参**；取代已删 `WeldProcess` 与 `WeldDataManager` | #API #焊接 #参数 #算法 #管理器 #单例 #唯一入口 #Y轴 #PVT #记录隔离 #配置合一 #ADR-041 #ADR-043 #ADR-044 |
-| [[api/WeldParamControlWorkflow]] | **焊接工艺控制流程**（`MainDeviceControl/DeviceWorkflow/`）：**非设备**，输入机器人信息+线激光结果→计算功率/送丝/摆幅/速度→下发机器人；`ComputeAndOutput()` 调无参 `TriggerAdjustment()`（**2026-09-14 ADR-041 起由 `WeldParamManager` 承接**）；**不入上电级联**，由线激光触发；**2026-09-01 步骤驱动改造**：`ComputeAndOutput()` 改命令变量模式（只置 `_pendingCompute`），执行步 0/10/20/800/900，⚠️ 返回值语义变为「上一轮是否成功」；**2026-09-14 第三次修订**：~~承载 `SEAM_GUIDE` 段并暴露 `SeamGuide` / `SaveSeamGuide()`~~ **已删除**，线激光引导配置移交 [[api/WeldParamManager]] 自持自载 | #API #工作流 #焊接 #工艺 #功率 #送丝 #执行步 #ADR-040 #ADR-041 |
-| [[api/AlgorithmManager]] | EmguALG 统一调度入口（ADR-038 新建，ADR-039 命名空间迁入 RealtimeMonitor）：`DetectWireFeed`/`DetectWeldQuality` + 强类型配置 + 结果池化版本比对 | #API #算法 #管理器 #EmguALG |
-| [[api/MecaVisionMVSDK-Native]] | **2026-09-08 新增** 麦格威 MVSDK 原生 API 速查（签名由 SDK 原文 `MVSDK.cs` 6885 行脚本抽取，非人工转写）：动态加载机制（`IntPtr.Size` 选 `MVCAMSDK.dll`/`MVCAMSDK_X64.dll`，禁 AnyCPU）· 33 个生产 API（初始化/采集/取帧/ISP/存图/参数/触发/闪光灯）· 4 个回调委托（`CAMERA_SNAP_PROC`/`CAMERA_CONNECTION_STATUS_CALLBACK` 等）· 核心结构体 · 13 个错误码真值（0/-1/-5/-6/-12/-13/-14/-16/-18/-25/-26/-28/-38）· 核验配方 · **2026-09-14 增 C 原生声明基线**（`MecaVision/SDK/Include/` 六头文件 = C 原文，枚举/结构体/错误码回溯核验用） | #API #相机 #麦格威 #MecaVision #MVSDK #速查 |
-| [[api/LineLaserManager]] | **2026-09-08 新增**（取代已删 `CameraSelector`，ADR-034）+ 二次分工（ADR-035）+ **2026-09-11 三次分工（ADR-040）**：持有 `CameraRegistry` 与 `LineLaserConfig`；注册即订阅相机事件；`SelectIntelligentLaser`/`SelectVirtual`/`Select(name)` 切换，`SetWorking` 只驱动连接态，`LoadConfig`/`SaveConfig` 走 `Config/XML/LineLaserConfig.xml`；**业务产出** `Profile`（池化双缓冲快照 + 版本号）、`LastResult`、`ResultReady`、`MatUpdated`（⛔ `FrameReady` 已删）、`SetDisplayOptions`；⛔ **`AttachYAxis` 已删（ADR-040，结果侧不写 PVT）**；具体相机类型仅在其中惰性 new 一次 | #API #相机 #线激光 #管理器 #单例 #业务层 #ADR-034 #ADR-035 #ADR-040 |
-| [[api/ProfileMatRenderer]] | **2026-09-08 新增**（ADR-035）轮廓 Mat 渲染器：英莱实现层 `ConvertContourToMatDemo` 上提业务层；**2026-09-09 ADR-039 迁为 `EmguALG/LineLaserContour/LineLaserContourAlgorithm.cs`**，原内嵌类删除，接口为 `ILineLaserContourAlgorithm` | #API #相机 #线激光 #渲染 #GDI #ADR-035 #ADR-039 |
-| [[api/SeamPvtFeeder]] | ⛔ **已废弃（2026-09-11，ADR-040）** 原焊缝跟踪 PVT 点下发器（ADR-035 新增）：结果 `FeatureY` 直写 Y 轴 PVT。**整类已从代码删除**，能力由 [[api/SeamTrackingAlgorithm]] 承接（新增滤波/超限剔除/单调约束/标定转换与 250ms 输出节拍）；本页仅作历史沿革 | #API #运控 #PVT #已废弃 #ADR-035 #ADR-040 #ADR-041 |
-| [[api/SeamTrajectoryBuilder]] | ⛔ **已废弃（2026-09-14，ADR-041）** 原线激光引导轨迹构造器（ADR-040）：结果 + 机器人坐标 + 时间戳搓合 → Y 轴 PVT。**整类已从代码删除**，已演进为 [[api/SeamTrackingAlgorithm]]（非单例、只输出 PVT 点、不直接写控制器），由 [[api/WeldParamManager]] 持有、[[api/MotionControlWorkflow]] 写入控制器；本页仅作历史沿革 | #API #线激光 #Y轴 #PVT #焊缝跟踪 #轨迹构造 #已废弃 #WeldParamControl #ADR-040 #ADR-041 |
-| [[api/VirtualCam]] | 虚拟调试相机（**2026-09-08 由 `VirtualCameraRun` 改名并同步文件名**）：自生成轮廓点云，继承 `LineLaserCameraBase`；ADR-035 后只触发 `ResultReady`/`ProfileReady` 不做业务；`BuildResult` 按最低点推算中性 `LineLaserSeamResult`，使模拟模式也能打通 PVT 链路 | #API #相机 #虚拟 #ADR-034 #ADR-035 |
-| [[api/IntelligentLaserCam]] | 英莱(IntelligentLaser) 工业3D线激光相机运行控制：继承 `LineLaserCameraBase`，MillionOutlineInspect 回调→mm轮廓→PointCloudData + `LineLaserSeamResult` → 触发 `ResultReady`/`ProfileReady` 后即返回；x64 + 原生 DLL 部署；托管枚举 IlFpsModel/SyncHardwareStatus/MeasuredFps/ResetMeasuredFps/FetchFpsModel；校准数据存中性 `LineLaserCalibration`（`Calibration` 属性）；**IP 由 `LineLaserManager.Config.SensorIp` 下发**；**2026-09-08 类名由 `IntelligentLaserCameraRun` 改为 `IntelligentLaserCam`（ADR-036）**；⛔ ADR-035 已删 `IsManualMode`/`ContourFrameReady`/`ContourDataReady`/`IlInspectResult`/`IlCalibrationInfo`/GDI 绘制 | #API #相机 #英莱 #线激光 #ADR-034 #ADR-035 |
-| [[api/IntelligentLaserSDK_CSharp_DevManual]] | 英莱智能激光 C# SDK 开发手册：接口说明、数据结构、回调机制 | #API #相机 #英莱 #SDK #开发手册 |
-| [[api/MoveControlData]] | 运控标定+水平移动计算+缓存（MotionControl 模块） | #API #运控 #水平移动 |
-| [[api/MontionManager]] | **2026-09-07 新增** 运动管理器业务层单例（取代已删 `MotionManager`）：持有 `MontionControl`，四字典按名注册/查询轴·输入·输出·气缸，批量 ServoOnAll/ServoOffAll/HomeAll/SetEmergencyStop；**厂商具体类型 `Delta*` 仅在其 `Initialization()` 内出现一次** | #API #运控 #台达 #管理器 #单例 #业务层 |
-| [[api/DeltaEtherCAT-Native]] | **2026-09-05 新增** 台达 EtherCAT 原生 API 全量速查（**832 个**，签名由 SDK 头文件 `inc/C#/EtherCAT_DLL.cs` 自动抽取、非人工转写）：主站 75·运动 67·CSP 101·运动缓冲 84·龙门 30·DIO 29·ECAM2 24·回零 14·ECAM 13·PWM 13·PVT 10·SDO/PDO 16·位软元件 IO·TouchProbe/Compare/Latch；含调用约定（官方用 `EtherCAT_DLL`/`EtherCAT_DLL_x64` **命名空间切换**而非 DllPath 条件编译，禁 AnyCPU） | #API #运控 #台达 #EtherCAT #PInvoke #速查 |
-| [[api/LeadshineLSnmc-Reference]] | **2026-09-05 新增** 雷赛 `LSnmcControler` **参考基线**（ADR-032）：抽象层契约（`MontionControl`/`MontionAxis`/`InputIO`/`OutputIO`）、**六条调用范式**（容器自注册·参数挂轴上·三段前置检查·阻塞/非阻塞成对·急停贯穿·到位与停止原因分离）、**雷赛→台达 API 全对照**、台达不适用项清单 | #API #运控 #雷赛 #参考基线 #EtherCAT |
-| [[api/HonorMachineTest-IOReference]] | **2026-09-07 新增** `HonorMachineTest/PcomDeviceInterface` 的 **IO 监控与执行参考基线**（同源项目，运控抽象层原型出处）：三线程模型（`EMGIOWork` 全速 / `IOWork` 30ms / `StatusWork` 三色灯）+ 每工位独立流程线程；**耗时动作一律 `new Task().Start()` 异步拉起，扫描线程绝不被独占**；触发只执行一次的两种闭锁（边沿标志+长按计时 / 一次性 `EMGshow`）；状态前置门控与复位中止检测；含**到 AdaWeldSystem 的映射表**与**刻意不借鉴的 5 项**（物理 IO 直读 / 全局静态状态 / 流程层 MessageBox / `Task.WaitAll` 阻塞 / `while(true)` 无优雅退出） | #API #IO #线程模型 #参考基线 #DeviceStatusWork #流程编排 |
-| [[api/MotionControlPage]] | 运控调整参数页（`UIDesign.TabPage`，设计器生成，接入 NavPage（参数界面）工艺配置节点） | #API #运控 #UI #参数页 |
-| [[api/FormMain]] | 主窗口（AntdUI Window，设计器生成）：构建顶部 Segmented+Tabs 导航联动、加载 4 子页（MainPage/NavPage×2/DataReviewerPage）、状态栏（流程状态/系统时间，整机状态已迁至 [[api/MainPage]] LabelStatus）、线激光/设备连接态刷新、关闭前询问+单例 Dispose 级联；2026-08-27 代码精简（删死函数 HideTreeNode、补 3 #region、7 方法 XML 注释精简） | #API #UI #主窗口 #导航 #状态标签 |
-| [[api/MainPage]] | 主页面（`UIDesign.ControlPage` UserControl，设计器生成）：英莱轮廓 ScottPlot Signal 图 + 4 条实时数据曲线（焊缝宽度/运动速度/送丝速度/激光功率）+ 全局日志框；2026-08-27 代码精简（删 4 未用字段+死函数 ResetChartLineData、内联 LoadComponent、补 5 #region、4 public 方法归集、XML 注释补全） | #API #UI #主页面 #ScottPlot #英莱 #轮廓 |
-| [[api/ILAlgorithmEditForm]] | 算法编辑弹窗（`AdaWeldSystem.UIDesign.SubDialog.IntelligentLaserDialog`，`UserControl`，Modal 承载）：模块A 配置 EmguALG PipelineConfig + 模块B 英莱 Job Parameter 编辑与实时识别结果（IlInspectResult 只读）；两模块分 `UserControl` 子页经 `AntdUI.Tabs.AddTabSelect` 按 `LineLaserManager.Instance.Active` 挂载，替代 LLCamWorkJob「编辑」TODO；2026-07-30 经 `ADR-016` 由 `AntdUI.Window` 改 `UserControl` 迁 SubView，调用点 `LLCamWorkJob` 以 `AntdUI.Modal.open` 弹出 | #API #UI #算法 #配置 #SubDialog #英莱 #Modal |
-| [[api/PointCloudViewer]] | 3D渲染引擎公共接口 | #API #3D |
-| [[api/WeldDataManager]] | ⛔ **已废弃（2026-09-14，ADR-041）** 原焊接数据管理器：AutoParam / 分段数据 / 配置映射 / INI 持久化。**整类已从代码删除**，职责并入 [[api/WeldParamManager]]；本页仅作历史沿革 | #API #焊接 #自动调整参数 #已废弃 #ADR-041 |
-| [[api/SeamTrackingAlgorithm]] | **2026-09-14 新增**（ADR-041）线激光焊缝几何轨迹跟踪算法：结果 + 机器人坐标 + 时间戳搓合 → 无值容差/超限剔除/单调约束/标定转换 → 输出 `PVTPoint[]`；`Tick()` 保证 **≤250ms 输出一段**；`HasFault` 无值超限报警；**不依赖 `IPVTMotion`**，只输出点；由 [[api/WeldParamManager]] 持有、[[api/MotionControlWorkflow]] 写入控制器 | #API #线激光 #Y轴 #PVT #焊缝跟踪 #轨迹跟踪 #WeldParamControl #ADR-041 |
-| [[api/WeldParamAdjustmentAlgorithm]] | **2026-09-14 新增**（ADR-041）焊缝宽度驱动的参数调整算法（原 `WeldSeamTrackingAlgorithm` 重命名）：滑动平滑 → 突变判定 → 调查表 → 输出激光功率/送丝速度/焊接速度、图表与事件；**2026-09-14 ADR-043 起只计算不落盘**（改触发三个记录请求事件），运行参数取自 Manager 独占的 `WeldAlgorithmsConfig`（`WELD_PARAM_ADJUST` 节，ADR-044 起两类合一），`ExecuteAdjustment` 形参收敛为 `(autoParam, robotX, contourPoints)`；由 [[api/WeldParamManager]] 持有 | #API #焊接 #参数调整 #算法 #记录隔离 #配置合一 #WeldParamControl #ADR-041 #ADR-043 #ADR-044 |
-| [[api/KUKARobot]] | KUKA 机器人通讯 C# API：RSI/EKI 接口、数据类型、配置管理 | #API #通讯 #KUKA |
-| [[api/S7NetPlus]] | S7NetPlus / S7.Net 使用笔记 | #API #PLC #西门子 |
-| [[api/ProfinetGSDML]] | ⛔ 已废弃（2026-09-14 ADR-045：Profinet 封装不做，GSDMLGenerator 删除；仅存档 GSDML 格式知识） | #API #Profinet #GSDML #已废弃 |
-| [[api/GlobalCommData]] | 全局数据通讯中心接口（自动调整参数已迁出）；**机器人/PLC 连接由 `CommunicationManager` 管控，`DeviceControlWork` 经此做信号交互** | #API #通讯 #机器人 |
-| [[api/LaserWeldHeadController]] | 激光焊接头控制器：ILaserWeldHeadController 接口、LaserWeldHeadConfig、LaserWeldHeadEventArgs | #API #激光焊接头 #控制器 |
-| [[api/LaserWeldHeadWorkflow]] | 激光焊接头工作流（`MainDeviceControl/DeviceWorkflow/`）：非泛型 `DeviceWorkflowBase`（ADR-027）；单例；骨架期 `IsRunLoopActive=false`（不起空转线程）、`FlowProcess` 空转；连接态 `State`(`SubDeviceState`) + 焊接过程态 `WeldStatus`(`SubDeviceWeldStatus`)；`ConnectOn`/`ConnectOff`/`ResetProcess`/`ClearStatus`；私有 `_phase`→`SetWeldStatus(MapWeldStatus)` | #API #工作流 #焊接头 #SubDeviceWeldStatus #步骤驱动 #ADR-027 |
-
----
-
-## 四、规范标准（standards/，强制）
-
-> 本分类页面由顶部「⚡ 场景速查路由」自动触发，命中后**直接读取执行，无需用户重复输入要求**。
-
-| 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[standards/CodeSimplification]] | **代码精简标准源（详尽版 2026-08-26）**：五维度（①文件书写整理 成员顺序/region/XML注释 ②变量与临时变量 ③枚举事件去重+禁过度枚举 ④逻辑去冗余去互锁+9类禁止项 ⑤辅助函数归集/功能重叠合并/嵌套内联/死函数）+ 注释规范 + 设备/通讯日志规范（去符号细则）+ **检查脚本 `scripts/csharp_review.py`**（A/B/C 三类 error/warn/info）；深度反例见下方 4.1 节；按文件夹落实、逐文件用脚本扫描；**⚠️ 强制排除仅 `*.Designer.cs`**：`UIDesign/` 下非设计器 `.cs` 同样适用五维度，仅状态控制细则由 [[standards/UiStateSimplification]] 互补（2026-08-27 用户裁定，见 [[lessons/CodeSimplification-Scope-DesignerOnly]]）；进度快照见 [[project/CodeSimplification-Progress-20260826]]；**2026-09-03 §三新增⑤ 日志出口统一（2026-09-04 修正：曾建的  中间层不在新架构要求内已移除，日志直连 ）**：一个标签一个出口、`long`/`double` 跨线程字段禁裸读写、0 消费 ≠ 死成员（可观测性 API 与安全钩子不删） | #规范 #代码精简 #注释 #日志 #检查脚本 |
-| [[standards/UiStateSimplification]] | **UI 状态判断与控制精简标准源（2026-08-24 新增）**：专补 `UIDesign/` 状态判断与控制细则（ADR-020 已覆盖其非设计器 `.cs` 五维度）；四原则（真相源唯一：禁本地 bool 缓存设备态 / 单一控制函数收敛按钮 text+ExtraMouseDown+Enabled / 统一刷新入口 RefreshUi(Flags) / 集中状态标签）；红灯清单 + 已落地案例（ILCamPage/ILAlgoForm/ILParamForm 删 `_isXxx` 缓存，MotionControlPage.SetSimButtonMode 与 FormMain.UpdateDeviceStatus 为好范式） | #规范 #UI #代码精简 #状态管理 #真相源 |
-| [[standards/WorkflowResponsibilityBoundary]] | **流程与子设备对象权责边界标准（2026-08-31，ADR-023）**：一句话判据「数据是设备的，进度是流程的」+ 流程职责白名单（触发/调用/读取结果/推进流程态/执行动作）+ 五条硬规则——R1 数据产出归属（流程不输出图像/算法结果/设备健康）· R2 禁止转发子设备事件（订阅方直接订阅 `Tracker` 等子设备）· R3 流程态通知统一走基类 `StateChanged`（禁自造 Completed/ErrorAborted/ManualStopped）· R4 流程做动作而非抛事件（结果放只读属性 `LastResult`/`LastOutput`）· R5 流程态只描述流程（禁 `Displaying` 等 UI 职责态）；另含依赖方向（子设备不得 using 流程层）、审查清单（含删事件后 region 失衡易踩坑）、正反例、UI「推状态+拉数据」范式 | #规范 #权责边界 #工作流 #子设备 #事件 #ADR-023 |
-| [[standards/ModuleOrganizationPattern]] | **模块组织范式标准（2026-09-14，ADR-042）**：一个功能族模块 = **Core（功能封装核心）+ 抽象层（对外功能与属性）+ 实现层（所有功能继承抽象类实现）+ Manager（管理全部实现类对象与数据、持久化配置、对外唯一访问口）**。分两种场景——**场景 A 基于第三方库：Core 必需**；**场景 B 非第三方库（纯自研）：Core 按需**（无自成一体的算法结构则不建，函数与算法直接写在实现类中）。含组件判定标准、依赖方向铁律（抽象层零第三方依赖 → 实现层只允许出现厂商类型 → Core 只被实现层调用 → 外部只经 Manager）、H1~H9 硬规则、项目内 5 个落地实例对照表（EmguALG / MonitorCam / LineLaserCam / MotionControl 为场景 A，WeldParamControl 为场景 B）、检查清单与高频违规样例。与 [[standards/WorkflowResponsibilityBoundary]] 正交 | #规范 #模块组织 #分层架构 #抽象层 #实现层 #Manager #第三方库封装 |
-| ~~[[standards/StepDrivenWorkflow]]~~ | **⛔ 已整页废弃（2026-09-03，ADR-029，用户裁定「完全重构」）**：本页曾规定命令变量三槽 + 常驻监听线程 + `WorkStep`/`WorkStartTime` + `GoStep(n)` 改步，上述机制**已全部清除，不得据本页改码**。**现行规范唯一出处 = [[architecture/DeviceControlArchitecture]]**（§4 基类 17 项契约 · §5 `RunStep` 驱动 · §7.2 7 线程编排 · §16 代码模板）。本页保留仅作迁移对照，内含「旧规定 → 现行做法」11 条对照表 | #规范 #工作流 #步骤驱动 #已废弃 |
-
-### 4.1 深反例与脚本工作流（standards/ 平铺，无子目录）
-
-> [[standards/CodeSimplification]] 的配套深度反例集，仅在需要具体反例时查阅。
-> **2026-09-01 扁平化**：原 `standards/references/` 子目录已撤销，4 个页面平铺为 `standards/CodeSimplification-*` 独立文件（靠命名前缀成组、靠横幅回链父页）。**wiki/ 各分类下禁止再建子目录**——新增页面一律平铺，索引按主题前缀分组即可。
-
-| 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[standards/CodeSimplification-RefFileOrganization]] | 文件书写整理维度深反例：成员顺序、#region 划分、XML 注释规范的正反例 | #规范 #反例 #文件书写 |
-| [[standards/CodeSimplification-RefLogicSimplification]] | 逻辑精简维度深反例：9 类禁止项逐条反例（无意义锁/冗余赋值/过度属性/过度等待/过度缓存/过度资源管理/null/临时变量） | #规范 #反例 #逻辑精简 |
-| [[standards/CodeSimplification-RefFunctionSimplification]] | 函数精简维度深反例：功能重叠合并、嵌套内联、死函数清理 | #规范 #反例 #函数精简 |
-| [[standards/CodeSimplification-ReviewWorkflow]] | C# 代码审查脚本工作流：`csharp_review.py` 的按文件夹扫描流程与结果判读 | #规范 #脚本 #审查工作流 |
-
----
-
-## 五、历史教训（lessons/，门禁）
-
-> **编码前逐条确认规避。** 2026-08-18 知识库瘦身：原 64 个分散 lessons 合并为主题页；2026-09-01 二次治理：其中 6 个「操作型指导/参考手册」迁出至 [六、操作指导](#六操作指导-guides怎么做)，本分类回归纯教训。
-
-| 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[lessons/MecaVision-NativeDllLoadNRE]] | **麦格威 MVSDK 原生 DLL 未部署 → 委托 null → NullReferenceException（2026-09-09）**：`MvApi` 静态构造 `LoadLibrary` 失败不抛异常、静默返回 Zero，全部委托字段为 null，首次调用即 NRE；根因是 DLL 已落 `3rdDepend/MecaVision/` 但 csproj `CopyNative3rdDependToOutput` 漏列；修复=csproj 补 4 文件 + 静态构造加 DllNotFound/EntryPointNotFound 守卫 + Connect 日志取内层异常；教训=动态加载类 SDK 报 NRE 先查输出目录、3rdDepend 落文件≠部署完成 | #教训 #麦格威 #MecaVision #MVSDK #DLL部署 #动态加载 #NullReferenceException |
-| [[lessons/FaultRecoveryDeviceKey]] | **故障恢复设备键名匹配陷阱（P0 严重）**：`RegisterRecoveryStrategy` 用英文 key 注册策略，但故障记录 Device 字段存中文设备名，`ResolveKey` 的 `IndexOf` 子串匹配永远失败，自动恢复策略永不触发；修复：`RecordFault` 新增 `deviceKey` 参数，调用方传入与注册一致的 key，精确匹配优先 | #教训 #Safety #故障恢复 #状态机 #命名约定 #严重 |
-| [[lessons/StepDrivenWorkflowPitfalls]] | **步骤驱动改造六坑（2026-09-01 全量落地实战；机制已于 2026-09-03 清除，坑点思想仍有效）**：① `OnStepChanged` 会复位执行步 → `FlowProcess` 内 `SetStep()` 后**必须立即 return**，否则覆盖刚复位的步号 ② 单步内阻塞等待会**同时**冻结超时判据与指令响应（急停延迟！），`WaitOne(5000)` 须改 `WaitOne(0)` 探测 ③ 基类新增抽象成员 → 7 个子类同时编译失败，骨架类也要补（并显式 `IsRunLoopActive=false`） ④ `RobotPose.StartSafePose=1` 与 `RobotCommand.PreWeldRequest=1` 编码重叠，单槽命令变量必丢指令，须三槽分存 ⑤ 失败计数按拍累加会 25ms 打满阈值，须改时长判据 ⑥ 失败收尾步 `FaultRecord.State` 强类型改为 `MainDeviceStatus`（ADR-027 三态模型，`DeviceState` 已删），写 `_step.ToString()` 即 CS0029，须经状态映射方法转换 | #教训 #步骤驱动 #执行步 #并发 #编译 #ADR-027 |
-| [[lessons/StepMemberNameCollision]] | **步号常量与单步方法同名（CS0102，2026-09-01 精简审查）**：`private const int StepXxx` 与 `private void StepXxx()` 同类作用域同名即 CS0102 硬编译错误，6 个 workflow 共 27 处；修复=**方法改 Do 前缀**（`case StepXxx: DoXxx();`）+ **通用三常量 `StepIdle`/`StepFinishOk`/`StepFinishFail` 与 `FailFlow(reason)`/`FailReason`/`FailStep` 下沉基类**（子类重复定义 protected const 会触发 CS0108）；配套 `DeviceControlWork` 魔法数字补齐 7 个步号常量 | #教训 #步骤驱动 #命名约定 #CS0102 #CS0108 #代码精简 #ADR-022 |
-| [[lessons/StateMachine-DoubleTransition]] | **状态机重复转换陷阱**：工作流层手动调 `TryTransition(Initializing)`，而设备状态机模板方法 `Initialize()` 内部也会转一次，造成 `Initializing→Initializing` 非法转换 → 初始化立即失败；修复：设备状态机的初始化转换统一由模板方法负责，工作流层不要越俎代庖 | #教训 #状态机 #初始化 #架构分层 |
-| [[lessons/CSharp-Language-Pitfalls]] | **C# 语言陷阱综合（改任何 C# 代码前的通用门禁）**：C# 7.3 语法约束、构造函数（拷贝构造消无参构造）、auto-property initializer、static class 声明、枚举去重、命名空间迁移/同名冲突、using 缺失、跨模块类型可见性、P/Invoke 重复声明、XElement 类型转换、接口与基类成员不同步（CS1061）、**基类事件在派生类不可赋值（只能 +=/-=）**、**泛型参数不能声明 volatile（CS0677）** | #教训 #C# #语法 #编译错误 #命名空间 #枚举 #事件 #volatile |
-| [[lessons/CodeSimplification-Scope-DesignerOnly]] | **代码精简范围裁定（P1 易误读）**：强制排除的**只有 `*.Designer.cs`**，不是整个 `UIDesign/`。早期表述「`UIDesign/` 除外」被误读为跳过整个 UI 目录，2026-08-27 用户裁定更正；含正确边界表（Designer.cs / UIDesign 非设计器 / 厂商 SDK / 其余业务源码） | #教训 #代码精简 #范围 #Designer.cs #UIDesign #误解 |
-| [[lessons/UiRefreshUnifiedEntry]] | **UI 状态刷新统一入口（2026-08-24）**：页面多状态变更函数碎片（连接态/模式/硬件同步）收敛为单入口 `RefreshUi(RefreshUiScope scope)`（`[Flags]` 枚举 + 内置 InvokeRequired 封送），旧函数降级为 private `*Core`；消除嵌套调用与隐式刷新顺序依赖 | #教训 #UI #状态刷新 #代码精简 #重构 #Flags |
-| [[lessons/SimulationC-Mode-Interruption]] | **模拟 C 模式进不到测试阶段（2026-08-25）**：三个叠加根因——① `Enable(C)` 的 `SelectReal()` 选 SmartRay 占位，`InitializeWorker` 在 `Start()` 前读到它直接 ErrorAborted；② 模拟流程只调 `Start()` 无人调 `BeginStarting/BeginWorking` → 所有模拟模式卡死 PreWork；③ 虚拟相机无回调 → Working 连续失败中断。修复：C 模式 InitializeWorker 显式切英莱 + 模拟模式自驱动 PreWork→Starting→Working + 虚拟相机默认通过 | #教训 #模拟 #线激光 #工作流 #状态机 |
-| [[lessons/AntdUI-Modal-Config-Overload-Cascade]] | **AntdUI Modal.Config 第三参数未定义级联误报 Form→Target**：content（第三参数）为未定义标识符时编译器误报"Form 无法转换为 Target"，实为重载解析级联；owner 用 `Form.ActiveForm`/`this.FindForm()` 合法（Modal owner=Control），见 [[guides/AntdUI-Reference]] | #教训 #UI #AntdUI #Modal #编译错误 #重载解析 |
-| [[lessons/IntelligentLaser-Pitfalls]] | **英莱智能激光相机踩坑汇总**（全库最大页，1217 行，建议按章节跳转）：Job 参数结构体核对（CppSharp 生成）、Marshal 封送、检测连接≠开激光（ConnectManual vs OpenSensor）、回调驱动显示非轮询、一次性回调注册顺序、校准框居中（demo 公式勿自创）、传感器/激光/回调三层解耦、重连后恢复传感器使能、帧率设置与 JOB 切换、**§5 UI 与状态管理** | #教训 #英莱 #相机 #线激光 #回调 #SDK #互操作 #校准框 |
-| [[lessons/IntelligentLaserSensorControl]] | **英莱传感器控制与激光/传感器按钮 UI 统一（2026-08-24）**：启停传感器用 `SetSensor`（弃 `SetCaptureCamera`）；传感器状态以 `IsCameraOn()`（=`StCtrl.DwCameraEnable`）为真相源、禁本地 bool 副本；激光/传感器按钮 text 与 `ExtraMouseDown` 收敛到单一 `UpdateLaserSensorUi()` | #教训 #英莱 #线激光 #传感器 #UI #代码精简 |
-| [[lessons/IntelligentLaser-JobParamNoOfflineCache]] | **英莱 Job 参数离线缓存必须移除（2026-08-24）**：参数以设备为唯一真相源，删 `LoadOfflineCache`/`SaveOfflineCache`/`HasJobParamCache`/`.ilini` 落盘；注册 SDK `OnJobParamsChanged` 回调刷新缓存；`ILAlgoForm` 改单元格级单条下发 | #教训 #英莱 #线激光 #Job参数 #离线缓存 #代码精简 |
-| [[lessons/IntelligentLaser-JobListJsonSources]] | **英莱 Job 列表与接头类型数据源：运行目录 JSON（2026-08-24）**：连接相机后原生 SDK 自动落盘 `IntelligentLaser_jobdesclist.json`（全部 Job：id/jointtype/jobdescribe）与 `IntelligentLaser_jointtypelist.json`（接头类型语义）；SDK C# 包装与 demo 均不读此 JSON，须自行解析（Newtonsoft）；文件在运行目录非 Config，未连接时可能残留旧数据须以「已连接」为前提读取 | #教训 #英莱 #线激光 #Job列表 #JSON #接头类型 |
-| [[lessons/IntelligentLaser-JobFlowPanel]] | **英莱 ILAlgoForm Job 流面板 + Modal 内联弹窗（2026-08-24）**：flowPanel 动态 JOB 按钮（`TTypeMini.Primary` 激活态）；删「从设备读取」按钮，参数全事件触发（`OnJobParamsChanged`）；删除保护（当前 Job 不可删）；新建 JOB 弹窗用 `Modal.Config(BtnHeight=0)` 内联 FlowPanel，`flow.FindForm().DialogResult=OK` 关闭；闭包须拷贝循环变量；**2026-08-25 修复弹窗空白：Modal 内容控件必须给明确尺寸，Dock=Fill 裸容器高度塌缩为 0** | #教训 #英莱 #线激光 #Job #flowPanel #Modal #弹窗 |
-| [[lessons/GitHubSyncPitfalls]] | **GitHub 云端同步陷阱（2026-09-01，2026-09-14 修订）**：①沙箱 `origin/main` 远程跟踪引用跨 Bash 命令不落盘（状态显示 `[gone]`），推送/拉取不受影响，校验须单命令内 fetch ②`3rdDepend` 实测 380MB、单文件 `EtherCAT_DLL_x64.dll` **160MB 已超 GitHub 100MB 硬限制**，必须忽略 ③PAT 明文存 `~/.git-credentials` 有泄露风险（沿革：两仓现已改 SSH）④non-fast-forward 须先 `fetch+rebase` 再 push，禁止 `--force` ⑤CRLF 警告可忽略 ⑥大批 `D` 删除项须与重命名对账（`D+R` = 原始删除数），先分清真删与改名 ⑦推送前必做四查（连通 / 大文件双查 / ignore 覆盖 / 删除对账） | #教训 #GitHub #备份 #同步 #PAT #rebase |
-| [[lessons/DeviceWorkflowDualFlowCallerGate]] | **设备工作流调用方入口红线（2026-09-01）**：驱动任一工作流子类必须走基类公共入口，禁止直接调子类同名便捷方法——连接/断开唯一入口 `ConnectOn()`/`ConnectOff()`（ADR-027 定名），内部启停方法会绕过受理式置态语义；UI 页只直驱自身所属设备，非所属设备只消费结果 | #教训 #工作流 #调用方 #ConnectOn #ConnectOff #ADR-027 |
-| [[lessons/DeviceControlWorkInheritanceBypass]] | **独立管控类绕过/复制基类机制的 5 类 BUG（2026-09-03）**：一句话根因=**不继承基类、另起炉灶抄一份私有实现，基类后补的正确性保障永远传导不过去**。① 子类 `private const string Tag` 遮蔽基类 `Tag` → CS0108 + string/object 类型对撞（**`Tag` 是日志标签不是死成员，0 消费 ≠ 可删**）② 63 处 `ShowLog` 标签四套写法发散 → 规范直连 `GlobalCommData.ShowLog` + 统一标签 ③ `long` 时间戳裸读写 32 位平台非原子 → `Interlocked` ④ `_status` 直读绕过 `_statusLock`（8 处）→ 加锁与不加锁混用等于没加锁（例外：`ClearAlarm` 的 check-and-set 必须同锁内）⑤ 抄的步机制漏了基类「非运行态刷新时间戳」→ **停机超 60s 再开机首拍即误判超时跳 900**，须补 `else ResetStepTime()` + `StartMachine` 内 `GoStep(StepIdle)` | #教训 #继承 #并发 #日志 #步骤驱动 #CS0108 #Interlocked #DeviceControlWork #ADR-027 |
-| [[lessons/WikiDriftCorrectionPitfalls]] | **Wiki 治理十坑（2026-09-03 立，2026-09-11/12/14 扩至十坑）**：① Python 默认换行把整库 LF 写成 CRLF → diff 从 90 行膨胀成整文件重写（**仓库以 LF 入库**，`core.autocrlf=true` 只影响 checkout；唯一判据是与 `HEAD` 比对）② 行区间替换 joiner 默认 `""` → 压成零换行单行（joiner 须由 `raw.endswith("\r\n")` 探测）③ 机器直接替换旧名 → 路径拼贴 / 外部项目（`PcomDeviceInterface/`）被改 / 自指 / 目录树塞全路径，16 页全部回退，改**标注式**（保留旧名 + 追加「现役 X.cs」）④ 横幅块内旧名被判为「未登记的新漂移」自伤 → 加 `> ⚠️ 历史名称提示` 块豁免 ⑤ 正则无边界断言 → `FormMain.Designer.cs` 截成 `Designer.cs`（144 处误报），须双侧断言 + RENAMED/REMOVED/EXTERNAL/SPECULATIVE 四点分诊 ⑥ 掩码只修红链漏修漂移 → 原档命名被判「未登记的新漂移」⑦ **`split("\n")`+`"\r\n".join()` 把 CRLF 写成 CRCRLF**，而 `count(b"\r\n")` 因非重叠匹配恰好成立抓不住 → 改**按字节操作**（`raw.split(b"\n")` / `b"\n".join`）+ 三重断言 + **整目录回滚重做** ⑧ **非知识库文件混入**（`_tmp_*.py`、`.pyc`、SDK `bin/obj` 与示例编译产物、0 字节目录、退役工具脚本、死工具引用）→ 补 `.gitignore` + 删物理文件三步收尾 ⑨ **Skill 双副本漂移**（版本号同为 v1.6.0 内容却差 4 行）→ 以用户级为准字节覆盖同步 ⑩ **裁撤厂商原档前未定位「唯一真相源」**：全库唯一的 C 原生接口声明（`CameraApi.h` 328 KB 等 6 个头文件）藏在 `Demo/VC++/Include/`，而厂商 `SDK/` 目录**一个 `.h` 都没有**（`.Interface` 后缀实为 PE 二进制）——按语言齐删会连带删光所有副本 → 删前须做**扩展名分布扫描 + 跨目录 md5 去重 + 真实类型校验**，**抽存优于齐删**。页尾附**收尾判据**（含 2026-09-12「知识库卫生判据」10 条 + 2026-09-14「原档裁剪判据」6 条） | #教训 #LLMWiki #漂移 #工具脚本 #Python #行尾 #批量编辑 #卫生治理 #原档裁剪 |
-| [[lessons/AlgorithmControlRecordIsolation]] | **算法纯净性与记录职责隔离（2026-09-14，ADR-043）**：算法实现类里**直接调用记录/持久化模块**，把「计算」与「记录」塞进同一条调用链。实例：`WeldParamAdjustmentAlgorithm` 内 `RunRecordManager.Instance.RecordProcessFrame`（每帧）/ `RecordAdjustment`（调整时）/ `AbortRecording`（超阈值）三处直连落盘，并 `using AdaWeldSystem.ProductFileManager`。**三重危害**：① 职责越界、模块依赖反向缠绕 ② 落盘在计算线程同步栈上，记录一慢就拖慢控制 ③ 算法被迫感知**记录侧状态**（帧索引）。正解：算法**只发事件**（`FrameRecordRequested` / `AdjustmentRecordRequested` / `AbortRecordRequested`，经 Manager 透传）→ 订阅方**只入队（O(1)）**、后台异步落盘；载荷不含帧索引、不拼格式化字符串；运行参数外提为 Manager 独占配置（照 `SeamGuideConfig` 范式；**ADR-044 起两节合一为 `WeldAlgorithmsConfig`，且配置类划分跟随「谁写盘」而非「字段分几组」**）。同类未处置：`LineLaserManager.cs` 的 `AddFrame`（Manager 层直连落盘） | #教训 #算法分层 #记录隔离 #事件驱动 #配置合一 #WeldParamControl #ProductFileControl #ADR-043 #ADR-044 |
-
----
-
-## 六、操作指导（guides/，怎么做）
-
-> **2026-09-01 新建分类**：自 `lessons/` 迁出。判据 —— 本分类回答「**怎么做**」（操作手册 / 参考手册 / 工具用法），不是强制规范（standards），也不是已发生的坑（lessons）。
-
-| 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[guides/MecaVision-DevGuide]] | **2026-09-08 新增** 麦格威监控相机开发指导：SDK 资产清单与工程配置（MVSDK.cs 拷入 `MonitorCam/Native/` + DLL 部署 + 管理员权限）· 典型流程以 FirstStep（Grabber 调试路径）/TriggerAndStrobe（生产低层路径）例程**实录** · **二手文档订正表 8 条**（API 零臆造，但目录树/类名按「另一项目」写，⛔ 不照抄）· `IMonitorCameraApi` 契约适配映射 · 踩坑 11 条 · 落地 9 步实施 plan · OPEN 5 项（GigE IP 枚举期不可查等）· **2026-09-14 增** `SDK/Include/` C 原生头文件 ×6 资产行 + 原档裁剪记录（`Demo/` 只留 C# 例程） | #指导 #相机 #监控 #麦格威 #MecaVision #API核验 #实施plan |
-| [[guides/DeltaEtherCAT-Deployment]] | **2026-09-07 新增** 台达 EtherCAT **部署规范**（依据官方 `DELTA EtherCAT UserGuild.pdf` 第 1 章 + 安装程序 `CopyCmdx64/86.bat`）：驱动安装（设备管理器指向 `EtherCAT\driver`）· 系统级 DLL 落位（`x64`→`System32`、`x86`→`SysWOW64`、`msvcr100`）· `C:\EtherCAT\`（ESI/AutoConf/Config）· **项目内做法**（`3rdDepend\EtherCAT_DLL_x64.dll` → csproj `CopyNative3rdDependToOutput` → `bin`）· `#if X86` 条件编译与禁 AnyCPU · 9 项部署校验清单 · 6 类常见故障定位 | #指导 #运控 #台达 #EtherCAT #部署 #DLL #驱动 |
-| [[guides/DeltaEtherCAT-AdvancedMotion]] | **2026-09-07 新增** 台达**高级运动**使用规范（PVT 多段插值 + ECAM/ECAM2 电子凸轮）：权威顺序（SDK 头文件 > PM 手册 > 二手文档）；**原档 6 处失准订正表**（虚拟轴 API 三个名字不存在、`SourceType=2` 为编造值、`Virtual_Set_*` 实为坐标平移非虚拟主轴、PVT 点数上限 256→**8000**、另有 B 套流式 `PVT_Begin/Continue_Move` 原档未提）；PVT A/B 两套 API 语义与签名；ECAM2 建表/啮合/相位/`Get_PreviewTable`/时间模式凸轮；**机器人 X→Y 跟随选型裁决**（原档推荐方案一「虚拟轴」在 PCI-L221 上不成立，推荐 PVT B 套）；待补 Native 声明清单 + 6 项 OPEN | #指导 #运控 #台达 #EtherCAT #PVT #ECAM2 #电子凸轮 #焊缝跟踪 #API核验 |
-| [[guides/DeltaEtherCAT-UIDesign]] | **2026-09-07 新增** 台达运控 **UI 设计规范（AntdUI 版）**：原档第四部分按 `MasonMotionControl` 项目风格撰写，本页给出到 AdaWeldSystem 的**翻译对照表**（`DataGridView`→`AntdUI.Table`、`Label.BackColor`→`AntdUI.Signal`、`Form`→UserControl+Modal、`IUpdate`→`RefreshUi(scope)`、`XmlSerializer`→`FileOperate/XMLfile`、`GetMotionManager()`→`MontionManager.Instance`）；**无应用层心跳**（WKC 看门狗硬件维护）与 7 项状态 API + OpState 色标；`MotionControlPage` 顶部状态条改造；新增 `UIDesign/SubDialog/MotionDialog/` 下 5 个 `XxxForm` 弹窗；刷新机制沿用「回调更新画面、轮询只查状态」；10 项落地检查清单 | #指导 #运控 #台达 #UI #AntdUI #监控 #弹窗 |
-| [[guides/DeltaEtherCAT-DevGuide]] | **2026-09-06 重写为全新模块落地规范** 台达 EtherCAT 运动控制模块：目录结构与对外消费关系**以原档为准**（`IMotion/` 8 文件 + `DeltaEtherCAT/` 5 文件 + `Native/` 5 文件 + `MontionManager` / `Cylinder`）；三层 + 业务层依赖铁律；初始化序列（Open→Initial→轮询 `Check_Initial_Done`→扫从站）；`DeltaSlaveScanner` 从站识别表；单位换算集中在 L3（`Equiv` = 工程单位/脉冲）；`PreMotionCheck` 与 NPN 低电平 IO；三例可运行示例 + **API 名核验门禁**（原档 7 处失准已订正）+ 15 项落地清单 | #指导 #运控 #台达 #EtherCAT #目录结构 #对外消费 #落地规范 |
-| [[guides/AntdUI-Reference]] | **AntdUI 完整参考与迁移手册**（1063 行，按章节跳转）：控件 API 迁移坑（Select/Table/GridPanel/Splitter/InputNumber）、Table 固定范式（Columns/DataSource/设计器序列化/Binding）、GridPanel Span 语法、Message/Modal Owner 规范、Menu+Tabs 导航正确用法、命名空间类型冲突（CS0104）、Modal 承载 UserControl 范式、Window+PageHeader 旧范式、FlowPanel 表单布局、Splitter→GridPanel 改造、ToolStrip→FlowPanel 改造、Table ColumnCheck 单选、SunnyUI 迁移对应、命名空间约定 | #指导 #UI #AntdUI #迁移 #设计范式 #Table #GridPanel #Modal #Menu #Tabs |
-| [[guides/Project-Tools]] | **项目工具与流程手册**（959 行）：§1 代码图谱工具（**已废弃，历史参考**）· **§1.2 Grep 结果截断陷阱（影响半径检索必须两次独立检索交叉验证）** · §2 Wiki 工作流规范（**§2.1 日志追加位置规则**：新记录必须加在文件最顶部，保持严格时间倒序）· §2.5 批量重命名子串碰撞（须先查后改）· §3 图表工具 ScottPlot 4.1.74 · 虚拟相机与模拟模式 · 单例持久化启动加载 · .csproj 相关 | #指导 #工具 #项目配置 #日志 #重命名 #ScottPlot #模拟 #Grep |
-| [[guides/WinForms-Designer]] | **WinForms 设计器规范与常见错误**：`*.Designer.cs` 不可修改、设计器下单例初始化陷阱、Controls.Add 前必须实例化、resx 孤儿类型引用、System.Void 基类级联、Bounds 哨兵值黑屏、Assimp RootNode 导入、ScottPlot FormsPlot 用法、Table/GridPanel/设计器序列化；**2026-08-19 澄清：DisposeComponents() 仅限 UI 类，非 UI 类须用标准 IDisposable.Dispose()（ADR-020）** | #指导 #UI #WinForms #设计器 #ScottPlot #3D |
-| [[guides/WinForms-UI-Threading]] | **WinForms UI 线程与线程安全**：Workflow 事件 InvokeRequired、后台线程禁止模态 MessageBox、线程启动顺序（上电两阶段）、UI 线程封送、模拟启动异步等待、UI Message/Modal 的 Target/Owner 规范 | #指导 #UI #线程 #工作流 #线程安全 #模拟 |
-| [[guides/Namespace-Compilation]] | **命名空间与编译错误排错手册**：**§1.1 代码文件注册到 `.csproj`**（新建 .cs 必须加 `<Compile Include>`，否则不参与编译）、命名空间迁移补 using、命名空间与类同名歧义、枚举命名空间重复、跨模块类型可见性嵌套、新增文件缺失 using、半成品代码引用不存在控件、P/Invoke 重复 DllImport、设计器 resx 孤儿引用 | #指导 #命名空间 #编译错误 #迁移 #csproj #代码质量 |
-| [[guides/Config-Data-Tools]] | **配置/数据/工具手册**：INI 文件使用规范、Record.ini 绝对路径失效、SQLite 保留关键字、NuGet 多语言资源文件夹、XElement 类型转换、日志追加位置规范、.csproj 文件注册、单例持久化启动加载 | #指导 #配置 #INI #SQLite #NuGet #工具 #XML |
-| [[guides/SourceBackup-GitHub]] | **AdaWeldSystem / LLMWiki 云端源码备份（GitHub）操作手册**（2026-09-14 按实况重写）：双仓结构（`AdaWeldSys` 代码仓 + `Vibecoding` 知识库仓，均 SSH over 443）/两仓各自 `.gitignore`（代码仓须忽略 380MB 的 3rdDepend）/裸命令推送流程（确定性脚本 `ada_backup.sh` 已退役）/一致性校验/排错 | #指导 #GitHub #备份 #同步 #双仓 |
-
----
-
-## 七、设计决策（ADR）
-
-> **编号说明（2026-09-14 更新）**：现存 **001~048 共 48 条，编号连续、无断号**。
-> 编号沿革：2026-09-07（删正运动三项）、2026-09-09（删整页失效四项：原 003/004/016/026）、2026-09-09 新增 ADR-039、2026-09-11 新增 ADR-040、2026-09-14 新增 ADR-041、2026-09-14 新增 ADR-042、2026-09-14 新增 ADR-043（本轮补登记进索引）、2026-09-14 新增 ADR-044（焊接算法配置合一）、2026-09-14 新增 ADR-045（Comm 模块重构）、2026-09-14 新增 ADR-046（产品记录模块重构）、**2026-09-14 ADR-040 废弃（演进为 ADR-041 的 `SeamTrackingAlgorithm`，不回收编号）**。
-> **旧号 → 新号映射与删除对照唯一准绳 = [[decisions/ADR-Index]]**；各 ADR 页 frontmatter 的 `previous_id` 字段已移除（沿革以 ADR-Index 为准），其 `title` / H1 / `tags` 自引用编号已于 2026-09-11 **逐页订正为现行编号**。
-> `logs/`、代码注释与 skills 副本编号已按 09-09 映射同步；更早期归档文本中的裸编号按 ADR-Index 换算。
-
-### 7.0 编号总表
-
-| 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[decisions/ADR-Index]] | **编号唯一准绳（2026-09-14 更新）**：现行 **001~048** 连续无断号；**09-09 重排映射**（005→003 … 042→038）+ **09-07 历史映射**；两次删除共 7 项的删除对照表（含去向）；全部 48 条 ADR 现行编号 / 09-08 时代编号 / 主题 / 状态 / 日期 | #索引 #决策 #ADR #编号体系 #知识库治理 |
-
-### 7.1 现行有效（accepted，编码前须遵守）
-
-| 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[decisions/ADR-001-DisposePattern]] | 为什么使用 DisposeComponents() 而非在 .cs/Designer.cs 中重写 Dispose；**2026-08-19 澄清：DisposeComponents() 仅限 UI 设计器类且按需使用，非 UI 类统一标准 IDisposable.Dispose()（见 ADR-020）** | #决策 #UI #资源释放 |
-| [[decisions/ADR-002-CS73-Constraint]] | 为什么限制 C# 7.3 语法（MSBuild v4.0 兼容性） | #决策 #语法 |
-| [[decisions/ADR-038-EmguALGThreeLayer]] | **2026-09-08（✅ accepted）** EmguALG 三层改造：`Abstractions/` + `WireFeedDistance/`/`WeldQuality/` + `Manager/AlgorithmManager`；删旧 Job 流水线；**算子仍集中 `ImageAlgorithm.cs`**（承接原 ADR-003 算子集中约定，原页 2026-09-09 删除） | #决策 #算法 #三层架构 #EmguALG |
-| [[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]] | **2026-09-09（✅ accepted）** 监控相机业务边界澄清：2D 面阵相机无 Live/PIL 模式，画面由单次触发采集刷新；EmguALG 细化为五层，`WireFeedDistance/`/`WeldQuality/` 归入 `RealtimeMonitor/`，新增 `LineLaserContour/` | #决策 #监控相机 #算法 #五层架构 #ADR-039 |
-| ~~[[decisions/ADR-040-SeamGuideTrajectoryBuilder]]~~ → [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]] | **2026-09-11（⛔ deprecated，2026-09-14 演进为 ADR-041）** 线激光引导 Y 轴轨迹构造：①线激光结果**不再直写 PVT**，`SeamPvtFeeder`/`AttachYAxis` 删除；②~~新增 `WeldParamControl/SeamGuide/`~~（`SeamGuideSample` 保留、`ISeamTrajectoryBuilder`/`SeamTrajectoryBuilder` 删除并演进为 `SeamTrackingAlgorithm`）；③**三级修正**保留；④标定转换保留；⑤**由 `MotionControlWorkflow` 写入控制器**，计算由 `WeldParamManager` 持有的 `SeamTrackingAlgorithm` 负责，`Tick()` 保证 ≤250ms 输出一段 | #决策 #线激光 #Y轴 #PVT #焊缝跟踪 #轨迹构造 #ADR-040 #ADR-041 |
-| [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]] | **2026-09-14（✅ accepted）** WeldParamControl 算法分层：①⛔ ~~`WeldProcess`~~ / ~~`WeldDataManager`~~ 删除，模块不再承载流程；②新增抽象基类 `WeldAlgorithmBase`（`Abstractions/`：`Name`/`IsReady`/`LoadConfig`/`Reset`）；③**三个非单例**实现类——`WeldParamLookupAlgorithm`（查表调整 + 三张映射表 + 送丝/功率公式）、`WeldParamAdjustmentAlgorithm`（焊缝宽度驱动参数调整，承载输出/Chart/失败计数/事件）、`SeamTrackingAlgorithm`（线激光几何轨迹跟踪，只输出 `PVTPoint[]`）；④`WeldParamManager` 单例作为**唯一外部入口**，统一管理配置与全部算法实现，透传输出/查找表/事件；⑤数据类迁入 `WeldParamData.cs`，`TriggerAdjustment()` 无参契约不变，流程仍在 `WeldParamControlWorkflow` | #决策 #焊接参数 #算法分层 #Manager #唯一入口 #ADR-041 |
-| [[decisions/ADR-042-ModuleOrganizationPatternStandard]] | **2026-09-14（✅ accepted）** 模块组织范式沉淀：①确立四件套——**Core（功能封装核心）+ 抽象层（对外功能与属性）+ 实现层（所有功能继承抽象类实现）+ Manager（管理全部实现类对象与数据、持久化配置、对外唯一访问口）**；②按是否基于第三方库分两场景——**场景 A 第三方库 Core 必需**、**场景 B 纯自研 Core 按需**（无自成一体的算法结构则不建，函数与算法直接写在实现类中）；③依赖方向四向铁律（抽象层零第三方依赖 → 实现层只允许出现厂商类型 → Core 只被实现层调用 → 外部只经 Manager）；④沉淀标准页 [[standards/ModuleOrganizationPattern]]（H1~H9 硬规则 + 检查清单 + 5 实例对照：EmguALG/MonitorCam/LineLaserCam/MotionControl 为场景 A、WeldParamControl 为场景 B）；⑤⛔ 不改造既有模块目录名（`IMotion/`、`IMonitorCam/` 等保留） | #决策 #模块组织 #分层架构 #抽象层 #实现层 #Manager #ADR-042 |
-| [[decisions/ADR-043-AlgorithmPurityAndRecordIsolation]] | **2026-09-14（✅ accepted）** 算法纯净性与记录职责隔离：①算法**只计算不落盘**——`WeldParamAdjustmentAlgorithm` 直连 `RunRecordManager` 的落盘调用删除；②需要留痕只**触发事件**（`FrameRecordRequested` / `AdjustmentRecordRequested` / `AbortRecordRequested`），由 [[api/WeldParamManager]] 透传；③记录归 [[modules/ProductFileManager]] 订阅后**异步**入队落盘（订阅方待落地，见 [[lessons/AlgorithmControlRecordIsolation]]）；④`ExecuteAdjustment` 去掉 `isCountType`/`countNum` 形参，改读 Manager 独占配置（该配置类同日由 ADR-044 合并为 `WeldAlgorithmsConfig`） | #决策 #算法分层 #记录隔离 #事件驱动 #WeldParamControl #ADR-043 |
-| [[decisions/ADR-044-WeldAlgorithmsConfigMerge]] | **2026-09-14（✅ accepted）** 焊接算法配置合一：~~`SeamGuideConfig`~~（`SEAM_GUIDE`）+ ~~`WeldParamAdjustmentConfig`~~（`WELD_PARAM_ADJUST`）→ 单一 `WeldAlgorithmsConfig`，**XML 节名与文件路径不变、存量配置零迁移**；Manager 收敛为**一实例 `AlgorithmsConfig` + 一对** `LoadAlgorithmsConfig()` / `SaveAlgorithmsConfig()`（原 4 方法零外部消费者）；同一实例分发给两算法只读消费；`MotionControlWorkflow` 两处 `SeamGuideConfig.*` → `AlgorithmsConfig.*`；判据沉淀入 [[lessons/AlgorithmControlRecordIsolation]]：**配置类划分跟随「谁写盘」而非「字段分几组」** | #决策 #配置合一 #算法分层 #Manager #WeldParamControl #ADR-044 |
-| [[decisions/ADR-045-CommModuleRefactor]] | **2026-09-14（✅ accepted）** Comm 模块重构（ADR-042 范式落地）：①`Comm/Communication/` 三层——抽象层 `CommChannelBase`（零第三方）+ 5 实现（`SiemensS7Comm`/`KukaRsiComm`/`KukaEkiComm`/`EthernetXmlComm`★重写/`InLaserModbusComm`）+ `CommunicationManager` 唯一口；②**KUKA 门面并入 Manager**（`KUKARobotManager` 删除）；③**Profinet/GSDML 不做**（`GSDMLGenerator` 删除、枚举成员清除）；④旧 `TCPIPComm` 废弃重写为 `EthernetXmlComm`（BytesIO + KUKA 风格预定义 XML）；⑤英莱 Modbus 与英莱 SDK 互斥；同轮整体切换不留平行双实现 | #决策 #通讯 #模块组织 #Manager #以太网 #KUKA #ADR-045 |
-| [[decisions/ADR-046-ProductRecordModuleRefactor]] | **2026-09-14（✅ accepted）** 产品记录模块重构：①抽象层 `ProductRecordBase`（`Abstractions/`：Start/Stop/Abort + 入队 O(1) + 后台 WorkerLoop→Persist）；②三记录类——`SeamTrackRecord`（焊缝结果+机器人信息→.pDat/.ply）、`SeamAdjustRecord`（调整信息+机器人信息→.pDat）、`WeldResultRecord`（成功/产品信息→**数据库**按日期分表）；③文件机制下放 internal `RecordFileStore`；④`ProductFileRecordManager` 单例**订阅 ADR-043 三事件闭环**（订阅方 TODO 落地）；⑤命名空间统一 `AdaWeldSystem.ProductFileControl`；`RunRecordManager` 删除，5 消费方换 Manager | #决策 #产品记录 #数据库 #Manager #事件订阅 #ADR-046 |
-| [[decisions/ADR-047-RecordImplementationSelfContained]] | **2026-09-14（✅ accepted）** 记录实现类文件自包含（ADR-046 文件维度收尾）：①游离文件吸收——`RecordFileStore.cs`+`RecordFrame.cs` 并入 `SeamTrackRecord.cs`、`WeldActionRecord.cs` 并入调整记录文件（public 保持，`GetAllFrames`/`ParsePDatRecords` API 不变）；②**改名** `SeamAdjustRecord`→`WeldParamAdjustRecord`、`SeamAdjustItem`→`WeldParamAdjustItem`（语义纠正：根据焊缝调整激光功率/送丝速度等时记录，对齐 ADR-008 WeldParamAdjust 术语）；③`SmartRayConverter` **整链删除**（0 消费验证：含 `AddSmartRayFrame` 于 SeamTrackRecord/Manager）；④范围外不动：`AdjustmentRecordRequested` 事件命名保持；⚠️ `var frames = GetAllFrames()` 的 var 隐蔽类型引用曾使 RecordFrame 误判为 0 消费——Grep 断言须防 var | #决策 #产品记录 #文件自包含 #改名 #死代码清理 #ADR-047 |
-| [[decisions/ADR-048-NamespaceDirectoryAlignment]] | **2026-09-14（✅ accepted）** 命名空间与目录严格对齐：①判据 `namespace = AdaWeldSystem + 相对 AdaWeldSystem/ 的目录路径（点分隔）`；②覆盖四组错位共 68 文件——UIDesign（`Sub1UI`/`Sub2UI`/`Sub3UI` → `UIDesign.ControlPage`/`.TabPage`/`.MainWindow`/`.SubDialog.<业务域>`）、MainDeviceControl（根两管控类归 `MainDeviceControl`；`DeviceStateApiCore/` 三文件由 `...DeviceState`/`...FlowState` 统一为 `...DeviceStateApiCore`）、Comm（`SystemComm`/`Communication.Abstractions`/`Communication.Implementations` 随目录）、SQLiteDBControl（`SQLiteDatabase` → `SQLiteDBControl[.SQLiteCore|.ISQLiteHelper|.Helpers]`）；③登记例外——厂商 SDK `MVSDK.cs` 原样不动、`ProductFileControl/Abstractions|Records` 扁平不产生子命名空间（ADR-046/047）；④废止 ADR-016 §3 / ADR-027 / ADR-038 / ADR-043 §7 / ADR-045 §4 的「命名空间保持不变」条款（各页加沿革横幅）；⑤CS0118 枚举同名遮蔽随之消解，全库 `using DeviceState = …` 别名清除 | #决策 #命名空间 #目录对齐 #重构 #ADR-048 |
-| [[decisions/ADR-003-CallbackAcquisition]] | 为什么 Workflow 取图使用回调等待模式；**2026-09-01 边界澄清**：其有界 `WaitOne`（上限 5000ms、超时可失败）**不违反**「单步禁阻塞等待」红线，判据「有界+可失败=合法」 | #决策 #相机 #异步 #回调 |
-| [[decisions/ADR-004-CommRefactor]] | Comm 模块重构：合并文件、移除 MachineStatus、TCPIPComm 纳入 CommunicationManager | #决策 #通讯 #重构 |
-| [[decisions/ADR-005-ConfigLayout]] | Config 文件夹按文件类型分层（INI/XML/GSDML） | #决策 #配置 #文件结构 |
-| [[decisions/ADR-006-CommXmlSeparation]] | 通讯 XML 配置按设备类型分离：RobotServer/RobotClient/PLC 独立 XML + 独立日志开关 | #决策 #通讯 #XML #配置管理 |
-| [[decisions/ADR-007-MonitorCameraModule]] | MonitorCam 监控相机模块架构：SDK 抽象、完全解耦（沿革：海康实现已由 ADR-037 换麦格威；算法集中已由 ADR-038 三层化；**Live/PIL 双模式条款由 ADR-039 废止**） | #决策 #相机 #监控 |
-| [[decisions/ADR-009-WorkflowAsAdjustmentDriver]] | 工作流作为调整主驱动：RunAutoAdjust → ~~`WeldProcess`~~ `WeldParamManager`.TriggerAdjustment（无参）；**目录已迁 `MainDeviceControl/DeviceWorkflow/`，符号已由 ADR-041 改名，结论不变** | #决策 #工作流 #焊接 #驱动 |
-| [[decisions/ADR-010-MotionControlModule]] | 运控调整模块架构：模块独立、Run/Workflow 分离（沿革：控制器已换台达 ADR-032/033，虚拟相机归 LineLaserCam ADR-034） | #决策 #运控 #模块 #解耦 |
-| [[decisions/ADR-012-MonitorCamPage-AlgorithmInline]] | 监控相机页面命名与算法参数内联：`MonitorCamWorkJob` → `MonitorCamPage`，算法编辑内联右侧 panelRight；**实现控件已随 ADR-015 迁移为 AntdUI**（容器改 `System.Windows.Forms.GroupBox`、状态指示改 `AntdUI.Signal`），命名与「算法内联右侧」的决策精神不变 | #决策 #监控相机 #UI #命名 #算法编辑 |
-| [[decisions/ADR-013-CameraConnectionStateDecoupled]] | 线激光相机连接态与工作流程态解耦（沿革：结论有效，承载者由 CameraSelector 改 LineLaserManager，ADR-034） | #决策 #相机 #状态机 #解耦 |
-| [[decisions/ADR-014-AlgorithmEditInterfaceSplit]] | 算法编辑界面按接口分隔（EmguALG vs 英莱）；**框架层已迁移**为 AntdUI.Tabs+UserControl | #决策 #UI #算法编辑 #AntdUI |
-| [[decisions/ADR-015-UIFrameworkMigration]] | UI 框架从 SunnyUI（GPL v3）迁移至 AntdUI（MIT）；25/25 文件全部完成；状态：accepted（2026-07-28 确认） | #决策 #UI #迁移 #SunnyUI #AntdUI |
-| [[decisions/ADR-016-DialogWindowToModalUserControl]] | 子对话窗承载方式：从 AntdUI.Window+PageHeader 改为 Modal 承载的 UserControl，8 个对话窗统一迁移到 SubView/ | #决策 #UI #AntdUI #Modal #UserControl |
-| [[decisions/ADR-017-EnumDeduplication]] | 枚举去重策略：子命名空间禁止重复定义父命名空间已有枚举 | #决策 #枚举 #命名空间 #DRY |
-| [[decisions/ADR-018-NuGetLocalization]] | NuGet 本地化：移除全部 PackageReference，改为 bin\Debug\3rdDepend\ 本地 DLL 引用（53 托管 + 28 原生），实现离线构建 | #决策 #NuGet #本地化 #依赖管理 |
-| [[decisions/ADR-019-LayoutContainerFreedom]] | **2026-08-12** 布局容器自由化：解除 GridPanel/FlowPanel 强制使用；按需自由选择；AntdUI 缺失控件可用原生控件，SunnyUI 禁用；不重写已有页面 | #决策 #UI #GridPanel #FlowPanel #布局 |
-| [[decisions/ADR-020-DisposePatternFullCoverage]] | **2026-08-19** Dispose 模式全覆盖：非 UI 类统一标准 IDisposable.Dispose()（迁移 Workflow×4/ZMotion×4/Comm×4 + 新增 CommunicationManager/TcpIpComm/ZMotionController 释放入口 + FormMain 关闭级联链）；第二轮：UI 类按需使用 DisposeComponents() | #决策 #资源释放 #IDisposable #全覆盖 |
-| [[decisions/ADR-021-LineLaserWorkflowRefactor]] | **2026-08-20** 线激光工作流分步重构：从 7 态扩展为 9 态，待机时传感器/激光均关闭（沿革：9 态与安全默认态仍有效，步驱动机制已由 ADR-029 清除） | #决策 #工作流 #线激光 #状态机 |
-| [[decisions/ADR-022-CodeSimplificationStandard]] | 代码精简规范沉淀决策：固化为标准页并由 index 路由，免重复输入；**范围裁定见 [[lessons/CodeSimplification-Scope-DesignerOnly]]** | #决策 #代码精简 #规范沉淀 |
-| [[decisions/ADR-023-WorkflowResponsibilityBoundary]] | **2026-08-31** 流程与子设备对象权责边界 R1~R5：核查 6 子流程发现 11 处越权（5 个零订阅死代码 + `DisplayEvent`/`FrameCompletedEvent` 双通道 + 依赖倒置）；治理后自定义工作流事件归零、健康巡检下沉 `MonitorCameraRun`、`MonitorCameraPhase` 下沉子设备 Api 层。执行细则 [[standards/WorkflowResponsibilityBoundary]] | #决策 #权责边界 #工作流 #子设备 #事件 #ADR-023 |
-| [[decisions/ADR-024-SafetyCheckConsolidation]] | **2026-08-31** 安全检查三文件合并为单一 `SafetyWorkflow.cs`（2026-09-02 ADR-027 重设计命名为 `DeviceStatusWork.cs`、改为 `IOWork`/`EMGWork`/`StatusWork` 三线程、非泛型 `DeviceWorkflowBase`）；`FaultCategory`/`FaultRecord` 迁入 `FaultRecoveryManager.cs`；**⚠️ 2026-09-03（裁定 C3）**：`IsRobotPoseSafe` 已**移除**（不再监控机器人 pose），改为直接读 `DeviceStatusWork.Instance.IsSafe`（未启动返 true）；删伪异步 `CheckAsync` | #决策 #架构 #安全互锁 #文件合并 #DeviceStatusWork #ADR-024 |
-| [[decisions/ADR-025-ButtonShadowDeviceSwitch]] | **2026-08-31** MainPage 硬件快捷开关 FloatButton→ButtonShadow；同日风格迭代：50×50 仅 SVG 图标 + TooltipComponent 提示 + 原生徽标 Badge 红/绿 + 预留 SetDeviceIconSvg/SetDeviceBadgeSvg | #决策 #UI #MainPage #快捷开关 #ButtonShadow #AntdUI |
-| [[decisions/ADR-026-ProductLifecycleRecordModule]] | **2026-08-31 + 2026-09-01 §3 追加** 产品生命周期记录归口：`PCLOperate/RunFileRecord/` 迁入 `ProductFileManager/`（命名空间 `AdaWeldSystem.ProductFileManager`，公共 API 不变）；新建 `SQLiteDatabase/FaultRecordManager.cs`（已随 ADR-031 移除）；**§3：`FaultRecoveryManager.cs` 自 `MainDeviceControl/DeviceWorkflow/` 迁入 `ProductFileManager/`**，6 消费方补 using；**保留 `FaultRecord.State` 强类型 DeviceState 枚举**（接受 ProductFileManager ↔ MainDeviceControl 枚举级循环依赖，架构页 11.3 环数 4→5）；DB 层不反向依赖领域类型。⚠️ 2026-09-04 ADR-031 故障恢复模块整体移除，本页故障恢复相关结论仅存历史 | #决策 #产品记录 #文件迁移 #故障恢复 #归口 #循环依赖 #SQLite #ProductFileManager |
-| [[decisions/ADR-027-ThreeStateModelRefactor]] | **2026-09-02（✅ accepted，现行有效；⚠️ 2026-09-03 枚举取值由 ADR-029 更新：`SubDeviceWeldStatus` 删 `Starting`、新增 `NoReset`(0)，余值顺延）** 三态模型重构：删除四态 `DeviceState` 枚举，改为 `SubDeviceState`(连接态,2) + `SubDeviceWeldStatus`(焊接过程态,7) + `MainDeviceStatus`(主设备运行态,6) 三态；基类由泛型 `DeviceWorkflowBase<TStep>` 改为非泛型 `DeviceWorkflowBase`（承载 State/WeldStatus/SetWeldStatus/StateSwitched/WeldStatusChanged）；`MainDeviceWorkflow`→`DeviceControlWork`、`SafetyWorkflow`→`DeviceStatusWork`（三线程 IOWork/EMGWork/StatusWork）；`MainDeviceFlowState` 删除。取代此前「设备态四态 + 泛型 TStep 基类」设计；原步骤驱动决策与双流程决策已由 ADR-029 整体取代并删除 | #决策 #架构 #三态模型 #SubDeviceState #SubDeviceWeldStatus #MainDeviceStatus #非泛型 #ADR-027 |
-| [[decisions/ADR-028-ArchitectureRawSource]] | **2026-09-02（✅ accepted，当晚扩充 2→3；2026-09-03 收敛 3→2）** 架构原档单一来源约定：**现役 2 份**——`raw/architecture/主控设计.xlsx`（静态结构/枚举真值/成员级清单）+ `激光焊接系统业务流程图.pdf`（业务状态流 + 检查清单，含文本层）；旧两份 PDF 与 3 张渲染图于 2026-09-03 删除。沉淀为**架构唯一修改入口**——用户后续只改这两份原档，AI 按流程同步架构页（原档 > 架构页 > 源码注释，冲突须用户裁定）。**原档删除即视为架构意图变更**，须核对取代者的内容覆盖情况 | #决策 #架构 #知识库治理 #原档 #单一来源 #ADR-028 |
-| [[decisions/ADR-029-RawDesignRefinement20260903]] | **2026-09-03（✅ accepted，用户已逐条裁定）** 原档细化的**完全重构**与冲突裁定：元原则=新档是**全新设计而非对旧文档的补充**，改码不得沿用旧设计思维填补空缺。C1~C7 裁定结论——C1 `DeviceControlWork` 起 7 条常驻线程驱动子流程、**基类监听线程机制全部清除**；C2 `SubDeviceWeldStatus` 删 `Starting` 加 `NoReset`(0)；C3 指令改 `CommandCore` **const string** 解析、**删除三个枚举与 pose 监控**（消费方 `// todo`）；C4 `InitializeOn/Off` 阻塞 vs `ConnectOn/Off` 非阻塞，**两组并存不重叠**；C5 `Comm` 提供通讯方法与管理、`DeviceControlWork` 是使用方；C6 命名改 `RunStep`/`StepWorkTime`/`TimeOutSeconds`(秒)；C7 `SubDeviceLog()` 为 **`public abstract`**，每个子流程各自重写。原步骤驱动决策与双流程决策已整页废弃并删除，模拟模式决策已废弃并删除，三态模型枚举取值更新。另：D1 配置读写走本项目 `XdocumentReaderWriter`（子设备各自持有路径）；D2 `ClearProduct()` **暂不实现**。落地分 5 批，见 [[architecture/DeviceControlArchitecture]] §15.2 | #决策 #架构 #原档驱动 #完全重构 #线程模型 #CommandCore #ADR-029 |
-| [[decisions/ADR-030-MainDeviceStateSemantics]] | **2026-09-04（✅ accepted，用户裁定）** 主设备状态机语义修正与初始化时序重构：初始值 `NoReset`（不再 Stop）；初始化/运行报错置 `Alarm`，**消除报警一律回 `NoReset`**（关闭 OPEN-ClearAlarmSemantics）；**只有复位流程成功才到 Stop**（初始化全部就绪保持 NoReset 待复位）；初始化链删 `ClearMachine()`（清状态只归复位前）；**通讯与子设备同级且优先开启**；子设备 `Initialize()` 失败不 `ConnectOn()`；子设备初始态严格 NoReset（Standby 只能由复位产生）；心跳检测仅在通讯开启成功后启动，失效即停检+重连。起因：2026-09-04 启动日志 8 项问题诊断 | #决策 #状态机 #初始化 #时序 #ADR-030 |
-| [[decisions/ADR-031-ErrorReportingHierarchy]] | **2026-09-04（✅ accepted，用户裁定）** 报错分层与状态切换零日志：三层归口（设备对象层=硬件/连接错误、工作流层=流程错误、主设备层=设备级聚合），上层不复述下层已报错误；`运行态切换`/`连接态切换`/`焊接过程态切换`/`状态反射` 日志全部移除（事件保留供 UI）；故障恢复模块（FaultRecoveryManager/FaultRecordManager/FaultRecord/FaultCategory）**整体移除** | #决策 #日志 #报错分层 #ADR-031 |
-| [[decisions/ADR-032-MotionControllerDeltaReplacement]] | **2026-09-06 修订（✅ accepted，用户裁定）** 运动控制器采用台达 EtherCAT，**按全新模块设计**：①落地主体=用户提供的原档（目录结构/命名/消费关系）；②**参考基线=雷赛 `LSnmcControler`**，继承六条调用纪律；③单位换算集中在 L3（`Equiv` = 工程单位/脉冲，双向换算）；④**振镜与自动对焦归焊接头**，运控不承担；⑤命名沿用原档 `Montion*` + `Delta*`（撤销 `DeltaController`/`DeltaAxis`/`DeltaIO` 方案）；⑥分层依赖铁律（L2 零依赖 · Native 只被 L3 调用 · 业务层只认抽象） | #决策 #运控 #台达 #雷赛 #焊接头 #ADR |
-| [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]] | **2026-09-07（✅ accepted）** 移除正运动（ZMotion）并全面落地台达 EtherCAT + 消费方全量对接：删 `ZMotion/`10 文件 + `API/`4 文件 + `MotionManager` + `MotionConfig`(759行) + 3 个原生 DLL；新建 21 文件（L2 `IMotion/`8 · L1 `Native/`5 · L3 `DeltaEtherCAT/`5 · 业务层 `MontionManager`/`Cylinder`）；消费方 3 处全量对接；**用户 4 项裁定**（命名以原档为准 / 遗留高级组件全删 / MotionConfig 不新建 / L2 移除 Modbus）；Python 静态校验 10 项全过（**真编译待 VS**）；规范页第 7~8 处失准已按 SDK 真名订正；7 项 OPEN（焊缝跟踪方案未定 / 心跳 / 上报 / 配置体系 / 161MB DLL 部署 / bin 残留 / 真编译） | #决策 #运控 #台达 #正运动 #移除 #消费方对接 #ADR |
-| [[decisions/ADR-037-MecaVisionMonitorCamera]] | **2026-09-08（✅ accepted，已落地，真编译待 VS）** 监控相机三层重构并切换麦格威：`IMonitorCam/` + `MecaVisionCam/`（含 Native/MVSDK.cs）+ `MonitorCamManager`（原 MonitorCameraRun 改名）；**海康实现整删**；断联回调映射普通 Alarm（非急停）；SDK 原文核验 33 API/13 错误码零臆造 | #决策 #监控相机 #麦格威 #MecaVision #厂商切换 #三层架构 |
-| [[decisions/ADR-034-LineLaserThreeLayerRefactor]] | **2026-09-08（✅ accepted）** 线激光三层重构 + 移除 SmartRay/海康 3D：仿运控范式建 L2 `ILineLaser/`（`LineLaserCameraBase` + `LineLaserKind` + `LineLaserConnectionState` + 两个事件参数）+ L3 英莱/虚拟 + 业务层 `LineLaserManager`（注册/选中/事件订阅转发/连接态/XML 配置）；删 `SmartRayCam/`10 + `HikRobotCam/`3 + 旧 `Api/`2 文件与 `Mv3dLpNet` 引用，`CameraSelector`/`ICameraRun` 一并删除；消费方 5 文件 21 处对接 `LineLaserManager.Instance`；Python 静态校验 18 项全过（**真编译待 VS**）；保留 `SmartRayConverter`（只依赖 `Smartray.Api` 引用） | #决策 #线激光 #相机 #三层架构 #管理器 #移除 #ADR-034 |
-
-| [[decisions/ADR-035-LineLaserResponsibilitySplit]] | **2026-09-08（✅ accepted）** 线激光三层职责二次分工：①**实现层只做回调触发**——英莱 `MillionOutlineCallback` 精简为「建点云 + 捕获结果 + 触发 `ResultReady`/`ProfileReady`」，删 `ConvertContourToMatDemo` 等约 420 行（文件 1746→1324）；②**Manager 成业务中枢**——结果侧经 `SeamPvtFeeder` 算 Y 轴 PVT 点下载、轮廓侧做记录 + 快照 + 按需 Mat（`SetDisplayOptions` 可开关，默认关）；③厂商类型解耦为中性 `LineLaserSeamResult`/`LineLaserCalibration`；④绘制上提 `ProfileMatRenderer`；⑤**主页面改线程轮询** `Profile` 快照（33ms + 版本号），手动页订阅 `MatUpdated`（推翻 lessons「回调驱动显示」的适用范围）；⑥**Y 轴只注入 `IPVTMotion`**（装配点 `MotionControlWorkflow`），PVT 走台达 **B 套流式**（`BeginMove`→攒批→查水位→`ContinueMove`）；⑦PVT 时间基准/速度前馈**待现场实测** | #决策 #线激光 #职责分层 #PVT #依赖注入 #轮询 #ADR-035 |
-| [[decisions/ADR-036-LineLaserManagerSingleEntry]] | **2026-09-08（✅ accepted）** 线激光相机访问统一收口：①**实例唯一持有者=Manager**——新增 `IntelligentLaser` / `VirtualCamera` 类型访问器，禁止 `Active as Xxx` 与业务层 `new`；②**外设代理**——抽象层补 7 个 `public virtual` 外设契约（默认实现），Manager 提供 `Connect`/`SetLaser`/`SetSensor`/`ShutdownPeripherals`，工作流不再持有相机对象；③**三辅助类归并**——`ProfileSnapshot`/`ProfileMatRenderer`/`SeamPvtFeeder` 并入 `LineLaserManager.cs`（保留独立类）；④**类名回归文件名** `IntelligentLaserCameraRun` → `IntelligentLaserCam`；⑤修两个缺陷：`e.HasValidResult`→`e.Result.Valid`、**工作流补 `StartAcquisition`**（此前只连相机不出图）；⑥虚拟相机补 33ms 模拟节拍 | #决策 #线激光 #单一入口 #抽象契约 #ADR-036 |
-
-### 7.2 待决 / 进行中（proposed / open）
-
-| 页面 | 议题 | 状态 |
 |---|---|---|
-| [[decisions/OPEN-ClearAlarmSemantics]] | **已裁定关闭（2026-09-04，ADR-030）**：消报语义定为「消除报警一律回 `NoReset`；只有复位流程成功才到 `Stop`」。原议题「M5 应回落 Stop 还是 NoReset」不再待决，本页仅存裁定过程 | #已裁定 #状态机 #焊接工艺 |
+| [[api/AlgorithmManager]] | AlgorithmManager — EmguALG 统一调度入口（承接原 AlgorithmManager 与 PipelineManager 可复用职责 | #算法 #管理器 #EmguALG #配置 |
+| [[api/CommandCore]] | API — CommandCore 机器人指令协议（const string，取代 CommandTable | #指令协议 #机器人 #主控 #CommandCore |
+| [[api/CommunicationManager]] | CommunicationManager API 参考（通讯管理器 · 模块唯一门面 | #通讯 #管理器 #门面 #KUKA |
+| [[api/ConfigSelfHeal]] | ConfigSelfHeal 配置自愈 API | #配置 #自愈 |
+| [[api/DataReviewerPage]] | DataReviewerPage API 参考（数据追溯页 · 区间筛选 + 多选合并 + 悬停读数 | #数据追溯 #区间筛选 #多选 #悬停读数 |
+| [[api/DeltaEtherCAT-Native]] | 台达 EtherCAT 原生 API 速查（EtherCAT_DLL | #运控 #台达 #EtherCAT #P/Invoke |
+| [[api/DeviceControlWork]] | DeviceControlWork API 参考（整机主控 · 主设备运行态 MainDeviceStatus | #工作流 #主控 #上电初始化 #机器人交互 |
+| [[api/DeviceStateApiCore]] | DeviceStateApiCore API 参考（设备状态核心 · DeviceStateBase / DeviceWorkflowBase | #主设备控制 #状态机 #流程基类 #契约 |
+| [[api/DeviceStatusWork]] | API — DeviceStatusWork 安全/IO/状态管控（+ SafetyFlow / SafetyInterlockChecker | #安全检查 #安全互锁 #工作流 #PLC |
+| [[api/FilebackupPage]] | FilebackupPage 文档备份设置页（原 CommPage | #UI #文档备份 #通讯配置 #工艺配置 |
+| [[api/FormMain]] | FormMain 主窗口 | #UI #主窗口 #导航 #状态标签 |
+| [[api/GlobalCommData]] | GlobalCommData API 参考 | #通讯 #全局状态 #事件总线 |
+| [[api/HikCam]] | HikCam — 监控相机海康 MVS 实现类（IMonitorCamApi 落地 | #相机 #监控 #海康 #MVS |
+| [[api/HonorMachineTest-IOReference]] | HonorMachineTest IO 监控与执行参考基线 | #IO #线程模型 #参考基线 #DeviceStatusWork |
+| [[api/ILAlgorithmEditForm]] | ILAlgorithmEditForm 算法编辑弹窗 | #UI #算法 #配置 #SubDialog |
+| [[api/ILCamPage]] | ILCamPage 英莱线激光相机页 | #UI #线激光 #英莱 #权限 |
+| [[api/IntelligentLaserCam]] | IntelligentLaserCam API 参考 | #相机 #英莱 #线激光 #ADR-007 |
+| [[api/IntelligentLaserSDK_CSharp_DevManual]] | IntelligentLaser SDK（C# 版）开发手册 |  |
+| [[api/KUKARobot]] | KUKARobot API 参考（KUKA 机器人通讯 · RSI 单一通道现行契约与协议知识 | #KUKA #机器人 #通讯 #RSI |
+| [[api/LaserWeldHeadWorkflow]] | LaserWeldHeadWorkflow API 参考（焊接头工作流 · 骨架期 | #工作流 #焊接头 #RunStep #SubDeviceWeldStatus |
+| [[api/LeadshineLSnmc-Reference]] | 雷赛 LSnmcControler 参考基线 | #运控 #雷赛 #Leadshine #参考基线 |
+| [[api/LineLaserContourAlgorithm]] | LineLaserContourAlgorithm API 参考（线激光轮廓 Mat 渲染算法 | #线激光 #算法 #EmguALG #渲染 |
+| [[api/LineLaserManager]] | API — LineLaserManager 线激光管理器（业务层单例 + 结果/轮廓业务处理点 | #相机 #线激光 #管理器 #单例 |
+| [[api/LineLaserWorkflow]] | LineLaserWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus | #工作流 #英莱 #线激光 #SubDeviceWeldStatus |
+| [[api/MainPage]] | MainPage 主页面 | #UI #主页面 #ScottPlot #英莱 |
+| [[api/MecaVisionMVSDK-Native]] | MecaVision MVSDK 原生 API 速查 | #相机 #监控相机 #MecaVision #MVSDK |
+| [[api/MonitorCamManager]] | MonitorCamManager — 监控相机业务中枢（原 MonitorCamManager，ADR-034 三层重构后改名承接 | #相机 #监控 #管理器 #健康巡检 |
+| [[api/MonitorCameraWorkflow]] | MonitorCameraWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus | #工作流 #监控 #权责边界 #RunStep |
+| [[api/MontionConfigForm]] | MontionConfigForm 运控配置窗体（已废弃 | #UI #运控 #配置 #CSV |
+| [[api/MontionManager]] | API — MontionManager 运动管理器（业务层单例，取代已废弃的 MotionManager | #运控 #台达 #EtherCAT #管理器 |
+| [[api/MotionControlWorkflow]] | MotionControlWorkflow API 参考（台达 EtherCAT 运控 · 三态模型 | #工作流 #运控 #台达 #EtherCAT |
+| [[api/MoveControlData]] | MoveControlData API 参考 | #运控 #水平移动 #标定 |
+| [[api/PlaybackAlgorithm]] | PlaybackAlgorithm — 监控相机回放算法（算法层 | #监控相机 #回放 #算法层 #EmguALG |
+| [[api/PointCloudViewer]] | PointCloudViewer API 参考 | #3D #渲染 #HelixToolkit #点云 |
+| [[api/ProcessControlPage]] | ProcessControlPage 工艺设置页（原 ParamConfigPage | #UI #工艺设置 #工艺调试快捷设定 #线激光标定 |
+| [[api/ProductFileRecordManager]] | ProductFileRecordManager API 参考（产品文件记录管理器 · 模块唯一对外访问口 | #产品文件 #记录 #管理器 #单例 |
+| [[api/S7NetPlus]] | S7NetPlus / S7.Net 使用笔记 | #PLC #西门子 #S7 #通讯 |
+| [[api/SQLiteDatabaseManager]] | SQLiteDatabaseManager API 参考（SQLite 数据库管理器 · 模块唯一入口 | #数据库 #SQLite #管理器 #单例 |
+| [[api/SeamMapTrackingAlgorithm]] | API — SeamMapTrackingAlgorithm 焊缝目标地图算法（前置量对齐 + 测量时刻轴值基准 | #线激光 #Y轴 #CSP #焊缝跟踪 |
+| [[api/SeamTrackingAlgorithm]] | API — SeamTrackingAlgorithm 线激光焊缝几何轨迹跟踪算法 | #线激光 #Y轴 #PVT #焊缝跟踪 |
+| [[api/SystemControlPage]] | SystemControlPage 系统设置页（原 MotionControlPage | #UI #系统设置 #运控 #参数页 |
+| [[api/VirtualCam]] | VirtualCam API 参考（虚拟调试相机 | #相机 #虚拟 #模拟 #ADR-003 |
+| [[api/WeldParamAdjustmentAlgorithm]] | API — WeldParamAdjustmentAlgorithm 焊缝宽度驱动的参数调整算法 | #焊接 #参数调整 #焊缝宽度 #查表 |
+| [[api/WeldParamControlWorkflow]] | WeldParamControlWorkflow API 参考（焊接工艺控制流程 · 三态模型 | #工作流 #焊接 #工艺 #功率 |
+| [[api/WeldParamManager]] | WeldParamManager API 参考（焊接参数管理器 · 模块唯一入口 | #焊接 #参数 #算法 #管理器 |
 
-### 7.3 已废弃 / 已被取代 / 已回退（仅历史追溯，编码前不得引用其失效结论）
+## 四、规范标准
 
-| 页面 | 失效结论 | 现行真相源 |
-|------|---------|-----------|
-| [[decisions/ADR-008-WeldActionRecord]] | **仅「归属目录/命名空间」失效**（已从 `Workflow/` 迁 `ProductFileManager/`）；双记录设计（ProcessFrame/WeldParamAdjust）**仍有效** | [[modules/ProductFileManager]]、ADR-026 |
-| [[decisions/ADR-011-WorkflowAsHub]] | ①「所有工作流迁入 `Workflow/`」被推翻（现 `MainDeviceControl/DeviceWorkflow/`）②`MonitorSupervisionWorkflow` 健康巡检被推翻（下沉 `MonitorCameraRun`）；仅 `MonitorAlgorithmManager` 仍有效 | [[modules/DeviceControl]]、[[standards/WorkflowResponsibilityBoundary]] |
+| 页面 | 摘要 | 标签 |
+|---|---|---|
+| [[standards/CodeSimplification-RefFileOrganization]] | 文件书写整理规则 |  |
+| [[standards/CodeSimplification-RefFunctionSimplification]] | 函数精简规则 |  |
+| [[standards/CodeSimplification-RefLogicSimplification]] | 代码逻辑精简规则 |  |
+| [[standards/CodeSimplification-ReviewWorkflow]] | C# Vibecoding 代码审查 |  |
+| [[standards/CodeSimplification-Tooling]] | CodeSimplification-Tooling 代码精简固定工具集 | #代码精简 #工具 #检查脚本 #批改脚本 |
+| [[standards/CodeSimplification]] | 代码精简规范（精简代码区域 · 详尽版 | #代码精简 #注释规范 #日志规范 #重构 |
+| [[standards/DeviceInitializationDependency]] | 设备初始化依赖层级与刷新门禁标准 | #设备初始化 #依赖层级 #三态 #自动刷新 |
+| [[standards/InitializationLogSpec]] | 初始化日志规格（四段式 · 模组命名 · 阶段分离 | #日志 #初始化 #模组 #阶段分离 |
+| [[standards/MessageLogResponsibility]] | 提示与日志职责分离（弹窗只报结果 · BUG 归 LOG | #标准 #UI #日志 #提示 |
+| [[standards/ModuleOrganizationPattern]] | 模块组织范式标准（Core · 抽象层 · 实现层 · Manager | #模块组织 #分层架构 #抽象层 #实现层 |
+| [[standards/UiStateSimplification]] | UI 状态判断与控制精简规范 | #UI #代码精简 #状态管理 #真相源 |
+| [[standards/WikiPageFormatSpec]] | Wiki 页面格式规范（强制）—— 各页类别的结构定义、字段契约与增长规则 | #格式 #结构化 #自动化 #脚本化 |
+| [[standards/WorkflowResponsibilityBoundary]] | 流程与模组对象权责边界标准 | #权责边界 #工作流 #模组 #事件 |
 
-> 另有 4 项 ADR 已于 2026-09-09 **整页删除**（原 003 单算法文件 / 004 Step 状态机 / 016 CameraSelector 上提 / 026 英莱数据流），编号已被占用；删除原因与去向见 [[decisions/ADR-Index]] 删除对照表。
+## 五、历史教训
 
----
+| 页面 | 摘要 | 标签 |
+|---|---|---|
+| [[lessons/AlgorithmControlRecordIsolation]] | 算法纯净性与记录职责隔离 | #算法分层 #记录隔离 #事件驱动 #配置合一 |
+| [[lessons/AntdUI-Modal-Config-Overload-Cascade]] | AntdUI Modal.Config 第三参数未定义 → 级联误报"Form 无法转换为 Target" | #UI #AntdUI #Modal #编译错误 |
+| [[lessons/AntdUI-Modal-Content-Disposed-Before-Commit]] | AntdUI Modal 内容控件在 open 返回前已被销毁 → 弹窗内改的参数不生效、再开复原 |  |
+| [[lessons/CSharp-Language-Pitfalls]] | C# 语言与编译常见陷阱汇总 | #C# #编译错误 #汇总 |
+| [[lessons/CodeSimplification-Scope-DesignerOnly]] | 代码精简范围裁定：强制排除仅 Designer.cs | #代码精简 #范围 #Designer.cs #UIDesign |
+| [[lessons/CommentSimplificationBatchPitfalls]] | 批量注释/逻辑精简的三个坑 | #代码精简 #注释 #BOM #XML注释 |
+| [[lessons/ConfigHealDirectionOrdering]] | 配置自愈补出的默认值不是现场值：方向键必须后补 | #配置 #迁移 #幂等 |
+| [[lessons/ConfigZoneSaveWiring]] | "配置分区落盘接线：改了不生效 / 保存了没落盘 / 落到了别人的区" | #配置架构 #分区落盘 #AlgorithmsZone #接线完整性 |
+| [[lessons/DocDemoDllLookupOrder]] | 控件与 SDK 用法参考顺序：文档 → demo → DLL | #AntdUI #英莱 #监控相机 #demo |
+| [[lessons/FaultRecoveryDeviceKey]] | Lesson - 故障恢复设备键名必须与策略注册 key 精确匹配 | #陷阱 #Safety #故障恢复 #状态机 |
+| [[lessons/FormatDrivenPacketParsingPitfalls]] | 格式驱动收发的运行时陷阱：文本节点误判 / 节存在≠契约正确 / 回复盲发 | #lessons #RSI #格式驱动 #XML |
+| [[lessons/GitHubSyncPitfalls]] | GitHub 云端同步陷阱（AdaWeldSystem / LLMWiki |  |
+| [[lessons/IntelligentLaser-Callback-Mechanism]] | IntelligentLaser-Callback-Mechanism | #相机 #英莱 #IntelligentLaser #汇总 |
+| [[lessons/IntelligentLaser-Delegate-Gc]] | IntelligentLaser-Delegate-Gc | #相机 #英莱 #IntelligentLaser #汇总 |
+| [[lessons/IntelligentLaser-Job-System]] | IntelligentLaser-Job-System | #相机 #英莱 #IntelligentLaser #汇总 |
+| [[lessons/IntelligentLaser-Pitfalls]] | 英莱（IntelligentLaser）相机开发教训汇总 | #相机 #英莱 #IntelligentLaser #汇总 |
+| [[lessons/IntelligentLaser-Sdk-Interop]] | IntelligentLaser-Sdk-Interop | #相机 #英莱 #IntelligentLaser #汇总 |
+| [[lessons/IntelligentLaser-Ui-State]] | IntelligentLaser-Ui-State | #相机 #英莱 #IntelligentLaser #汇总 |
+| [[lessons/JudgementDimensionGap]] | 判据维度缺失：查「存在性」不等于查「唯一性」 | #lessons #判据 #静态校验 #幂等 |
+| [[lessons/JudgementThresholdScaleMismatch]] | 判据阈值与信号尺度失配 — 四类「改对了却没生效/生效了却更糟」的坑 | #阈值 #尺度失配 #自锁 #配置覆盖 |
+| [[lessons/MecaVision-NativeDllLoadNRE]] | 麦格威 MVSDK 原生 DLL 未部署导致 NullReferenceException | #麦格威 #MecaVision #MVSDK #DLL部署 |
+| [[lessons/NodeAddressCollision]] | 节点号撞号：配置声明的设备不在总线上，握手打到他人节点 |  |
+| [[lessons/ProtocolDirectionalConstraints]] | 协议方向性硬约束：RSI 的 SEND 段禁 STRING，写入关键词不可上行 | #lessons #协议 #RSI #KUKA |
+| [[lessons/SignatureAndWiringConsistency]] | "签名-调用点一致性（改签名必查调用点，否则「全绿却编译不过」）" | #编译错误 #签名 #调用点 #静态校验 |
+| [[lessons/SimulationAutoBranching]] | 模拟测试按设备连接态自动分支（取消模式选择 | #模拟 #线激光 #运控 #工作流 |
+| [[lessons/StartupInitializationOrderGates]] | 启动初始化时序门禁：静态构造重入日志 / 界面未就绪开硬件 / UI 回调未判句柄 | #lessons #启动 #初始化 #静态构造 |
+| [[lessons/StaticCheckSemanticBlindSpots]] | 静态校验的两类编译级盲区 — 可空引用类型与标识符定义域 | #静态校验 #编译错误 #C#7.3 #可空引用类型 |
+| [[lessons/StaticVerifier-AdrNumbering]] | StaticVerifier-AdrNumbering | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StaticVerifier-Batch-Script-Traps]] | StaticVerifier-Batch-Script-Traps | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StaticVerifier-CSharp-Scoping]] | StaticVerifier-CSharp-Scoping | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StaticVerifier-Checker-FailureModes]] | StaticVerifier-Checker-FailureModes | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StaticVerifier-RecentJudgements]] | StaticVerifier-RecentJudgements | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StaticVerifier-Tooling-Substitutes]] | StaticVerifier-Tooling-Substitutes | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StaticVerifier-Wiring-Integrity]] | StaticVerifier-Wiring-Integrity | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StaticVerifierJudgements]] | 静态校验判据库（Step 2.6 的判据全文 · 编码错误教训沉淀 | #静态校验 #编译错误 #Step2.6 #判据库 |
+| [[lessons/StepDriven-DeviceControl-Lessons]] | StepDriven-DeviceControl-Lessons | #步骤驱动 #执行步 #DeviceWorkflowBase #并发 |
+| [[lessons/StepDriven-SixPitfalls]] | StepDriven-SixPitfalls | #步骤驱动 #执行步 #DeviceWorkflowBase #并发 |
+| [[lessons/StepDrivenWorkflowPitfalls]] | 设备控制与步骤驱动教训汇总 | #步骤驱动 #执行步 #DeviceWorkflowBase #并发 |
+| [[lessons/TaCstEntryRampAndResidualMotion]] | TA 力矩冷启动不走斜坡与位置转力矩先反跑 |  |
+| [[lessons/TaSharedTorqueLimit]] | 扭矩上限不是「越小越丝滑」——CSP/CST 共用一个值 |  |
+| [[lessons/TorqueActionNoPositionEndpoint]] | 力矩类指令不要自造位置终点判据 | #TA #力矩 #CST #位置判据 |
+| [[lessons/TorqueModeAsUiGate]] | UI 开关兼任可用性门禁会导致操作后不可恢复 | #UI门控 #Radio #Fill |
+| [[lessons/UiLayoutChangeSyncPitfalls]] | UI 布局改版的同步与所有权门禁 | #UI #Designer #事件订阅 #跨线程 |
+| [[lessons/UiModuleRemovalCleanup]] | UI 功能模块删除的连带清理门禁 | #UI #Designer #模块删除 #控件清理 |
+| [[lessons/UiRefreshUnifiedEntry]] | UI 状态刷新统一入口 | #UI #状态刷新 #代码精简 #重构 |
+| [[lessons/WikiDriftCorrectionPitfalls]] | Wiki 批量漂移修正十一坑 | #LLMWiki #漂移 #工具脚本 #Python |
+| [[lessons/WikiGovernanceBatchingPitfalls]] | 批量治理与脚本化改写的事故清单（ADR 重编 / 页面瘦身 / 格式规范化 | #批量改写 #脚本化 #编号重编 #行尾 |
+
+## 六、操作指导
+
+| 页面 | 摘要 | 标签 |
+|---|---|---|
+| [[guides/AntdUI-Reference]] | AntdUI 完整开发参考 | #UI #AntdUI #参考手册 #汇总 |
+| [[guides/Config-Data-Tools]] | 配置与数据工具使用指南 | #工具 #配置 #数据库 #汇总 |
+| [[guides/DeltaEtherCAT-AdvancedMotion]] | 台达 EtherCAT 高级运动（PVT / 电子凸轮）使用规范 | #指南 #运控 #台达 #EtherCAT |
+| [[guides/DeltaEtherCAT-Deployment]] | 台达 EtherCAT 部署规范（驱动 · 原生库 · 项目内落地 | #指南 #运控 #台达 #EtherCAT |
+| [[guides/DeltaEtherCAT-DevGuide]] | 台达 EtherCAT 运动控制模块落地规范 | #运控 #台达 #EtherCAT #雷赛基线 |
+| [[guides/DeltaEtherCAT-UIDesign]] | 台达 EtherCAT UI 设计规范（AntdUI 版 | #指南 #运控 #台达 #UI |
+| [[guides/ExecutionEnvironment]] | 执行环境事实（Windows + PowerShell + Python + Git）—— 每次动手前必读 | #环境 #工具链 #Python #PowerShell |
+| [[guides/MecaVision-DevGuide]] | MecaVision 监控相机开发指导 | #相机 #监控相机 #MecaVision #MVSDK |
+| [[guides/Namespace-Compilation]] | 命名空间与编译错误综合指南 | #编译错误 #命名空间 #汇总 |
+| [[guides/Project-Tools]] | 项目工具、规范与常见问题汇总 | #工具 #模拟 #汇总 |
+| [[guides/RawAssetCatalog]] | 原始资产检索表（raw/）—— 编写前必查的官方文档与 demo 入口 | #原始资料 #官方文档 #demo #检索表 |
+| [[guides/SourceBackup-GitHub]] | AdaWeldSystem / LLMWiki 云端源码备份（GitHub）操作手册 |  |
+| [[guides/WinForms-Designer]] | WinForms 设计器开发规范与常见错误 | #UI #WinForms #设计器 #汇总 |
+| [[guides/WinForms-UI-Threading]] | WinForms UI 线程安全与初始化指南 | #UI #线程安全 #初始化 #汇总 |
+
+## 七、设计决策
+
+> **全量登记表唯一权威 = [[decisions/ADR-Index]]**（001~107 连续无断号，含每条的主题/状态/日期；7 个旧号已并入他页，以指针行留档）。本页不重复该表。
+> 新增决策前先跑 `tools/adr_new.py check <关键词>`——命中同主题则**合并**进既有页，不新建页；`check` 会按**落地实体符号 Jaccard** 判疑似重复（≥0.40 即拦截新建），命中即走 `adr_new.py merge`（规则见 [[standards/WikiPageFormatSpec]] §三）。
 
 ## 八、历史归档（现归 project/）
 
-> **2026-09-01 目录合并**：`archive/` 分类**已取消**——它与 `architecture/` 同是全库最小的分类（1~2 页），且名字相近易混。其中 2 页（UI 迁移史、精简进度快照，均非架构内容）迁入 `project/`，**全库不再设归档分类**。
-> **同时收口第二个架构页**：原 `project/architecture.md`（模块依赖图）**并入** [[architecture/DeviceControlArchitecture]] 第 11 章，全库只保留**一个**架构页。
-> **架构历史版本**：7 个 V2/V3 代际架构/模块页已删除，其中仍有效的技术要求已并入架构页；架构演进脉络查 [[decisions/ADR-027-ThreeStateModelRefactor]]（若干早期架构 ADR 已整页删除）。
+> 项目级过程台账、审计报告与进度快照；**不作为编码约束**，追溯用。
+> ⛔ 与 §一「项目总览」**互斥**：每个 project 页只出现在其中一节（归属规则见生成器 `ARCHIVE_PROJECT`）。
 
 | 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[project/SunnyUI-Legacy]] | **已归档** SunnyUI 框架历史内容：UI 框架迁移总览、废弃决策（**UILight 属性规范** / **全局 UI 风格统一为 Purple**）、迁移教训汇总、迁移状态追踪；2026-07-28 全面迁移至 AntdUI 后归档 | #归档 #SunnyUI #UI #历史 |
-| [[project/CodeSimplification-Progress-20260826]] | **2026-09-01 归档**（原 `standards/CodeSimplification-progress`）代码精简修复进度快照：2026-08-26 基线扫描（112 文件 / 1089 警告 / 1315 提示）的英莱轨道与文件夹轨道计数。历史快照，与当前代码已不同步 | #归档 #代码精简 #进度快照 |
-
----
+|---|---|---|
+| [[project/AdrConsistencyAudit-20261008]] | ADR 一致性审计— 全库 ADR 及其引用处的逻辑缺陷与历史遗留 | #审计 #编号体系 #一致性 #历史遗留 |
+| [[project/CodeSimplification-Backlog-20261026]] | CodeSimplification-Backlog 代码精简待完成事项台账 | #台账 #代码精简 #待办 #判据 |
+| [[project/CodeSimplification-Progress-20260826]] | 代码精简修复进度表（新版标准 |  |
+| [[project/RequirementsCoverage]] | 需求覆盖与实现状态（AdaWeldSystem |  |
+| [[project/ReviewOptimization-P1-StructureDesign]] | P1 结构设计定稿 — 第一次评审优化（五份产物 | #结构设计 #冻结点 #第一次评审 #硬件归属 |
 
 ## 九、专员职责
 
 | 页面 | 摘要 | 标签 |
-|------|------|------|
-| [[people/Architect]] | 架构开发员：整体架构、模块划分、接口定义 | #专员 #架构 |
-| [[people/QASpecialist]] | QA/测试专员：代码审查、测试计划、Bug 归属 | #专员 #QA |
+|---|---|---|
+| [[people/3DSpecialist]] | 3D开发专员 | #专员 #3D #HelixToolkit |
+| [[people/Architect]] | 架构开发员 | #专员 #架构 |
 | [[people/CameraSpecialist]] | 工业相机开发专员 | #专员 #相机 |
-| [[people/ImageAlgorithmSpecialist]] | 图像算法开发专员 | #专员 #图像算法 |
-| [[people/3DSpecialist]] | 3D开发专员 | #专员 #3D |
-| [[people/GeneralTechSpecialist]] | 通用技术开发专员 | #专员 #通用技术 |
-| [[people/DatabaseSpecialist]] | 数据库开发专员 | #专员 #数据库 |
-| [[people/WeldProcessSpecialist]] | 焊接工艺开发专员 | #专员 #焊接 |
-| [[people/MotionControlSpecialist]] | 运动控制开发专员 | #专员 #运动控制 |
-| [[people/UISpecialist]] | UI开发专员 | #专员 #UI |
-
----
+| [[people/DatabaseSpecialist]] | 数据库开发专员 | #专员 #数据库 #SQLite |
+| [[people/GeneralTechSpecialist]] | 通用技术开发专员 | #专员 #通用技术 #通讯 #状态机 |
+| [[people/ImageAlgorithmSpecialist]] | 图像算法开发专员 | #专员 #图像算法 #EmguCV |
+| [[people/MotionControlSpecialist]] | 运动控制开发专员 | #专员 #运动控制 #台达 |
+| [[people/QASpecialist]] | QA/测试专员 | #专员 #QA #测试 |
+| [[people/UISpecialist]] | UI 开发专员 | #专员 #UI #WinForms #AntdUI |
+| [[people/WeldProcessSpecialist]] | 焊接工艺开发专员 | #专员 #焊接 #工艺 #ADR-015 |
 
 ## 十、来源索引
 
-| 来源文件 | 类型 | 对应 Wiki 页面 |
-|----------|------|---------------|
-| raw/skills/AdaWeldsys_Skills/00-Root/SkillRoot.md | Skill 规范 | [[project/skill-evolution]]、所有 people/ 页面 |
-| raw/skills/AdaWeldsys_Skills/04-Style/CSharpStyle.md | 代码规范 | [[decisions/ADR-002-CS73-Constraint]] |
-| raw/skills/AdaWeldsys_Skills/03-Workflow/WorkMap.md | 工作流地图 | [[project/vibecoding-workflow]] |
-| raw/history/history.md | 开发历史 | [[project/skill-evolution]]、多个 lessons/ 和 decisions/ |
-| raw/knowledge/AdaWeldSystem_Wiki.md | 项目知识库 | [[project/overview]]、[[architecture/DeviceControlArchitecture]]、所有 modules/ 和 api/ |
-| raw/knowledge/emgu-cv-knowledge-base/ | 第三方知识 | [[modules/EmguALG]]、[[people/ImageAlgorithmSpecialist]] |
-| raw/knowledge/helixtoolkit-knowledge-base/ | 第三方知识 | [[modules/PointCloudData]]、[[people/3DSpecialist]] |
-| raw/knowledge/KUKA_OPT/KST_RSI_33_zh.pdf | KUKA 技术文档 | [[modules/KUKARobot]]、[[api/KUKARobot]] |
-| raw/knowledge/KUKA_OPT/KST_Ethernet_KRL_22_zh.pdf | KUKA 技术文档 | [[modules/KUKARobot]]、[[api/KUKARobot]] |
-| `raw/mecavision/MecaVision_SDK/`（目录名 2026-09-12 订正） | **厂商 SDK 原档（2026-09-08 归档）**：`MecaVision/Demo/C#/MVSDK/MVSDK.cs`（官方封装真相源）· `MecaVision/SDK/Include/` **C 原生头文件 ×6（2026-09-14 抽存，接口声明 C 原文）** · `SDK/`、`SDK/X64/` 原生 DLL · `Document/` CHM 手册 · C# 例程 ×12。**2026-09-12 治理**：解压乱码目录名订正为 `MecaVision_SDK`，删除 `bin/obj` 与全部示例编译产物（`.exe/.pdb/.tds`），121 MB → 87 MB，源码计数不变（cs93/h159/cpp103/vb47）。**2026-09-14 裁剪**：`Demo/` 只留 C# 例程（26.07 MB → 1.29 MB），删除其余 10 种语言示例与 VC++ MFC 样板，其中唯一的 C 原生头文件抽存至 `SDK/Include/` | [[api/MecaVisionMVSDK-Native]]、[[guides/MecaVision-DevGuide]]、[[decisions/ADR-037-MecaVisionMonitorCamera]] |
-| raw/knowledge/监控相机开发指导_MecaVision版.md、raw/knowledge/算法程序改造指导_抽象实现Manager三层_v2.0.md | 用户提供的二手指导文档（**已按 SDK 原文核验订正**，订正表见 DevGuide §5） | [[guides/MecaVision-DevGuide]]、[[modules/MonitorCam]] |
-| raw/architecture/主控设计.xlsx | **架构原档（ADR-028，唯一修改入口）**：文件/职责/三态枚举真值 + **2026-09-03 细化到成员级**（基类 17 项契约 / 5 子工作流差异化职责 / `DeviceControlWork`+`DeviceStatusWork` 线程·私有方法·公共方法全表 / 新增 `CommandCore` 与 `SubDeviceWeldStatus.NoReset`） | [[architecture/DeviceControlArchitecture]]、[[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]] |
-| raw/architecture/激光焊接系统业务流程图.pdf | **架构原档（ADR-028，唯一修改入口；2026-09-03 新增，取代已删除的两份旧 PDF）**：整机业务状态流 + 检查清单——上电 5×Connect On+通讯 Open+IO Work → 三失败分支 → ResetMachine → **Preworking 五项运行检查** → **Working 四路焊接子流程** → 三终止分支 → 报警判断（故障树和代码）；旁路 EMG STOP→子设备停机锁止。**PDF 含文本层，pypdf 直接提取，无需渲染** | [[architecture/DeviceControlArchitecture]] §7.6/§7.7/§7.8、[[decisions/ADR-028-ArchitectureRawSource]]、[[decisions/ADR-029-RawDesignRefinement20260903]] |
+> raw/ 原始资料与 wiki 页的映射；**编写时先查此处**的官方文档与 demo（规则见 [[lessons/DocDemoDllLookupOrder]]）。
+> **变更历史另见 `logs/INDEX.md`**（本库自身的归档索引，由 `tools/wiki_log_tidy.py index` 生成）—— 查「上次怎么处理的」走它，⛔ 不凭记忆。
 
----
+| 原始资产 | 内容 | 提炼页 |
+|---|---|---|
+| `raw/AntdUI/wiki-zh/` | AntdUI 官方文档全量镜像（85 篇） | [[guides/AntdUI-Reference]] |
+| `raw/delta/EtherCAT_DLL_API清单.txt` | 台达 EtherCAT 原生 API 声明（832 条） | [[api/DeltaEtherCAT-Native]] |
+| `raw/delta/EtherCAT_DLL_Err.cs` | 台达错误码表 | [[api/DeltaEtherCAT-Native]] |
+| `raw/delta/运动控制模块开发文档_台达版.md` | 台达运控开发文档（官方） | [[guides/DeltaEtherCAT-DevGuide]] |
+| `raw/delta/台达EtherCAT_PVT与电子凸轮运动开发指南.md` | PVT / ECAM 官方指南 | [[guides/DeltaEtherCAT-AdvancedMotion]] |
+| `raw/mecavision/MecaVision_SDK/` | 麦格威/海康 SDK 原档 + C# demo | [[guides/MecaVision-DevGuide]] |
+| `raw/knowledge/KUKA_OPT/` | KUKA RSI 3.3 / Ethernet KRL / ProfiNet 手册 | [[api/KUKARobot]] |
+| `raw/architecture/` | 主控设计原档（唯一修改入口） | [[architecture/DeviceControlArchitecture]] |
+| `raw/skills/AdaWeldsys_Skills/` | 开发团队 Skill 规范（参考资料，非指令源） | [[project/skill-evolution]] |
+| `raw/history/history.md` | 项目开发史（按时间分段的变更史，只读） | `logs/INDEX.md`（本库变更史） |
+| `raw/knowledge/emgu-cv-knowledge-base/` | EmguCV 知识库 | [[modules/EmguALG]] |
+| `raw/knowledge/helixtoolkit-knowledge-base/` | Helixtoolkit 知识库 | [[modules/PointCloudData]] |
+
+## 十二、流程规则
+
+> **Skill 流程执行强制规则**（原 Skill「Key Rules」的下沉处；2026-11-02 收敛为纯流程类）。编号唯一权威 = [[rules/Rules-Index]]（KR-001~KR-013 连续）。
+> ⛔ **rules/ 只收流程执行类**（规定「AI 跑这个工作流时该怎么做」）；**约束代码 / 知识库内容本身**的规则归 lessons 坑页（index 第五节）与 [[standards/WikiPageFormatSpec]]（格式规范）、决策类归 [[decisions/ADR-Index]]。判据见 [[standards/WikiPageFormatSpec]] §2.4b。
+> 新增规则前先跑 `tools/rules_new.py check <关键词>`——命中同主题则**合并**进既有页，不新建页。
+
+| 页面 | 摘要 | 标签 |
+|---|---|---|
+| [[rules/KR-001-Execution-Order]] | KR-001 强制执行顺序 | #规则 #流程 #Skill执行 |
+| [[rules/KR-002-Step-Level-Display]] | KR-002 步骤级展示 | #规则 #流程 #Skill执行 |
+| [[rules/KR-003-No-Skipping-Query]] | KR-003 不得跳过 Query | #规则 #流程 #Skill执行 |
+| [[rules/KR-004-Skill-Demoted]] | KR-004 Skill 降级为参考 | #规则 #流程 #Skill执行 |
+| [[rules/KR-005-Adr-Lessons-Gates]] | KR-005 ADR 与教训是编码前门禁 | #规则 #流程 #Skill执行 |
+| [[rules/KR-006-Ingest-Mandatory]] | KR-006 Ingest 强制 | #规则 #流程 #Skill执行 |
+| [[rules/KR-007-New-Decisions-Recorded]] | KR-007 新决策必须记录 | #规则 #流程 #Skill执行 |
+| [[rules/KR-008-Timestamp-Rule]] | KR-008 时间戳取用 | #规则 #流程 #Skill执行 #日志 |
+| [[rules/KR-009-Grep-Default]] | KR-009 Grep 是默认定位法 | #规则 #流程 #Skill执行 |
+| [[rules/KR-010-No-Compiler-Honesty]] | KR-010 编译结论必须以真编译为准 | #规则 #流程 #Skill执行 |
+| [[rules/KR-011-Backup-Output-Timing]] | KR-011 backup 与 output 时机 | #规则 #流程 #Skill执行 |
+| [[rules/KR-012-Skill-Dual-Copy]] | KR-012 Skill 双副本同步 | #规则 #流程 #Skill执行 |
+| [[rules/KR-013-Skill-Pointer-Discipline]] | KR-013 Skill 指向不得写死内容页 | #规则 #流程 #Skill执行 |
 
 ## 维护说明
 
-### 体检与漂移扫描脚本
+| 工具 | 用途 |
+|---|---|
+| `tools/wiki_format.py` | **格式校验器**（WikiPageFormatSpec 的机械判据，Phase 4 必跑） |
+| `tools/wiki_index_build.py` | **index.md 重建**（本文件由它生成） |
+| `tools/wiki_log.py` | log 条目写入 + **log 截断唯一入口**（truncate → 按日归档 + 重建 INDEX.md） |
+| `tools/adr_new.py` | ADR 合并检查 / 演进记录追加 / 新号分配 |
+| `tools/lesson_new.py` | 教训合并检查 / 追加条目 / 三处计数同步 |
+| `tools/rules_new.py` | 流程规则合并检查 / 演进记录追加 / 新号分配 / 索引登记 |
+| `tools/rules_check.py` | **流程规则页校验**（编号连续 / 结构契约 / 索引一致 / 判据非空） |
+| `tools/skill_pointer_check.py` | **Skill 指向防漂移闸门**（⛔ 不得写死内容页名） |
+| `tools/wiki_audit.py` | 11 项体检：红链 / 孤儿 / 索引重复 / ADR 空洞 / 体积 / 重复度 / 错放 / 入链 / 子目录 / 过小分类 / lessons 三处一致 |
+| `tools/lint_scan.py` | 死链 / 孤儿 / ADR 编号冲突 / 外链失效 |
+| `tools/drift_scan_precise.py` | wiki 引用的 .cs 是否仍存在 |
+| `tools/ingest_purity_scan.py` | 沉淀纯度：禁验证叙事 / 日期沿革 / 日志体回灌 |
 
-| 脚本 | 职责 | 健康判据 |
-|------|------|---------|
-| `tools/wiki_audit.py` | 只读 10 项体检：红链 / 孤儿页 / 索引重复行 / ADR 编号空洞 / 页面体积 / 疑似内容重复 / `lessons/` 错放 / `standards/` 入链 / 二级子目录 / 过小分类 | 红链 0 · 孤儿页 0 · 索引重复行 0 · 二级子目录 0 · 过小分类 0 |
-| `tools/lint_scan.py` | 死链 / 孤儿页 / ADR 编号冲突 / 外部文件链接失效 | 除 `project/vibecoding-workflow` 的模板占位符（`modules/XXX`、`decisions/ADR-XXX`）外无命中 |
-| `tools/drift_scan_precise.py` | wiki 页引用的 `.cs` 文件在代码库中已不存在 | **待修正 0 处** |
-| `tools/check_adr_status.py` | 检查所有 ADR 的 frontmatter `status` / `superseded_by` 字段 | 无异常状态值 |
-| `tools/truncate_log.py` | 日志截断：`logs/log.md` 保留最新 50 条，旧条目按日期备份 | 日志体积可控 |
+**执行方式**：在 `Vicoding管理平台/LLMWiki/` 下运行 `python tools/<script>.py`。
 
-> **⚠️ 2026-09-12 治理**：旧版粗放扫描器 `tools/drift_scan.py` 已删除（被 `drift_scan_precise.py` 完全取代，全库 0 引用）。`tools/` 现役 5 个脚本，全部按 `__file__` 推导路径。
-
-**执行方式**：在 `Vicoding管理平台/LLMWiki/` 目录下运行 `python tools/<script>.py`。
-
-**健康判据**：红链 0 · 孤儿页 0 · 索引重复行 0 · 页面均 < 600 行（超限须加章节 TOC 或拆分）。
-**分类判据**：写新页前先判三层 —— 必须遵守放 `standards/`、踩过的坑放 `lessons/`、怎么做放 `guides/`。
-
-#### drift_scan_precise.py 口径（2026-09-03 重写）
-
-- **当前基线**：待修正 0 处 / 已标注 116 处。每一处失效引用都带显式「现役 `X.cs`」或「已移除（原因）」注记。
-- **四点分诊**：`RENAMED`（有现役对应）/ `REMOVED`（已删除需注明原因）/ `EXTERNAL`（外部参考项目 `PcomDeviceInterface/`、`HonorMachineTest/`）/ `SPECULATIVE`（设想或 demo 文件，从未落地）。**只有前两类计入待修正**。
-- **历史 ADR 页**用页首 `> ⚠️ 历史名称提示` 横幅统一标注（纯新增、零删除），正文保留旧名以留存决策上下文。
-- **横幅块自身豁免**：从 `> ⚠️ 历史名称提示` 起的连续 `>` 行不再逐行判漂移——那些行本就是在列举「旧名 → 现役」映射，再判一次是自伤。
-- **正则必须带双侧边界断言**：`(?<![A-Za-z0-9_.])([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*\.cs)(?![A-Za-z0-9_.])`。无断言版本把 `FormMain.Designer.cs` 截成 `Designer.cs`，一次产生 144 处误报。
-
-#### 两条脚本编写红线（2026-09-03 踩坑）
-
-1. **路径自愈**：`tools/` 下脚本一律用 `__file__` 推导路径，禁止硬编码绝对路径。迁移机器后硬编码路径会让扫描器**静默扫到 0 个文件并报告「健康」**——比崩溃更危险。
-2. **行尾保持**：wiki 页在仓库中以 **LF** 入库（`core.autocrlf=true` 只影响 checkout）。脚本批量编辑必须**按字节读写**并原样回写探测到的换行符，禁止 `open(p).read()` + `open(p,"w").write()`。收尾用 `git diff --numstat` 确认没有文件的改动行数 ≈ 其总行数。详见 [[lessons/WikiDriftCorrectionPitfalls]]。
-
-#### wiki_audit.py 的链接解析豁免（2026-09-03）
-
-红链检测会先 `mask_code()`——用**等长空白**替换围栏代码块与行内代码体（保持字符偏移与行号不变），再解析 `[[链接]]`。
-否则规范文本中举例说明的「不要写 `[[old]]→[[new]]`」会被判成 2 条真红链。
-即便如此，**日志与正文中的页面改名映射仍建议写成纯文本** `api/old → api/new`，因为纯文本被复制出代码体后依然成立。
+**健康判据**：红链 0 · 孤儿 0 · 索引重复行 0 · 二级子目录 0 · 过小分类 0 · lessons 三处一致 · drift 待修正 0 · 纯度违规 0 · **格式违规 0**。

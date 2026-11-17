@@ -27,7 +27,7 @@ tags: [指南, 运控, 台达, EtherCAT, PVT, ECAM2, 电子凸轮, 焊缝跟踪]
 
 ## 1. 权威顺序与核验方法
 
-> **裁决顺序（沿用 ADR-039）**：**台达 SDK 头文件 > 官方编程手册 PM > 二手文档/规范页**。
+> **裁决顺序（沿用 ADR-028）**：**台达 SDK 头文件 > 官方编程手册 PM > 二手文档/规范页**。
 
 | 证据 | 路径 | 说明 |
 |---|---|---|
@@ -42,7 +42,7 @@ tags: [指南, 运控, 台达, EtherCAT, PVT, ECAM2, 电子凸轮, 焊缝跟踪]
 
 ## 2. 原档失准订正表
 
-> 原档整体结构正确、示例代码工程化程度高，但**枚举值与 API 名存在编造/推测**。以下按 ADR-039 纪律逐条核验，编号延续 [[guides/DeltaEtherCAT-DevGuide]] 已记录的 8 处。
+> 原档整体结构正确、示例代码工程化程度高，但**枚举值与 API 名存在编造/推测**。以下按 ADR-028 纪律逐条核验，编号延续 [[guides/DeltaEtherCAT-DevGuide]] 已记录的 8 处。
 
 | # | 原档说法 | 核验结果（SDK + PM 手册） | 处置 |
 |---|---|---|---|
@@ -254,7 +254,7 @@ KUKA RSI (1~12ms UDP)
 
 **虚拟坐标（3 个，仅作坐标平移用，勿当虚拟主轴）**：`CS_ECAT_Master_Virtual_NodeID_Alias_Enable`、`CS_ECAT_Slave_CSP_Virtual_Set_Enable`、`CS_ECAT_Slave_CSP_Virtual_Set_Command`
 
-> 分层铁律（ADR-039）：声明全在 L1 `Native/`；L2 `IMotion/` 零依赖不得出现；业务层只认 `MontionAxis` 抽象。
+> 分层铁律（ADR-028）：声明全在 L1 `Native/`；L2 `IMotion/` 零依赖不得出现；业务层只认 `MontionAxis` 抽象。
 
 ---
 
@@ -275,7 +275,7 @@ KUKA RSI (1~12ms UDP)
 - [[guides/DeltaEtherCAT-Deployment]] — DLL 部署与校验
 - [[guides/DeltaEtherCAT-UIDesign]] — 台达 UI 设计（AntdUI 版）
 - [[modules/MotionControl]] — 运控模块
-- [[decisions/ADR-032-MotionControllerDeltaReplacement]] — 台达换轨决策
-- [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]] — 正运动移除与台达落地
+- [[decisions/ADR-027-MotionControllerDeltaReplacement]] — 台达换轨决策
+- ADR-027（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） — 正运动移除与台达落地
 
 *来源：raw/delta/台达EtherCAT_PVT与电子凸轮运动开发指南.md（v1.3）；核验于 2026-09-07，对照 SDK 头文件 832 符号 + PM 手册 1018 页。*

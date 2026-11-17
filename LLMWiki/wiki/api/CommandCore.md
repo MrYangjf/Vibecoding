@@ -1,16 +1,16 @@
-﻿---
+---
 title: API — CommandCore 机器人指令协议（const string，取代 CommandTable）
 date: 2026-09-04
-tags: [API, 指令协议, 机器人, 主控, CommandCore, ADR-030]
+tags: [API, 指令协议, 机器人, 主控, CommandCore, ADR-020]
 source: AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs
 ---
 
 # API — CommandCore 机器人指令协议
 
-> **本页述 `CommandCore`（静态常量类，机器人指令协议）**，ADR-030 裁定 C3，2026-09-04 落地。
+> **本页述 `CommandCore`（静态常量类，机器人指令协议）**，ADR-020 裁定 C3，2026-09-04 落地。
 >
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs`
-> **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`（2026-09-14 ADR-048 起命名空间随目录对齐；此前分属 `...DeviceState` / `...FlowState` 的旧写法已废止）
+> **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceStateApiCore`（2026-09-14 ADR-005 起命名空间随目录对齐；此前分属 `...DeviceState` / `...FlowState` 的旧写法已废止）
 > **取代**：⛔ 已删除的 `CommandTable.cs`（const int + `RobotPose` / `RobotCommand` / `DeviceCommand` / `RobotPoseCode` / `SignalCode` / `InteractionTable` 六件套）
 > **落地批次**：批次 0.3 / 0.4，见 [[architecture/DeviceControlArchitecture]] §15.2
 
@@ -57,8 +57,16 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs
 | `TxGoPreStop` | `TX_GO_PRE_STOP` | 去预停位 |
 | `TxGoWeldStop` | `TX_GO_WELD_STOP` | 去焊接停止位 |
 | `TxGoStopSafe` | `TX_GO_STOP_SAFE` | 回安全停止位 |
-| `TxOK` | `TX_OK` | 设备就绪 / 跟踪 OK，反馈机器人继续 |
+| `TxNG` | `TX_NG` | **焊接中异常**（2026-10-22 新增，取代 `TX_OK`）：通知机器人停止动作 |
 | `TxAbort` | `TX_ABORT` | 急停 / 中止 |
+
+> ⚠️ **新增指令必须同批改三处（2026-10-19 业主约定「严格遵守」，原两处升级为三处）**：
+> ① `IsKnownCommand` 的 `||` 硬编码链漏加 ⇒ 该指令被当未知命令丢弃（2026-10-08 实证）；
+> ② `CommandDescriptions` 释意字典漏加 ⇒ Dash 机器人指令行显示原始指令串而非中文；
+> ③ 本页 api 文档（指令表）同步补行。
+> 剪丝的 **RSI 通道**走 `CutWire` 具名元素（`KukaRsiComm.SetReplyValues` 第 3 参），与本表的指令通道**并行独立**，不冲突。
+> **2026-10-22 契约修订（机器人侧减指令）**：`TX_OK` 与 `TX_CUT_WIRE` 指令已废止（机器人端不再等待「焊前检查 OK」应答——机器人发下一步指令即默认检查通过；`TxCmd=10` 改为备用）；新增 `TX_NG`（8）供焊接中异常时通知机器人停止。剪丝唯一通道 = `CutWire` 具名元素。
+> ⛔ **2026-10-21 ADR-026**：本表指令的传输通道唯一为 RSI 数值码（上行 `RxCmd`/`RxPayload`、下行 `TxCmd`/`TxPayload`/`TxSeq`），EKI 文本通道已退役。
 
 ---
 
@@ -68,6 +76,39 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs
 |---|---|---|
 | `Normalize` | `static string Normalize(string raw)` | 去空白 + `ToUpperInvariant`；null/空白返回 `string.Empty` |
 | `IsKnownCommand` | `static bool IsKnownCommand(string raw)` | 命中任一协议常量返回 true（内部先 `Normalize`） |
+| `TrySplitPayload` | `static bool TrySplitPayload(string normalized, out string command, out string payload)` | **2026-09-24 新增**：把带坐标载荷的报文拆成「指令名 + 载荷」。报文格式约定（待协议正式细化后替换解析器）：指令名后跟分隔符（空格/逗号/制表）与数值列表，如 `RX_WELD_STOP_POSE,1520.5` 或 `RX_WELD_STOP_POSE 1520.5 300.0`；指令名与数值连写（`RX_WELD_STOP_POSE1520.5`）亦可。整体命中已知指令时 `payload` 为空串；头部非已知指令返回 false |
+| `CommandDescriptions` | `static readonly Dictionary<string, string>` | **2026-10-19 新增**：指令 → 中文释意字典（9 Rx + 9 Tx = 18 条，2026-10-22 起 TxOK/TxCutWire 已删、TxNG 已加），供 Dash 机器人指令行显示。⚠️ 新增指令必须同步补条目（三处同步之②） |
+| `TranslateCommand` | `static string TranslateCommand(string command)` | **2026-10-19 新增**：指令/报文 → 中文释意。内部先 `Normalize`，再 `TrySplitPayload` 拆出指令头（带载荷报文如 `RX_WELD_STOP_POSE,1520.5` 也能命中字典），查 `CommandDescriptions`，未命中返回原文；空入参返回 `——`。消费方：`MainPage.OnRobotCommandReceived`（Dash 显示） |
+
+---
+
+## 数值码映射（2026-10-21 ADR-074，RSI 数值化协议）
+
+> ⛔ RSI 的 SEND 段 `TYPE` 仅 `BOOL`/`DOUBLE`/`LONG`（不含 `STRING`），且 `DEF_EStr` 属写入关键词
+> ⇒ **上行指令必须数值化**。字符串常量（`RX_*` / `TX_*`）保留为日志与 UI 显示载体，**线上承载的是数值码**。
+
+| 上行码 | 指令常量 | 下行码 | 指令常量 |
+|---|---|---|---|
+| 1 | `RX_HOME_POSE` | 1 | `TX_GO_HOME` |
+| 2 | `RX_START_SAFE_POSE` | 2 | `TX_GO_START_SAFE` |
+| 3 | `RX_PRE_WELD_POSE` | 3 | `TX_GO_PRE_WELD` |
+| 4 | `RX_WELD_START_POSE` | 4 | `TX_GO_WELD_START` |
+| 5 | `RX_PRE_STOP_POSE` | 5 | `TX_GO_PRE_STOP` |
+| 6 | `RX_WELD_STOP_POSE` | 6 | `TX_GO_WELD_STOP` |
+| 7 | `RX_STOP_SAFE_POSE` | 7 | `TX_GO_STOP_SAFE` |
+| 8 | `RX_PRE_WELD_REQUEST` | 8 | `TX_NG` |
+| 9 | `RX_ABORT` | 9 | `TX_ABORT` |
+| — | — | 10 | 备用（不映射） |
+
+| 成员 | 签名 | 职责 |
+|---|---|---|
+| `RxCodeToCommandName` | `string (int rxCode)` | 上行数值码 → 指令常量名（未命中返回空串） |
+| `TxCodeToCommandName` | `string (int txCode)` | 下行数值码 → 指令常量名 |
+| `CommandToTxCodeValue` | `int (string command)` | 指令常量名 → 下行数值码（未命中返回 0） |
+| `DescribeRxCode` | `string (int rxCode)` | 上行数值码 → 中文释意（调试面板用） |
+| `DescribeTxCode` | `string (int txCode)` | 下行数值码 → 中文释意 |
+
+⚠️ 下行码反查表由 `TxCodeToCommand` **反向自动生成**（不两处手写，防不同步）。
 
 ---
 
@@ -77,7 +118,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/CommandCore.cs
 GlobalCommData.CommunicationCommandReceived
     └─ DeviceControlWork.OnCommRecived(sender, msg)
           ├─ CommandCore.Normalize(msg)
-          ├─ CommandCore.IsKnownCommand(cmd)? 否 → Warning 丢弃
+          ├─ CommandCore.IsKnownCommand(cmd) 或 TrySplitPayload 拆头部 → 否则 Warning 丢弃
+          ├─ 停止位报文（RX_WELD_STOP_POSE + 数值）→ 解析首个数值 → ApplyRobotStopPose(X) 缓存并改写行程目标
           └─ lock(_commLock) _commCommandQueue.Enqueue(cmd)
                                     ↓
     CommCommandWork 线程 → DequeueCommand() → DispatchCommand(cmd)
@@ -99,9 +141,14 @@ GlobalCommData.CommunicationCommandReceived
 |---|---|
 | `DeviceControlWork.EstopMachine` → `EmergencyStop` | `TxAbort` |
 
-> ⚠️ **`TxGoPreWeld` / `TxGoWeldStart` / `TxGoPreStop` / `TxGoWeldStop` / `TxGoStopSafe` / `TxOK` / `TxGoHome` / `TxGoStartSafe` 当前 0 调用方**——
+> **2026-10-19 演进：Tx 下发同步广播**。`DeviceControlWork.SendRobotCommand` 发送成功后调 `GlobalCommData.BroadcastCommunicationCommand(command)`，
+> 使 Dash 机器人指令行同时显示下发（Tx*）指令；接收侧 `OnCommRecived` 对 Tx 指令正常入队，`DispatchCommand` 命中 `default` 返回 null，无业务副作用。
+> Rx 侧广播仍由 `EthernetXmlComm.Client_OnDataReceived` 负责。
+
+> ⚠️ **`TxGoPreWeld` / `TxGoWeldStart` / `TxGoPreStop` / `TxGoWeldStop` / `TxGoStopSafe` / `TxGoHome` / `TxGoStartSafe` 当前 0 调用方**——
 > 旧的按步下发逻辑（步 10 下发 `CmdGoPreWeld` 等）随内部执行步机制一并删除，
 > 待 Preworking / Working 子流程（批次 4.5 / 4.6）落地后重新接入。**这不是死代码，是协议预置**。
+> **2026-10-22 现状**：`TxNG` 已有 2 处调用（`DeviceControlWork.ReportAlarm` / `DoMotionBusFault`，均以 `IsWelding` 门控）；`TxAbort` 由 `EmergencyStop` 下发。
 
 ---
 
@@ -109,5 +156,5 @@ GlobalCommData.CommunicationCommandReceived
 
 - [[api/DeviceControlWork]] — 唯一消费方（指令队列 + `DispatchCommand`）
 - [[architecture/DeviceControlArchitecture]] — §3.1 指令协议表、§7.3 指令交互线程
-- [[decisions/ADR-029-RawDesignRefinement20260903]] — 裁定 C3（字符串协议 + 不再监控 pose）
+- [[decisions/ADR-035-RawDesignRefinement20260903]] — 裁定 C3（字符串协议 + 不再监控 pose）
 - [[guides/Namespace-Compilation]] — 新增 .cs 必须登记 `.csproj`（`CommandCore.cs` 已登记）

@@ -23,9 +23,9 @@ FileOperate/
 
 | 文件 | 职责 |
 |------|------|
-| INIFile.cs | INI 配置文件读写（自研，非 Windows API）；文件位于 `Config/INI/` |
+| INIFile.cs | INI 配置文件读写（自研，非 Windows API）；文件落于 `Config/<模块>/<主题>_INI/`（ADR-033 三段式） |
 | Log.cs | 日志管理（分级日志、文件轮转） |
-| XdocumentReaderWriter.cs | XML 文档加载、保存、通用 DOM 操作（元素/属性读写、路径导航）；XML 文件位于 `Config/XML/` |
+| XdocumentReaderWriter.cs | XML 文档加载、保存、通用 DOM 操作（元素/属性读写、路径导航）；XML 文件落于 `Config/<模块>/<主题>_XML/`（ADR-033 三段式） |
 
 ## XdocumentReaderWriter 通用方法（2026-07-01 扩展）
 
@@ -44,7 +44,7 @@ FileOperate/
 | `GetAttributeValue(element, name, default)` | 获取元素属性值 |
 | `SetAttributeValue(element, name, value)` | 设置元素属性值 |
 
-> **职责边界**：XMLfile 只提供通用 DOM 操作，不感知任何业务结构。KUKA 特定的 XML 结构生成由 `[[modules/KUKARobot]]/KUKAXMLConfig` 负责。
+> **职责边界**：XMLfile 只提供通用 DOM 操作，不感知任何业务结构。KUKA 特定的 XML 结构生成由 `[[api/KUKARobot]]/KUKAXMLConfig` 负责。
 
 > ⚠️ **GetElement vs GetElementValue 陷阱**：`GetElement(name)` 返回 `XElement` 类型，`GetElementValue(name)` 返回 `string` 类型。将 `GetElement` 结果赋值给 `string` 变量会导致 CS0029 编译错误（无法将 XElement 隐式转换为 string）。**读取元素值用 `GetElementValue`，获取元素对象用 `GetElement`**。详见 [[lessons/CSharp-Language-Pitfalls]]。
 
@@ -52,15 +52,22 @@ FileOperate/
 
 - 自研实现，不依赖 Windows API
 - 支持 Section/Key/Value 三级结构
-- INI 文件统一存放于 `Config/INI/`（ADR-007）
+- INI 文件统一存放于 `Config/<模块>/<主题>_INI/`（ADR-033 三段式范式；2026-09-21 起取代 ADR-007 / ADR-005 的 `Config/INI/` 平铺）
 - 被几乎所有模块使用（配置持久化）
 
 ## XMLfile 特点
 
-- XML 文件统一存放于 `Config/XML/`（ADR-007）
-- `_configDirectory` 硬编码为 `AppDomain.CurrentDomain.BaseDirectory + @"\Config\XML\"`
+- XML 文件统一存放于 `Config/<模块>/<主题>_XML/`（ADR-033 三段式范式；2026-09-21 起取代 ADR-007 / ADR-005 的 `Config/XML/` 平铺）
+- `_configDirectory` 不再硬编码：落盘目录由构造参数 `relativeDirectory` 决定（如 `Config\LineLaser\LineLaser_XML`），单参构造已废弃；`SaveXdocument()` 在目录为空时直接返回、不落盘
 - `CheckFile()` 方法会自动创建目录
-- `XdocumentReaderWriter` 非 UI 类（非 `Control`）：`SaveXdocument`/`SaveToFilePath` 内原 `UIMessageBox.ShowError`（SunnyUI，已移除）现改用 `AntdUI.Modal.open(new AntdUI.Modal.Config(System.Windows.Forms.Form.ActiveForm, "错误", msg) { Icon = AntdUI.TType.Error, Draggable = true })`；`Modal.Config` 的 owner 须为 `Control`/`IWin32Window`，非 UI 类用 `System.Windows.Forms.Form.ActiveForm`，**不可传 `this`**；详见 [[project/SunnyUI-Legacy]]
+- `XdocumentReaderWriter` 非 UI 类（非 `Control`）：`SaveXdocument`/`SaveToFilePath` 内原 `UIMessageBox.ShowError`（SunnyUI，已移除）现改用 `AntdUI.Modal.open(new AntdUI.Modal.Config(System.Windows.Forms.Form.ActiveForm, "错误", msg) { Icon = AntdUI.TType.Error, Draggable = true })`；`Modal.Config` 的 owner 须为 `Control`/`IWin32Window`，非 UI 类用 `System.Windows.Forms.Form.ActiveForm`，**不可传 `this`**；详见 project/SunnyUI-Legacy（归档页 2026-09-17 删除，迁移史见 [[decisions/ADR-008-UIFrameworkMigration]]）
+
+## 配置自愈（2026-11-05，ADR-086）
+
+- `ConfigSelfHeal`：INI/XML 统一补缺入口。只增不改、写前备份 + 临时文件原子替换、写后回读、单文件聚合日志、无缺键零写盘。
+- XML 期望键集来自各配置类自身 `Save` 产物（`DeltaMotionConfig.WriteConfigNodes`、`LineLaserConfig.WriteConfigNodes`、`WeldAlgorithmsConfig.SaveConfig`），默认值不另抄字面量。
+- `XdocumentReaderWriter(relativeDirectory, xmlName, createIfMissing)`：预览/审计读传 `false`，不再隐式建空文档；`CheckFile` 仅在 `createIfMissing=true` 时建目录。
+- 权威写盘路径：`DeltaMotionConfig.LoadConfig(true)`、`MontionManager.EnsureMotionConfigKeys`、`LineLaserConfig.LoadConfig(true)`、`MonitorCamConfig.LoadFromIni(path, true)`、`WeldParamManager.HealAlgorithmsConfigKeys`、`CommunicationManager.HealCommunicationIni`；其余预览/差异审计读零写。
 
 ## 协作关系
 

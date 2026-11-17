@@ -1,7 +1,8 @@
 ---
 title: 算法纯净性与记录职责隔离
 date: 2026-09-14
-tags: [教训, 算法分层, 记录隔离, 事件驱动, 配置合一, WeldParamControl, ProductFileControl, ADR-043, ADR-044]
+updated: 2026-10-30
+tags: [教训, 算法分层, 记录隔离, 事件驱动, 配置合一, WeldParamControl, ProductFileControl, ADR-033, ADR-043]
 status: active
 ---
 
@@ -61,7 +62,7 @@ RunRecordManager.Instance.AbortRecording();
 
 「保存动作可能耗时，但不能影响功能的实现」——订阅方必须**入队即返回**（O(1)），真正落盘在后台执行，**绝不在计算路径上同步落盘**。
 
-> ✅ 2026-09-14 落地状态：**订阅方已实现**——`ProductFileRecordManager` 构造时订阅三事件，事件处理器组装 item 后入队（O(1)），落盘由记录类后台线程异步执行（[[decisions/ADR-046-ProductRecordModuleRefactor]]）。过程记录链路已闭环。
+> ✅ 2026-09-14 落地状态：**订阅方已实现**——`ProductFileRecordManager` 构造时订阅三事件，事件处理器组装 item 后入队（O(1)），落盘由记录类后台线程异步执行（ADR-031（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]））。过程记录链路已闭环。
 
 ### 5. 运行参数走 Manager 独占配置（照 `WeldAlgorithmsConfig` 范式）
 
@@ -72,7 +73,7 @@ RunRecordManager.Instance.AbortRecording();
 - 对外只暴露 `Manager.<X>Config` **只读引用** + **无参** `Load<X>Config()` / `Save<X>Config()`；
 - 算法侧照 `SeamTrackingAlgorithm`：私有 `_config` + 只读 `Config` 属性 + `SetConfig` + `LoadConfig(object)` 转型。
 
-多个配置节可共用**同一个 reader / 同一个文件**（`Config/XML/WeldParamControl.xml` 下 `SEAM_GUIDE` 与 `WELD_PARAM_ADJUST` 并存）；进一步地，**多个节也可归属于同一个配置类**——2026-09-14 两个算法配置类即合并为单一 `WeldAlgorithmsConfig`（同文件、同节名不变 → 存量配置**零迁移**），Manager 只持一个实例、只留一对无参 Load/Save。**判据：配置类的划分粒度应跟随「谁写盘」而非「字段分几组」——落盘只归 Manager 时，多节合一比多类并列更少歧义。**（[[decisions/ADR-044-WeldAlgorithmsConfigMerge]]）
+多个配置节可共用**同一个 reader / 同一个文件**（`Config/WeldParamControl/Algorithm_XML/WeldParamControl.xml` 下 `SEAM_GUIDE` 与 `WELD_PARAM_ADJUST` 并存）；进一步地，**多个节也可归属于同一个配置类**——2026-09-14 两个算法配置类即合并为单一 `WeldAlgorithmsConfig`（同文件、同节名不变 → 存量配置**零迁移**），Manager 只持一个实例、只留一对无参 Load/Save。**判据：配置类的划分粒度应跟随「谁写盘」而非「字段分几组」——落盘只归 Manager 时，多节合一比多类并列更少歧义。**（ADR-043（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]））
 
 ## 同类问题（未处置）
 
@@ -80,11 +81,14 @@ RunRecordManager.Instance.AbortRecording();
 
 ## 相关
 
-- [[decisions/ADR-043-AlgorithmPurityAndRecordIsolation]] — 本轮决策
-- [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]] — 算法分层
-- [[decisions/ADR-044-WeldAlgorithmsConfigMerge]] — 焊接算法配置合一（`WeldAlgorithmsConfig`）
-- [[decisions/ADR-042-ModuleOrganizationPatternStandard]] — 模块组织范式
+- ADR-043（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） — 本轮决策
+- [[decisions/ADR-043-WeldParamControlConsolidated|ADR-043（焊缝参数控制综合）]] — 算法分层
+- ADR-043（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） — 焊接算法配置合一（`WeldAlgorithmsConfig`）
+- [[decisions/ADR-006-ModuleOrganizationPatternStandard]] — 模块组织范式
 - [[standards/ModuleOrganizationPattern]] — §七检查清单 / §八违规样例
 - [[api/WeldParamAdjustmentAlgorithm]] — 参数调整算法（去记录化后）
-- [[modules/ProductFileManager]] — 记录模块（订阅方已落地，ADR-046）
+- [[modules/ProductFileManager]] — 记录模块（订阅方已落地，ADR-031）
 - [[lessons/WikiDriftCorrectionPitfalls]] — 知识库维护踩坑
+## 相关页面
+
+- [[index/index]]

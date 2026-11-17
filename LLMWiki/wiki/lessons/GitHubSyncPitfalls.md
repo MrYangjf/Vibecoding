@@ -1,3 +1,10 @@
+---
+title: GitHub 云端同步陷阱（AdaWeldSystem / LLMWiki）
+date: 2026-10-30
+updated: 2026-10-30
+tags: [教训]
+status: active
+---
 # GitHub 云端同步陷阱（AdaWeldSystem / LLMWiki）
 
 > 把源码与知识库推到 GitHub 备份时实际踩到/必须规避的坑。操作手册见 [[guides/SourceBackup-GitHub]]。
@@ -60,3 +67,6 @@
    ```
 3. **`.gitignore` 覆盖大依赖目录**：代码仓必须覆盖 `3rdDepend/`（380 MB，单文件 160 MB > 限制）；用 `git ls-files | grep -c '^3rdDepend/'` 验误跟踪恒为 0。⚠️ 只对**未跟踪**文件生效。
 4. **删除项对账 + diff 性质甄别**：删除项按 ⑥ 对账；再用 `git diff --numstat | awk '$1==$2 && $1>50'` 查是否混入**行尾噪音**（命中大量文件 = 整文件重写，须先修行尾再提交）。
+## 相关页面
+
+- [[index/index]]

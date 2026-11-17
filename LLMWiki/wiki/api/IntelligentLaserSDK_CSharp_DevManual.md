@@ -300,8 +300,8 @@ int ret = IntelligentLaser_export.SetJobParamter(new[]{p}, 1);
 ## 7. 与本项目的集成提示
 
 1. **不要引入 OpenCvSharp**：Demo 用它做 YUV→Bitmap，但你的项目统一用 **EmguCV**，请改写转换层（§3.2）。
-2. **命名空间/目录**：建议把该 SDK 封装为一个新模块（如 `LineLaserCam/IntelligentLaserCam/`），对外暴露与 `ICameraRun` 对齐的接口，纳入 `CameraSelector` 选择器（呼应 [[api/LineLaserManager]]、[[decisions/ADR-034-LineLaserThreeLayerRefactor]]），而非在 UI 里直接调 `IntelligentLaser_export`。
-3. **连接态映射**：`ConnectToSensor` 的位掩码结果应映射到 `ConnectionState`（呼应 [[decisions/ADR-013-CameraConnectionStateDecoupled]]）。
+2. **命名空间/目录**：建议把该 SDK 封装为一个新模块（如 `LineLaserCam/IntelligentLaserCam/`），对外暴露与 `ICameraRun` 对齐的接口，纳入 `CameraSelector` 选择器（呼应 [[api/LineLaserManager]]、[[decisions/ADR-024-LineLaserThreeLayerRefactor]]），而非在 UI 里直接调 `IntelligentLaser_export`。
+3. **连接态映射**：`ConnectToSensor` 的位掩码结果应映射到 `ConnectionState`（呼应 [[decisions/ADR-021-CameraConnectionStateDecoupled]]）。
 4. **线程安全**：所有回调 → UI 的更新走 `BeginInvoke` + `InvokeRequired` 守卫（呼应 [[guides/WinForms-UI-Threading]]）。
 5. **x64 构建**：集成前先把 `Release` 配成 x64（当前 `Release|AnyCPU` 是 AnyCPU，会加载 64 位 DLL 失败）。
 6. **资源释放**：回调里拿到的所有 `IDisposable` 包装对象，提取完数据后立即 `Dispose()`；GCHandle 在退出时 `Free()`。

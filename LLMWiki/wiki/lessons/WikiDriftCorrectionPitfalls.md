@@ -1,10 +1,14 @@
 ﻿---
-title: Wiki 批量漂移修正五坑（行尾污染 / 换行符被吃 / 机器替换语义破损 / 横幅自伤 / 外部参考误改）
+title: Wiki 批量漂移修正十一坑（行尾污染 / 换行符被吃 / 机器替换语义破损 / 横幅自伤 / 外部参考误改 / 非知识库文件混入 / Skill 双副本漂移 / 原档裁剪 / 行尾探针失真 …）
 date: 2026-09-03
+updated: 2026-10-30
 tags: [教训, LLMWiki, 漂移, 工具脚本, Python, 行尾, 批量编辑]
+status: active
 ---
 
-# Wiki 批量漂移修正五坑
+# Wiki 批量漂移修正十一坑
+
+> **章节导航**（本页 11 个坑，按遇到顺序编号；超长页请先按坑号定位再读）：坑一 行尾污染 · 坑二 joiner 丢失换行 · 坑三 机器替换语义破损 · 坑四 横幅自伤 · 坑五 正则无边界断言 · 坑六 掩码漏修 · 坑七 CRCRLF 断言盲区 · 坑八 非知识库文件混入 · 坑九 Skill 双副本漂移 · 坑十 原档裁剪失去唯一真相源 · 坑十一 行尾探针失真（`grep -c $'\r'`）
 
 > 来源：2026-09-03 「修正 skill 与代码的漂移（刚从 GitHub 导下来）」一次性任务。
 > 目标是把 wiki 中 144 处失效的 `.cs` 引用对齐到代码库现役状态，同时重写 `tools/drift_scan_precise.py`。
@@ -43,9 +47,15 @@ assert fmt(orig) == fmt(open(rel, "rb").read()), "行尾与 HEAD 不一致"
 
 - 脚本批量编辑一律**按字节读写**：`open(p, "rb").read()` / `open(p, "wb").write(bytes)`。
 - 收尾前用 `git diff --numstat` 扫一遍，**改动行数等于总行数的文件 = 行尾污染**。
-- 已固化到工作流规范：[[project/vibecoding-workflow]] 核心规则 13。
+- 已固化到流程规则：[[rules/KR-009-Grep-Default]] 之外的代码定位纪律，以及本页「规则条目：wiki 页以 LF 存储」。
 
 ---
+
+### 规则条目：wiki 页以 LF 存储，批量改写必须按字节读写
+
+- **规则要点（原 rules/KR-013）**：`LLMWiki/wiki/` 下的页在仓库内一律 **LF**；批量改写**按字节读写并原样回写行尾**，⛔ 禁止 `open(p).read()` + `open(p,"w").write()`（默认换行会把整库写成 CRLF，diff 从 ~90 行膨胀成整文件重写）。
+- **判据**：改完 `git diff --numstat` 无「改动行数 ≈ 总行数」的文件；行尾同质性用**字节计数**判（`crlf` / `loneLF` / `CRCRLF` / BOM），⛔ 不用 `grep -c $'\r'`（见坑十一）。
+- **归因**：整文件级 diff **不一定**是本轮造成 —— 先核对 `HEAD` blob 的行尾与净行数差（见下方「收尾判据」的例外甄别），是别人的未提交改动就只报告、不顺手"修"。
 
 ## 坑二：行区间替换的 joiner 默认成 `""` → 整页压成零换行的单行
 
@@ -81,6 +91,15 @@ out = tail.join(lines)
 
 ---
 
+### 规则条目：joiner 必须与 splitter 匹配
+
+- **规则要点（原 rules/KR-014）**：行区间替换时，**joiner 必须由文件探测得出、默认不能是空串，且必须与 splitter 匹配**。
+- **判据**：⛔ 不用 `text.split("\n")` + `"\r\n".join()` 处理 CRLF 内容（`split` 给每行留尾 `\r`，重拼即得 CRCRLF）；优先按字节 `raw.split(b"\n")` → `b"\n".join(parts)`，让 `\r` 留在片段内。
+- **预防**：替换整行时新片段要**带上文件实测的终止符**（`new_bytes + nl`），否则该行变 loneLF、文件被判 MIXED；断言要比 `
+` / `
+` / `
+` 三个计数**与原值**对比（不是与 0 对比）；检测到污染从备份整目录回滚重做，⛔ 不在污染件上二次改写。
+
 ## 坑三：机器直接替换旧名 → 四处语义破损，16 页全部回退
 
 ### 现象
@@ -107,6 +126,11 @@ out = tail.join(lines)
 3. **多对一映射要查撞车**：7 个 Stage 文件都映射到 `Stages.cs`，同行替换会产出重复标注。
 
 ---
+
+### 规则条目：批量替换前查自引用
+
+- **规则要点（原 rules/KR-016）**：连续两次全局替换时，**新串不得包含被替换串** —— 否则产出嵌套删除线垃圾（`~~~~[[old]]~~ → [[new]]~~`）。
+- **判据**：批量替换前断言 `new.find(old) == -1`；已损坏则用**精确子串配对**修复，⛔ 停止继续跑全局替换。
 
 ## 坑四：横幅块内的旧名被判为「未登记的新漂移」→ 自伤
 
@@ -195,7 +219,7 @@ architecture/DeviceControlArchitecture.md:231  CommandCore.cs
 architecture/DeviceControlArchitecture.md:271  RollPressProcess.cs
 architecture/DeviceControlArchitecture.md:329~333  RollPressProcess.cs ×4
 architecture/DeviceControlArchitecture.md:964  CommandCore.cs
-decisions/ADR-028-ArchitectureRawSource.md:29  RollPressProcess.cs
+decisions/ADR-034-ArchitectureRawSource.md:29  RollPressProcess.cs
 ```
 
 但**这 9 处全部写在反引号代码体内**，是明确的历史名/原档名引用，不是真实引用。
@@ -282,7 +306,7 @@ def is_external_ref(line, fname):
 
 ### 附带发现
 
-`ADR-021` / `ADR-026` 两页**原生**就各含 1 处 `\r\r\n`（历史遗留的裸 CR 混排），
+`ADR-016` / `ADR-024` 两页**原生**就各含 1 处 `\r\r\n`（历史遗留的裸 CR 混排），
 所以断言不能写死 `== 0`，必须与原值比对——否则会误报成"本次污染"，
 按坑三的教训，误报会诱导出错误的"修复"。
 
@@ -323,13 +347,23 @@ def is_external_ref(line, fname):
 - **目录名乱码**（解压 GBK/UTF-8 错配，如 `MecaVision_SDK+²¦¦+¦-Á+¸+-ÁÁ`）：
   用 Python 的 `os.listdir` 取到准确名后 `os.rename` 订正，**不要用 shell glob**（非 ASCII 路径易二次损坏）。
 
+### 规则条目：定向清扫前先全库普查
+
+- **规则要点（原 rules/KR-021）**：跨库改写某符号 / 路径 / 模式前，先用**最宽可用模式** Grep **整个仓库根**，再与脚本白名单求差集 —— **脚本白名单不是真相**（实测漏掉 15 个文件 / 54 行）。
+- **判据**：差集必须逐文件处置：现行事实页**就地改写**；`decisions/` 历史页只加**就地演进标注**，⛔ 不改写正文。
+
+### 规则条目：wiki 下只放 Markdown，工作区根也要清
+
+- **规则要点（原 rules/KR-022）**：`wiki/` 下**只放 Markdown**；会话临时产物（`_tmp_*.py` / `_tmp_*.txt` / `*_out.txt` / `*.pyc` / `__pycache__/` / `*.bak`）同样要清 —— **落在工作区根的散落文件链接型扫描器永远看不见**，必须每轮显式删除。
+- **判据**：`find wiki -type f ! -name "*.md"` 为空；按文件名前缀清工作区根（见下方「知识库卫生判据」）。
+
 ## 坑九：Skill 双副本漂移——版本号相同、内容不同（2026-09-12）
 
 ### 现象
 
 `~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md`（用户级，Skill 工具实际加载的那份）与
 `LLMWiki/skills/vibecoding-llmwiki/SKILL.md`（仓库副本）**版本号同为 v1.6.0，内容却差 4 行**——
-仓库副本的 Key Rule 13/14 还是旧短版，Tier 2 仍列 09-09 重排前的旧 ADR 号。
+仓库副本的 原 rules/KR-013（已并入 lessons/WikiDriftCorrectionPitfalls）/14 还是旧短版，Tier 2 仍列 09-09 重排前的旧 ADR 号。
 
 ### 根因
 
@@ -387,6 +421,41 @@ def is_external_ref(line, fname):
 
 ---
 
+## 坑十一：用 `grep -c $'\r'` 判行尾 → ANSI-C 未展开，静默统计成「含字母 r 的行数」（2026-09-16）
+
+**现象**：本轮开工时用一个 for 循环批量读 11 个 wiki 页的行尾，`grep -c $'\r' "$f"` 对**每一个**文件都返回与总行数相等的值，于是全部判为「纯 CRLF」。后用 Python 字节计数复核，发现其中 **8 页其实纯 LF**、仅 5 页纯 CRLF——初始判断**整体错了一半**。
+
+**根因**：本环境的 Git Bash shim（`shell-runtime-bash-env.sh`）**不展开 ANSI-C 引用**：`$'\r'` 没有被替换成 CR，而是**原样两个字符** `\r` 传给 grep；GNU grep 又把 `\r` 解释为**字面字母 `r`**。于是该命令实际是「统计**含字母 r 的行数**」——中文页里几乎每行都含 `r`（英文字母、变量名、`[[链接]]`），结果≈总行数，看起来就像「全是 CRLF」。
+
+**最小复现（实测）**：
+
+```
+printf 'abc\ndef\n'     > _t_lf.txt     # 真 LF
+printf 'abc\r\ndef\r\n' > _t_cr.txt     # 真 CRLF
+grep -c $'\r' _t_lf.txt   # -> 0  (exit 1)
+grep -c $'\r' _t_cr.txt   # -> 0  (exit 1)   ← 明明有 CR，却报 0
+od -c _t_cr.txt           # -> a b c \r \n d e f \r \n   ← 真相
+```
+
+**正确做法**：行尾 / BOM 一律用 **Python 字节计数**或 `od -c`，禁用 `grep -c $'\r'`：
+
+```python
+b = open(p, 'rb').read()
+crlf   = b.count(b'\r\n')
+bare   = b.count(b'\n') - crlf
+cr     = b.count(b'\r') - crlf
+crcrlf = b.count(b'\r\r\n')
+bom    = b[:3] == b'\xef\xbb\xbf'
+```
+
+判据：**文件内部均质**（`crlf == 0` 或 `bare == 0`，不得混存）、`crcrlf == 0`；工作区 LF / CRLF 混存是**既有状态**（`core.autocrlf=true` 下均归一为仓库 LF），**不是本轮污染**，报告即可、不要「修」。
+
+> **同族误区**：凡「用 shell 内建做二进制特征判定」都值得先证伪一次——同族还有 `grep -n "^using"` 被 **UTF-8 BOM** 吃掉首行（2026-09-16 实证，见 [[lessons/CSharp-Language-Pitfalls]]）、`\>` 在 BRE 里是**词尾断言**而非字面 `>`（SKILL.md 原 rules/KR-017（已并入 lessons/WikiDriftCorrectionPitfalls））。
+
+### 规则条目：验 blockquote 必须用固定串匹配
+
+- **规则要点（原 rules/KR-017）**：验横幅 / blockquote 行一律用 `grep -nF`（固定串），⛔ 不用 `grep -n "^> ..."` —— BRE 里 `\>` 是**词尾锚点**不是字面 `>`，对 markdown blockquote 会**静默返回 0**。
+
 ## 收尾判据（可复制）
 
 批量漂移修正收工前，逐条确认：
@@ -403,6 +472,11 @@ def is_external_ref(line, fname):
 - [ ] 所有 `_tmp_*.py` 脚本已删除
 - [ ] 新增行的语义抽查：无「已移除 + 现役」句式冲突、无外部项目路径被改、无目录树塞全路径
 
+### 规则条目：整文件 diff 不自动是你的锅
+
+- **规则要点（原 rules/KR-026）**：整文件级 `git diff --numstat` **不自动是本轮造成** —— 先查自己是否动过该文件。
+- **判据**：比 `HEAD` blob 的行尾与净行数差（`git show HEAD:<path>` + 字节计数）；两侧同为 LF 而行数变动远超你的编辑量 ⇒ 来自**别的会话的未提交改动** —— **报告，不静默重排版**；只修自己写过的文件。
+
 ### 知识库卫生判据（2026-09-12 补，坑八/坑九）
 
 - [ ] `find wiki -type f ! -name "*.md"` 为空（`wiki/` 下不得有非 Markdown 文件）
@@ -415,6 +489,7 @@ def is_external_ref(line, fname):
 - [ ] `AGENTS.md` 目录树与实际目录一致、无死工具引用
 - [ ] `.gitignore` 存在且覆盖构建产物 / 缓存 / 本地备份
 - [ ] Skill 双副本 `diff` 为空（坑九）
+- [ ] 行尾 / BOM 判定用**Python 字节计数或 `od -c`**，未使用 `grep -c $'\r'`（坑十一）
 
 ### 原档裁剪判据（2026-09-14 补，坑十）
 
@@ -424,3 +499,6 @@ def is_external_ref(line, fname):
 - [ ] 抽存类文件已集中到语义化目录并逐个校验 md5（如 `SDK/Include/`）
 - [ ] 删前能逐项说明「待删内容中无不可再生资料」；不能确定则只出只读清单交用户拍板
 - [ ] 备份 tar 已核验**确实包含**待删内容（`tarfile.getnames()` 命中计数 > 0）
+## 相关页面
+
+- [[index/index]]

@@ -1,7 +1,9 @@
 ---
 title: Lesson - 故障恢复设备键名必须与策略注册 key 精确匹配
 date: 2026-08-19
+updated: 2026-10-30
 tags: [陷阱, Safety, 故障恢复, 状态机, 命名约定]
+status: active
 severity: critical
 ---
 
@@ -32,9 +34,8 @@ severity: critical
 
 ## 相关文件
 
-- `ProductFileManager/FaultRecoveryManager.cs` — `RecordFault` / `RegisterRecoveryStrategy` / `ResolveKey`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-027 §3；历史路径 `Workflow/` → `MainDeviceControl/DeviceWorkflow/` 均已失效）
-- 消费方：`MainDeviceControl/` 下 6 处（`DeviceStatusWork`（安全互锁）/ `DeviceControlWork`（`"MainDevice"`）/ `LineLaserWorkflow` / `MonitorCameraWorkflow` / `MotionControlWorkflow` / `WeldParamControlWorkflow`）；历史载体 `MainDeviceThread.cs`（现役 `MainDeviceControl/DeviceStatusWork.cs`） → `MainDeviceWorkflow.cs` → `DeviceControlWork.cs`（ADR-028）
-
+- `ProductFileManager/FaultRecoveryManager.cs` — `RecordFault` / `RegisterRecoveryStrategy` / `ResolveKey`（2026-09-01 自 `MainDeviceControl/DeviceWorkflow/` 迁入，ADR-021 §3；历史路径 `Workflow/` → `MainDeviceControl/DeviceWorkflow/` 均已失效）
+- 消费方：`MainDeviceControl/` 下 6 处（`DeviceStatusWork`（安全互锁）/ `DeviceControlWork`（`"MainDevice"`）/ `LineLaserWorkflow` / `MonitorCameraWorkflow` / `MotionControlWorkflow` / `WeldParamControlWorkflow`）；历史载体 `MainDeviceThread.cs`（现役 `MainDeviceControl/DeviceStatusWork.cs`） → `MainDeviceWorkflow.cs` → `DeviceControlWork.cs`（ADR-034）
 ## 相关页面
 
 - [[modules/Safety]] — Safety 模块文档

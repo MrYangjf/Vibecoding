@@ -11,9 +11,9 @@ status: accepted
 >
 > **适用范围**：全项目所有「**一个功能族 = 多实现 + 统一入口**」型模块（相机、运控、算法、焊接工艺等）；不适用于 `UIDesign/` 页面层与 `MainDeviceControl/` 流程层（后者见 [[standards/WorkflowResponsibilityBoundary]] 与 [[architecture/DeviceControlArchitecture]]）。
 >
-> **沉淀决策**：[[decisions/ADR-042-ModuleOrganizationPatternStandard]]。各模块的落地先例见 [[decisions/ADR-036-LineLaserManagerSingleEntry]]（线激光）、[[decisions/ADR-037-MecaVisionMonitorCamera]]（监控相机）、[[decisions/ADR-038-EmguALGThreeLayer]] / [[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]]（算法）、[[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]]（焊接工艺）。
+> **沉淀决策**：[[decisions/ADR-006-ModuleOrganizationPatternStandard]]。各模块的落地先例见 ADR-024（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）（线激光）、ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）（监控相机）、[[decisions/ADR-022-EmguALGThreeLayer]] / [[decisions/ADR-019-MonitorCamBoundaryAndEmguALGRefinement]]（算法）、[[decisions/ADR-043-WeldParamControlConsolidated|ADR-043（焊缝参数控制综合）]]（焊接工艺）。
 >
-> **原档依据**：`raw/knowledge/算法程序改造指导_抽象实现Manager三层_v2.0.md`（该文档为二手资料且基线为另一形态，落地时以代码现实为准，见 ADR-038 的三处错位表）。
+> **原档依据**：`raw/knowledge/算法程序改造指导_抽象实现Manager三层_v2.0.md`（该文档为二手资料且基线为另一形态，落地时以代码现实为准，见 ADR-007 的三处错位表）。
 
 ---
 
@@ -66,15 +66,15 @@ status: accepted
 - 命名：目录名 `Abstractions/`（无第三方依赖的模块可用 `I<ModuleName>/` 命名，如 `IMotion/`、`IMonitorCam/`、`ILineLaser/`，见既有先例）。**同一模块内只用一种命名风格。**
 - 内容：**对外功能 + 对外属性**的契约（接口 / 抽象基类）+ 公共枚举 + 事件参数 + 值对象。
 - **硬性**：抽象层**零第三方依赖**——不得 `using` 厂商 SDK、不得 `DllImport`、不得出现厂商类型名。
-- 新增能力优先加在抽象层，并用 `public virtual` 给默认实现，派生类可暂不实现（ADR-036 先例：`LineLaserCameraBase` 的 7 个外设虚契约）。
-- 枚举/事件遵循 [[decisions/ADR-017-EnumDeduplication]]，一个语义只定义一份。
+- 新增能力优先加在抽象层，并用 `public virtual` 给默认实现，派生类可暂不实现（ADR-033 先例：`LineLaserCameraBase` 的 7 个外设虚契约）。
+- 枚举/事件遵循 [[decisions/ADR-003-EnumDeduplication]]，一个语义只定义一份。
 
 ### 3.3 实现层（Implementations）
 
 - **所有需要使用的功能都必须继承抽象类并实现**——这是本范式的核心约束；不允许出现「绕过抽象、直接 new 出来的工具类」。
 - 一个实现类 = 一个具体后端（厂商实现 / 虚拟实现 / 不同算法）。多实现并存时，**厂商专属类型名只允许出现在实现层内**。
-- **实现层只做回调触发**：取数、抛事件即返回；业务判断、状态语义、配置持久化一律不在实现层（ADR-035/ADR-037 准则，把实现类从 1746 行压到 1324 行的关键）。
-- 实现类**非单例**，由 Manager 在构造时创建并持有（ADR-041 裁定）。
+- **实现层只做回调触发**：取数、抛事件即返回；业务判断、状态语义、配置持久化一律不在实现层（ADR-032/ADR-034 准则，把实现类从 1746 行压到 1324 行的关键）。
+- 实现类**非单例**，由 Manager 在构造时创建并持有（ADR-015 裁定）。
 
 ### 3.4 Manager
 
@@ -84,7 +84,7 @@ status: accepted
 |---|---|---|
 | 1 | **管理所有功能类对象** | 构造时 `new` 出全部实现类并持有；实例的唯一持有者就是 Manager，**实现层不对外暴露实例** |
 | 2 | **管理数据** | 结果缓存、当前值快照、运行输出；对外以只读属性 / 版本号轮询暴露 |
-| 3 | **持久化配置** | 持有配置对象，负责读写落盘（INI / XML / 数据库，遵循 [[decisions/ADR-005-ConfigLayout]]） |
+| 3 | **持久化配置** | 持有配置对象，负责读写落盘（INI / XML / 数据库，遵循 ADR-033（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）） |
 | 4 | **对外唯一访问口** | 外部（UI / 流程 / 其它模块）只允许 `Manager.Instance` 或注入的 Manager 引用；**禁止绕过 Manager 直取实现** |
 
 - 单例形态：Lazy 单例（`MonitorCamManager` / `AlgorithmManager`）或普通单例（`MontionManager` / `LineLaserManager` / `WeldParamManager`），**同一模块内统一**。
@@ -120,19 +120,21 @@ status: accepted
 
 ---
 
-## 五、硬规则（H1~H9）
+## 五、硬规则（H1~H11）
 
 | # | 规则 | 违反后果 |
 |---|---|---|
 | **H1** | 场景 A（第三方库）必须有 Core；场景 B 视「是否有自成一体的算法结构」按需建 | 第三方调用散落各处，无法换厂商 |
 | **H2** | 抽象层零第三方依赖（无 `using` 厂商 SDK、无 `DllImport`、无厂商类型名） | 换厂商要动抽象层，抽象失效 |
 | **H3** | 所有功能实现类必须继承抽象类/接口并实现，禁止平行工具类绕过抽象 | 多套并存、无法统一调度 |
-| **H4** | 一个厂商实现只有一个实现类，同一模块内不保留平行双实现（旧实现整删，不并存） | 双数据源、依赖残留（ADR-037 裁定先例） |
-| **H5** | Manager 是实现类实例的**唯一持有者**，实现层不对外暴露实例 | 业务层 `as` 转型绑定单一厂商（ADR-036 先例） |
+| **H4** | 一个厂商实现只有一个实现类，同一模块内不保留平行双实现（旧实现整删，不并存） | 双数据源、依赖残留（ADR-034 裁定先例） |
+| **H5** | Manager 是实现类实例的**唯一持有者**，实现层不对外暴露实例 | 业务层 `as` 转型绑定单一厂商（ADR-033 先例） |
 | **H6** | 外部只允许经 Manager 访问；禁止 `XxxAlgorithm.Instance` 式直取实现 | 入口分散、契约形同虚设 |
 | **H7** | 配置持久化只由 Manager 负责，实现层不落盘 | 配置源分散、切换 Job 不生效 |
-| **H8** | Manager 内不放流程编排；实现层不做业务状态判断 | 与流程层职责重叠（ADR-023/ADR-041） |
-| **H9** | 实现层**只计算**：不得直接调用记录/持久化模块（`RunRecordManager` / `System.IO` / `File.` / `StreamWriter` / `XmlSerializer`）；需留痕只**触发事件**，由记录模块订阅后**异步**落盘 | 计算路径被落盘拖慢甚至阻塞；模块依赖反向缠绕（ADR-043） |
+| **H8** | Manager 内不放流程编排；实现层不做业务状态判断 | 与流程层职责重叠（ADR-009/ADR-015） |
+| **H9** | 实现层**只计算**：不得直接调用记录/持久化模块（`RunRecordManager` / `System.IO` / `File.` / `StreamWriter` / `XmlSerializer`）；需留痕只**触发事件**，由记录模块订阅后**异步**落盘 | 计算路径被落盘拖慢甚至阻塞；模块依赖反向缠绕（ADR-033） |
+| **H10** | 硬件实现类族必须**单活**（同一时刻只有一个实例在连接/采集）：Manager 切换活动实例即**释放上一台**（停采集 + 断开）；`Connect` 前发现他台仍在采集则**拒绝并记日志**；事件处理入口校验发送方 == 当前活动实例，非活动方的帧/结果**丢弃**（限流记一条日志）。管理器级共享缓冲只允许唯一发送方写入 | 双实例同时出图争用共享缓冲，数据串帧、缺陷偶发且难复现（ADR-024「七」先例） |
+| **H11** | **初始化零追溯**：构造期 / `InitializeComponent` / 页面装配期 / `HandleCreated` / 窗体 `Show` 期 **不得**读取任何业务历史数据（`ProductFileRecordManager.Select*`、`Directory.GetFiles` / `Directory.GetDirectories`、`RecordFileStore`、报表统计）；追溯页查询只允许**用户主动交互**触发（点击该导航项/页签、刷新、改区间）；空态提示只在允许的查询返回空后显示。判据 = `GlobalCommData.IsAppRunning`（由 `FormMain` 在首次 `Shown` 的设备初始化结束后显式置位），⛔ 不得用 `Visible` / `FindForm().Visible` / `Created` / `IsHandleCreated` 充当初始化完成判据（AntdUI 非当前 `TabPage` 恒为 `Visible=true`，窗体 Show 时全部子页的 `VisibleChanged` 都会触发） | 启动即查库/扫目录，弹「今天没有数据」（ADR-078 通用化条目） |
 
 ---
 
@@ -140,11 +142,11 @@ status: accepted
 
 | 模块 | 场景 | Core | 抽象层 | 实现层 | Manager | 决策 |
 |---|---|---|---|---|---|---|
-| [[modules/EmguALG]] | A（EmguCV）+ 自研算子 | `Core/`（`AlgorithmBase` / `PreprocessConfig` / 算子 `ImageAlgorithm.cs`） | `Abstractions/`（`IAlgorithm` / `IConfigurableAlgorithm` / `IResultStore`） | `RealtimeMonitor/WireFeedDistance/` · `RealtimeMonitor/WeldQuality/` · `LineLaserContour/` | `Manager/AlgorithmManager`（+ `AlgorithmResultStore`） | ADR-038 / 039 |
-| [[modules/MonitorCam]] | A（MecaVision MVSDK） | `MecaVisionCam/Native/MVSDK.cs` | `IMonitorCam/`（`IMonitorCamApi` + 枚举 + 事件参数） | `MecaVisionCam/MecaVisionCam.cs` | `MonitorCamManager.cs` | ADR-037 |
-| [[modules/LineLaserCam]] | A（英莱 SDK） | 实现类内薄封装 | `ILineLaser/LineLaserCameraBase.cs` | `IntelligentLaserCam/` · `VirtualCam/` | `LineLaserManager.cs` | ADR-034 / 035 / 036 |
-| [[modules/MotionControl]] | A（台达 EtherCAT） | `DeltaEtherCAT/Native/` | `IMotion/`（`MontionControl` / `MontionAxis` / `MontionIO` / `IPVTMotion`…） | `DeltaEtherCAT/`（`Delta*` 系列） | `MontionManager.cs`（+ 三张注册表） | ADR-032 / 033 |
-| [[modules/WeldParamControl]] | **B（纯自研）** | ⛔ **无 Core**（公式与查找表写在实现类内） | `Abstractions/WeldAlgorithmBase.cs` | `Algorithms/`（`WeldParamLookupAlgorithm` / `WeldParamAdjustmentAlgorithm` / `SeamTrackingAlgorithm`） | `WeldParamManager.cs` | ADR-041 |
+| [[modules/EmguALG]] | A（EmguCV）+ 自研算子 | `Core/`（`AlgorithmBase` / `PreprocessConfig` / 算子 `ImageAlgorithm.cs`） | `Abstractions/`（`IAlgorithm` / `IConfigurableAlgorithm` / `IResultStore`） | `RealtimeMonitor/WireFeedDistance/` · `RealtimeMonitor/WeldQuality/` · `LineLaserContour/` | `Manager/AlgorithmManager`（+ `AlgorithmResultStore`） | ADR-007 / 039 |
+| [[modules/MonitorCam]] | A（MecaVision MVSDK） | `MecaVisionCam/Native/MVSDK.cs` | `IMonitorCam/`（`IMonitorCamApi` + 枚举 + 事件参数） | `MecaVisionCam/MecaVisionCam.cs` | `MonitorCamManager.cs` | ADR-034 |
+| [[modules/LineLaserCam]] | A（英莱 SDK） | 实现类内薄封装 | `ILineLaser/LineLaserCameraBase.cs` | `IntelligentLaserCam/` · `VirtualCam/` | `LineLaserManager.cs` | ADR-017 / 035 / 036 |
+| [[modules/MotionControl]] | A（台达 EtherCAT） | `DeltaEtherCAT/Native/` | `IMotion/`（`MontionControl` / `MontionAxis` / `MontionIO` / `IPVTMotion`…） | `DeltaEtherCAT/`（`Delta*` 系列） | `MontionManager.cs`（+ 三张注册表） | ADR-013 / 033 |
+| [[modules/WeldParamControl]] | **B（纯自研）** | ⛔ **无 Core**（公式与查找表写在实现类内） | `Abstractions/WeldAlgorithmBase.cs` | `Algorithms/`（`WeldParamLookupAlgorithm` / `WeldParamAdjustmentAlgorithm` / `SeamTrackingAlgorithm`） | `WeldParamManager.cs` | ADR-015 |
 
 > **对照读法**：`WeldParamControl` 是唯一的**场景 B** 实例——它证明「纯自研功能可以不要 Core」，也证明抽象层 + 实现层 + Manager 三件套在自研场景同样成立。
 
@@ -164,7 +166,9 @@ status: accepted
 - [ ] 配置读写无参：Manager 对外只提供 `Load<X>Config()` / `Save<X>Config()`，不暴露「接收配置实例」的重载。
 - [ ] Manager 内无流程编排；实现层无业务状态判断。
 - [ ] **实现层无记录/持久化副作用**：Grep 实现类（剥注释后）`RunRecordManager` / `System.IO` / `File.` / `StreamWriter` / `XmlSerializer`，命中即为越界；留痕改触发事件。
-- [ ] **记录请求事件由 Manager 透传，订阅方异步落盘**：事件载荷不得携带记录侧状态（如帧索引）；订阅方只入队（O(1)），禁止在计算路径上同步落盘（H9 / ADR-043）。
+- [ ] **记录请求事件由 Manager 透传，订阅方异步落盘**：事件载荷不得携带记录侧状态（如帧索引）；订阅方只入队（O(1)），禁止在计算路径上同步落盘（H9 / ADR-033）。
+- [ ] **硬件族强制单活**：切换活动实例即释放上一台、`Connect` 前置拒绝他台在采集、事件按发送方身份过滤（H10 / ADR-024「七」）。
+- [ ] **初始化零追溯**：构造/装配/`HandleCreated`/窗体 `Show` 内无查库与目录扫描；追溯页查询只由用户交互触发，门槛为 `GlobalCommData.IsAppRunning`（⛔ 非可见性）；未加载与已查询为空两态文案分离；初始化期无空态（H11 / ADR-078 通用化）。
 - [ ] 若删除旧实现：确认 0 消费方（≥2 次不同 pattern 的 Grep 交叉验证）后再删，不留平行实现。
 
 ---
@@ -178,12 +182,13 @@ status: accepted
 | Core 反向依赖业务 | `ImageAlgorithm` 内直接读配置、写日志事件 | 算子纯函数，业务语义在领域算法内 |
 | Manager 变成上帝类 | Manager 内做流程推进、状态机、事件风暴 | 流程归 Workflow，Manager 只调度与转发 |
 | 抽象层混入厂商类型 | `IAlgorithm` 签名出现 `Emgu.CV.Mat` 之外的厂商句柄 | 抽象层用中性类型，厂商句柄封在实现层 |
+| 双相机同时出图 | 两台实现实例都订阅 `ProfileReady`，切换活动相机时不释放旧机 | 切换即释放上一台 + `Connect` 前置拒绝 + 发送方身份过滤（H10） |
 | 场景 B 硬造 Core | 纯自研的几张表 + 几个公式也拆出 `Core/` | 直接写进 `Algorithms/` 实现类 |
-| **配置实例外流 / 外部回灌** | 工作流 `new SeamGuideConfig()` 自持一份，再 `Manager.LoadSeamGuideConfig(workflow.SeamGuide)` 反向 push；运控直读 `workflow.SeamGuide` —— 同一配置出现**两个活实例**，靠 push 同步 | 唯一实例由 Manager 持有（含 `XdocumentReaderWriter`）；对外只暴露 `Manager.AlgorithmsConfig` **只读引用** + **无参** `LoadAlgorithmsConfig()` / `SaveAlgorithmsConfig()`（`WeldAlgorithmsConfig` 两节合一，ADR-044） |
+| **配置实例外流 / 外部回灌** | 工作流 `new SeamGuideConfig()` 自持一份，再 `Manager.LoadSeamGuideConfig(workflow.SeamGuide)` 反向 push；运控直读 `workflow.SeamGuide` —— 同一配置出现**两个活实例**，靠 push 同步 | 唯一实例由 Manager 持有（含 `XdocumentReaderWriter`）；对外只暴露 `Manager.AlgorithmsConfig` **只读引用** + **无参** `LoadAlgorithmsConfig()` / `SaveAlgorithmsConfig()`（`WeldAlgorithmsConfig` 两节合一，ADR-043） |
 | **配置持久化点留在配置类**（上一条的根因） | `Config` 类自带 `LoadConfig(XdocumentReaderWriter)` / `SaveConfig(reader)`，于是「谁拿到 reader 谁就顺势接管配置所有权」——reader 属工作流 `Config`，配置就被工作流收走 | 配置类只负责「把自己序列化成给定 reader」；**reader 的创建与持有归 Manager**，Load/Save 由 Manager 无参发起 |
-| **实现层直接落盘（记录越界）** | 算法内 `RunRecordManager.Instance.RecordProcessFrame(...)` / `RecordAdjustment(...)` / `AbortRecording()`，并 `using AdaWeldSystem.ProductFileManager`；落盘发生在计算线程的同步调用栈上，记录一慢就拖慢控制；算法还被追着感知帧索引等**记录侧状态** | 算法**只发事件**（`FrameRecordRequested` 等），由 Manager 透传、记录模块订阅后**异步**入队落盘；载荷只含过程快照，不含帧索引（ADR-043） |
+| **实现层直接落盘（记录越界）** | 算法内 `RunRecordManager.Instance.RecordProcessFrame(...)` / `RecordAdjustment(...)` / `AbortRecording()`，并 `using AdaWeldSystem.ProductFileManager`；落盘发生在计算线程的同步调用栈上，记录一慢就拖慢控制；算法还被追着感知帧索引等**记录侧状态** | 算法**只发事件**（`FrameRecordRequested` 等），由 Manager 透传、记录模块订阅后**异步**入队落盘；载荷只含过程快照，不含帧索引（ADR-033） |
 | **计算路径上同步落盘** | 订阅方接到事件后**就地**写文件/写库再返回，事件回调直接阻塞计算线程 | 订阅方只做入队（O(1)），后台线程负责真正的落盘——「保存可能耗时，但不能影响功能的实现」 |
-| **实现层运行参数硬编码** | 算法构造函数写死 `MaxConsecutiveFailures = 5; IsCountType = true; CountNum = 5;`，且 Manager 内再存一份同名属性（**配置双份**） | 外提为 `WeldAlgorithmsConfig`（两节合一，ADR-044），实例与持久化归 Manager，算法经 `Config` 只读消费（ADR-043 / ADR-044） |
+| **实现层运行参数硬编码** | 算法构造函数写死 `MaxConsecutiveFailures = 5; IsCountType = true; CountNum = 5;`，且 Manager 内再存一份同名属性（**配置双份**） | 外提为 `WeldAlgorithmsConfig`（两节合一，ADR-043），实例与持久化归 Manager，算法经 `Config` 只读消费（ADR-033 / ADR-043） |
 
 ---
 
@@ -191,7 +196,7 @@ status: accepted
 
 | 标准 | 分工 |
 |---|---|
-| [[standards/WorkflowResponsibilityBoundary]] | 管**流程层 ↔ 子设备对象**的权责；本页管**模块内部**的层与入口。二者正交，改造模块时都要看 |
+| [[standards/WorkflowResponsibilityBoundary]] | 管**流程层 ↔ 模组对象**的权责；本页管**模块内部**的层与入口。二者正交，改造模块时都要看 |
 | [[standards/CodeSimplification]] | 管代码书写与精简；本页管结构摆放 |
 | [[standards/UiStateSimplification]] | 管 UI 状态真相源；本页的 Manager 是 UI 取数的唯一来源 |
 | [[architecture/DeviceControlArchitecture]] | 管流程与状态机；本页是它下挂的模块组织约定 |
@@ -200,12 +205,12 @@ status: accepted
 
 ## 相关
 
-- [[decisions/ADR-042-ModuleOrganizationPatternStandard]] —— 本标准的沉淀决策
-- [[decisions/ADR-041-WeldParamControlAlgorithmArchitecture]] —— 场景 B 先例
-- [[decisions/ADR-038-EmguALGThreeLayer]] · [[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]] —— 算法模块三层/五层
-- [[decisions/ADR-037-MecaVisionMonitorCamera]] —— 监控相机三层重构
-- [[decisions/ADR-036-LineLaserManagerSingleEntry]] · [[decisions/ADR-034-LineLaserThreeLayerRefactor]] · [[decisions/ADR-035-LineLaserResponsibilitySplit]] —— 线激光
-- [[decisions/ADR-032-MotionControllerDeltaReplacement]] · [[decisions/ADR-033-ZMotionRemovalAndDeltaLanding]] —— 运控
-- [[decisions/ADR-017-EnumDeduplication]] —— 抽象层枚举去重
-- [[decisions/ADR-005-ConfigLayout]] —— 配置落盘分层
+- [[decisions/ADR-006-ModuleOrganizationPatternStandard]] —— 本标准的沉淀决策
+- [[decisions/ADR-043-WeldParamControlConsolidated|ADR-043（焊缝参数控制综合）]] —— 场景 B 先例
+- [[decisions/ADR-022-EmguALGThreeLayer]] · [[decisions/ADR-019-MonitorCamBoundaryAndEmguALGRefinement]] —— 算法模块三层/五层
+- ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） —— 监控相机三层重构
+- ADR-024（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） · [[decisions/ADR-024-LineLaserThreeLayerRefactor]] · ADR-024（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） —— 线激光
+- [[decisions/ADR-027-MotionControllerDeltaReplacement]] · ADR-027（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） —— 运控
+- [[decisions/ADR-003-EnumDeduplication]] —— 抽象层枚举去重
+- ADR-033（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） —— 配置落盘分层
 - [[modules/EmguALG]] · [[modules/MonitorCam]] · [[modules/LineLaserCam]] · [[modules/MotionControl]] · [[modules/WeldParamControl]] —— 落地实例

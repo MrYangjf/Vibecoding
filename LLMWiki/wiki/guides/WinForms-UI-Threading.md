@@ -140,7 +140,7 @@ GlobalCommData.ShowLog(string TAG, string message,
 
 ### 3.3 修复方案
 
-#### MainDeviceThread 三段式 API（历史方案，现 `DeviceControlWork`，ADR-028）
+#### MainDeviceThread 三段式 API（历史方案，现 `DeviceControlWork`，ADR-034）
 
 ```
 PowerOnInitialize()   → 阶段二设备上线（各设备 Initialize → Standby）
@@ -162,15 +162,15 @@ Shutdown()      → 程序退出（彻底下电）
 
 ```csharp
 // 构造函数末尾：
-DeviceControlWork.Instance.InitializeMachine();  // 阶段二：级联子设备连接
+DeviceControlWork.Instance.InitializeMachine();  // 阶段二：级联模组连接
 DeviceControlWork.Instance.StartMachine();       // 拉起运行线程并置就绪
 
 // FormClosed：
 DeviceControlWork.Instance.Dispose();            // 停止全部 + 关闭连接
 ```
 
-> **类名与释放入口更新（2026-09-02 ADR-028 / 2026-08-19 ADR-001）**：`MainDeviceThread` → `MainDeviceWorkflow` → **现为 `DeviceControlWork`**（三态模型，`MainDeviceWorkflow` 已删除）；初始化/启动入口为 `InitializeMachine()` / `StartMachine()`（原 `PowerOnInitialize()` / `Start()`）；非 UI 类的 `DisposeComponents()` 已统一为标准 `IDisposable.Dispose()`。
-> **状态订阅入口（ADR-028）**：整机订阅 `DeviceControlWork.Instance.StatusChanged`（`MainDeviceStatus`）；子设备订阅 `Instance.WeldStatusChanged`（`SubDeviceWeldStatus`）与 `Instance.StateSwitched`（`SubDeviceState`）。旧泛型 `StateChanged(WorkflowStepChangedEventArgs<TStep>)` 已删除。
+> **类名与释放入口更新（2026-09-02 ADR-034 / 2026-08-19 ADR-001）**：`MainDeviceThread` → `MainDeviceWorkflow` → **现为 `DeviceControlWork`**（三态模型，`MainDeviceWorkflow` 已删除）；初始化/启动入口为 `InitializeMachine()` / `StartMachine()`（原 `PowerOnInitialize()` / `Start()`）；非 UI 类的 `DisposeComponents()` 已统一为标准 `IDisposable.Dispose()`。
+> **状态订阅入口（ADR-034）**：整机订阅 `DeviceControlWork.Instance.StatusChanged`（`MainDeviceStatus`）；模组订阅 `Instance.WeldStatusChanged`（`SubDeviceWeldStatus`）与 `Instance.StateSwitched`（`SubDeviceState`）。旧泛型 `StateChanged(WorkflowStepChangedEventArgs<TStep>)` 已删除。
 
 ### 3.4 关键约束
 
@@ -186,4 +186,4 @@ DeviceControlWork.Instance.Dispose();            // 停止全部 + 关闭连接
 
 1. **UI-Thread-Safety.md** — Workflow 事件必须 InvokeRequired（含 ToolStrip 冒泡诊断、UIMillisecondTimer 变体及句柄创建前绕过守卫的根治方案）；来源：raw/history/history.md [48]；2026-07-22 补充 ToolStrip / UIMillisecondTimer 变体。
 2. **WorkflowThread-NoModalDialog.md** — 工作流后台线程禁止弹模态 MessageBox，改为错误日志；来源：用户反馈 2026-07-20。
-3. **ThreadStartupSequence.md** — 线程启动顺序与初始化分离（两阶段上电 + 四段式 API）；来源：DeviceControlWork.cs（原 `MainDeviceWorkflow.cs` → `MainDeviceThread.cs`（现役 `MainDeviceControl/DeviceStatusWork.cs`））/ LaserWeldHeadController.cs / FormMain.cs。
+3. **ThreadStartupSequence.md** — 线程启动顺序与初始化分离（两阶段上电 + 四段式 API）；来源：DeviceControlWork.cs（原 `MainDeviceWorkflow.cs` → `MainDeviceThread.cs`（现役 `MainDeviceControl/DeviceStatusWork.cs`））/ LaserWeldHeadController.cs（已移除：2026-09-15 ADR-012 撤销三层，现役 `MotionControl/DeltaEtherCAT/WeldHeadSlaveDevice.cs`，装载归 `MontionManager`）/ FormMain.cs。

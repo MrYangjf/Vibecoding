@@ -12,7 +12,7 @@
 
 - `<工作区>` 指 `D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy`。
 - **工作区根目录自身不是 git 仓**——两个子目录各为独立仓，顶层无 `.git`。推 LLMWiki 要进 `Vicoding管理平台/`，推代码要进 `AdaWeldSystem/`。
-- 顶层的备份包（`AdaWeldSystem_backup_*.tar.gz`、`LLMWiki_backup_*.tar.gz`）**不在任何仓库内**，属本地快照，不入库。
+- 工作区根的备份包（`AdaWeldSystem_backup_*.tar.gz`、`AdaWeldSystem_output_*.tar.gz`、`LLMWiki_backup_*.tar.gz`）**不在任何仓库内**（由 `backup_adaweld.py` 统一生成，落点=工作区根），属本地快照，不入库。
 - 默认分支 `main`。
 
 ## 2. 忽略规则（`.gitignore`）

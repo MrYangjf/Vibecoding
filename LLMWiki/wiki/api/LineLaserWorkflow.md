@@ -2,7 +2,7 @@
 title: LineLaserWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
 updated: 2026-09-04
-tags: [API, 工作流, 英莱, 线激光, SubDeviceWeldStatus, DeviceWorkflowBase, RunStep, ADR-028, ADR-030]
+tags: [API, 工作流, 英莱, 线激光, SubDeviceWeldStatus, DeviceWorkflowBase, RunStep, ADR-034, ADR-020]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 ---
 
@@ -14,7 +14,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 > **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
 > 架构背景见 [[modules/DeviceControl]]、[[architecture/DeviceControlArchitecture]]。
 
-> **✅ 2026-09-04 已落地（ADR-030 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、连接态 `State` / 焊接过程态 `WeldStatus` 由基类承载。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> **✅ 2026-09-04 已落地（ADR-020 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 模组线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、连接态 `State` / 焊接过程态 `WeldStatus` 由基类承载。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
 ---
@@ -45,6 +45,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 | `RunStep` / `StepWorkTime` / `WorkStepName` / `StepStatusText` | 基类属性 | 执行步 / 步骤用时 / 步中文名 / 可观测摘要（"step:30 / 8.2s …"） |
 | `Start()` | `void` | 启动工作流：Standby → PreWork（要求当前 `WeldStatus == Standby`，否则抛 `InvalidOperationException`） |
 | `Stop()` | `void` | 手动停止：PreWork/Working/Stopping → `ManualStopped`；其他状态忽略并记 Warning |
+| `FinishMeasureByStroke()` | `void` | **2026-09-24 新增（[[decisions/ADR-044-SeamEndSemanticsAndMotionAxisScope]]）**：线激光**测量行程完成收工**——由设备主控在行程到达「终止行程 − 前置量」时调用（行程判据唯一归属主控，本流程不自行判停）。**只关外设**（`SafeShutdownPeripherals()`：停采集 → 关激光 → 关传感器）并置 `_measureFinished`，⛔ **不改 `WeldStatus`（保持 `Working`）**——收工只代表**测量结束**，焊接尚未结束（机器人还要走到焊缝结束位置）。此后无数据帧 ⇒ **入图键 (X+前置距离) 与 CSPinY 冻结**；而运控出图 `CSPoutY` 与记录**继续到焊缝行程结束**。`DoWorking` 见标志即短路（跳过工艺调整与失效判定）；新一沿（`PreWork`/`Working`）复位。幂等 |
 | `BeginWorking()` | `void` | 主设备通知进入 Working（要求 PreWork + `_preWorkDone` + `_dataStable` 三条件） |
 
 > 执行步段位常量 `StepPreWork=10` / `StepPreWorkOn=20` / `StepPreWorkStable=30` / `StepPreWorkWaitWork=31` / `StepWorking=100` / `StepStopping=700`（私有）；通用三常量 `StepIdle=0` / `StepFinishOk=800` / `StepFinishFail=900` 由基类提供，子类不得重复定义。
@@ -81,7 +82,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs
 | `PreWork` | `AdvanceStep(StepPreWork)`（10） |
 | `Working` | `AdvanceStep(StepWorking)`（100） |
 | `Stopping` | `AdvanceStep(StepStopping)`（700） |
-| 其他（`Standby`/`NoReset`/`ManualStopped`/`ErrorAborted`） | `AdvanceStep(StepIdle)` + `ReleaseCameraBinding()`（退订事件、关外设、`CameraSelector.SetWorking(false)`） |
+| `ErrorAborted` | **2026-09-24 新增专用分支（业主口径：异常终止同样须关线激光再回待机）**：`Log` 留痕 → `SafeShutdownPeripherals()`（停采集 → 关激光 → 关传感器）→ `AdvanceStep(StepIdle)` + `ReleaseCameraBinding()`；原与 `Standby` 等共用 default 分支只解绑相机、**不关外设** |
+| 其他（`Standby`/`NoReset`/`ManualStopped`） | `AdvanceStep(StepIdle)` + `ReleaseCameraBinding()`（退订事件、关外设、`CameraSelector.SetWorking(false)`） |
 
 > `AdvanceStep` 内部**改步 + 刷新计时成对出现**（基类机制），防止把停留时长带入下一步误判超时。
 
@@ -134,13 +136,13 @@ if (MotionControlWorkflow.Instance.IsRunning) { _lastAdjustSuccess = true; retur
 _lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();   // 焊接工艺计算与下发
 ```
 
-> 焊缝结果与机器人 X 由 `WeldParamManager` 统一取用（2026-09-14 ADR-041：原 `WeldProcess` 已删除），工艺工作流统一计算下发，此处无需传参。
+> 焊缝结果与机器人 X 由 `WeldParamManager` 统一取用（2026-09-14 ADR-008：原 `WeldProcess` 已删除），工艺工作流统一计算下发，此处无需传参。
 
 ### 失败计数语义
 
 - 有效结果缺失需**持续满 5s 超时窗口**才计一次失败（`FirstResultTimeoutSeconds`），且每次计时后 `ResetWorkTime()`——避免每拍累加瞬间打满。
 - `HandleFailure` 连续失败达 `_maxConsecutiveFailures`（默认 5）→ `Fail(reason)`：记录 `_failStep`/`_failReason` 后 `AdvanceStep(900)`。
-- 步 900 失败收尾：`SetWeldStatus(ErrorAborted)` + `IsAlarm=true` → 回 0 待机，等待人工复位。（故障落库已随模块移除删除，ADR-032）
+- 步 900 失败收尾：`SetWeldStatus(ErrorAborted)` + `IsAlarm=true` → 回 0 待机，等待人工复位。（故障落库已随模块移除删除，ADR-021）
 
 ### 待机安全默认态
 
@@ -173,14 +175,14 @@ _lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();   // 
 | `MaxWeldLength` | 1000.0 | 焊缝最大行程（mm），达行程自动 Stopping |
 | `AdjustTriggerSuccessCount` | 1 | 连续成功帧触发工艺计算的阈值 |
 
-`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/XML/LineLaserWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。配置非线程安全，运行期禁止在 `FlowProcess()` 内读写。
+`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/LineLaser/Workflow_XML/LineLaserWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。配置非线程安全，运行期禁止在 `FlowProcess()` 内读写。
 
 ---
 
 ## 事件与生命周期
 
 - 构造函数订阅 `GlobalCommData.CommunicationCommandReceived += OnCommunicationCommandReceived`（回调统一 `ShowCommunicationLog(Tag, message)` 记通信收发日志）。
-- `DisposeManaged()`（基类 `Dispose()` 钩子，ADR-023）：退订全局事件 → 退订相机事件 → `_ilCamera.Dispose()` → `CameraSelector.SetWorking(false)`。
+- `DisposeManaged()`（基类 `Dispose()` 钩子，ADR-027）：退订全局事件 → 退订相机事件 → `_ilCamera.Dispose()` → `CameraSelector.SetWorking(false)`。
 - 连接/断开线程（`ConnectWorker`/`DisconnectWorker`）为后台线程，`_isConnecting` 标志防重入。
 
 ---
@@ -206,19 +208,26 @@ var step   = wf.StepStatusText;  // "step:100 / 3.4s 工作中-焊接与自适�
 ```
 
 - 编排调用方：`DeviceControlWork`（`InitializeOn`/`InitializeOff` 级联；模拟：`StartSimulationLineLaser`/`StopSimulationLineLaser`/`ResetSimulationLineLaser` + `OnSimLineLaserStateChanged` 回调）。
-- UI 读态：`FormMain.cs`、`ILCamPage.cs`、`MotionControlPage.cs`、`MainPage.cs`（只读 `WeldStatus`/`State`/`StepStatusText`）。
+- UI 读态：`FormMain.cs`、`ILCamPage.cs`、`SystemControlPage.cs`、`MainPage.cs`（只读 `WeldStatus`/`State`/`StepStatusText`）。
 - ⚠️ UI/外部**不得越权直驱**线激光 `Start`（模拟流程由 `DeviceControlWork` 统一编排，见 `StartSimulationLineLaser` 注释）。
 
 ---
+
+## 判断辅助属性（2026-09-22 精简）
+
+| 属性 | 说明 |
+|---|---|
+| `IsSimulation` | 是否已启用模拟模式（替换 4 处直接读 `DeviceControlWork.Instance.IsSimulationEnabled`） |
+| `IsVirtualCamera` | 是否使用虚拟相机（替换 3 处直接读 `ShouldUseVirtualCamera`） |
 
 ## 关联
 
 - [[modules/DeviceControl]] — 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
-- [[lessons/StepMemberNameCollision]] — `RunStepAction` 命名避让基类 `RunStep` 属性的 CS0102 教训
+- [[lessons/StepDrivenWorkflowPitfalls]]（七.6）— `RunStepAction` 命名避让基类 `RunStep` 属性的 CS0102 教训
 - [[modules/WeldParamControl]] / [[api/WeldParamControlWorkflow]] — 焊接工艺计算链路
 - [[api/MotionControlWorkflow]] — CAMBOX 硬件跟踪运行期间跳过软件调整
 - [[api/GlobalCommData]] — 日志与通讯底层出口
-- [[decisions/ADR-035-LineLaserResponsibilitySplit]] — 英莱数据流
-- [[decisions/ADR-027-ThreeStateModelRefactor]] — 三态模型决策
-- [[decisions/ADR-029-RawDesignRefinement20260903]] — 原档细化与完全重构裁定
+- ADR-024（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） — 英莱数据流
+- [[decisions/ADR-013-ThreeStateModelRefactor]] — 三态模型决策
+- [[decisions/ADR-035-RawDesignRefinement20260903]] — 原档细化与完全重构裁定

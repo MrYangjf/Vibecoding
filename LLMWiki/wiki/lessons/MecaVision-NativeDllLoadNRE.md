@@ -1,12 +1,14 @@
 ﻿---
 title: 麦格威 MVSDK 原生 DLL 未部署导致 NullReferenceException
 date: 2026-09-09
+updated: 2026-10-30
 tags: [教训, 麦格威, MecaVision, MVSDK, DLL部署, NullReferenceException, 动态加载]
+status: active
 ---
 
 # 麦格威 MVSDK 原生 DLL 未部署导致 NullReferenceException
 
-> ⚠️ 关联：[[guides/MecaVision-DevGuide]] · [[api/MecaVisionMVSDK-Native]] · [[decisions/ADR-037-MecaVisionMonitorCamera]]
+> ⚠️ 关联：[[guides/MecaVision-DevGuide]] · [[api/MecaVisionMVSDK-Native]] · ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）
 
 ## 现象（2026-09-09 实测）
 
@@ -34,3 +36,6 @@ System.NullReferenceException: "未将对象引用设置到对象的实例。"
 - **「加载失败静默继续」是动态加载类 SDK 的通病**：凡 static ctor + LoadLibrary + GetProcAddress 模式，NRE 的第一嫌疑就是原生库没加载上，先查输出目录再查代码。
 - **`3rdDepend` 落文件 ≠ 部署完成**：本项目原生 DLL 统一经 csproj `CopyNative3rdDependToOutput` 拷到输出目录，新增原生依赖必须同步加条目（与台达 `EtherCAT_DLL_x64.dll` 同款流程）。
 - **守卫把 NRE 变成可定位报错**：部署类故障应在加载点显式 fail-fast，而不是让 null 委托流到业务调用点爆炸。
+## 相关页面
+
+- [[index/index]]

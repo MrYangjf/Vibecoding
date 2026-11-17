@@ -1,17 +1,17 @@
 ---
 title: Safety 模块 — 安全检查流程（DeviceStatusWork）+ 故障恢复
 date: 2026-09-02
-tags: [模块, 安全互锁, 安全检查, 故障恢复, 状态机, PLC, DeviceStatusWork, ADR-028]
+tags: [模块, 安全互锁, 安全检查, 故障恢复, 状态机, PLC, DeviceStatusWork, ADR-034]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/ 模块源码
 ---
 
 # Safety 模块 — 安全检查流程（DeviceStatusWork）+ 故障恢复
 
-> **当前形态（ADR-025 三合一 + ADR-028 归并）**：安全/IO/状态管控由**单一文件** `MainDeviceControl/DeviceStatusWork.cs` 承载——互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（`IOWork`/`EMGWork`/`StatusWork`）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs`（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
+> **当前形态（ADR-011 三合一 + ADR-034 归并）**：安全/IO/状态管控由**单一文件** `MainDeviceControl/DeviceStatusWork.cs` 承载——互锁阈值与 PLC 地址（`SafetyFlow` 配置类）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程监控循环（`IOWork`/`EMGWork`/`StatusWork`）。设计参照 `PcomDeviceInterface/MachineStatusWork.cs`（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
 >
-> **状态模型**：安全类**不对外暴露**子设备三态，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费；主设备运行态经 `SetStatus` 单一入口变更。
+> **状态模型**：安全类**不对外暴露**模组三态，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费；主设备运行态经 `SetStatus` 单一入口变更。
 >
-> **故障恢复已迁出**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）2026-09-01 归口 `ProductFileManager/`（[[decisions/ADR-026-ProductLifecycleRecordModule]] §3），本模块仅作消费方。完整说明见 [[modules/ProductFileManager]]。
+> **故障恢复已迁出**：`FaultRecoveryManager.cs`（含 `FaultCategory` / `FaultRecord`）2026-09-01 归口 `ProductFileManager/`（[[decisions/ADR-031-ProductLifecycleRecordModule]] §3），本模块仅作消费方。完整说明见 [[modules/ProductFileManager]]。
 
 ---
 
@@ -21,7 +21,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/ 模块源码
 |---|---|
 | `MainDeviceControl/DeviceStatusWork.cs` | **安全/IO/状态管控（三合一，参考 MachineStatusWork.cs 三线程模型）**：互锁阈值与 PLC 地址（`SafetyFlow`）+ 互锁判定（`SafetyInterlockChecker`）+ 三线程（IOWork/EMGWork/StatusWork）+ `SafetyInterlockResult` |
 
-> **已迁出**：`FaultRecoveryManager.cs` → `ProductFileManager/ProductFileManager/FaultRecoveryManager.cs`（2026-09-01，ADR-027 §3）。本模块不再持有故障恢复文件，仅作为消费方调用。
+> **已迁出**：`FaultRecoveryManager.cs` → `ProductFileManager/ProductFileManager/FaultRecoveryManager.cs`（2026-09-01，ADR-021 §3）。本模块不再持有故障恢复文件，仅作为消费方调用。
 
 ---
 
@@ -29,7 +29,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/ 模块源码
 
 `public class DeviceStatusWork`（单例，**独立管控类，不继承 `DeviceWorkflowBase`/`DeviceStateBase`**），由三个常驻监控线程（各 20Hz）内聚而成——IO 轮询（`IOWork`，AboveNormal）、急停处置（`EMGWork`，Highest）、状态反射（`StatusWork`，Normal）。配置（`SafetyFlow`）+ 判定（`SafetyInterlockChecker`）由 `IOWork` 周期调用。设计参照 `PcomDeviceInterface/MachineStatusWork.cs`（见 `主控设计.xlsx`「设备安全/IO/状态管控」泳道）。
 
-> **报警与急停处置分工**：安全类不对外暴露子设备三态，仅以 `IsSafe` / `LastResult` 供主设备门控消费。报警处置：IOWork 调用 `ReportAlarm` + `RecordFault`，通知 `DeviceControlWork` 置 `Alarm`；急停处置：EMGWork 调用 `EStopMachine`，通知 `DeviceControlWork` 置 `EStop`；恢复处置：通知 `DeviceControlWork` 转 `NoReset`。
+> **报警与急停处置分工**：安全类不对外暴露模组三态，仅以 `IsSafe` / `LastResult` 供主设备门控消费。报警处置：IOWork 调用 `ReportAlarm` + `RecordFault`，通知 `DeviceControlWork` 置 `Alarm`；急停处置：EMGWork 调用 `EStopMachine`，通知 `DeviceControlWork` 置 `EStop`；恢复处置：通知 `DeviceControlWork` 转 `NoReset`。
 
 ### 检查内容（两类互锁）
 
@@ -77,7 +77,7 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 `DeviceControlWork` 焊前一次性门控**直接读** `DeviceStatusWork.Instance.IsSafe`。
 
 > ⛔ **旧写法已移除（2026-09-03，裁定 C3）**：~~`DeviceControlWork.IsRobotPoseSafe(pose)`~~ 已从整机编排类删除——不再以「机器人 pose 是否安全」为门控输入，改为直接消费 `DeviceStatusWork` 的互锁结果。
-> 安全闭环本身继续有效（见 [[decisions/ADR-024-SafetyCheckConsolidation]]），变的只是接入点：原 `IsRobotPoseSafe` 已删除（2026-09-03 裁定 C3：不再监控机器人 pose）；`DeviceStatusWork.IsSafe` 反映的是**本机安全 IO**（急停/安全门/互锁），与机器人 pose 无关。
+> 安全闭环本身继续有效（见 [[decisions/ADR-017-SafetyCheckConsolidation]]），变的只是接入点：原 `IsRobotPoseSafe` 已删除（2026-09-03 裁定 C3：不再监控机器人 pose）；`DeviceStatusWork.IsSafe` 反映的是**本机安全 IO**（急停/安全门/互锁），与机器人 pose 无关。
 
 监控未启动时 `IsSafe` 返回 true，与合并前「恒安全」行为等价，接入不阻断整机。
 
@@ -85,10 +85,10 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 
 ## 二、故障恢复（FaultRecoveryManager）
 
-> **2026-09-01 已迁出**至 [[modules/ProductFileManager]]（命名空间 `AdaWeldSystem.ProductFileManager`），本节仅保留安全检查侧的使用要点，完整契约见 [[api/FaultRecoveryManager]]。
+> **2026-09-01 已迁出**至 [[modules/ProductFileManager]]（命名空间 `AdaWeldSystem.ProductFileManager`），本节仅保留安全检查侧的使用要点，完整契约见 api/FaultRecoveryManager（⛔ 已移除删除，ADR-008/032）。
 
 - **单例**：`FaultRecoveryManager.Instance`（`Lazy<T>`）。
-- **持久化**：原由 [[api/FaultRecordManager]]（[[modules/SQLiteDatabase]]）承载；2026-09-04 随故障恢复模块整体移除（[[decisions/ADR-031-ErrorReportingHierarchy]] D3）。
+- **持久化**：原由 api/FaultRecordManager（⛔ 已移除删除，ADR-008）（[[modules/SQLiteDatabase]]）承载；2026-09-04 随故障恢复模块整体移除（[[decisions/ADR-015-ErrorReportingHierarchy]] D3）。
 - **恢复策略**：`RegisterRecoveryStrategy(string deviceKey, Func<bool> strategy)`；`GetRetryCount()` 提供重试上限（通讯 3 / 线激光 3 / 监控 2 / 机器人 3）。
 - **安全类故障不自动恢复**（必须人工）：安全检查侧仅调用 `RecordFault("Safety", ...)` 记录，不注册恢复策略。
 - **执行方式**：`ThreadPool.QueueUserWorkItem` 异步执行，不阻塞状态转换链。
@@ -102,8 +102,8 @@ StatusWork() → 反射 DeviceControlWork.Status 到三色灯（状态切换才�
 - → [[modules/DeviceControl]] — 工作流基类（`DeviceWorkflowBase` / `DeviceStateBase` 提供 SetState/SetWeldStatus/EmergencyStop）
 - → [[modules/Comm]] — PLC(S7) 通讯（`S7PLCCommunication.ReadBit/Read<T>`）、机器人连接判定
 - → [[api/DeviceControlWork]] — 消费 `IsSafe` 做 Pose 门控（现由 `DeviceControlWork` 承载）
-- → [[decisions/ADR-024-SafetyCheckConsolidation]] — 本次三合一决策
-- → [[decisions/ADR-027-ThreeStateModelRefactor]] — 本次归并重命名决策
+- → [[decisions/ADR-017-SafetyCheckConsolidation]] — 本次三合一决策
+- → [[decisions/ADR-013-ThreeStateModelRefactor]] — 本次归并重命名决策
 - → [[lessons/FaultRecoveryDeviceKey]] — 故障恢复设备键名匹配陷阱
 
 ---

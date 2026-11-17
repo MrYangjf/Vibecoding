@@ -1,17 +1,36 @@
-﻿---
+---
 title: AntdUI 完整开发参考
 date: 2026-08-18
+updated: 2026-11-02
 tags: [指导, UI, AntdUI, 参考手册, 汇总]
 ---
 
 # AntdUI 完整开发参考
-> **章节导航**（本页 1069 行，超长页请先按章节定位再读）：
+
+## 章节导航
+
+- [0. ⭐ 权威源：官方 wiki 全量镜像（2026-10-09 起取代 demo 与反编译）](#0--权威源官方-wiki-全量镜像2026-10-09-起取代-demo-与反编译)
+- [旧章节：控件应用参考 demo（⛔ 2026-10-09 起降级为「次级参考」）](#旧章节控件应用参考-demo-2026-10-09-起降级为次级参考)
+- [2. 布局系统](#2-布局系统)
+- [3. 导航与菜单](#3-导航与菜单)
+- [4. 表格控件](#4-表格控件)
+- [4.6 Tooltip 跟随提示（2026-10-09 实证）](#46-tooltip-跟随提示2026-10-09-实证)
+- [4.11 ⭐ `Select` 下拉选择器：「安全名单」与属性边界（2026-10-09 实证）](#411--select-下拉选择器安全名单与属性边界2026-10-09-实证)
+- [5. 对话框与消息](#5-对话框与消息)
+- [6. 命名空间与类型冲突（CS0104）](#6-命名空间与类型冲突cs0104)
+- [7. 迁移 API 差异](#7-迁移-api-差异)
+- [8. 迁移状态追踪（简要版）](#8-迁移状态追踪简要版)
+- [来源](#来源)
+
+> **章节导航**（本页超长页请先按章节定位再读）：
 >
+> - [0. ⭐ 权威源：官方 wiki 全量镜像](#0-权威源官方-wiki-全量镜像2026-10-09-起取代-demo-与反编译)
 > - [1. 设计范式总览](#1-设计范式总览)
 > - [2. 布局系统](#2-布局系统)
 > - [3. 导航与菜单](#3-导航与菜单)
+> - [3.4 ContextMenuStrip 右键菜单](#34-contextmenustrip-右键菜单)
 > - [4. 表格控件](#4-表格控件)
-> - [5. 对话框与消息](#5-对话框与消息)
+> - [5. 对话框与消息](#5-对话��与消息)
 > - [6. 命名空间与类型冲突（CS0104）](#6-命名空间与类型冲突cs0104)
 > - [7. 迁移 API 差异](#7-迁移-api-差异)
 > - [8. 迁移状态追踪（简要版）](#8-迁移状态追踪简要版)
@@ -27,94 +46,145 @@ tags: [指导, UI, AntdUI, 参考手册, 汇总]
 
 ---
 
-## 1. 设计范式总览
+## 0. ⭐ 权威源：官方 wiki 全量镜像（2026-10-09 起取代 demo 与反编译）
 
-> 本页是 AntdUI 固定 UI 设计范式的统一枢纽入口，聚合所有范式要点并链接到对应专项内容。
+> **唯一权威 API 源**：`raw/AntdUI/wiki-zh/` —— AntdUI 官方仓库 `doc/wiki/zh` 的**全量镜像（85 篇）**，含 `Control/`（68 个控件）、`Form/`、`Config.md`、`Theme.md`、`UpdateLog.md`（变更历史，判版本行为差异的依据）。
+>
+> 上游地址 `https://gitee.com/AntdUI/AntdUI/tree/main/doc/wiki`（`en/` 为英文镜像，本项目只取 `zh/`）。
+>
+> ⛔ **规则（覆盖本页其余全部内容）**：任何 AntdUI 控件的**属性名、事件名、事件参数、方法签名、枚举成员**，一律先在此目录查证，再写代码。
+> ⛔ **不再猜、不再反编译 DLL、不再依赖 demo 反推**。此前基于「DLL 已混淆 + demo 未挂事件 + 本机无编译器」而写下的「不可确定 / 用近似替代」结论，**凡与本目录冲突者一律以本目录为准**（已纠正 4 处，见 §0.3）。
+> 🔴 **2026-10-10 新增第 4 处**：不是「核实不了」，而是**页内两份文档互相矛盾且都写得像结论** —— `api/DataReviewerPage` 断言「双参 ColumnCheck 表头自带全选」，
+> 而本页 §4.2 源码确证「双参表头无全选」；前者据「别处 `SetAutoCheck(false)` ⇒ 反证默认带全选」这一**不成立的推理**据以删掉了功能。
+> **教训**：官方文档能证明「属性/事件存在」，**不等于能证明「渲染/默认行为如何」**；后者只能靠单参/双参差异这类**结构性事实**，不能用反证法推。
 
-### 1.1 范式速查（按主题）
+### 0.1 为什么废弃反编译与 demo 反推
 
-| 主题 | 关键铁律 |
-|------|----------|
-| 控件 API 差异（Select/Column.Width/InputNumber.Value 为 decimal/CellClick 自定义委托/Step→Increment/Pagination 4 参/Table 无 ReadOnly） | Designer.cs 内禁 `DataSource`+`AntList`，数据一律代码后置 `Binding()` |
-| Table 列与数据绑定（Designer 序列化坑） | Columns/DataSource 禁入 Designer；三段式 `InitTableColumns()`→`new AntList<T>()`→`table.Binding(list)` |
-| GridPanel.Span 语法 | 值仅 `fill`/%/整数/浮点；`px`/`auto` 非法；Controls.Add **逆序**入格 |
-| Message / Modal 的 owner 类型 | `Message` owner=Target（UserControl 须 `Form.ActiveForm`/`(Target)null`/`this.FindForm()`）；`Modal` owner=Control，裸 `null` 不二义。**坑**：`Modal.Config` 第三参数（content）若是未定义标识符会级联误报"Form→Target"，见 [[lessons/AntdUI-Modal-Config-Overload-Cascade]] |
-| Menu + Tabs 导航 | `menu.Items.Add(new MenuItem{Text,Tag})`；`SelectIndex(idx,true)` 触发 `SelectChanged`；`_syncing` 重入守卫；`AddTabSelect(TabPage)` 非 UserControl |
-| 命名空间遮蔽（CS0104） | `FolderBrowserDialog` 等须全限定 `AntdUI.FolderBrowserDialog` |
-| 数据表格选型 | 一律 `AntdUI.Table` + `AntList<T>`，禁用 `DataGridView` |
-| 设计器 resx 孤儿类型引用（System.Void 级联） | 基类迁移后须清理 resx `$this.Type`，并 XML 校验 well-formed |
-| ToolStrip → FlowPanel/Label/Button | 头部工具条改用 `AntdUI.FlowPanel` + `Label` + `Button` |
-| 对话窗承载方式（Modal 承载 UserControl） | 对话窗基类改 `UserControl`，`AntdUI.Modal.open(Config(...))` 弹出；关闭用 `FindForm().DialogResult` |
-| Tabs 添加 TabPage | 必须同时使用 `Controls.Add` + `Pages.Add` |
-| **TooltipComponent 文字提示（2026-08-31）** | TooltipDemo 范式：单实例 `new AntdUI.TooltipComponent{ Font=..., ArrowAlign=TAlign.Top }` 可对**多控件**逐一 `SetTip(ctrl, text)`；方位 12 值=TAlign（Top/Bottom/Left/Right/TL/TR/BL/BR/LT/LB/RT/RB）；组件为 IDisposable，页面释放时须 `Dispose()`（入 `DisposeComponents()`） |
-| **Button/IControl 原生徽标 Badge（2026-08-31）** | AntdUI `IControl`（含 Button/ButtonShadow 等）**内建徽标属性**，无需挂子控件：`Badge`（内容，**空串=纯色圆点**）、`BadgeSvg`（SVG 徽标，颜色随 `BadgeBack ?? 红`）、`BadgeAlign`（默认 TR）、`BadgeMode`（true=镂空环）、`BadgeBack`/`BadgeFore`/`BadgeBorderColor`/`BadgeOffsetX/Y`；渲染逻辑 `Helper.GDI.PaintBadge`（`BadgeBack ?? Colour.Error` 兜底）；连接态红/绿直接改 `BadgeBack`（O(1) 属性赋值，免重建） |
-| **AntdUI 内置 SVG 图标名仅基础集** | `SvgDb.cs` 仅 ~24 个基础图标（ArrowLeftOutlined/CheckOutlined 等），**无** VideoCamera/Robot/Api 等业务图标；业务图标须自备 SVG 字符串赋 `IconSvg`/`BadgeSvg` |
-| **ButtonShadow 阴影按钮范式（2026-08-31）** | 形态对齐官方 Demo `buttonShadow1`：50×50、`BorderWidth=1F`、`IconRatio=1.2F`、`IconSvg`=SVG 字符串（demo 经 resx 资源）、`ShadowColor=黑`、`Badge=""`+`BadgeMode=true`；仅显示图标无文本时信息走 TooltipComponent |
+| 途径 | 结论 |
+|---|---|
+| 扫 `AntdUI.dll` 字节 | ⛔ 该 DLL 已混淆，字符串碎片化，**只能证「有某个名字」，证不出参数与返回类型** |
+| `Reflection.Assembly.LoadFrom` | ⛔ 被本机安全策略拦截（报「equivalent to Add-Type」） |
+| 自写 ECMA-335 元数据解析器 | ⛔ 实测踩坑未成（流偏移语义、`HeapSizes` 位、行号重读错位） |
+| 从 demo 的 `.Designer.cs` 反推 | ⚠️ **只覆盖 demo 用过的属性**，未用的成员一律查不到 ⇒曾误判「`Radio` 事件名不可确定」 |
+| **官方 wiki 镜像** | ✅ **属性/事件/方法/枚举成表列出，含类型与默认值** —— 本项目现役唯一权威源 |
 
-### 1.2 Designer.cs 铁律（贯穿所有页面）
+### 0.2 已用官方源核实的关键 API（2026-10-09 复核）
 
-- **禁止**在 `.cs`（非 Designer.cs）重写 `Dispose(bool)`——用 `DisposeComponents()`。
-- `InitializeComponent()` 内**禁**流程控制（`for`/`while`/`if`/`switch`/`foreach`），循环须展开为逐条语句。
-- 自定义事件**直接订阅** `control.Event += handler`，**禁** `new EventHandler()` 包装 AntdUI 自定义委托（handler 签名 `EventArgs`→`AntdUI.BoolEventArgs`/`IntEventArgs` 等）。
-- 控件须先 `new` 实例化再加入 `Controls.Add`。
+以下均为 `raw/AntdUI/wiki-zh/` 原文确证，**可直接使用**：
 
-### 1.3 通用约定
+| 控件 / 主题 | 官方确证结论 | 出处 |
+|---|---|---|
+| `AntdUI.Radio` | 属性 `Checked` / `AutoCheck`(默认 true) / `Fill` / `Text` / `TextAlign`；**事件只有 `CheckedChanged`** | `Control/Radio.md` |
+| `AntdUI.Checkbox` | `Checked` / `CheckState` / `AutoCheck`；**事件 `CheckedChanged`** | `Control/Checkbox.md` |
+| `AntdUI.Switch` | `Checked` / `CheckedText` / `UnCheckedText` / `AutoCheck` / `Loading`；**事件 `CheckedChanged`** | `Control/Switch.md` |
+| `AntdUI.Slider` | `MinValue`/`MaxValue`/`Value` **全为 `int`**；`ShowValue` / `Dots` / `Marks`；事件 `ValueChanged(int)` / `ValueFormatChanged(int)`。⛔ **官方无坐标换算 API** | `Control/Slider.md` |
+| `AntdUI.Table` | ⛔ **无 `CheckAll`、无 `RefreshRows`、无 `GetCoordinate`、无 `ReadOnly`**；刷新入口是 `Refresh()` 与 `Refresh<T>(AntList<T>)` | `Control/Table.md` |
+| `Table` 全选 | ⛔ 无 `CheckAll()` 方法；全选 = 表头 `ColumnCheck.Checked`（`bool`）/`CheckState`，变化通知走 **事件 `CheckedOverallChanged(ColumnCheck column, CheckState value)`** | `Table.md` + `TableColumn.md` |
+| `Table` 勾选变化 | 事件 **`CheckedChanged(bool value, object? record, int rowIndex, int columnIndex)`** —— 比 `CellClick` 更直接 | `Control/Table.md` |
+| `ColumnCheck` | 属性 `Key` / `AutoCheck` / `Checked` / `CheckState`；**方法 `Call(Func<bool,object?,int,int,bool>)` 返回最终选中值** ⇒ **单选互斥的官方正解就是 `Call`**，无需手动遍历清 others | `Control/TableColumn.md` |
+| `ColumnRadio` / `ColumnSwitch` | 同继承 `Column`，同样有 `Call` 回调 | `Control/TableColumn.md` |
+| `Table.EmptyHeader` | ✅ **`bool`，语义=空数据时是否显示表头**（本页 §4.1 的旧结论被官方确认为正确） | `Control/Table.md` |
+| `Table.AutoSizeColumnsMode` | 类型 `ColumnsMode`，**默认 `Auto`**；设`Fill` 使各列按 `Width` 权重拉伸填满 | `Control/Table.md` |
+| `Table.EditMode` | 类型 `TEditMode`，**默认 `None`** ⇒ 表格默认只读，与「`Table` 无 `ReadOnly` 属性」一致 | `Control/Table.md` |
+| `Table` 数据刷新 | MVVM 官方口径：行模型继承 `NotifyProperty` 或实现 `INotifyPropertyChanged`，`set` 中触发 `OnPropertyChanged(string)`；增删改不刷新则改用 `BindingList<T>` + `Binding(list)` | `Table.md` 末「使用之前的注意事项」 |
+| `Table` 大数据量 | 属性 **`VirtualMode`**（仅渲染可见行）；另有 `ToDataTable()` 导出、`CopyData(...)`、`Sort/SortList/SetSortList`、`Filter*` 筛选、`SummaryCustomize` 汇总 | `Control/Table.md` |
+| `CellButton` | 继承 `CellLink`；`Type`(`TTypeMini`) / `Shape` / `Ghost` / `ShowArrow` / `IconSvg` / `Radius` —— 本项目 `SystemControlPage` 的轴按钮列写法**与官方一致** | `Control/TableCell.md` |
 
-- 所有 Workflow 事件处理必须 `InvokeRequired`/`BeginInvoke` 守卫。
-- 主题：`AntdUI.Config.IsLight`（原 SunnyUI `UIStyles.SetStyle(Purple)` 已废弃）。
-- 状态灯：`AntdUI.Signal`（原 `UILight` 已取代）。
-- C# 7.3 语法约束（禁 `init`/`record`/可空引用/`using` 声明/冒号格式化插值等）。
+### 0.3 本轮纠正的 3 处历史错误结论
 
-### 1.4 FlowPanel 表单布局范式（TableLayoutPanel 替代，可选）
+| # | 旧结论（基于猜测） | 官方源结论 | 处置 |
+|---|---|---|---|
+| 1 | 「`AntdUI.Radio` 事件名无先例、当前不可确定；需要单选时优先用 Checkbox + 手动互销，别赌 `Radio`」 | **事件名就是 `CheckedChanged`**（`Radio.md` 首行「默认事件：CheckedChanged」） | ⛔ 该免责**撤销**。`MainPage.cs` 五项互斥仍用 `Checkbox + 手动互销`（**功能正确，不改**），但注释里「Radio 事件名不可确定 / 别赌」的理由已失效，**下轮可按官方签名改用 `Radio`**，前提是 VS 编译确认事件委托参数类型（见 §0.4） |
+| 2 | 悬停读数因 `GetCoordinate` 不可核实而**自算线性近似** | 官方 `Slider.md` **根本没有坐标换算 API**，只有 `int` 的 `Value`/`MinValue`/`MaxValue` | ✅ 该「近似」**其实是唯一正解**，不是妥协。`DataReviewerPage` 现有自算写法保留，但**理由改写**为「官方无此API，自算不是降级方案」——可正名为设计决策 |
+| 3 | 批量勾选因 `CheckAll`/`RefreshRows` 不可核实而**复用 `FillPage()` 重填** | 官方无 `CheckAll`；但有 `Refresh()` / `Refresh<T>(list)` 两个正规刷新入口，全选变化有 `CheckedOverallChanged` 事件 | ⚠️ 现有实现功能无碍；**下轮可改用 `Refresh()` + `CheckedOverallChanged`**，不必再靠 `FillPage()` 重填 |
 
-> **注意（ADR-022）**：本范式由"强制迁移"降级为**可选范式**。`FlowPanel`/`GridPanel` 会强制排序子控件，不再强制使用。表单布局可选用 `FlowPanel`、`Panel` 绝对定位、`Dock`/`Anchor` 或 WinForms 原生容器等任一方式按需实现。以下为**若选用 FlowPanel 时的**规范。
+### 0.4 ⛔⛔ 违规记录：官方 wiki 已就位却仍在反编译 DLL（2026-10-09，业主当面纠正）
 
-**适用场景**：参数配置页中的 label+input 表单区域，替代 WinForms 原生 `TableLayoutPanel`，实现自动流式排列。
+业主原话：「**AntdUI 你应该查官方的定义，我给了你使用资源的，你怎么还是分析 DLL**」。
 
-**核心配置**：
-- `Align = TAlignFlow.Left` — 左对齐流式排列（`TAlignFlow` 枚举：Left/LeftCenter/Center/RightCenter/Right）
-- `Gap = 8` — 控件间距（像素），控制同排控件之间的水平间距
-- `Padding = new Padding(10, 4, 10, 4)` — 内边距
-- `Dock = DockStyle.Fill` — 充满父容器
-- `AutoScroll = true`（可选）— 内容超出时显示滚动条
+**事实**：这一天里我为「表格着色」「Input 报警行红色」两件事，
+**反复扫 `AntdUI.dll` 字节、自写 ECMA-335 元数据解析器、还写了一个半小时的解析脚本**，
+而 `raw/AntdUI/wiki-zh/`（85 篇，含 `Control/Input.md`）**早就在库里且已是 §0 明文规定的唯一权威源**。
+翻 `Input.md` **一次**就拿到全部答案（见 §4.7）。
 
-**控件尺寸规范**：
+> ⛔ **判据（本页最高优先级，违反即返工）**：
+> **查 AntdUI API 的动作序列只能是：① 翻 `raw/AntdUI/wiki-zh/Control/<控件名>.md` → ② 仍不确定才查 demo `.Designer.cs` → ③ 两者都没有才允许看 DLL，且看 DLL 只许确认「wiki 没写的委托类型」。**
+> ⛔ **任何情况下不得跳过 ① 直接啃 DLL**；**更不得因为「核实不了」就写近似替代或免责注释** ——
+> 先证明「wiki 与 demo 都没有」再说核实不了。
 
-| 控件类型 | 尺寸 | 说明 |
-|----------|------|------|
-| Label（表单项标题） | `Size=(140, 34)` 或 `(150, 34)` | `TextAlign=MiddleLeft`，删除 `Dock=Fill` 和 `MinimumSize` |
-| Input（文本输入） | `Size=(160, 32)` | 删除 `Dock=Left`、`Margin`、`MinimumSize` |
-| InputNumber（数值输入） | `Size=(160, 32)` | 同上 |
-| Select（下拉选择） | `Size=(160, 32)` | 同上 |
-| Checkbox | 保持原尺寸 | 删除 `Dock`、`MinimumSize` |
-| Button | 保持原尺寸 | 删除 `Dock`、`MinimumSize` |
+**本轮因此产生的两个错误结论（已撤销）**：
+| 错误结论 | 官方事实 | 处置 |
+|---|---|---|
+| 「`AntdUI.Input` 基于 TextBox，不支持 `SelectionColor`（彩色日志），仅追加文本」 | `Input.md` 明列 **`SelectionColor`** 属性 + **`SetStyle(start,length,font,fore,back)`** 方法 + **`AppendText(text, TextOpConfig)`** 重载 | ⛔ 错判已撤销；`MainPage.LogAppend` 改为按行 `SetStyle` 上色，**报警行红色** |
+| 「表格字体色只能 `SetRowStyle`+`CellStyleInfo`，且 `ForeColor` 不可核实」 | `TableCell.md` 列出 `CellText` 等**均有 `Fore`（字体颜色）** 字段；`TableColumn.md` 同理 | ⛔ 免责撤销；下轮按官方字段名实现，**不再需要反编译** |
 
-**Controls.Add 顺序**：按「label → input」成对依次添加，FlowPanel 自动从左到右排列，排满自动换行。多列表单按行优先排列（先第一行所有列，再第二行所有列...）。
+### 0.4b ⛔ 同一违规的第三种形态：**凭空造属性**（业主编译打回）
 
-**对比 GridPanel**：GridPanel 用于**大区域比例分割**（左右列、上下行），FlowPanel 用于**表单级细粒度流式排列**（label+input 成对）。项目标准结构为 `GridPanel(外层分区) → Panel(卡片) → GridPanel(标题+内容) → FlowPanel(表单)`。
+业主原话：「`int start = inputLog.Text.Length;` 才是正确的，**你的写法又自己猜测了一部分属性**」。
 
-**迁移 Checklist**：
-- [ ] 删除 `ColumnCount`/`ColumnStyles`/`RowCount`/`RowStyles`
-- [ ] 删除所有 `SetColumnSpan` 调用
-- [ ] 删除子控件 `Dock`/`Margin`/`MinimumSize`
-- [ ] Label 设置 `Size` + `TextAlign=MiddleLeft`
-- [ ] Input/Select 设置统一 `Size`
-- [ ] `Controls.Add(control, col, row)` → `Controls.Add(control)`（按顺序）
-- [ ] 底部字段声明 `TableLayoutPanel` → `AntdUI.FlowPanel`
-- [ ] SuspendLayout/ResumeLayout 同步替换
+我为取「本行起点」写了 `inputLog.TextLength`。核对 `Input.md` 属性表 ——
+**没有 `TextLength`**，只有 `Text`（string）/ `IsTextEmpty` / `TextTotalLine` / `SelectionStart` / `SelectionLength`。
+正解是 `inputLog.Text.Length`。
+⛔ 且**项目内本就有同型先例**：`FilebackupPage.cs:660` 早就在写
+`inputLog.SelectionStart = inputLog.Text.Length;`（同为 `AntdUI.Input`，长期在用）⇒ **连自家既有用法都没查**。
+
+> ⛔ **判据（机械，可拦住整类问题）**：
+> **凡第三方控件实例上的成员名，必须在该控件官方文档的属性表/方法表里出现过；
+> 没出现 ⇒ 判为「凭空造」，不许写进代码。**
+> 落地：把官方 md 用 `\*\*(\w+)\*\*` 抽成集合，与代码里 `控件名\.(\w+)` 做**差集**；
+> 差集非空即违规（白名单只许放「基类提供且已实证」的成员，不许放「我以为有的」）。
+> 判据细节见 [[lessons/StaticVerifierJudgements]] §4.13。
+>
+> **为什么单列**：「看起来很合理」的 API 名正因合理，静态校验与肉眼 review 都拦不住 ——
+> 只能靠「官方文档集合做差集」这条机械判据。
+> 本项目两天内已 **3 次**栽在「自己造 API」上（`SetStyle` 拖到核实后才用、
+> `GetCoordinate` 拿来做近似、`TextLength` 直接凭空造），共同点全是「看起来很合理」。
+
+### 0.5b ⚠️ 官方 wiki 也**没有**的一类信息：委托参数的具体 .NET 类型
+
+官方事件表只给出**语义参数名与类型**（如 `CheckedChanged` → `bool value`），**不给出委托的 .NET 类型**（`AntdUI.BoolEventHandler` ? `EventHandler<bool>` ?），也不给`sender` 之外参数是否打包成 `EventArgs`。
+
+⛔ **这类属于「语义判据」，静态校验定不了，只有编译器能定。**本项目现状：
+- `FilebackupPage.OnRadioModeChanged(object sender, AntdUI.BoolEventArgs e)` 与 `AntdUI.Checkbox` 的 `CheckedChanged(object, AntdUI.BoolEventArgs)`（`AntdUI.BoolEventHandler`）**在本项目已实证可编译**（多个 `chkXxx` 长期在用）。
+- 故 `Radio.CheckedChanged` **大概率同签名**，但**仍须 VS 编译确认**；**不得仅凭本页就断言「Radio 的事件参数是 `BoolEventArgs`」**。
+
+> 记忆判据更新：MEMORY.md §0.9 里「AntdUI 侧只能靠近似、编译期不确定点无法消除」的结论，**仅对「委托参数类型」这一子项成立**；**属性名 / 事件名 / 方法名 / 方法签名 / 枚举成员已可100% 核实**。
+
+### 0.5 用法速查（官方源对照本项目高频控件）
+
+| 我要… | 官方写法 | 本项目现状 |
+|---|---|---|
+| 单选互斥（表格内） | `new AntdUI.ColumnCheck("Key","标题").SetAutoCheck(false)` + `Call((v,rec,r,c,_)=>...)` 返回最终值 | ✅ 4 处已用 `SetAutoCheck(false)` + `CellClick` 手动互斥（等价，可保留） |
+| **并排多个控件** | ⛔ **不可给同级控件都设 `Dock=Fill`**（会叠成同一矩形，只看得见最上层）；正解 **`TableLayoutPanel` + `Controls.Add(ctrl, col, row)`** + `ColumnStyles` 各 `Percent` | ✅ `DataReviewerPage` 2026-10-10 已改（`tlpSelect` 1×3）；项目内 10 个窗体先例（`RecordConfigForm` 等） |
+| **表头全选/全取消** | ⛔ **只能用单参 `ColumnCheck("Key")`**（表头才是全选 checkbox）；双参 `(key,title)` 表头是纯文字、**点击无反应** | ✅ `DataReviewerPage` 2026-10-10 改为「双参保留表头文字 + 筛选栏三按钮」，详见 §4.2 ⛔ 反证法警示 |
+| 互斥指令组（动作位） | `AntdUI.Radio`，同父容器内**自动互斥**；事件 `CheckedChanged += new AntdUI.BoolEventHandler(h)`，⛔ **不是** `EventHandler`；**仅 `e.Value==true` 时触发**。**2026-11-05 起**：底色用 `Fill` 表达**执行结果**（成功 `ARGB(64,76,175,80)` / 失败 `ARGB(64,244,67,54)` / 未选中·未执行 `Color.Transparent`），⛔ 不再「选中即 `#52C41A`」；`AntdUI.Radio` **无 `Back`**，`BackColor` 带 Alpha 抛 `ArgumentException`（ADR-063 §二/§六） | ✅ `ProcessControlPage` 2026-10-12 起 9 个 Radio 互斥实测生效；2026-11-05 三区（Y/LA/TA）改「确认→执行→Fill 上色→切走复位」 |
+| 单选互斥（页面内） | `AntdUI.Radio` + `CheckedChanged` | ⚠️ `FilebackupPage` 已用 `Radio`；`MainPage` 用 `Checkbox` 手动互销 |
+| 复选 / 开关 | `Checkbox` / `Switch` + `CheckedChanged` | ✅ `Checkbox.CheckedChanged` 实证可用 |
+| 表格列宽填满 | `AutoSizeColumnsMode = AntdUI.ColumnsMode.Fill` | ✅ 9 处已设 |
+| 表格数据绑定 | `table.Binding(antList)`，`Columns` 只在代码后置赋值 | ✅ 全库统一 |
+| 空表显示表头 | `EmptyHeader = true`（`bool`，不是string） | ✅ `SystemControlPage` 已用 |
+| 消息提示 | `AntdUI.Message.warn(owner, "...")`，owner 见 §5.2 | ✅ 全库统一 |
+| 模态对话 | `AntdUI.Modal.open(new AntdUI.Modal.Config(owner, title, content, TType.Info))` | ✅ 全库统一 |
 
 ---
 
+## 旧章节：控件应用参考 demo（⛔ 2026-10-09 起降级为「次级参考」）
+
+> ⚠️ **下列内容不再是权威源**，仅在官方 wiki 未覆盖处（如 GridPanel.Span 语法细节、Modal 承载 UserControl 的项目约定）作补充参考。
+> **任何控件 API 冲突，一律以 `raw/AntdUI/wiki-zh/` 为准。**
+
+
+
 ## 2. 布局系统
 
-### 2.1 ADR-022：布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
+### 2.1 ADR-007：布局容器自由化（解除 GridPanel/FlowPanel 强制使用）
 
 #### 背景
 
 此前的 UI 设计与范式形成了一条**硬约束**：所有 UI 容器"必须使用 `AntdUI.GridPanel`"（大区域分割）与 `AntdUI.FlowPanel`（表单流式排列）。这两类容器存在**强制排序**行为，给布局带来不便：
 
 - `GridPanel` 的子控件按 `Controls.Add` 的**逆序**入格，Designer 中必须把 Add 顺序写成期望格子顺序的倒序，易错且反直觉。
-- `FlowPanel` 按 `Controls.Add` 顺序自动从左到右流式排列并自动换行，无法精确控制每个控件的绝对位置。
+- `FlowPanel` 按 `Controls.Add` **逆序**从左到右流式排列并自动换行（⚠️ 2026-10-09 运行期实证更正：早前「顺序 Add」表述有误，见 §2.x 实证表），无法精确控制每个控件的绝对位置。
 
 用户（2026-08-12）明确要求：**不再强行使用 GridPanel 和 FlowPanel，因为它们会强行排序**。
 
@@ -125,7 +195,7 @@ tags: [指导, UI, AntdUI, 参考手册, 汇总]
 3. **控件回退规则**：AntdUI 缺失的控件，允许使用 **WinForms 原生控件**作为回退。
 4. **SunnyUI 控件一律禁止**使用（GPL 许可约束）。
 5. **不重写已有页面**：已用 `GridPanel`/`FlowPanel` 实现的页面功能正常，**不强制重写**。
-6. **若仍使用 `GridPanel`/`FlowPanel`**，必须遵守其各自的布局规则（`GridPanel` 逆序入格、`FlowPanel` Align=Left+Gap+顺序 Add）——这些规则是「使用该容器时的技术知识」，而非「强制使用该容器的理由」。
+6. **若仍使用 `GridPanel`/`FlowPanel`**，必须遵守其各自的布局规则（**两者均为逆序**：`GridPanel` 逆序入格、`FlowPanel` 逆序入流，2026-10-09 运行期实证）——这些规则是「使用该容器时的技术知识」，而非「强制使用该容器的理由」。
 
 #### 后果
 
@@ -253,6 +323,97 @@ this.uiGridPanel1.TabIndex = 1;
 1. **`Span` 多行必须 `;` 分行，行高用 `高度:` 前缀**（或 `-` 全局行高表）。写成 `"fill;180"` 是错的——`180` 无 `:` 前缀会被当成**列宽**而非行高。正确 `"68%:fill;32%:fill"`（或 `"fill;180:fill"`）。
 2. **嵌套 GridPanel 的 `Dock`/`Location`/`Size` 被外层忽略**（LayoutEngine 直接设 Bounds），属正常。
 3. **逆序入格规则对每一层 GridPanel 各自独立**生效：外层 2 子控件逆序、内层 2 子控件逆序，互不影响。
+
+---
+
+#### 2.x ⭐ `GridPanel.Span` 完整语法（2026-10-09 三源交叉核实）
+
+**权威源顺序**（勿跳过前一级）：
+① **官方 demo 自带说明** `M3/AntdUI使用demo/AntdUI-Demo-main/Views/GridPanelDemo.Designer.cs:72`
+（控件里`label1.Text` 就是语法说明原文，最可信）
+② `raw/AntdUI/wiki-zh/Control/GridPanel.md`
+③ DLL `#US` 堆的 `Span fill _N : Vertical` 字面量串（补wiki 未写的关键字）。
+
+##### 语法结构
+
+```
+Span = "行1:列宽1 列宽2;行2:列宽1 …;-全局行高1 行高2 …"
+       ↑ `-` 前：每行 = 行高:该行列宽列表（空格分列，; 分行）
+                `-` 后：全行行高（个数须与行数对应）
+```
+
+官方 demo 原文（`GridPanelDemo.Designer.cs:72`，逐字）：
+
+> Span：以-符号分界。-前为列宽属性，列宽以 ; 分组，每一组代表一行。
+> -后为行高属性。行高属性个数要与行数对应，每个数之间用空格间隔
+
+##### 关键字（wiki 未写，从 demo + DLL + **2026-10-09 运行期实证**补齐）
+
+| 字面量 | 含义 | 证据 |
+|---|---|---|
+| `fill` | 该行**单列**填满整行（列位=剩余宽） | demo `FlowPanelDemo`/`PanelDemo`/`MenuDemo` 全部用它作第2 列 |
+| `_N` | ⛔ **不可用**（见下）——数字后缀把该格宽打成 1px、运行期 0px；字面 `_N` 置 `IsEmpty=True` | 2026-10-09 `ConvertToRects` + 布局实测 |
+| `%` | 百分比 | 官方demo `"50% 50%;20% 80%;150 200;-20% 30% 50%"` |
+| 纯数字 | 像素 | 同上（`150 200` 两列） |
+
+⛔ **`_N` 跨行/跨列合并——实证结论「不可用」（2026-10-09 收口）**：
+`100%_2`/`100%_3`/`80_3`/`fill_3` 全部把被标记格的宽/高打成 **1px（解析层）/0px（运行层）**，其下各行**不发生合并**；
+`100%_N`（字面 N）解析为 `IsEmpty=True` 的占位空格。⇒ **凡需跨行/跨列合并（原 `SetRowSpan`/`SetColumnSpan`），
+一律用多层 GridPanel 表达**（外层一格装内层整网格），⛔ 禁写 `_N`。
+
+##### ⚠️ 从 `TableLayoutPanel` 换到 `GridPanel` 的对照表
+
+| TableLayoutPanel | GridPanel 等价 |
+|---|---|
+| `ColumnCount` / `RowCount` | ⛔ **无此属性** ⇒ 由 `Span` 隐含（数`;` 与空格） |
+| `ColumnStyles.Add(SizeType.Absolute/Percent, w)` | 写成 `Span` 里的列宽（`100` 像素 / `50%` 百分比） |
+| `RowStyles.Add(SizeType.Absolute/Percent, h)` | 写在每行 `:` 前，或 `-` 后的全局行高表（**两者择一，⛔ 禁混用**） |
+| `Controls.Add(ctrl, col, row)` | ⛔ **只接受单参** `Controls.Add(ctrl)` + **逆序入格** |
+| `SetRowSpan(ctrl, n)` / `SetColumnSpan(ctrl, n)` | ⛔ 无这两方法且 `_N` 不可用 ⇒ **多层 GridPanel**（合并区拆成子网格） |
+| 子控件 `Margin=3`（默认） | 相同；⚠️ **嵌套包装 GridPanel 必须 `Margin=new Padding(0)`**（否则每层叠加 +3 偏移，A/B 实测 M0=零偏差 / M3=偏 +3~6） |
+
+##### ⭐ 运行期实证方法（2026-10-09 建立，取代「无编译器无法核实」）
+
+沙盒无 C# 编译器但有 PowerShell 5.1（.NET 4.8 运行时）⇒ **可直接加载项目 `3rdDepend\AntdUI.dll` 实测布局语义**：
+
+```powershell
+Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+[void][System.Reflection.Assembly]::LoadFrom("$PWD\AdaWeldSystem\3rdDepend\AntdUI.dll")
+# 布局须有真实句柄：屏幕外 Form.Show() 触发（PerformLayout 单独调用不动布局引擎）
+# Span 解析层直接读：GridPanel.ConvertToRects(Rectangle, String) → 格子矩形（反射调用）
+```
+
+要点：① `Form.Show()` 才会建句柄触发布局（`CreateControl()` 对不可见控件是空操作）；
+② `ConvertToRects` 返回 `Rects[]`（含 `x/y/Rect/IsEmpty` backing field），PowerShell 访问成员会因 `X/x` 大小写重名报 CLS 错——
+用 `GetField('x').GetValue()` 反射取值；③ **每段探针开新进程跑**（同会话反复建 Form 会间歇性 `New-Object` 返 null）；
+④ `FlowPanel.Controls` 就是标准 `Control.ControlCollection`（`Add(Control)`/`Remove(Control)`/`SetChildIndex` 语义如常）；
+⑤ `SetIndex(ctrl, n)` 可显式指定格序（与默认逆序矛盾时 SetIndex 获胜），可作 Designer 重排保险。
+
+##### 本项目实证 Span（多层 GridPanel，2026-10-09 修复仪表盘乱排）
+
+```csharp
+// DataReviewerPage.uiGridPanelRight（3 行，右侧图表区）
+// ⚠️ 2026-11-02：「按 X 范围显示区域」模块整体移除，滑块行并入底行 ⇒ 4 行改 3 行
+//    旧：fill;fill;fill;fill 120;-35 fill 35 35
+Span = "fill;fill;fill 120;-35 fill 35"
+
+// MainPage 仪表盘：原 TableLayoutPanel(4列×13行+合并) → 5 层 GridPanel（各层 Add 逆序入格）
+Span = "fill 20 100"                                                   // 外层 [gridLeftBlock][divider1][gridRightBlock]
+// gridLeftBlock:  "fill;133 fill;133 fill;133 fill;133 fill;133 fill;-40 30 30 30 120 120"
+// gridRightBlock: "fill;fill;-40 100%"
+// gridRobotVals:  "fill;fill;fill;fill;-30 30 30 30"（gridHeadVals 同形）
+//   A/B 运行期对照：20/20 控件与原 TableLayoutPanel 几何全等（逐格 rect 零偏差）
+```
+
+⚠️ **`Span` 写法错误无编译期保护**（它是 `string` 属性，写错只是布局不对，不会报错）⇒
+新增/修改 `Span` 后**必须目视验证**，静态校验只能断言字符串形态（行数 / 列数 / 行高个数 / 关键列宽值）。
+
+##### ⛔ 两个必须自查的坑
+
+1. **子控件数与 Span 格数不匹配**：`Controls.Add` 是**逆序入格**，所以**子控件总数必须等于 Span 展开的格子总数**。
+   少一个 ⇒ 最后一格空着（控件挤在前面的格子里）；多一个 ⇒ 多出来的控件直接不显示。
+2. **行高机制混用**：`高度:` 每行前缀 与 `-` 全局行高表**只用一种**。2026-10-09 乱排根因之一即两者同时出现
+   （`"40:…;30:…;…;-40 30 …"`）——解析行为未定义，⛔ 禁混用。
 
 ---
 
@@ -456,6 +617,124 @@ AntdUI Tabs 的 `Pages` 集合是独立的标签页管理集合，与 WinForms �
 
 ---
 
+### 3.4 ContextMenuStrip 右键菜单（Table / Panel 等）
+
+#### 背景
+
+WinForms 的 `ContextMenuStrip` 是**组件**，靠 `control.ContextMenuStrip = xxx` 挂接、右键任意位置（含子控件）自动弹出。AntdUI **没有** `Control.ContextMenuStrip` 属性——右键菜单必须用**静态方法** `AntdUI.ContextMenuStrip.open(...)` **编程式弹出**。本项目 `DataReviewerPage` 已落地此模式（2026-09-18）。
+
+#### API（反射确证 · AntdUI 2.4.3.0 / `3rdDepend/AntdUI.dll`）
+
+```csharp
+// 静态方法：在 control 上弹出菜单；点击某项回调 call；items 为菜单项数组
+public static Form open(
+    Control control,
+    Action<AntdUI.IContextMenuStrip> call,      // ⛔ 回调载荷是 IContextMenuStrip，不是 IContextMenuStripItem
+    AntdUI.IContextMenuStripItem[] items,
+    int sleep = 0);
+
+// 重载（带托盘图标）
+public static Form open(
+    Control control, NotifyIcon notifyIcon,
+    Action<AntdUI.IContextMenuStrip> call,
+    AntdUI.IContextMenuStripItem[] items, int sleep = 0);
+
+// 重载（配置对象）
+public static Form open(AntdUI.ContextMenuStrip.Config config);
+
+// 菜单项（构造：文本, 可选子文本）
+new AntdUI.ContextMenuStripItem("显示数据", "Ctrl+N");
+new AntdUI.ContextMenuStripItemDivider();            // 分隔线
+// 链式：.SetID("id") / .SetIcon("SvgName") / .SetEnabled(false) / .SetChecked(true)
+//       /.SetSub(IContextMenuStripItem[]) 子菜单
+```
+
+##### ⚠️ 两个接口别搞混（真实编译错误来源）
+
+| 类型 | 角色 | 成员 |
+|---|---|---|
+| `IContextMenuStrip` | **回调载荷类型** —— `open()` 的 `call` 形参类型 | `ID` / `Text` / `Enabled` / `Icon` / `IconSvg` / `Checked` / `Tag` |
+| `IContextMenuStripItem` | **数组元素基类** —— `items` 的元素类型 | 仅 `ParentItem`（**没有** `ID` / `Text`） |
+
+同一个 `ContextMenuStripItem` 实例（继承 `IContextMenuStripItem`、实现 `IContextMenuStrip`）进数组时**当 Item**，回调时**当 Strip 传回**。
+⛔ 因此回调形参**必须**声明为 `Action<AntdUI.IContextMenuStrip>` —— 写成 `Action<AntdUI.IContextMenuStripItem>` 会直接编译失败：
+
+| 错误 | 症状 |
+|---|---|
+| **CS1503** | `无法从 Action<IContextMenuStripItem> 转换为 Action<IContextMenuStrip>` —— `open()` 第二参类型不匹配 |
+| **CS1061 ×2** | `'IContextMenuStripItem' 未包含 "ID" 的定义` / `'…未包含 "Text" 的定义'` —— 回调体里读 `it.ID` / `it.Text` 失败 |
+
+✅ 正确写法（回调里访问 `it.ID` / `it.Text`）：
+
+```csharp
+private void OnConfigMenuClick(AntdUI.IContextMenuStrip it)   // ⛔ 不是 IContextMenuStripItem
+{
+    if (it.ID == "Select") SelectConfig();
+    else if (it.Text == "删除配置") DeleteConfig();
+}
+```
+
+> **交叉验证**：官方 wiki 镜像 `raw/AntdUI/wiki-zh/Control/ContextMenuStrip.md` 的 `Call` 一栏写作 `Action<ContextMenuStripItem>`，示例也是 `open(this, it => … it.Text …, menulist)`；**镜像文字与 2.4.3.0 实际反射签名不一致**，实反射为 `Action<IContextMenuStrip>`。以反射为准。
+
+回调里用 `it.ID`（先 `SetID`）或 `it.Text` 区分多项；**单项菜单直接动作即可**。
+
+#### 右键触发（无 ContextMenuStrip 属性，必须手动挂事件）
+
+| 控件 | 触发事件 | 判定 | 说明 |
+|------|----------|------|------|
+| `AntdUI.Table` | `CellClick`（已有订阅） | `e.Button == MouseButtons.Right`（`TableClickEventArgs` 含 `Button`） | 右键行时 `e.Record` 已为该行，**自动以右键行作为选中行**，比 WinForms 更准；空白处右键不触发 CellClick |
+| `AntdUI.Panel` / 其他 `IControl` 派生控件 | `MouseDown` | `e.Button == MouseButtons.Right` | `AntdUI.Panel : IControl(Control 派生)`，MouseDown/MouseUp 可用且会触发（AntdUI issue 实例中 `table.MouseUp +=` 即佐证） |
+
+```csharp
+// Table：在既有 CellClick 处理器内
+private void uiDataGridView1_CellClick(object sender, AntdUI.TableClickEventArgs e)
+{
+    _selectedRow = e.Record as DataReviewRow;
+    if (e.Button == MouseButtons.Right)
+        AntdUI.ContextMenuStrip.open(uiDataGridView1, it => Datashow(),   // it 的类型是 IContextMenuStrip
+            new AntdUI.IContextMenuStripItem[] { new AntdUI.ContextMenuStripItem("显示数据") });
+}
+
+// Panel：构造函数订阅 + 处理器
+panelRight.MouseDown += panelRight_MouseDown;
+private void panelRight_MouseDown(object sender, MouseEventArgs e)
+{
+    if (e.Button == MouseButtons.Right)
+        AntdUI.ContextMenuStrip.open(panelRight, it => { },
+            new AntdUI.IContextMenuStripItem[] { new AntdUI.ContextMenuStripItem("设置显示区间") });
+}
+
+// 多项分派：回调形参声明为 IContextMenuStrip，才能读 it.ID / it.Text
+AntdUI.ContextMenuStrip.open(uiDataGridView1, OnConfigMenuClick, new AntdUI.IContextMenuStripItem[]
+{
+    new AntdUI.ContextMenuStripItem("切换配置").SetID("Select"),
+    new AntdUI.ContextMenuStripItem("删除配置").SetID("Delete")
+});
+private void OnConfigMenuClick(AntdUI.IContextMenuStrip it)
+{
+    if (it.ID == "Select") SelectConfig();
+    else if (it.ID == "Delete") DeleteConfig();
+}
+```
+
+#### ⚠ 行为差异（与原 WinForms 对比）
+
+- WinForms `Control.ContextMenuStrip` 会向**子控件冒泡**（右键空白/子控件都弹）；AntdUI 编程式 `open()` 只在**订阅事件的那个控件自身**触发。Panel 内嵌套的图表/按钮等子控件被右键时**不会**触发 Panel 的 `MouseDown`（WinForms 鼠标事件不冒泡）。需要完全还原冒泡须递归给各子控件挂 `MouseDown`——通常无必要（子控件菜单多为空实现）。
+- **CS0104 命名空间冲突**：文件同时 `using AntdUI;` 与 `using System.Windows.Forms;` 时，`ContextMenuStrip` 两命名空间都有 → 裸写必报二义。**必须全限定 `AntdUI.ContextMenuStrip.open(...)`**（不要用 `var` 也不裸写 `ContextMenuStrip`）。
+
+#### 迁移 Checklist（WinForms ContextMenuStrip → AntdUI）
+
+- [ ] Designer.cs：删 `new System.Windows.Forms.ContextMenuStrip(this.components)` 实例化 + 两个 `ToolStripMenuItem` 字段
+- [ ] Designer.cs：删 `xxx.SuspendLayout()` / `xxx.ResumeLayout(false)`（menu 相关）
+- [ ] Designer.cs：删 `uiContextMenuStripX.BackColor/Font/...` 外观块 + `Items.AddRange(...)` + `ToolStripMenuItem` 的 `.Text`/`.Click +=` 块
+- [ ] Designer.cs：删 `control.ContextMenuStrip = this.uiContextMenuStripX;` 赋值
+- [ ] Designer.cs：删字段声明 `private System.Windows.Forms.ContextMenuStrip uiContextMenuStripX;` / `private System.Windows.Forms.ToolStripMenuItem Xxx;`
+- [ ] .cs：删原 `ToolStripMenuItem.Click` 处理器方法（`ShowData_Click`/`SetRange_Click` 等）；右键逻辑并入 `CellClick` / `MouseDown` 处理器
+- [ ] .resx：删 `<metadata name="uiContextMenuStripX.TrayLocation" ...>` 两条（保持 well-formed）
+- [ ] 右键逻辑改用 `AntdUI.ContextMenuStrip.open(...)`（全限定）
+
+---
+
 ## 4. 表格控件
 
 ### 4.1 Table Columns 与 DataSource 均不得进 Designer.cs
@@ -487,6 +766,7 @@ new AntdUI.Column("SeamWidth", "焊缝宽度") { Width = "150" }
 1. **`Table.DataSource` 带 `[Browsable(false)]`**——官方从一开始就不打算让设计器序列化该属性。CodeDom 反序列化 `AntdUI.AntList<T>` 泛型实例化语句时无法解析泛型类型。
 2. **`Columns`（`ColumnCollection`）是集合属性**，设计器只认 `Add/AddRange` 增量模式，无法回合 `= new CollectionType { ... }` 整体赋值。
 3. 官方 Demo 铁证：**Designer.cs 里 Table 只有外观属性**（Dock/Gap/Radius/EmptyHeader/AutoSizeColumnsMode）与事件订阅；`Columns` 赋值与数据加载全部在构造函数代码后置。
+   - ⚠️ **`EmptyHeader` 是 `bool` 属性，语义为"空数据时是否显示表头"**（默认 false 会隐藏表头），**不是字符串也不可赋 `string.Empty`**——运行态强制空表显示表头须写 `EmptyHeader = true;`（配 `VisibleHeader = true;`）。切勿仅凭"外观属性"归类推断其类型。
 
 #### 固定方法范式（唯一正确写法）
 
@@ -539,6 +819,8 @@ table1.Binding(newList);
 - 运行时 `table1.DataSource = list;` 虽能编译运行，但**统一用 `Binding()`**——语义明确、走增量刷新路径。
 - 行数据类 `T` 用普通 property 即可；需要单元格级双向刷新才继承 `NotifyProperty`。
 - 取选中行：`CellClick` 事件 `e.Record as MyRow`（Table 无 SelectedItem）。
+- **`AntList<T>` 是自定义集合，不暴露泛型 `IEnumerable<T>`**：反射只得到非泛型 `IEnumerable` + 索引器 + `Add/Clear/CopyTo`。⛔ 不能直接喂给 `List<T>` 的 `IEnumerable<T>` 构造器（编译不过）；需要快照或跨线程取行时按索引复制：`for (i = 0; i < antList.Count; i++) list.Add(antList[i]);`（2026-10-30 ADR-078 实测命中，已落 `MonitorCamPage.StartThumbnailLoader`）。
+- **行模型属性返回 `ICell` 即渲染富单元格**：`PlaybackRow.Preview` 返回 `AntdUI.CellImage(bitmap, 6) { Size = new Size(96, 54), ImageFit = AntdUI.TFit.Contain }` 即渲染缩略图（未就绪时返回 `new CellText("加载中…")`）；`Table.RowHeight` 须同步设足（如 64）否则图片被裁；异步回填后调 `table.Refresh()`（后台线程须 `BeginInvoke` 封送）。
 
 #### 补充范式：可编辑表格 + 列宽填满
 
@@ -594,7 +876,19 @@ AntdUI 内置的 `ColumnRadio` 能自动单选互斥，但渲染成 **radio 圆�
 1. **`ColumnCheck` 单参 vs 双参的表头差异**：
    - `ColumnCheck(key)`（单参）→ 内部 `NoTitle=true` → 表头渲染**全选 checkbox**，点击表头触发 `CheckAll` 全选。
    - `ColumnCheck(key, title)`（双参）→ `NoTitle=false` → 表头渲染**纯文字 title**，**无全选 checkbox**，点击表头不触发全选。
-   - 结论：要「表头显示文字 + 无全选」，用**双参** `ColumnCheck("Selected","选取")`。
+   - 结论：要「表头显示文字 + 无全选」，用**双参** `ColumnCheck("Selected","选取")`；要「表头自带全选框」，只能用**单参**（但表头就没有 title 文字）。
+
+   🔴 **⛔ 反证法在此不成立（2026-10-10 上机实测踩坑，必读）**：
+   曾据「本项目 3 处单选场景都显式 `.SetAutoCheck(false)`」**反证**「默认形态带表头全选」，
+   据此删掉了 `DataReviewerPage` 的全选/全取消/反选三按钮，改依赖表头 ⇒ **上机表头点击无反应，功能真空**。
+   **错在哪**：`AutoCheck` 管的是**单元格点击自动 toggle**，与表头是否渲染全选框是**两个独立机制**，
+   单选场景关掉 `AutoCheck` 与「表头有无全选框」无因果关系。
+   **正确姿势**：`AutoCheck` 只在「要手动接管勾选逻辑」时才关；**表头有无全选框只看构造函数的单/双参**。
+   ⚠️ 官方文档只能证明「表头全选**态**存在」（`TableColumn.md` ColumnCheck 的「全选」分组 `Checked`/`CheckState` + 事件 `CheckedOverallChanged`），
+   **不能证明双参会把它渲染出来** —— 别拿事件/属性的存在去推渲染行为。
+   ⚠️ **若既想表头文字又想全选，唯一正解是「单参表头全选框 + 页面另建筛选栏三按钮」**（= `DataReviewerPage` 2026-10-10 现行形态）。
+   ⚠️ 行模型必须 `AntdUI.NotifyProperty` + `set` 中 `OnPropertyChanged()`（官方 `Table.md:192` 明文要求），
+   否则**代码改 `Selected` 而复选框不刷新**；同型先例 `FileTraceForm.cs:213`。
 
 2. **`SetAutoCheck(false)` 关闭单元格自动 toggle**：
    - 默认 `AutoCheck=true` 时，点击 checkbox 单元格会自动 toggle 行值，与手动互斥逻辑叠加会产生闪烁/竞态。
@@ -672,6 +966,182 @@ private class FileTraceRow : AntdUI.NotifyProperty
 - `SetAutoCheck` 返回基类 `Column`，链式调用后不能再调 `ColumnCheck` 独有方法。
 - `e.Record as FileTraceRow` 判空即防御表头/汇总行点击。
 
+### 4.7 ⭐ Input 按行着色：**报警行红色**（2026-10-09 官方源 `Control/Input.md` 确证）
+
+**背景**：原 `MainPage.LogAppend(Color color, string strMsg)` 收到颜色参数却直接丢弃，
+注释写「`AntdUI.Input` 基于 TextBox，不支持 `SelectionColor`」—— **该结论是错的**，
+官方 `Input.md` 属性表明确列出 **`SelectionColor`（选中颜色）**。
+
+**官方给出的三个可用入口**：
+
+| 入口 | 签名（官方原文） | 用途 |
+|---|---|---|
+| **按区间上色** ✅ 本处采用 | `SetStyle(int start, int length, Font? font, Color? fore, Color? back)` | **报警行整行变红** |
+| 追加带配置 | `AppendText(string text, TextOpConfig config)` | 追加时携带文本配置（`TextOpConfig` 字段 wiki 未公开）|
+| 插入带配置 | `InsertText(int startIndex, string text, TextOpConfig config)` | 同上 |
+
+**颜色链已就绪**（`Comm/SystemComm/SystemComm.cs` 的 `ShowLog` 按 `MessageLevel` 映射）：
+
+| MessageLevel | `MessageShowColor` |
+|---|---|
+| `Info` | `Color.Black` |
+| `Warning` | `Color.Blue` |
+| **`Error`** | **`Color.Red`** ← 报警行红 |
+| `Debug` | `Color.Gray` |
+| 通讯日志（`ShowCommunicationLog`）| `Color.DarkGreen` |
+
+**实现要点**（`MainPage.cs`，⛔ 顺序不可颠倒）：
+
+```csharp
+int start = inputLog.TextLength;                     // 1. 记下本行起点
+string line = string.Format("{0}-{1}\n", ..., strMsg);
+inputLog.AppendText(line);                          // 2. 先落地文本（保证日志不丢）
+ApplyLineColor(start, line.Length, color);          // 3. 再按区间上色
+```
+
+着色是「锦上添花」，文本落地是「必须有」——
+`ApplyLineColor` 独立成方法且自带 `try/catch` ⇒ 即使 `SetStyle` 签名与官方不符，
+也只是少颜色，**不会连日志一起吞掉**（原实现 `try{}catch{}` 包裹整个方法，一旦抛错整行丢失）。
+
+⚠️ **待实机确认一项**：`SetStyle` 的 `length` 是**闭区间**还是**半开**（wiki 未明示）。
+当前按「整行全长」传（宁多不少，多覆盖一个换行符视觉无差别）；确认为半开则减 1。
+
+### 4.8 Input 校验态：`Status`（`TType`）—— 整框变色，别与 4.7 混用
+
+官方 `Input.md` 属性表：**`Status` | 设置校验状态 | `TType` | None**。
+demo 实证：`Views/SubView/UserEdit.cs:37-41`（先置 `None`，校验不过置 `Error` + `Message.warn`）、
+`Views/InputDemo.cs:39`。Designer 也直接配过：`input15.Status = TType.Warn`、`input12.Status = TType.Success`。
+
+> ⚠️ **与 §4.7 的区别**：`Status` 让**整个输入框**边框/外观变红（表单校验语义）；
+> `SetStyle` 只给**指定字符区间**上色（多行只读日志场景）。
+> 日志框「只有报警行红」⇒ 用 `SetStyle`；⛔ 不用 `Status`（整框红，与诉求冲突）。
+
+### 4.9 表格按行着色：`SetRowStyle` + `CellStyleInfo`（2026-10-09 实证）
+
+**入口**：`Table.SetRowStyle` 事件 + 返回 `Table.CellStyleInfo`。范式：demo `Views/TableDemo.cs:135`。
+
+```csharp
+private AntdUI.Table.CellStyleInfo Table_SetRowStyle(object sender, AntdUI.TableSetRowStyleEventArgs e)
+{
+    if (e.RowIndex % 2 == 0)
+    {
+        return new AntdUI.Table.CellStyleInfo
+        {
+            BackColor = AntdUI.Style.Db.ErrorBg,   // demo 只示范了 BackColor（行底色）
+        };
+    }
+    return null;
+}
+```
+
+⚠️ demo **只示范了 `BackColor`**。单元格**字体色**的官方途径是
+`raw/AntdUI/wiki-zh/Control/TableCell.md` 里各 Cell 类型的 **`Fore`（字体颜色）** 字段
+（`CellText` / `CellTag` / `CellBadge` 均标注 `**Fore** | 字体颜色`），列级属性见 `TableColumn.md`
+—— ⛔ **不要**再为此反编译 DLL（见 §0.4 违规记录）。
+
+### 4.10 ColumnCheck：单参 vs 双参 ⇒ 表头全选开关（2026-10-09 反证结论）
+
+本项目 **3 处单选场景**（`FileTraceForm.cs:59` / `ILScanForm.cs:84` / `MonitorCamScanForm.cs:85`）
+统一写法是：
+
+```csharp
+new AntdUI.ColumnCheck("Selected", "选取") { Width = "80" }.SetAutoCheck(false)
+// 注释明写：表头无全选，配合 CellClick 实现单选互斥
+```
+
+> ⭐ **反证结论**：这三处**必须显式关掉**表头全选 ⇒ **默认形态（不关）就是带表头全选的**。
+> 需要「点表头即全选/全取消」时，**双参 + 不调 `SetAutoCheck(false)`** 即可，
+> ⛔ 不需要另加「全选 / 全取消」按钮（业主 2026-10-09 口径：表头即可，节省两个按钮）。
+> 落地例：`DataReviewerPage.InitTableColumns` 的 `ColumnCheck("Selected", "选取")`。
+
+⚠️ 单参 `ColumnCheck(key)` 与双参的确切差异**无直接实证**，依据是上述反证。
+若 VS 上发现表头未出现全选框，改回双参 + 显式 `SetAutoCheck(true)` 即可。
+
+---
+
+## 4.6 Tooltip 跟随提示（2026-10-09 实证）
+
+```csharp
+private AntdUI.TooltipComponent _tooltip;   // 单实例，可对多控件反复 SetTip
+
+_tooltip = new AntdUI.TooltipComponent
+{
+    Font = new System.Drawing.Font("微软雅黑", 9.75F),
+    ArrowAlign = AntdUI.TAlign.Top,
+};
+_tooltip.SetTip(someControl, "提示文本");   // ⛔ 只用两参重载（项目实证形态）
+```
+
+- ⛔ **三参带位置的变体 `SetTip(control, text, location)` 未经实证，不要用。**
+- `SetTip` 对同一控件**支持原地更新**（重复挂同一控件即刷新文本）。
+- 范式来源：`MainPage.InitDeviceSwitchButtons`。
+- 用途：图表悬停读数（`DataReviewerPage` 用它在指针靠近数据点时显示该点 X/Y）。
+
+---
+
+## 4.11 ⭐ `Select` 下拉选择器：「安全名单」与属性边界（2026-10-09 实证）
+
+权威源：`raw/AntdUI/wiki-zh/Control/Select.md`（**25 个属性**）+ `DropdownStyles.md`（`SelectItem` 结构）。
+范式来源：`FilebackupPage.cs:78`（`Items.Add(string)` + `SelectedIndex`）/ `ProcessControlPage.cs:174`。
+
+**基本形态**（本项目 6 处 `Select` 统一写法）：
+
+```csharp
+// 初始化（先赋值再订阅，避免初始化即触发回调）
+selXxx.Items.Clear();
+selXxx.Items.Add("选项文本");          // 官方 demo 也用 string直传
+selXxx.SelectedIndex = 0;
+selXxx.SelectedIndexChanged += selXxx_SelectedIndexChanged;   // 签名：(object, AntdUI.IntEventArgs)
+
+// 读选中项
+int idx = selXxx.SelectedIndex;         // -1 表示未选
+```
+
+### ⭐ 安全名单（本项目 4 处既有 `Select` 实际只用的 9 个属性）
+
+写新 `Select` 时**照抄这几个最安全**，全部有项目实证：
+
+| 属性 | 出处 |
+|---|---|
+| `Dock` / `Location` / `Name` / `Size` / `TabIndex` / `Font` / `Margin` | WinForms 基类 |
+| `MinimumSize` | `cmbJob` / `cmbFps` / `selectRsiCycle` |
+| `PlaceholderText` | `cmbJob` / `selFlowEnableGuide` |
+
+### ⛔ 已确认**不存在**的属性（曾因此编译打回）
+
+| 我写的 | 结论 |
+|---|---|
+| `Select.ShowSearch` | ❌ **不在 `Select.md` 的 25 个属性里，也不在 `Input.md` 的 97 个里** —— 不属于任何 AntdUI 控件，纯属想当然 |
+
+> ⚠️ 本项目**两天内已 4 次**栽在「凭空造 API」上（`GetCoordinate` / `SetStyle` / `TextLength` / `ShowSearch`），
+> 共同点全是**「看起来很合理」的 API 名**。判据见 [[lessons/StaticVerifierJudgements]] §4.13。
+
+### ⚠️ 官方有但项目未实证：`DropDownArrow`
+
+`Select.md:21` 明列（默认 `false`）。本项目 4 处 `Select` **无一使用**。
+`DataReviewerPage.selSeriesGroup` 首次启用它⇒ **若上机表现异常，删掉这一行即回默认（无箭头）**。
+
+### 事件签名
+
+| 事件 | 委托 | 备注 |
+|---|---|---|
+| `SelectedIndexChanged` | `(object sender, int index)` | 本项目统一写 `AntdUI.IntEventArgs e` |
+
+⚠️ 官方事件表只给**语义参数**（`int index`），**不给 .NET 委托类型名** ⇒
+`IntEventArgs` 是**项目实证**（6 处 Select 全用它），不是文档给的。
+
+### 富样式项`SelectItem`
+
+```csharp
+selXxx.Items.AddRange(new object[] {
+    new SelectItem("带图标") { IconSvg = "<svg .../>" },
+    new SelectItem("禁用")   { Enable = false },
+    new SelectItem("子菜单") { Sub = new List<object> { new SelectItem("子项1") } },
+    new DividerSelectItem(),// 分割线
+});
+```
+来源：`AntdUIDemo/Views/SelectDemo.cs:18`。⛔ `SelectItem` 的 `Text` / `Tag` 是**必填**。
+
 ---
 
 ## 5. 对话框与消息
@@ -680,7 +1150,7 @@ private class FileTraceRow : AntdUI.NotifyProperty
 
 #### 背景
 
-AntdUI **不**推荐为每个对话窗新开 `AntdUI.Window`，而是把对话内容做成 `UserControl`，用 `AntdUI.Modal.open` 承载。本范式由 ADR-019 采纳，取代旧的 `Window+PageHeader` 范式。
+AntdUI **不**推荐为每个对话窗新开 `AntdUI.Window`，而是把对话内容做成 `UserControl`，用 `AntdUI.Modal.open` 承载。本范式由 ADR-034 采纳，取代旧的 `Window+PageHeader` 范式。
 
 #### 调用点标准写法
 
@@ -848,7 +1318,7 @@ AntdUI.Message.warn(this.FindForm(), "提示");
 
 ### 5.3 Window-PageHeader 旧范式（历史参考，已废弃）
 
-> ⚠️ **本文已废弃**：2026-07-30 经 ADR-019 采纳 AntdUI 官方 Demo 范式——对话窗改为 **Modal 承载的 `UserControl`**（取消 PageHeader），本「Window + PageHeader」方案被取代。保留作历史参考。
+> ⚠️ **本文已废弃**：2026-07-30 经 ADR-034 采纳 AntdUI 官方 Demo 范式——对话窗改为 **Modal 承载的 `UserControl`**（取消 PageHeader），本「Window + PageHeader」方案被取代。保留作历史参考。
 
 #### 旧范式要点
 
@@ -882,7 +1352,7 @@ AntdUI.Message.warn(this.FindForm(), "提示");
 |--------|--------|--------|----------|
 | `FolderBrowserDialog` | `AntdUI.FolderBrowserDialog`（`.DirectoryPath`） | `System.Windows.Forms.FolderBrowserDialog`（`.SelectedPath`） | RecordConfigForm.cs |
 | `Message` | `AntdUI.Message`（静态类） | —（与 Windows 消息 API 易混，且 `Message.*` 自身含 `Target`/`Form` 双重载） | 见 Message/Modal owner 章节 |
-| `MenuItem` | `AntdUI.MenuItem`（`.Text`/`.Tag`，用于 `Menu.Add`） | `System.Windows.Forms.MenuItem`（旧 WinForms 菜单项） | ImagePage.cs（现役 `UIDesign/TabPage/MonitorCamPage.cs`）、ParamPage.cs（现役 `UIDesign/TabPage/ParamConfigPage.cs`） |
+| `MenuItem` | `AntdUI.MenuItem`（`.Text`/`.Tag`，用于 `Menu.Add`） | `System.Windows.Forms.MenuItem`（旧 WinForms 菜单项） | ImagePage.cs（现役 `UIDesign/TabPage/MonitorCamPage.cs`）、ParamPage.cs（现役 `UIDesign/TabPage/ProcessControlPage.cs`） |
 
 ### 6.2 为什么发生
 
@@ -939,6 +1409,8 @@ if (folderDialog.ShowDialog() == DialogResult.OK)
 | 12 | `Modal.Config` 必须用 4 参构造 | 「"open"方法没有采用 1 个参数的重载」 | `new Modal.Config(owner, title, content, TType.Info)` |
 | 13 | `Table` 没有 `ReadOnly` 属性 | CS1061「"Table"未包含"ReadOnly"的定义」 | 直接删除（表格默认只读，`EditMode=None`）；列级用 `Column.SetReadOnly(true)` |
 | 14 | `GridPanel.Span` 语法须以源码为准 | 布局异常、白板、区域不可见 | 按权威语法书写；禁用 `px`/`auto`；子控件逆序入格 |
+| 15 | WinForms `ContextMenuStrip` 组件 → AntdUI 静态 `open()` | 右键菜单不弹 / CS0104 二义 | 删 Designer 内 WinForms `ContextMenuStrip` 组件（实例化/`Suspend`/`Resume`/`Items`/`ToolStripMenuItem`/`.ContextMenuStrip=`/字段），resx 删 `TrayLocation`；改 `AntdUI.ContextMenuStrip.open(ctrl, cb, items[])`（**全限定**避 CS0104）；右键触发：Table 用 `CellClick` 的 `e.Button==MouseButtons.Right`，Panel 等用 `MouseDown` 的 `e.Button==MouseButtons.Right`（详见 §3.4） |
+| 16 | `open()` 回调载荷是 `IContextMenuStrip`，不是 `IContextMenuStripItem` | **CS1503**（`Action<IContextMenuStripItem>` 无法转 `Action<IContextMenuStrip>`）+ **CS1061 ×2**（`it.ID` / `it.Text` 未定义） | 回调形参声明 `Action<AntdUI.IContextMenuStrip>`；`IContextMenuStripItem` 只是数组元素基类，仅有 `ParentItem`（详见 §3.4） |
 
 ### 7.2 详细说明（高频坑）
 
@@ -1034,6 +1506,7 @@ tabsAlgo.AddTabSelect(ilTab);
 - 在 `AntdUI.GridPanel.Span` 中使用 `px`/`auto` 等带字母单位（解析为 0→1px 白板）。
 - 假设 GridPanel 子控件按 `Controls.Add` 顺序入格——实际是**逆序**。
 - 在 `RichTextBox` → `AntdUI.Input` 迁移后仍使用 `SelectionColor`（`AntdUI.Input` 基于 TextBox，无彩色文本能力）。
+- 把 `AntdUI.ContextMenuStrip.open()` 的回调形参声明成 `IContextMenuStripItem`（必须是 `IContextMenuStrip`，否则 CS1503 + CS1061 ×2）。
 
 ---
 
@@ -1066,7 +1539,7 @@ tabsAlgo.AddTabSelect(ilTab);
 1. `AntdUI-DesignParadigm.md` — 设计范式枢纽页（第 1 节）
 2. `AntdUI-GridPanel-Span-Syntax.md` — GridPanel.Span 语法（第 2.2 节）
 3. `AntdUI-SplitterToGridPanel-FixedRegion.md` — Splitter→GridPanel 改造（第 2.4 节）
-4. `decisions/ADR-019-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
+4. `decisions/ADR-010-LayoutContainerFreedom.md` — 布局容器自由化决策（第 2.1 节）
 5. `AntdUI-Menu-Tabs-Navigation.md` — Menu + Tabs 导航（第 3.1 节）
 6. `AntdUI-Tabs-ControlsAndPages.md` — Tabs Controls.Add + Pages.Add（第 3.3 节）
 7. `AntdUI-TableColumns-DesignerSerialization.md` — Table 列与数据绑定（第 4.1 节）

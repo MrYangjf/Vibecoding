@@ -42,13 +42,13 @@ public void DisposeComponents()
 }
 ```
 
-> **⚠️ 适用范围澄清（2026-08-19，见 [[decisions/ADR-020-DisposePatternFullCoverage]]）**：
+> **⚠️ 适用范围澄清（2026-08-19，见 [[decisions/ADR-002-DisposePatternFullCoverage]]）**：
 > - `DisposeComponents()` **仅限 UI 设计器类**（Form / UserControl）使用
 > - **非 UI 类（后端类）禁止编写 `DisposeComponents()`**，必须实现标准 `IDisposable.Dispose()` 并正确释放资源
 > - **UI 类也非必需**：仅当持有「外部嵌套控件/独立资源」（代码 new 的非容器控件、单例/静态事件订阅、外部对象生命周期）时才写；无嵌套/无独立资源则不需要
 > - **禁止**修改 Designer.cs 的 `Dispose(bool)` 释放外部资源；**禁止**用 finalizer 退订事件（事件源持引用时 finalizer 永不执行）
-> - 已发现并迁移的非 UI 类误用：Workflow ×4、ZMotion ×4、Comm ×4（TCPIPComm 族），见 ADR-023 落地清单
-> - 已修复的 UI 类问题（2026-08-19 第二轮）：HelixRenderForm（还原被改的 Designer.cs + 补 DisposeComponents）、MainPage（移除无效 finalizer + 补 DisposeComponents）、CommPage/MonitorCamPage/MotionControlPage/FormMain（补 HandleDestroyed/FormClosed 退订链）
+> - 已发现并迁移的非 UI 类误用：Workflow ×4、ZMotion ×4、Comm ×4（TCPIPComm 族），见 ADR-027 落地清单
+> - 已修复的 UI 类问题（2026-08-19 第二轮）：HelixRenderForm（还原被改的 Designer.cs + 补 DisposeComponents）、MainPage（移除无效 finalizer + 补 DisposeComponents）、FilebackupPage/MonitorCamPage/MotionControlPage/FormMain（补 HandleDestroyed/FormClosed 退订链）
 > - 自审命令补充：`grep -rn "DisposeComponents" --include="*.cs" AdaWeldSystem/` 中，非 UIDesign/ 目录下不得出现 `DisposeComponents` 定义；`grep -rn "protected override void Dispose" --include="*.Designer.cs"` 应为标准生成代码（无 `_viewer`/`elementHost` 等业务资源注入）
 
 **动态逻辑：** 所有条件判断、循环等流程控制逻辑必须放在 `.cs` 文件的构造函数或 `Load` 事件中，绝不能写入 `InitializeComponent()`。
@@ -57,7 +57,7 @@ public void DisposeComponents()
 
 - 禁止在 Designer.cs 中修改 Dispose 方法
 - **禁止在 UI 类的 `.cs` 文件中重写 `Dispose(bool)` 方法**（会与设计器冲突）
-- **禁止非 UI 类编写 `DisposeComponents()`**（非 UI 类必须用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-020-DisposePatternFullCoverage]]）
+- **禁止非 UI 类编写 `DisposeComponents()`**（非 UI 类必须用标准 `IDisposable.Dispose()`，见 [[decisions/ADR-002-DisposePatternFullCoverage]]）
 - 禁止在 InitializeComponent 中使用 for/while/if 等流程控制语句
 
 ### 1.5 自审命令
@@ -379,17 +379,81 @@ MainPage mainPage;
 以下页面在构造函数或字段初始化阶段也访问了单例/全局配置，若打开其设计器时报错，需按同样模式添加守卫：
 
 - `LLCamWorkJob.cs`（现役 `UIDesign/TabPage/ILCamPage.cs`）：构造函数中订阅 `LineLaserWorkflow.Instance.*` 多个事件
-- `CommGeneralPage.cs`（现役 `UIDesign/TabPage/CommPage.cs`）：构造函数中读取 `GlobalCommData.mCommunicationManager`
-- `CommRobotPage.cs`（现役 `UIDesign/TabPage/CommPage.cs`）：构造函数中读取 `GlobalCommData.mCommunicationManager.ServerXdoc`
+- `CommGeneralPage.cs`（现役 `UIDesign/TabPage/FilebackupPage.cs`）：构造函数中读取 `GlobalCommData.mCommunicationManager`
+- `CommRobotPage.cs`（现役 `UIDesign/TabPage/FilebackupPage.cs`）：构造函数中读取 `GlobalCommData.mCommunicationManager.ServerXdoc`
 - `XMLEditor.cs`（现役 `UIDesign/TabPage/FileEditorPage.cs`）：初始化时加载 `GlobalCommData.mCommunicationManager` 中的 XML 文档
+
+---
+
+## 5. 既有 TableLayoutPanel 扩行/扩列 —— 四处必须同步
+
+> 来源：2026-09-29 监控相机页顶栏改造（ADR-046）。在既有 `TableLayoutPanel`（TLP）里**新增一行**放顶栏（`MonitorCamPage` 根表由 1 行扩为 2 行：顶行连接栏 + 内容行）时，只改 `RowCount` 是**不够的**，四处必须同时改到，否则要么布局错位、要么运行时抛异常：
+
+| # | 位置 | 漏改后果 |
+|---|---|---|
+| ① | `<TLP>.RowCount` / `.ColumnCount` | 子控件落在不存在的行列 → `ArgumentOutOfRangeException` |
+| ② | `.RowStyles` / `.ColumnStyles` 的 `Add` 条数 | 计数 ≠ Count 时布局按默认均分，尺寸全乱 |
+| ③ | 每个 `Controls.Add(ctrl, col, row)` 的**行号** | 已被移到第 1 行的子控件仍写 `row=0` → 与顶栏重叠 |
+| ④ | `SuspendLayout()` / `ResumeLayout(false)` 配对 | 新容器未挂进布局期，设计器打开即报错 |
+
+**要点**：
+- 顶栏容器用 `SetColumnSpan(顶栏, 列数)` 跨满全宽；子控件一律 `Dock = Fill`，**不要**再手工写 `Location/Size`（`Dock` 会覆盖，但两处不一致会让设计器反复重排）。
+- 顶栏横向控件的列宽用 `Absolute`（如 120 / 79 / 253 / 80 / 80），中间插入一列 `Percent 100F` 做弹性间隔 —— 直接照搬线激光页 `StatustabPanel` 的列定义即可。
+- 改完**必须**用「`RowCount`/`ColumnCount` 与 `RowStyles`/`ColumnStyles` 的 `Add` 条数一致 + 每个 `Controls.Add` 的行列索引 < 对应 Count」重建校验（本环境无 C# 编译器，走 Python 静态校验，见 [[project/vibecoding-workflow]] Step 2.6），不要凭肉眼看。
+
+---
+
+## 6. 控件与组件的设计器归属 + resx 工程登记
+
+> 来源：2026-09-30 监控相机页控件归属核查（业主口径「控件由 `*.Designer.cs` 完全设计，代码后置只做使用」）。
+
+### 6.1 归属判据（三条）
+
+| 内容 | 落点 |
+|---|---|
+| 可视控件：实例化 / 属性（`Dock`/`Size`/`FunctionalMode`…）/ 初始值（`Text`/`Checked`） | **`*.Designer.cs`** |
+| **非可视组件**（`Timer` 等 `Component`）：实例化 + `Interval` + 事件订阅 | **`*.Designer.cs`**，且 `new …(this.components)` 挂容器托管；释放交 `components.Dispose()`，代码后置只 `Start()` / `Stop()` |
+| 数据绑定 / 事件订阅 / 业务逻辑 / 运行期回填（配置值、连接态、帧图像） | 代码后置 |
+
+> ⛔ **例外（不可搬）**：`AntdUI.Table` 的 `Columns = new AntdUI.ColumnCollection{…}` 与 `Binding()` **必须留在代码后置**——`InitializeComponent` 内不可赋值 `ColumnCollection`（AntdUI 约束，全库 13 处一致，Designer 中零例）。
+
+### 6.2 五面对账（改完必跑；无编译器时用 Python 静态替代）
+
+| # | 对账 | 判据 |
+|---|---|---|
+| ① | Designer 三面 | 字段声明数 == `this.X = new …` 数；可视控件均有 `Controls.Add(this.X)` |
+| ② | 代码后置引用 | `.cs` 出现的控件标识符 ⊆ Designer 字段声明（差集 0） |
+| ③ | 组件归属 | `.cs` 中 `new Timer()`（及任何 `Component`）== 0 |
+| ④ | 事件不双写 | 同一事件 `.cs` 与 Designer 的 `+=` 计数只允许一处非 0 |
+| ⑤ | **resx 工程登记** | 磁盘 `*.resx` 集合 == csproj `<EmbeddedResource>` 集合（**双向差集均须为空**） |
+
+### 6.3 resx 漏注册（易漏项）
+
+`*.resx` 在磁盘存在但**未登记进 csproj** 时：VS 解决方案树不把它嵌套到宿主文件下（缺 `<DependentUpon>`），设计器写入的资源无法嵌入。规范条目（照既有样板）：
+
+```xml
+<EmbeddedResource Include="UIDesign\TabPage\XxxPage.resx">
+  <DependentUpon>XxxPage.cs</DependentUpon>
+</EmbeddedResource>
+```
+
+2026-09-30 实测：全库 25 个 `.resx` 中 `MonitorCamPage.resx` 是**唯一**漏注册者，已补。
+
+### 6.4 归属调整的字节安全流程
+
+1. 先探明目标文件 **BOM / 行尾**（`raw[:3]==b'\xef\xbb\xbf'`、`raw.count(b'\r\n')` 与 `raw.count(b'\n')` 之差、`raw.count(b'\r\r\n')`）；
+2. 多行锚点在 **CRLF 文件里必须用 `\r\n` 拼接**（只写 `\n` 会静默不命中，表现为「锚点命中 0 次」）；
+3. **先在内存构造完整新内容 → 断言（锚点命中数 / 关键计数 / 行数增量 / 括号与 region 平衡）→ 再一次性写盘**；断言失败即未写盘（原子安全）；
+4. 写盘后读回核对 BOM 原状、`\r\r\n == 0`、CRLF 行数增量符合预期。
 
 ---
 
 ## 来源
 
-本文档由以下四篇教训记录合并整理而成：
+本文档由以下五篇教训记录合并整理而成：
 
 - [[guides/WinForms-Designer]] — Designer.cs 不可修改原则
 - [[guides/WinForms-Designer]] — 控件实例化顺序与 GridPanel 逆序入格规则
 - [[guides/WinForms-Designer]] — resx 孤儿类型引用导致 System.Void 基类级联
 - [[guides/WinForms-Designer]] — 设计器模式单例初始化陷阱
+- 2026-09-30 监控相机页控件与组件归属核查（非可视组件 Timer 迁入设计器 + `.resx` 补注册 + 五面对账）

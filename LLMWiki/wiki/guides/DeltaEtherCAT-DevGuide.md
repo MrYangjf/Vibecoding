@@ -13,7 +13,7 @@ source: "原档 raw/delta/运动控制模块开发文档_台达版.md（目录�
 
 **基线声明**：架构形态与抽象层契约参考雷赛 `LSnmcControler`（`E:\SoftwareGit\HonorMachineTest\PcomDeviceInterface\MotionControl\`），可借鉴的六条纪律见 [[api/LeadshineLSnmc-Reference]]。本页所有台达 API 名均经本机 SDK 头文件比对核验，原档失准处见 §12。
 
-**边界声明**：振镜与对焦不属于本模块，由焊接头侧承接（见 [[modules/LaserWeldHead]]）。
+**边界声明**：振镜与对焦属于焊接头从站设备 `WeldHeadSlaveDevice`（2026-09-15 ADR-012 起归本模块，见 [[modules/MotionControl]]）。
 
 ## 章节导航
 
@@ -117,6 +117,7 @@ MotionControl/                                    # 运动控制模块（主程�
     │   ├── EtherCATMotionNative.cs              # 运动控制（CSP/CSV/CST/回零/软限位）
     │   ├── EtherCATIONative.cs                  # 数字 IO / AD / DA
     │   ├── EtherCATAdvancedNative.cs            # 高级功能（插补/龙门/锁存/虚拟坐标偏移）
+    │   ├── EtherCATMotionBufferNative.cs        # 运动缓冲（Set_Crd/Line_MultiAxis2/Start/Stop/状态/清空，2026-09-21 ADR-042）
     │   ├── EtherCATPVTNative.cs                 # PVT A 套（int 脉冲）+ B 套（double 流式）
     │   ├── EtherCATEcam2Native.cs               # ECAM2 电子凸轮（建表/啮合/调整/飞剪/状态）
     │   └── DeltaErrorCode.cs                     # 错误码常量（按功能分组）
@@ -278,7 +279,9 @@ mgr.Close();
 
 | 台达 API | 说明 |
 |----------|------|
-| `CS_ECAT_Slave_Get_Connect_Status(CardNo, NodeID, SlotNo, ref OpState, ref AlarmStatus)` | `OpState`: 0=Init,1=PreOP,2=SafeOP,3=OP；`AlarmStatus`: 0=正常,1=报警 |
+| `CS_ECAT_Slave_Get_Connect_Status(CardNo, NodeID, SlotNo, ref OpState, ref AlarmStatus)` | `OpState`: 1=Init,2=PreOP,4=SafeOP,8=OP（位掩码：0x01/0x02/0x04/0x08）；`AlarmStatus`: 0=正常,1=报警 |
+
+> **⚠️ OpState 编码更正（2026-09-18）**：台达原版开发文档把 ALState 写成 `0=Init,1=PreOP,2=SafeOP,3=OP` 枚举，但实测 `CS_ECAT_Slave_Get_Connect_Status` 返回的是 **位掩码** `0x01/0x02/0x04/0x08`，Operational 真实值为 **8** 而非 3。代码常量 `EtherCATMasterNative.OpStateOperational` 已修正为 `8`，所有前置检查（`PreMotionCheck` 等）判据须用 `OpState == 8`。原档枚举写法为文档笔误，请勿照搬。 |
 | `CS_ECAT_Slave_Request_State(CardNo, NodeID, SlotNo, OpState)` | 请求从站状态切换 |
 | `CS_ECAT_Slave_Get_EMCY_Data(CardNo, NodeID, SlotNo, ref ErrorCode, ref ErrorRegister, ref Data)` | 获取紧急消息 EMCY |
 
@@ -318,7 +321,7 @@ CS_ECAT_Slave_Motion_Sd_Stop(ushort CardNo, ushort NodeID, ushort SlotNo, double
 | `CS_ECAT_Slave_Motion_Get_Command(...)` | `ref int` | 指令位置（脉冲） |
 | `CS_ECAT_Slave_Motion_Get_Position(...)` | `ref int` | 反馈位置（脉冲） |
 | `CS_ECAT_Slave_Motion_Get_Actual_Position(...)` | `ref int` | 实际位置（脉冲） |
-| `CS_ECAT_Slave_Motion_Get_Mdone(...)` | `ref ushort` | `0`=运动中，`1`=完成 |
+| `CS_ECAT_Slave_Motion_Get_Mdone(...)` | `ref ushort` | ⚠️ **多值状态机，不是布尔**（台达手册 8.12，程式開發手冊 P8-18）：Cyclic Synchronous 系列下 `0`=靜止、`1`=加速中、`2`=常態速度（CSP）/已達目標速度（CSV）/已達目標扭力（CST）、`3`=減速中、`5`=MailBox 通訊處理中；Profile 系列下 `0`=靜止、`1`=運動中。⇒ **「運動中」= `Mdone != 0`**。⛔ 旧记「`0`=运动中，`1`=完成」系**雷赛语义误植**，已致本项目 `IsMoving()` 判据取反（2026-09-24 实测修正） |
 | `CS_ECAT_Slave_Motion_Get_Current_Speed(...)` | `ref int` | 当前速度（脉冲/s） |
 | `CS_ECAT_Slave_Motion_Get_Torque(...)` | `ref short` | 当前扭矩 |
 
@@ -346,6 +349,12 @@ CS_ECAT_Slave_CSV_Start_Move(CardNo, NodeID, SlotNo, int TargetVelocity, double 
 CS_ECAT_Slave_CST_Start_Move(CardNo, NodeID, SlotNo, short TargetTorque, uint Slope, ushort CurveMode);
 ```
 
+> **CST 输出使能没有回读接口（2026-11-09 查证，勿再重复劳动）**
+> - `raw/delta/EtherCAT_DLL_API清单.txt` L334-336：CST 章节只有 `CST_Start_Move` / `CST_Multi_Start_Move` / `CST_Output_Enable` 三个函数，**无 Get 版本**；
+> - `raw/delta/DELTA_IA-GMC_EtherCAT_PM_TC_20250428.pdf` 第 11 章（PDF 页 628-632，印刷页 11-1~11-5）同样只列这三个 API；
+> - 状态字 6041H（同手册 PDF 页 205-206，§8.11 `_ECAT_Slave_Motion_Get_StatusWord`）：位 0~15 定义里**没有扭矩输出位**，且位 12/13 在「扭力運動模式」列均为「保留」；
+> - 结论：**未找到**可回读 CST 输出使能状态的 API 或对象。软件只能以 `CST_Output_Enable` 返回值 + `GetCurrentTorque()` / `GetMoveMode()` 作间接判据。
+
 #### 回零 / 软限位 / 电子齿轮
 
 ```csharp
@@ -354,7 +363,6 @@ CS_ECAT_Slave_Home_Config(CardNo, NodeID, SlotNo, ushort Mode, int Offset, uint 
 CS_ECAT_Slave_Home_Move(CardNo, NodeID, SlotNo);
 CS_ECAT_Slave_Home_Status(CardNo, NodeID, SlotNo, ref ushort Status);   // 0=完成, 1=进行中, 其他=错误
 
-CS_ECAT_Slave_CSP_Set_Softlimit(CardNo, NodeID, SlotNo, int PosiLimit, int NegaLimit, ushort Mode);
 CS_ECAT_Slave_CSP_Set_Gear(CardNo, NodeID, SlotNo, double Numerator, double Denominator, short Enable);
 ```
 
@@ -552,7 +560,7 @@ public bool Scan(ushort cardNo)
 | | `GetAxes` / `GetInPutIOs` / `GetOutPutIOs` | `List<>` | 返回集合 |
 | | `GetControlType` | `ControlType` | 返回 `ControlType.EtherCATMaster` |
 | | `GetManufacturerType` | `ManufacturerType` | 返回 `ManufacturerType.Delta` |
-| 台达特有 | `CheckBusOK()` | `bool` | 所有从站 OpState==3 且无报警 |
+| 台达特有 | `CheckBusOK()` | `bool` | 所有从站 OpState==8 且无报警 |
 | | `SetEmergencyStop(bool)` | `void` | 全局急停（所有轴 `AxisStop(1)`） |
 
 #### Initialization 核心流程
@@ -628,8 +636,10 @@ private double ToUnit(int pulse) => pulse * Equiv;
 
 | 分组 | 方法 | 核心台达 API |
 |------|------|-------------|
-| 运动状态 | `IsMoving()` | `Motion_Get_Mdone`（`Mdone == 0` 即运动中） |
-| | `WaitMoveDone()` | 轮询 `IsMoving()`，超时 60s |
+| 运动状态 | `IsMoving()` | `Motion_Get_Mdone`，**「運動中」= `Mdone != 0`**（台达手册 8.12 P8-18：Cyclic Synchronous 下 `0`=靜止 / `1`=加速中 / `2`=常態速度 / `3`=減速中 / `5`=通訊中）。⛔ **旧实现写 `Mdone == 0`（雷赛语义误植）恰好取反**，后果与现场日志逐条吻合：指令刚下发（`Mdone=1` 加速中）被判「已停止」⇒ 当拍跳到位判定、必然未到位而反复重发（日志 L10→L11）；轴到位静止（`Mdone=0`）反被判「仍在运动」⇒ 等停 15s 超时（日志 L40）。2026-09-24 已修正 |
+| | `WaitMoveDone()` | 轮询 `IsMoving()`，超时 60s（⚠️ 同样须两段判，否则未启动即被当作已到位） |
+| | `IsAlarm()` | `Motion_Get_StatusWord`，bit3(`0x0008`)=Fault（**2026-09-24 新增**，供收尾「按需清报警」判据） |
+| | `SetSoftTargetReach()` / `TryGetSoftTargetReachStatus()` | `CSP_Set_SoftTargetReach` / `CSP_Get_SoftTargetReach_Status`（**CSP 族专用的到位判定**，2026-09-24 依官方头文件封装；⚠️ 取值语义与位置窗口单位待手册核实，**未接入控制判据**） |
 | | `AxisStop(ushort)` | `0`→`Motion_Sd_Stop`，`1`→`Motion_Emg_Stop` |
 | 伺服控制 | `IsServoOn()` | `Motion_Get_StatusWord`，bit2(`0x0004`)=Operation enabled |
 | | `ServoOn()` | 查报警→`Set_Move_Mode(8)`→`Set_Svon(1)`→轮询 bit2，超时 3s |
@@ -648,7 +658,7 @@ private double ToUnit(int pulse) => pulse * Equiv;
 | 状态读取 | `GetCurrentSpeed()` | `Motion_Get_Current_Speed` → 工程单位/s |
 | | `GetCurrentTorque()` | `Motion_Get_Torque` |
 | | `GetStatusWord()` | `Motion_Get_StatusWord` |
-| 台达特有 | `SetSoftLimit(double, double, bool)` | 软限位（工程单位→脉冲） |
+| 台达特有 | `TorqueOutputEnabled` / `TorqueRetractFailed` / `TorqueRetractFailCode` | 力矩输出态与撤力结果（只读；撤力失败时输出态保持 true，不伪造硬件真值） |
 | | `ChangeTargetPosition(double)` | `CSP_TargetPos_Change` |
 | | `ChangeSpeed(double, double)` | `CSP_Velocity_Change` |
 
@@ -1059,7 +1069,7 @@ foreach (var servo in servos)
 | `MontionAxis.JogMove` | `CSP_Start_V_Move` | 速度→脉冲/s |
 | `MontionAxis.AxisStop(0/1)` | `Motion_Sd_Stop` / `Motion_Emg_Stop` | — |
 | `MontionAxis.GetPosition` | `Motion_Get_Position` | 脉冲→工程单位 |
-| `MontionAxis.IsMoving` | `Motion_Get_Mdone` | — |
+| `MontionAxis.IsMoving` | `Motion_Get_Mdone` | ⚠️ **「運動中」= `Mdone != 0`**（台达为多值状态机，非布尔；旧实现 `== 0` 取反，2026-09-24 依手册 P8-18 修正） |
 | `MontionAxis.GetCurrentSpeed` | `Motion_Get_Current_Speed` | 脉冲/s→工程单位/s |
 | `MontionAxis.GetCurrentTorque` | `Motion_Get_Torque` | — |
 | `InputIO.GetIOStatus` | `DIO_Get_Single_Input_Value` | — |
@@ -1156,11 +1166,181 @@ print("文档声称但 SDK 不存在：", sorted(claimed - sdk_names))
 
 > 振镜与对焦不在本模块，由焊接头侧承接：`ILaserWeldHeadController.SetAutoFocusPosition` 已覆盖对焦，振镜接口待焊接头文档定义。
 
+### 15.1 待补清单（本地原始手册缺失项）
+
+> 2026-11-03 现场 4609 排查时逐项核对本地资料（`raw/delta/` 全部文件、`raw/wsx/EtherCAT协议.xlsx`）后确认**没有原文依据**的条目。未补齐前，代码只能做保守拦截，不得按通用 CiA402 知识当作台达结论。
+>
+> **2026-11-03 更新**：业主补交三张台达截图（见 §15.2），下表第 1、2 项已被部分/全部解决，已用 ✅ 标注；其余项仍无原文依据，保留。
+
+| # | 缺失项 | 现状 | 影响 | 需要的原始依据 |
+|---|--------|------|------|----------------|
+| 1 | **回零模式号语义表** | ✅ **已解决**（2026-11-04）：业主确认扭矩回零 = **-3**；图1 范围 -4~35。官方手册 §12（P634/P637）只列 **1~35** 并称「主站可下達 35 種原點復歸模式」，**未列负值**。**2026-11-04 台达正式书面/口头确认**：`Home_Config` 的 Mode 为 U16，负值只需**底层强制类型转换**（`-2`=65534、`-3`=65533，标准补码，非偏移）；原「-2→65533」口述判定为举例笔误。负值段手册正文仍缺（两份 PDF + 安装目录 20 份 PDF 均无 ASDA 伺服手册），依据记为「厂商确认」，实现为 `Home_Config` 单路径 + 回读反解（§15.5.1） | 已可正确配置；负值段语义无手册正文 | 见 §15.4、§15.5、§15.5.1 |
+| 2 | **回零 DI 位号/电平/超时** | ✅ **已解决（仅限模式-3）**：图3 判据只有「扭力达到 P1.087 且持续 P1.088」，不需原点开关/Z 相；手册 §12 模式表未含负值，无法补负值 DI 说明。**2026-11-05 补充**：P1.087/P1.088 由**驱动器默认参数**决定，控制器不写（现场 -3 回零已实测正常），故本项不再需要控制器侧 DI/参数依据 | 模式-3 可按扭力回零实施；模式 4 的 DI 需求仍未确认 | 模式 4 仍需手册回零 DI 配置 |
+| 3 | **`CST_Start_Move` 的 `Curve_Mode`** | ✅ **已解决（2026-11-04 手册）**：§11.1（P630）「1：直線加速（預設值）／2：曲線加速」；代码常量由 0 改为 **1**，已消除非法值 0 | — | 手册 §11.1 P630 |
+| 4 | **CST 目标扭矩量纲/范围** | ✅ **已解决**：§11.1（P630）`Target_Torque I16 千分比 1~1000`；代码按 1000 满量程与手册一致；⚠️ 0 会触发 4609/0x1201 | — | 手册 §11.1 P630 |
+| 5 | **CST 扭矩爬升速率 Slope 单位/下界** | ✅ **已解决**：§11.1（P630）`Slope U32 0.1%/秒`；代码仅拦 0，但现场 `TORQUE_SLOPE=0` 属非法（需 ≥1） | 现场仍填 0 时 CST 下发必返 4609 | 手册 §11.1 P630 |
+| 6 | **力→扭矩换算系数** | `TaForceN`（N）直接 cast 成额定千分比，未做换算 | 下压力与实际力矩非线性相关 | 送丝机构参数（丝杠导程/减速比）+ 电机额定扭矩 |
+| 7 | **回零完成判据** | ✅ **已解决**：§12.3（P653）`Home_Status`：0=未运动/已完成（6041h Bit12）、1=运动中（Bit10）、2=中止（6040h Bit8）、3=错误（Bit13）；代码已新增 status=3 拦截 | 已与手册一致 | 手册 §12.3 P653 |
+| 8 | **`Home_Move` 是否内部切 6=Homing 模式** | ❌ **手册未覆盖**：§12 只说「主站可下達 35 種復歸模式」，未写是否内部切模式；代码仍未显式 `Set_MoveMode(6)` | 若现场回零返回 4612(MODE_NOT_SUPPORT)，需显式切 6 | 手册未覆盖；需现场或台达确认 |
+
+> 补齐方式：取得台达官方手册后，先更新本表「现状/依据」，再改 `DeltaMontionAxis` 常量与提示文案；`HomingMode` 枚举未使用前不得作为配置校验依据。
+
+### 15.2 扭矩回零参数原文（2026-11-03 业主提供，三张截图为唯一权威依据）
+
+> 素材：`raw/delta/台达_扭矩回零_OD参数表_1.jpg`（图1）、`raw/delta/台达_扭矩回零_CoE索引_2.jpg`（图2）、`raw/delta/台达_扭矩回零_ASDA原点回归_3.jpg`（图3）。下表逐字抄录；看不清或有歧义一律标「原图不清，待确认」，禁止补值。
+
+| 参数名 | 台达原文名 | 单位/量纲 | 取值范围 | 默认值 | 生效条件 | 出处 |
+|---|---|---|---|---|---|---|
+| 回零方式 | Homing method（16#6098:00） | — | -4 ~ 35 | 35 | 写 16#6098:00 后，下一次回零 | 图1 第4行；图2 `Coe_HomeMode` 注释「转矩回零模式参数写入」 |
+| 回零加速度 | Homing acceleration（16#609A:00） | 图1 未标；图3 为 ms | 0 ~ 4294967295 | 100 | 写 16#609A:00 后，下一次回零 | 图1 第5行；图2 `Coe_HomeAcc`；图3「原点回归加速时间 100 [ms]」 |
+| 回零高速 | Speed during search for switch（16#6099:01） | 图1 未标；图3 为 0.1 rpm | 图1 范围列为空，**原图不清，待确认** | 100 | 写 16#6099:01 后，下一次回零 | 图1 第6行；图2 `Coe_HomeHighSpd`；图3「搜索开关的原点回归速度 100 [0.1 rpm]」 |
+| 回零低速 | Speed during search for zero（16#6099:02） | 图1 未标；图3 为 0.1 rpm | 图1 范围列为空，**原图不清，待确认** | 20 | 写 16#6099:02 后，下一次回零 | 图1 第7行；图2 `Coe_HomeLowSpd`；图3「搜索 Z 相脉冲时的原点回归速度 20 [0.1 rpm]」 |
+| 转矩限制 | 转矩限制参数（16#6072:00） | 原图未给 | 原图未给 | 原图未给 | 写 16#6072:00 后生效 | 图2 `Coe_TorqueLimit` 注释「16#6x72,x=nx800,索引=0,转矩限制参数」 |
+| 侦测扭力基准 | P1.087（ASDA Soft「侦测扭力基准」） | % | 原图未给 | **原图不清，待确认** | 驱动器参数，扭力回零时作为碰撞判定阈值 | 图3 参数行；图3 说明与曲线标注 |
+| 停止位到达时间 | P1.088（ASDA Soft「停止位到达时间」） | ms | 原图未给 | 2000 | 扭力达到阈值并持续该时间后停止 | 图3 参数行；图3 说明与曲线标注 |
+
+图3 原文说明（抄录）：「模式-3：正转方向找碰撞」「执行原点复归指令后，轴开始以第一段正转运动搜索碰撞垫，当输出的扭力达到侦测扭力准位（P1.087）且持续超过时间时（P1.088），伺服停止运行；完成原点复归。执行扭力回归原点后，复归时需特别注意，马达实际输出的最大扭力会大于扭力限制设定（P1.087）的 10%，过大的撞击力可能会造成机械的损坏。」
+
+图3 曲线标注（抄录）：开始位置 / 停止位置 / 正向 / 侦测扭力准位(P1.087) / 10% / 最大扭力输出 / 寻找碰撞垫时的扭力曲线 / 停止位到达时间(P1.088)。
+
+图2 原文代码（抄录）：
+
+```st
+Coe_TorqueLimit :=16#6072+(iSubIndex_Axis-1)*16#800 ; //16#6x72,x=nx800,索引=0,转矩限制参数
+Coe_HomeMode    :=16#6098+(iSubIndex_Axis-1)*16#800 ; //16#6x98,x=nx800,索引=0,转矩回零模式参数写入
+Coe_HomeHighSpd :=16#6099+(iSubIndex_Axis-1)*16#800 ; //16#6x99,x=nx800,索引=1,回零高速
+Coe_HomeLowSpd  :=16#6099+(iSubIndex_Axis-1)*16#800 ; //16#6x99,x=nx800,索引=2,回零低速
+Coe_HomeAcc     :=16#609A+(iSubIndex_Axis-1)*16#800 ; //16#6x9A,x=nx800,索引=0,回零加速时间
+```
+
+#### 15.2.1 结论（严格以原文为限）
+
+1. **扭矩回零走 CoE 写 OD**：图2 原文以 `16#6098 / 16#6099:01 / 16#6099:02 / 16#609A` 直接写驱动器对象，而不是 `Home_Config` 的 `ushort Mode` 参数。
+2. **模式-3 不需要原点开关 / EZ**：图3 原文的停止判据只有「输出扭力达到 P1.087 且持续 P1.088」，未提任何 DI、原点开关或 Z 相脉冲，故模式-3 无 DI 配置要求。
+3. **模式 4 资料未覆盖**：三张图均未给出 16#6098=4 的语义，因此「模式 4 是否需要原点开关/EZ、需要哪些 DI」→ **资料未覆盖**，不能据现有资料下结论。
+4. **「模式-3」= -3**（2026-11-04 业主确认，已用于实现）；图3 本身只写「模式-3」，未写 16#6098 数值，原始判定「原图不清，待确认」存档于此。
+5. **P1.087 / P1.088 数值与量纲由驱动器默认值决定（2026-11-05 最终口径）**：图3 侦测扭力基准数值框内容不清、图2 只给索引不给数值/单位；台达结论「伺服参数用驱动器默认参数即可」+ 现场实测 -3 回零正常 → 控制器不写、不读、不提供入口，原「待确认」不再阻塞。16#6072 数值/单位仍属手册未覆盖。
+
+### 15.3 写侦测参数接口原文与项目 API 对照（2026-11-04 图4）
+
+> 素材：`raw/delta/台达_扭矩回零_写侦测参数接口_4.jpg`（图4）。逐字抄录，原图不清不补值。
+
+图4 原文（两个功能块调用）：
+
+| 调用 | 参数 | 原文值 | 说明 |
+|---|---|---|---|
+| `WriteParameter_CoE_HomeTor(` | `uiIndex` | `16#2157` | 侦测扭力准位（P1.087） |
+| | `usiSubIndex` | `iSubIndex_Axis` | 轴索引 |
+| | `usiDataLength` | `2` | 2 字节 |
+| | `dwValue` | `dwHomeTor` | 写入值 |
+| `WriteParameter_CoE_HomeTime(` | `uiIndex` | `16#2158` | 侦测扭力时间（P1.088） |
+| | `usiSubIndex` | `iSubIndex_Axis` | 轴索引 |
+| | `usiDataLength` | `2` | 2 字节 |
+| | `dwValue` | `dwHomeTime` | 写入值 |
+
+两个调用的公共端口：`xExecute / xDone / xBusy / xError / eError / xAbort / pAxis / pEncoder / pETCSlave / dwErrorCode`。
+- 返回码：图4 只给 `xDone/xBusy/xError/eError/dwErrorCode` 端口，**未给具体数值表** → 原图不清，待确认（项目按 DLL 返回码 0=成功处理）。
+- 函数族：图4 是 PLC 侧封装的 `WriteParameter_CoE_*` 功能块（CoE=SDO），**不是 DLL 导出名**。
+
+#### 15.3.1 项目对应 API（逐条）
+
+| 图4 接口 | 项目是否有 | 项目 API / 现状 |
+|---|---|---|
+| `WriteParameter_CoE_HomeTor`（16#2157:sub） | ❌ 无同名；✅ 有同义 | `CS_ECAT_Slave_DeltaServo_Write_Parameter(CardNo, NodeID, SlotNo, Page, Index, WriteData)`：Page=1、Index=87（=0x57，对应 16#2157） |
+| `WriteParameter_CoE_HomeTime`（16#2158:sub） | ❌ 无同名；✅ 有同义 | 同上：Page=1、Index=88（=0x58，对应 16#2158） |
+| 回读验证 | ❌ 图4 未给 | `CS_ECAT_Slave_DeltaServo_Read_Parameter(..., ref ReadData)`（官方清单存在，本轮已补封装） |
+| 通用 CoE/SDO 写 | ✅ | `CS_ECAT_Slave_SDO_Quick_Send_Message(CardNo, NodeID, SlotNo, Index, SubIndex, Size, ref byte)`（`EtherCATMasterNative` 已封装，`DeltaSlaveDevice` 在用） |
+
+封装状态：`DeltaServo_Write/Read_Parameter` 在官方 `EtherCAT_DLL_API清单.txt` 中存在，但项目此前**未封装**；本轮已按既有 `DllImport` 范式补进 `EtherCATMasterNative`。
+
+#### 15.3.2 结论
+
+1. **-3 可行（2026-11-04 修正为单路径）**：`Home_Config` 的 `Mode` 是 U16，台达正式确认「负值只需底层强制类型转换」→ 负值按 16 位补码（-3 → 65533）直接传 `Home_Config`，单位按 §15.4 用 rpm/ms。原 CoE 写 `16#6098/6099/609A` 分支已删除；仅保留 SDO **回读** 6098 做现场核对。
+2. ~~P1.087/P1.088 写入方式~~ **2026-11-05 本项已废弃**：控制器不再写这两个伺服参数（台达口头结论 + 现场实测 -3 回零正常）；`DeltaServo_Write/Read_Parameter` 与通用 SDO 写读封装均无调用方，**勿再尝试写 16#2157 / 16#2158**（现场写后回读报 `4869`，手册未收录/未确证）。
+3. **“写入即自动生效”**：图4 只给参数写功能块，**未写任何自动回零/自动生效语句** → **业主判断，资料未覆盖**。代码以回读值为准，不假设。
+4. **回零速度单位（2026-11-04 手册修正）**：图3 标 0.1 rpm，但官方手册 §12.1（P636）明确「台達伺服驅動器：rpm」，`Acceleration` 为毫秒（0→3000rpm 时间）；**以手册为准，按 rpm/ms 直写，不再 ToPulse 换算**。图3 的 0.1 rpm 属 OD 显示口径，与 API 入参口径不同。
+
+### 15.4 官方手册核对结果（2026-11-04，`DELTA_IA-GMC_EtherCAT_PM_TC_20250428.pdf`）
+
+> 素材已归位：`raw/delta/DELTA_IA-GMC_EtherCAT_PM_TC_20250428.pdf`（1018 页，2025-04-28，官方）；`raw/delta/DELTA EtherCAT UserGuild.pdf`（59 页，2019-06，仅安装/配线/轴卡参数，无 6098/6099/P1 内容）。页码为 PDF 物理页。
+
+| 项 | 手册原文摘录 | 页码 | 结论 / 与实现差异 |
+|---|---|---|---|
+| `Home_Config` 的 Mode | `U16 PASCAL _ECAT_Slave_Home_Config (U16 CardNo, U16 NodeID, U16 SlotNo, U16 Mode, I32 Offset, U32 FirstVel, U32 SecondVel, U32 Acceleration)`；§12 开篇「EtherCAT主站可下達 35種原點復歸模式」；模式表仅 1~35（15/16、31/32 保留） | **P635-638** | Mode 为 **U16**；手册**未列负值段**。2026-11-04 台达正式回复确认「U16 形参，负值需底层强转」→ 按标准补码统一走 `Home_Config`（`-3 → 65533`）。全文 `65533` 仅 1 处且属 MRAM 无关示例（P911），无补码换算说明 → 负值段**手册未覆盖**，依据为厂商确认 |
+| `16#6099:01/02` 单位 | 参数表「FirstVel … 單位：**台達伺服驅動器：rpm**」「SecondVel … 台達伺服驅動器：rpm」 | **P636** | **rpm**，不是 0.1 rpm、也不是 pulse/s → 已修正实现（去掉 ToPulse） |
+| `16#609A` 单位 | 「Acceleration … 毫秒」；注「為馬達由 0 rpm 加速到 3000 rpm 所需時間」 | **P636** | **ms**，与实现一致 |
+| `P1.087` / `P1.088` | 两份 EtherCAT 手册全文检索均无定义；**但** `raw/delta/台达_扭矩回零_ASDA原点回归_3.jpg`（ASDA 伺服手册「原点回归模式 -3」页截图）写明：P1.087=侦测扭力准位（%）、P1.088=准位到达计时（ms），并注「马达实际输出的最大扭力会大于扭力限制设定（P1.087）的 10%」；`Delta ASDA-x3-E rev0.05.xml` ESI 的 `0x2157/0x2158` 命名为 `DRV's Parameter P1-87/P1-88`（UINT/16bit/rw，**无 SubIndex**） | **P776-781（接口）/ ESI** | **索引映射已确证（仅存档，实现已废弃 2026-11-05）**：`16#2157=0x2100+0x57` 即 P1.087，`16#2158` 即 P1.088；`DeltaServo_Write_Parameter(Page=1, Index=87/88)` 与之一致。**单位口径**：P1.087=1%、P1.088=ms（与 `ROOT/TA_HOME` 的 `DETECT_TORQUE_PERCENT`/`STOP_ARRIVAL_MS` 一致）；范围/默认值/EEPROM 保存仍**未确证** |
+| `16#6072` | 仅作为 SDO 写示例出现（`Index = 0x6072`），无单位/范围说明 | **P435（示例）** | 手册未覆盖 |
+| 错误码 | `5376=0x1500=ERR_ECAT_SERVO_PARA_EMPTY`；手册原文（p.961 详表）：**「錯誤說明：此驅動器參數不存在」／「錯誤排解：請確認台達驅動器有支援您所下達的參數代碼」**（p.942 为同一码的对照表行）。其余：`4609=ERR_ECAT_API_PARAMETER`、`4612=ERR_ECAT_MODE_NOT_SUPPORT`、`4617=ERR_ECAT_HOME_MODE`、`4618=偏移`、`4619=第一段速度`、`4620=第二段速度`、`4621=加速度`、`5377=ERR_ECAT_SERVO_PARA_RO` | **P942（对照表）/ P961（详表）** | **0x1201 = 4609**；**5376 不是数值越界/使能前置，而是「该伺服不存在此参数」**——P1 写入遇 5376 时应查驱动器型号参数表，不要改数值重试 |
+| `Home_Status` | 0=未运动或已完成（6041h Bit12 Homing Attained）；1=运动中（Bit10 Target Reached）；2=中止（6040h Bit8 Halt）；3=回零错误（6041h Bit13） | **P653** | 已按手册补 status=3 拦截 |
+| CST `Curve_Mode` | 1=直線加速（預設值）；2=曲線加速 | **P630** | 常量由 0 改为 **1** |
+| CST `Target_Torque` | I16，千分比，范围 **1~1000** | **P630** | 与 `TorqueRatedPermille=1000` 一致；0 非法 |
+| CST `Slope` | U32，**0.1%/秒** | **P630** | 现场 0 非法 |
+| `DeltaServo_Write_Parameter` | `U16 PASCAL _ECAT_Slave_DeltaServo_Write_Parameter (U16 CardNo, U16 NodeID, U16 SlotNo, U16 Page, U16 Index, int WriteData)`；示例 `Page=3, Index=0` 即 P3-00 | **P778** | 与项目 DllImport 一致；Page=1 → P1 |
+
+### 15.5 转矩回零（模式 -3）完整流程（手册 + 图2/3/4 合并）
+
+1. **前置**：总线 OP、伺服已使能、无报警；`Home_Status` 不得为 1（进行中）或 3（回零错误）。
+2. ~~写侦测参数~~ **2026-11-05 已删除**：P1.087/P1.088 由驱动器默认参数决定，控制器不写不读（现场写 16#2157 后回读报 4869，手册未收录）。`SaveTaHomeConfig()` 与 `StartHome()` 均不再下发 P1。
+3. **一次调用写入模式/速度/加速**：`_ECAT_Slave_Home_Config(Mode=(ushort)(-3 & 0xFFFF)=65533, Offset, FirstVel=rpm, SecondVel=rpm, Acceleration=ms)`；写后 SDO 回读 `16#6098` 并反解打印两端值。
+4. ~~分别写 `16#6098/6099/609A`~~：**已删除**（不保留 CoE 下发双主路径）。
+5. **启动**：`_ECAT_Slave_Home_Move`。
+6. **判据**：`Home_Status=0`（6041h Bit12 Homing Attained）为控制器侧观测；「扭力达到 P1.087 并持续 P1.088」由**驱动器默认参数**在伺服内部判定，控制器不参与、不配置。
+7. **常见错误码**：4609（参数错误，含把 -3 强转 ushort 的情形）、4617~4621（模式/偏移/速度/加速度非法）、5376/5377（P1 参数不存在/只读）、4612（非回零模式调用回零类 API）。
+8. **仍未确认（已不再阻塞本项）**：~~P1.087/P1.088 的范围/默认值/EEPROM 保存/是否自动生效~~ —— 2026-11-05 结论：由驱动器默认参数决定，现场 -3 回零已实测正常；仍缺 = 6072 单位与范围、`Home_Move` 是否内部切 6、负值段语义（官方 GMC 手册未列，**台达安装目录无 ASDA-A3/B3 伺服手册**，依据为厂商确认，不再阻塞）。
+9. **现场错误码边界（2026-11-04 / 2026-11-05 实测）**：`5376=0x1500` 是「此驱动器参数不存在」，与数值越界、伺服使能、运行模式均无关；`4869` 为**本次新增现场码**（写 16#2157 后回读发起返回），**手册未收录/未确证**，⛔ 不猜官方含义。两者均指向同一结论：控制器侧写 P1.087/P1.088 不可用 → 改由驱动器默认参数决定（已现场实测 -3 回零正常）。
+   - ~~未确证：现场 TA 伺服型号与固件版本~~、~~需要业主向台达索要完整参数表/对象字典/替代参数~~：**2026-11-05 已闭环**——无需再向台达索取 P1 参数资料；若日后机构或丝径变化导致默认值不合适，**在驱动器侧（ASDA Soft）调整**，控制器不提供该配置入口。
+
+#### 15.5.1 负值编码最终裁决与下发样例（2026-11-04 台达确认）
+
+| 逻辑模式 | 标准 16 位补码（**采纳**） | 单字节 | 现场早前口述 | 结论 |
+|---|---|---|---|---|
+| -1 | 65535 `0xFFFF` | `0xFF` | — | 一致 |
+| -2 | **65534 `0xFFFE`** | `0xFE` | 65533 | 口述值等于 -3 补码，判定举例笔误 |
+| -3（扭矩回零） | **65533 `0xFFFD`** | `0xFD` | — | 采用 |
+| -4 | 65532 `0xFFFC` | `0xFC` | — | 一致 |
+
+- **台达确认（2026-11-04）**：原话「API 那个回零模式的参数定义的数据类型是 16 位无符号，你输参数需要底下强制转一下类型」→ **U16 强转、标准补码即正确编码**，不存在偏移编码。
+- **手册状态**：GMC 手册 P636 只给 `Mode U16` 并转引「台达伺服驱动器复归模式说明」，§12 表只列 1~35；两份 PDF（1018 页 + 59 页）均**未覆盖负值段**。台达安装目录 `D:\Program Files (x86)\Delta Industrial Automation\EtherCAT`（20 份 PDF，仅运动控制器/API 类）**无 ASDA-A3/B3 伺服手册** → 负值段无手册正文可引，以厂商确认为裁决依据。
+- **下发路径（单路径）**：**`Home_Config` 统一**（正负值同链）→ `Home_Move`；CoE 6098 下发分支已删除，仅保留 SDO 回读校验。
+- **统一换算**：`ToHomeModeWord(short mode) = (ushort)(mode & 0xFFFF)`，保存与下发共用；回读 `ToHomeModeLogical(byte raw) = raw >= 0x80 ? raw - 0x100 : raw`。日志样例：
+  `回零模式换算 逻辑 -3 → 下发值 65533（16 位 0xFFFD，单字节 0xFD）`
+  `回零模式回读 下发值 65533 → 反解逻辑 -3`
+- **校验范围**：UI 弹窗 / CSV 导入 / 轴配置保存统一 **-4~35**（`MotionConfigImporter.ToIntRange`、`SystemControlPage`、`FilebackupPage`）。
+- **已现场验证（2026-11-05）**：`-3` 扭矩回零正常（回零成功、table 有反馈）→ `Home_Config` 接受 U16 补码 65533 且驱动器正确解释负值模式；「无板卡未实机」标注作废。
+
+### 15.6 TA 轴参数弹窗（通用区 + 特有区，2026-11-04 二次修订）
+
+- **形态**：TA 表「参数」`CellButton` → 共用 `AxisConfigForm`（`(DeltaAxisConfig, DeltaTaHomeConfig)` 重载），AntdUI `Modal` 包裹。Y 轴仍走单参构造（19 行、无校验、解析失败保留原值），**行为零变化**。
+- **两段式**：通用区（轴名/NodeId/SlotNo/启用/Equiv/速度/加减速/S曲线/软限位）落 `ROOT/AXES/AXIS[AXIS_NAME=TA_AXIS_NAME]`；特有区（回零模式、寻找/爬行速度、回零加减速）落 `ROOT/TA_HOME`（**2026-11-05 删除 P1.087/P1.088 两行/两键**；特有区现为「回零参数 / 工作零位 / 力—力矩换算 / 力矩输出」四段，TA 弹窗实测 29 行）。`HomeOffset` 无 `TA_HOME` 键，唯一落 AXIS。
+- **唯一化**：TA 的 `AXIS/HOME_*` 与 `TA_HOME/TA_HOME_*` 在保存后同值，但**只有 `TA_HOME` 可编辑**；`AXIS/HOME_*` 由 `SaveConfig` 从 `TaHome` 派生镜像，供 CSV / 备份页预览 / `ApplyAxisConfig` 兜底。弹窗不回写 AXIS 的 HOME_*。
+- **装载**：控制器照旧从 XML 装载两轴；`CreateAxesFromConfig → ApplyAxisConfig → ApplyTaHomeOnLoad`，仅轴名等于 `TA_AXIS_NAME` 时用 `TaHome` 覆盖六参并记日志；Y 轴不命中。旧文件缺 `TA_HOME` 由 `LoadTaHome` 从 AXIS seed，覆盖值与镜像一致。
+- **校验**：TA 弹窗「确定」先跑 `Validate()`（中文逐项提示、非法值零写入）；范围模式 `-4~35`、速度 `>0`、正软限位 `≥0`、负软限位 `≤0`（~~扭矩 `0~1000%`、停止位 `0~60000ms`~~ 2026-11-05 随字段删除）；Y 轴路径不调用。
+- **布局（2026-11-04 三轮修订）**：⛔ 不写死 `Size`/行高。行高 = `Font.Height + 14`（下限 30）、分区标题 +6；标签列宽由 `TextRenderer.MeasureText` 实测取最大（上限 420）；输入列 `SizeType.Percent=100` 等宽；输入控件置于单元格宿主按 `(cellH-editorH)/2` 垂直居中（⛔ `Dock=Fill` 会贴顶造成标签/输入框基线歪斜）；标签 `AutoSize=false + AutoEllipsis`（⛔ `AutoSize=true` 换行会压住下一行）。高度 = 内容高 + 内边距 + 44 底栏，上限 `WorkingArea.Height - 96`，超限整表 `Panel.AutoScroll` 竖向滚动（AntdUI 无对应容器，原生兜底）。
+- **Modal 尺寸语义（实测）**：`Modal.open` 承载 `Control` 时，宿主窗体 = 控件 `Size` + 48(宽) / +62(高)；`Config.Width` 对控件型内容**不生效**（480 与 480+Width=560 的宿主窗体实测同尺寸）。→ 尺寸只需在 `UserControl` 内算准，调用点不传 `Width`。
+
 ---
+
+### 15.7 P1.087 / P1.088 废弃与 4869（2026-11-05，最终口径）
+
+> **本项已废弃，勿再尝试 SDO 写 16#2157 / 16#2158。** 决策全文见 [[decisions/ADR-080-DeltaTorqueHomingSignedModeAndDetectParams]] §D6。
+
+| 项 | 结论 |
+|---|---|
+| 现场现象 | `送丝力矩电机 P1.087 侦测扭力准位(%) 对象 16#2157 写入后回读失败 原因 SDO 读取发起返回 4869（）` |
+| 4869 | **手册未收录 / 未确证**：本地两份手册（GMC 1018 页 P939-943/P961、UserGuild 59 页）与台达安装目录 20 份 PDF 均无该码；⛔ 不猜含义 |
+| 台达结论（口头） | 「这两个是伺服参数，不需要控制器设置，用驱动器默认参数即可。」 |
+| 业主要求 | 「这两参数直接丢掉，不要再写配置，删除这段设置。」 |
+| 代码处置 | `ApplyTorqueHomeDriveParams` / `ApplyTorqueHomeParamsBeforeServoOn` / `WriteAndVerifyServoParameter` / `WriteCoEObject` / `ReadCoEObject` / `WaitSdoDone` / `DescribeSdoAbort` / `_torqueHomeCoEObjectMissing` 全删；`ServoOn()`、`StartHome()` 调用同步删除；`EtherCATMasterNative` 3 个 SDO 读/错误码 P/Invoke 删除（`SDO_Quick_Send_Message`/`Check_Done` 保留，`DeltaSlaveDevice` 在用） |
+| 配置/界面 | `DetectTorquePercent` / `StopArrivalMs`、`HomeDetectTorquePercent` / `HomeStopArrivalMs`、`TA_HOME_DETECT_TORQUE` / `TA_HOME_STOP_ARRIVAL_MS` 读写、弹窗「扭矩侦测」分区与两行校验、`SaveTaHomeConfig` 相关赋值、自愈模板项全部删除 |
+| 旧配置兼容 | 现场 XML 残留四键 = **遗留键，不再生效**：加载忽略、不报错、不删除；`EnsureXml` 只增不改，旧值保留；新模板不再生成 |
+| 回零判据后果 | `-3` 的到位判据（扭力阈值 + 持续时间）**完全由驱动器默认 P1.087/P1.088 决定**，控制器只下发 `Home_Config` + `Home_Move` + 观测 `Home_Status` |
+| 现场验证 | **已实测（2026-11-05，业主）**：-3 扭矩回零正常（回零成功、table 有反馈）→ 删除不造成功能损失，默认参数对该机构够用 |
+| 可追溯边界 | 若日后机构或丝径变化导致默认值不合适，**在驱动器侧调整**；控制器不提供该配置入口，项目不再新增该链路 |
 
 ## 相关页面
 
 - [[api/DeltaEtherCAT-Native]] — 832 个台达 API 分组速查（SDK 实证）
 - [[api/LeadshineLSnmc-Reference]] — 雷赛参考基线（抽象层形态与六条纪律）
 - [[modules/MotionControl]] — 运动控制模块页
-- [[decisions/ADR-032-MotionControllerDeltaReplacement]] — 运动控制器选型决策
+- [[decisions/ADR-027-MotionControllerDeltaReplacement]] — 运动控制器选型决策

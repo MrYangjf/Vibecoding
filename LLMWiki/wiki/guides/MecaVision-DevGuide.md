@@ -2,17 +2,29 @@
 title: MecaVision 监控相机开发指导
 date: 2026-09-08
 tags: [指导, 相机, 监控相机, MecaVision, MVSDK, 麦格威]
+status: deprecated
 source: raw/knowledge/监控相机开发指导_MecaVision版.md（二手，已核验订正）+ raw/mecavision/（SDK 原文）
 ---
 
 # MecaVision 监控相机开发指导
 
+> ⛔ **本页已废弃（2026-09-29，ADR-047）**：麦格威即海康魔改底层的实证成立，监控相机实现层已切换海康官方 MVS。旧机制 → 处置 → 现行做法：
+>
+> | 旧机制 | 处置 | 现行做法 |
+> |---|---|---|
+> | 实现层 `MecaVisionCam`（MVCAMSDK，`MvApi` 静态封装） | 实现类与 `Native/MVSDK.cs` 已删除 | [[api/HikCam]]（官方 `MvCameraControl.Net.dll`），见 [[decisions/ADR-047-MonitorCamSwitchToHikMvs]] |
+> | `CameraGigeGetIp` 按 IP 匹配 / `CameraEnumerateDevice` 扫描 | 随载体退役，语义继承 | `IGigEDeviceInfo.CurrentIp` 精确匹配 / `DeviceEnumerator.EnumDevices`（ADR-046 语义不变） |
+> | 取帧 `CameraGetImageBuffer`→`CameraImageProcess`→`CameraFlipFrameBuffer` | 随载体退役 | `StreamGrabber.GetImageBuffer`→`PixelTypeConverter`→`Marshal.Copy`，无需垂直镜像 |
+> | 三层范式（抽象 + 实现 + Manager 唯一口） | **结论仍然有效** | 载体换海康后范式原样保持（ADR-006） |
+>
+> 以下正文仅作历史存档，请勿按此开发。
+
 > **结论先行**：麦格威（MecaVision）MVSDK 作为监控相机新 SDK，**不新建平行模块**——以
-> `MecaVisionCameraApi` 实现**现有** `IMonitorCameraApi` 契约（[[modules/MonitorCam]]、[[decisions/ADR-007-MonitorCameraModule]]），
-> 在 `MonitorCamManager` 处替换/切换海康实现，业务层（`MonitorCameraWorkflow`）与 UI（`MonitorCamPage`）**零改动**。
+> `MecaVisionCameraApi` 实现**现有** `IMonitorCameraApi` 契约（[[modules/MonitorCam]]、ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）），
+> 在 `MonitorCamManager` 处替换/切换海康实现，业务层（`MonitorCameraWorkflow`）零改动；UI（`MonitorCamPage`）**2026-09-29 经 [[decisions/ADR-046-MonitorCamIpScanAndStrictMatch]] 加装连接顶栏**（扫描 / 存 IP / 连接断开），架构分层不变。
 > 二手文档《监控相机开发指导_MecaVision版》的**线程模型/帧缓存/踩坑清单可复用**；其**目录树与类名不可照抄**（见 §5 订正表）。
 > SDK 原文核验：33 个声称 API **零臆造**（2026-09-08 脚本核对，见 [[api/MecaVisionMVSDK-Native]]）。
-> 架构决策见 [[decisions/ADR-037-MecaVisionMonitorCamera]]。
+> 架构决策见 ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）。
 
 ## 章节导航
 
@@ -52,20 +64,20 @@ SDK 包已归档：`LLMWiki/raw/mecavision/MecaVision_SDK…/MecaVision/`
 4. **DLL 部署**：所选位数对应的 `MVCAMSDK*.dll` + `MVImageProcess*.dll` 与 exe 同目录（参照海康「原生 DLL 由运行时提供」的部署心智，但麦格威需**自己拷**到输出目录）。**2026-09-09 增补**：仅落 `3rdDepend/MecaVision/` 不够——必须把 4 个文件（`MVCAMSDK_X64.dll`、`MVImageProcess_X64.DLL`、2 个 `*.Interface` 协议插件）加进 csproj `CopyNative3rdDependToOutput` 目标，否则输出目录无 DLL，`MvApi` 静态构造 `LoadLibrary` 静默失败、委托全 null，首次调用即 NullReferenceException（见 [[lessons/MecaVision-NativeDllLoadNRE]]）。
 5. **管理员权限**：SDK 访问注册表，Win7/8 非管理员报 -13；程序 `app.manifest` 申请管理员权限。
 
-## 3. 落地目录结构（✅ 2026-09-08 已按此落地，ADR-037 accepted）
+## 3. 落地目录结构（✅ 2026-09-08 已按此落地，ADR-034 accepted）
 
 **三层结构（用户裁定：不保留海康实现，参照 MotionControl/线激光范式）**：
 
 ```
 MonitorCam/
 ├── IMonitorCam/                    # 抽象层 L2：MonitorCamType.cs（3 枚举）+ MonitorCamEventArgs.cs（2 事件参数）+ IMonitorCamApi.cs
-├── MecaVisionCam/                  # 麦格威实现层 L3（只做回调触发，ADR-039 准则）
+├── MecaVisionCam/                  # 麦格威实现层 L3（只做回调触发，ADR-028 准则）
 │   ├── MecaVisionCam.cs            # 实现 IMonitorCamApi（Connect/StartAcquisition/CaptureSingleFrame/FrameReceived）
 │   └── Native/MVSDK.cs             # 官方封装原样拷贝（静态类 MvApi，6885 行，动态加载 MVCAMSDK.dll）
 └── MonitorCamManager.cs            # 业务中枢（原 MonitorCamManager 改名承接），见 [[api/MonitorCamManager]]
 ```
 
-**依赖方向**：`MonitorCamManager → IMonitorCamApi ← MecaVisionCam → Native/MvApi → MVCAMSDK.dll`。业务层与 UI 不感知 SDK（与 [[modules/LineLaserCam]] 三层范式同构）。原 `Api/HikvisionCameraApi.cs` 已整删（ADR-038 先例），`MvCameraControl.Net` 引用已从 csproj 移除，原生 DLL 部署 `3rdDepend/MecaVision/`（x64）。
+**依赖方向**：`MonitorCamManager → IMonitorCamApi ← MecaVisionCam → Native/MvApi → MVCAMSDK.dll`。业务层与 UI 不感知 SDK（与 [[modules/LineLaserCam]] 三层范式同构）。原 `Api/HikvisionCameraApi.cs` 已整删（ADR-007 先例），`MvCameraControl.Net` 引用已从 csproj 移除，原生 DLL 部署 `3rdDepend/MecaVision/`（x64）。
 
 ## 4. 典型流程（以官方例程实证）
 
@@ -82,7 +94,7 @@ CameraEnumerateDevice → CameraGrabber_Create / CreateFromDevicePage
 → CameraImage_SaveAsBmp → CameraImage_Destroy → CameraGrabber_Destroy
 ```
 
-> Grabber 是**高层封装**（自带显示/ISP/统计），适合调试工具；**生产模块走低层 API**（§4.2），控制粒度更细、符合 ADR-027 数据归属。
+> Grabber 是**高层封装**（自带显示/ISP/统计），适合调试工具；**生产模块走低层 API**（§4.2），控制粒度更细、符合 ADR-023 数据归属。
 
 ### 4.2 TriggerAndStrobe 例程（低层路径，生产模块参照）
 
@@ -113,16 +125,16 @@ CameraEnumerateDevice → CameraGrabber_Create / CreateFromDevicePage
 
 ## 5. 二手文档订正表（必读）
 
-> 二手文档按「另一项目」风格写（平行新建 `MonitorCamera/` 模块），与本项目 ADR-009 现状冲突。**API 名零臆造**，订正集中在架构映射：
+> 二手文档按「另一项目」风格写（平行新建 `MonitorCamera/` 模块），与本项目 ADR-013 现状冲突。**API 名零臆造**，订正集中在架构映射：
 
 | # | 二手文档声称 | 核验结论 | 采纳 |
 |---|-------------|---------|------|
-| 1 | 新建 `MonitorCamera/` 目录 + `IVisionCamera` 接口 + `MonitorCameraManager` + `CameraFrameStore` + `CameraWorkflow` | 与 ADR-009/ADR-027 现状冲突（已有 `MonitorCam/` + `IMonitorCameraApi` + `MonitorCamManager` + `MonitorCameraWorkflow`） | ⛔ 不新建；新增 `MecaVisionCameraApi` 实现现有契约 |
+| 1 | 新建 `MonitorCamera/` 目录 + `IVisionCamera` 接口 + `MonitorCameraManager` + `CameraFrameStore` + `CameraWorkflow` | 与 ADR-013/ADR-023 现状冲突（已有 `MonitorCam/` + `IMonitorCameraApi` + `MonitorCamManager` + `MonitorCameraWorkflow`） | ⛔ 不新建；新增 `MecaVisionCameraApi` 实现现有契约 |
 | 2 | `MVSDK.cs` 6884 行 / 静态类 `MvApi` | 实测 **6885 行**，类名属实 | ✅ |
 | 3 | DLL：`MVCAMSDK.dll`/`MVCAMSDK_X64.dll` + `MVImageProcess.dll`，动态加载，按位数选择 | 与 `SDK/`、`SDK/X64/` 原文一致；`MvApi` 静态构造 `IntPtr.Size==8` 判断属实 | ✅ |
 | 4 | 33 个 API 名 + 13 个错误码数值 + 9 结构体 | **逐一核对全对，零臆造** | ✅ |
 | 5 | 抽象接口 `Connect(int timeoutMs)` / `SoftTrigger()` / `SaveImage(path)` | 现有契约为 `Connect(ip, port)` / `CaptureSingleFrame(): Mat`，**无 SoftTrigger 直通** | ⚠️ 按现有契约适配（§6） |
-| 6 | `FrameData` / `TriggerMode` / `CameraStatusChanged` 新类型 | 现有 `MonitorFrameEventArgs` / `MonitorCameraConnectionState` 已承载同语义（ADR-026 枚举去重精神） | ⛔ 不新增平行类型 |
+| 6 | `FrameData` / `TriggerMode` / `CameraStatusChanged` 新类型 | 现有 `MonitorFrameEventArgs` / `MonitorCameraConnectionState` 已承载同语义（ADR-017 枚举去重精神） | ⛔ 不新增平行类型 |
 | 7 | 附录未列 `CameraSoftTrigger` | 真实存在（`pfnCameraSoftTrigger`/`Ex`），PIL 单帧实现要用 | ✅ 补录 |
 | 8 | 例程 bin 里的 `MVSDK.dll` | 旧版 .NET 互操作组件（107KB, 2019），**勿用** | ⛔ |
 
@@ -133,7 +145,8 @@ CameraEnumerateDevice → CameraGrabber_Create / CreateFromDevicePage
 | 契约成员 | MVSDK 实现 | 注意 |
 |---|---|---|
 | `ConnectState` | `MonitorCameraConnectionState` 映射 | 枚举成功→Connecting，Init 成功→Connected；断联回调 Msg=0→Error/Disconnected，Msg=1→Connected |
-| `Connect(ip, port)` | `CameraEnumerateDevice` → 按 SN/IP 匹配（见 OPEN-1）→ `CameraInit(ref devInfo, -1, -1, ref h)` → `CameraSetConnectionStatusCallback` | 枚举结构体**无 IP 字段**，GigE IP 需 init 后 `CameraGigeGetIp` 查询比对 |
+| `Connect(ip, port)` | `CameraEnumerateDevice` → 按 SN/IP 匹配（见 OPEN-1）→ `CameraInit(ref devInfo, -1, -1, ref h)` → `CameraSetConnectionStatusCallback` | 枚举结构体**无 IP 字段**，GigE IP 需 init 后 `CameraGigeGetIp` 查询比对。**2026-09-29 ADR-046**：指定 IP 未匹配即连接失败（`TrySelectDevice` 返回 false），**不再回退枚举首台** |
+| `ScanDevices(): List<MonitorCamDeviceInfo>` | `CameraSdkInit` → `CameraEnumerateDevice` → 逐台 `CameraGigeGetIp` + `acProductName`/`acSn`/`acPortType`/`acSensorType` 解码 | **2026-09-29 ADR-046 新增**；未连接也可调用；非 GigE（USB3）相机 IP 为空串 |
 | `Disconnect()` | `CameraStop` + `CameraUnInit`（句柄清零） | UnInit 必须调用 |
 | `StartAcquisition()` | `CameraSetCallbackFunction`（委托存字段！）+ `CameraPlay` | 回调内 `CameraImageProcess`→RGB→`Mat`→`FrameReceived` |
 | `StopAcquisition()` | `CameraPause`/`CameraStop` | 回调继续注册 |
@@ -145,7 +158,7 @@ CameraEnumerateDevice → CameraGrabber_Create / CreateFromDevicePage
 
 ## 7. 线程模型与帧缓存（复用二手文档结论）
 
-二手文档 §7 线程职责表与「一个入口拆两个出口」设计**与本项目现役范式一致**（对照 [[api/LineLaserManager]] ADR-039 的 Manager 业务中枢、[[api/ProfileMatRenderer]] 显示开关）：
+二手文档 §7 线程职责表与「一个入口拆两个出口」设计**与本项目现役范式一致**（对照 [[api/LineLaserManager]] ADR-028 的 Manager 业务中枢、[[api/LineLaserContourAlgorithm]] 显示开关）：
 
 | 线程 | 职责 |
 |------|------|
@@ -187,8 +200,8 @@ CameraEnumerateDevice → CameraGrabber_Create / CreateFromDevicePage
 
 | # | 阻塞项 | 候选方案 |
 |---|--------|---------|
-| 1 | **GigE IP 匹配**：`tSdkCameraDevInfo` 无 IP 字段，无法在枚举期按 IP 选机 | ① init 后 `CameraGigeGetIp` 比对、不符则 UnInit 换下一台；② 改用 SN 配置匹配（推荐，插拔稳定） |
-| 2 | **平台目标**：现工程 x86 还是 x64 需核对（决定部署哪套 DLL） | 打开 csproj `PlatformTarget` 确认 |
+| 1 | **GigE IP 匹配**：`tSdkCameraDevInfo` 无 IP 字段，无法在枚举期按 IP 选机 | ✅ **2026-09-29 已闭环（ADR-046）**：init 前 `CameraGigeGetIp` 逐台比对 + **不匹配即失败**（不静默回退首台）；UI 用 `MonitorCamScanForm` 扫描选机后把 IP 存入 `MonitorCamera.ini`。SN 匹配仍为可选的加固方向 |
+| 2 | ~~**平台目标**：现工程 x86 还是 x64 需核对（决定部署哪套 DLL）~~ ✅ **2026-09-28 已核**：csproj `PlatformTarget=x64`（L34/48），与部署的 MVCAMSDK_X64 等 4 件套一致 | 已闭环 |
 | 3 | **相机连接形态**：监控相机是 USB3 还是 GigE（影响驱动与部署） | 现场确认 |
 | 4 | **PixelMmScale 标定**：算法侧 px→mm 系数随相机分辨率/视场变化 | 标定板实标；与 [[api/AlgorithmManager]] 参数联动 |
 | 5 | 管理员权限 manifest 是否需要（Win10 通常免） | 实测 -13 是否出现 |
@@ -196,6 +209,6 @@ CameraEnumerateDevice → CameraGrabber_Create / CreateFromDevicePage
 ## 相关页面
 
 - [[api/MecaVisionMVSDK-Native]] —— 原生 API 速查（核验过的签名与错误码）
-- [[decisions/ADR-037-MecaVisionMonitorCamera]] —— 架构决策
-- [[modules/MonitorCam]] / [[api/MonitorCamManager]] / [[decisions/ADR-007-MonitorCameraModule]] —— 现役模块
+- ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） —— 架构决策
+- [[modules/MonitorCam]] / [[api/MonitorCamManager]] / ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]） —— 现役模块
 - [[guides/Project-Tools]] —— 原生 DLL 部署心智（海康同款问题）

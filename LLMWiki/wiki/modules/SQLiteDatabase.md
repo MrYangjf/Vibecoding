@@ -9,7 +9,7 @@ source: raw/skills/02-Development/DatabaseSpecialist.md
 
 > 负责 SQLite 数据库设计与操作：权限管理、产品参数、系统配置持久化、自动参数值管理。
 > **模块位置**：`AdaWeldSystem/SQLiteDBControl/`
-> **命名空间**：`AdaWeldSystem.SQLiteDBControl`（子命名空间 `SQLiteCore` / `ISQLiteHelper` / `Helpers`；2026-09-14 ADR-048 起随目录对齐）
+> **命名空间**：`AdaWeldSystem.SQLiteDBControl`（子命名空间 `SQLiteCore` / `ISQLiteHelper` / `Helpers`；2026-09-14 ADR-005 起随目录对齐）
 
 ## 目录结构
 
@@ -37,7 +37,7 @@ SQLiteDBControl/
 | Helpers/AuthHelper.cs | 权限管理（用户/角色验证） |
 | Helpers/ConfigHelper.cs | 配置管理（系统配置持久化） |
 | Helpers/AutoParamHelper.cs | 自动参数数据库管理（JSON 序列化）；同文件内定义 `WeldAutoParamProfile` 数据结构（焊缝宽度/送丝速度/激光功率/焊接速度 JSON） |
-| Helpers/ProductDatabaseHelper.cs | 产品数据库管理（Product.db 按日期分表） |
+| Helpers/ProductDatabaseHelper.cs | 产品数据库管理（Product.db 按日期分表 `TyyyyMMdd`；**列契约 `SN/Time/Status/Result/Info` 五列**，`EnsureTableSchema` 校验——**当天表**列集不符即重建，历史表原样保留；ADR-037） |
 | SQLiteDatabaseManager.cs | 单例入口，统一持有各 Helper；对外唯一访问口径 |
 
 ## 技术要点
@@ -64,11 +64,13 @@ var product = SQLiteDatabaseManager.Instance.ProductDatabaseHelper;
 | 协作对象 | 数据接口 |
 |----------|----------|
 | [[modules/WeldParamControl]] | `SQLiteDatabaseManager.Instance.AutoParamHelper`、`ConfigHelper` |
+| [[modules/ProductFileManager]] | `SQLiteDatabaseManager.Instance.ProductDatabaseHelper`（`WeldResultRecord` 焊毕一次性落库；列契约 `SN/Time/Status/Result/Info`；回溯端 `SelectTable` + `CurrentTable`） |
 | [[modules/UIDesign]] | `SQLiteDatabaseManager.Instance.AuthHelper`、`ConfigHelper` |
 | [[modules/Comm]] | `SQLiteDatabaseManager.Instance.AuthHelper`（经 `GlobalCommData.mAuthHelper` 暴露） |
 
 ## 历史变更
 
+- 2026-09-20：`ProductDatabaseHelper` 列契约收敛为 **`SN/Time/Status/Result/Info`**（删 `InspectionType` 焊接接头形式，`CheckInfo`→`Info`）；新增 `EnsureTableSchema` 列集校验（当天表不符即 `DropTable`+`CreateTable` 重建）；`AddProductInfo` 签名改 `(sn, startTime, status, result, info)`（ADR-037 决 1）。
 - 2026-09-14：纠正命名 `SqlLiteDatabase` → `SQLiteDatabase`；按 "core + 抽象基类 + Helper + Manager" 范式重构；删除 `IDatabaseManager` 接口与冗余抽象；功能类统一改为 `*Helper`；新增 `SQLiteDatabaseManager` 作为对外唯一入口。
 - 2026-09-14（同日二次调整）：目录固定为 `SQLiteDBControl/`（用户手动层级），抽象基类移入 `ISQLiteHelper/`；`WeldAutoParamProfile` 不再是独立文件，作为 `AutoParamHelper` 的数据结构辅助类并入 `Helpers/AutoParamHelper.cs`。
 

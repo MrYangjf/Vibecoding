@@ -1,15 +1,35 @@
-﻿---
+---
 title: 项目工具、规范与常见问题汇总
 date: 2026-08-18
 tags: [指导, 工具, 规范, 模拟, 汇总]
 ---
 
 # 项目工具、规范与常见问题汇总
+
+## 章节导航
+
+- [1. 代码图谱工具（code-review-graph）【已废弃 — 墓碑】](#1-代码图谱工具code-review-graph已废弃--墓碑)
+- [1.2 Grep 符号定位：结果截断导致的消费方漏统计（2026-09-01）](#12-grep-符号定位结果截断导致的消费方漏统计2026-09-01)
+- [2. Wiki 工作流规范](#2-wiki-工作流规范)
+- [2.2 索引生成器 wiki_index_build.py：§一 / §八 互斥归属](#22-索引生成器-wiki_index_buildpy一--八-对-project-页的互斥归属)
+- [YYYY-MM-DD HH:mm:ss] 类型 | 描述        ← 最新条目](#yyyy-mm-dd-hhmmss-类型--描述---------最新条目)
+- [YYYY-MM-DD HH:mm:ss] 类型 | 描述        ← 较旧条目](#yyyy-mm-dd-hhmmss-类型--描述---------较旧条目)
+- [2.5 批量重命名：子串碰撞导致「前缀重复污染」](#25-批量重命名子串碰撞导致前缀重复污染)
+- [3. 图表工具（ScottPlot.FormsPlot 4.1.74）](#3-图表工具scottplotformsplot-4174)
+- [4. 虚拟相机与模拟模式](#4-虚拟相机与模拟模式)
+- [5. 单例与启动初始化](#5-单例与启动初始化)
+- [6. 3D 相关（HelixToolkit / Assimp）](#6-3d-相关helixtoolkit--assimp)
+- [7. 海康相机运行时（MvCameraControl 原生 DLL 依赖）](#7-海康相机运行时mvcameracontrol-原生-dll-依赖)
+- [8. 历史参考](#8-历史参考)
+- [来源](#来源)
+- [§3 Python 批量重构脚本两坑（2026-09-01 实测）](#3-python-批量重构脚本两坑2026-09-01-实测)
+
 > **章节导航**（本页 937 行，超长页请先按章节定位再读）：
 >
 > - [1. 代码图谱工具（code-review-graph）【已废弃 — 历史参考】](#1-代码图谱工具code-review-graph已废弃-历史参考)
 > - [1.2 Grep 符号定位：结果截断导致的消费方漏统计](#12-grep-符号定位结果截断导致的消费方漏统计2026-09-01)
 > - [2. Wiki 工作流规范](#2-wiki-工作流规范)
+> - [2.2 索引生成器 wiki_index_build.py：§一 / §八 互斥归属](#22-索引生成器-wiki_index_buildpy一--八-对-project-页的互斥归属)
 > - [2.5 批量重命名：子串碰撞导致「前缀重复污染」](#25-批量重命名子串碰撞导致前缀重复污染)
 > - [3. 图表工具（ScottPlot.FormsPlot 4.1.74）](#3-图表工具scottplotformsplot-4174)
 > - [4. 虚拟相机与模拟模式](#4-虚拟相机与模拟模式)
@@ -121,6 +141,46 @@ for ($i = 1; $i -lt $dates.Count; $i++) {
 
 ---
 
+## 2.2 索引生成器 `wiki_index_build.py`：§一 / §八 对 `project/` 页的互斥归属
+
+> 规范依据：[[standards/WikiPageFormatSpec]] §2.1（index.md 结构契约）· §四（脚本化工具链）
+> 工具位置：`Vicoding管理平台/LLMWiki/tools/wiki_index_build.py`
+
+### 2.2.1 问题现象
+
+`tools/wiki_audit.py` §3「index.md 重复条目行」长期报出 5 条重复：`AdrConsistencyAudit-20261008`、`CodeSimplification-Backlog-20261026`、`CodeSimplification-Progress-20260826`、`RequirementsCoverage`、`ReviewOptimization-P1-StructureDesign` —— 每个都在**行 90~94（§一 项目总览）**与**行 256~260（§八 历史归档）**各列一次。
+
+### 2.2.2 根因（生成器哪段逻辑、为何两处都列）
+
+生成器里有**两段独立渲染 `project/` 页的代码**，彼此不知道对方存在：
+
+1. **§一 项目总览**：由分类扫描循环统一渲染。`project/` 是 `CATS` 里的第一个分类，扫描时把 `wiki/project/*.md` **全部 8 页**都收进 `cats["project"]` → §一 表里 8 行。
+2. **§八 历史归档**：另一段独立代码再扫一次 `wiki/project/`，只用 `MAIN_PROJECT = ("overview.md", "vibecoding-workflow.md", "skill-evolution.md")` **排除法**排除 3 页 → 剩余 5 页进 §八 表。
+
+结果：§一 的 8 页与 §八 的 5 页**在「排除法」之外的 5 页上完全重叠** ⇒ 同一页被列两次。归属靠「排除法」而非「归属声明」，新增 project 页时默认落 §一，若它恰好是台账类就会立刻产生重复。
+
+### 2.2.3 正确做法（互斥归属 + 生成期自检）
+
+规则改为**白名单归属**，并加两道生成期自检：
+
+| 机制 | 做法 | 作用 |
+|---|---|---|
+| `ARCHIVE_PROJECT` 白名单 | 台账 / 过程 / 审计 / 进度快照类 project 页**显式列名**进白名单 | 归属从「排除法」变为「声明式」；§一 扫描时 `continue` 跳过白名单页，§八 只渲染白名单页 |
+| 生成期自检（重复） | 写盘前扫全部 `\| [[...]]` 条目行，同名出现 >1 即打印并 `return 1` | 重复条目不再静默写盘，生成即失败 |
+| 生成期自检（完备性） | `wiki/project/*.md` 每个文件必须**恰好**出现在 §一 或 §八 之一，缺失即 `return 1` | 新增 project 页忘了归属会被当场拦下 |
+
+- **归属判据**：§一 = 现行有效的主线页（概览 / 架构 / 工作流规范 / Skill 体系演进）；§八 = 台账 / 过程 / 审计 / 进度快照类（只追溯，**不作编码约束**）。
+- **新增 project 页默认落 §一**；若属台账/过程类，须显式加入 `ARCHIVE_PROJECT`，否则生成期完备性自检会拦下。
+
+### 2.2.4 禁止行为
+
+- ⛔ **手工编辑 `wiki/index/index.md`** 的分类表（§一 / §八 的行）——索引由脚本生成，手改必被下次生成覆盖。
+- ⛔ 用「排除法」（维护一个「不归档」清单）表达归属——排除法在新增页时静默错位，且无法表达「这一页必须进 §八」。
+- ⛔ 绕过生成器直接改 §八 归档清单去「消除」重复告警。
+- ✅ 改归属的唯一入口：改 `tools/wiki_index_build.py` 的 `ARCHIVE_PROJECT` → 重跑 `python tools/wiki_index_build.py`。
+
+---
+
 ## 2.5 批量重命名：子串碰撞导致「前缀重复污染」
 
 > 2026-08-31 实战：把 `DeviceFlowState` 全量替换为 `MainDeviceFlowState` 时，因 `MainDeviceFlowState`、`OnMainDeviceFlowStateSwitched` 都**包含** `DeviceFlowState` 子串，全量替换产出 `MainMainDeviceFlowState` / `OnMainMainDeviceFlowStateSwitched`，且方法名污染会连带破坏事件订阅（`+=` / `-=` 两端同时错）。
@@ -138,6 +198,18 @@ for ($i = 1; $i -lt $dates.Count; $i++) {
 
 - 禁止对**可能是其他标识符子串**的短名直接全量替换（`DeviceFlowState`、`State`、`Step`、`Comm` 等）。
 - 禁止依赖"替换后看起来对"——方法名/事件名污染不会立刻报编译错，但会让 `+=`/`-=` 两端同时失配，排查成本极高。
+
+---
+
+## 2.6 raw 手册类资产清理约束（2026-11-04）
+
+> **缘起**：2026-11-04 业主指出「台达官方手册源里没有了，可能是上次整理删除了」。核查 9 个 `LLMWiki_backup_*.tar.gz`（2026-10-14 ~ 2026-11-03）发现 `raw/delta/` 恒为 4 个条目、PDF 数为 0，工作区无 `.git`，**结论是两份手册从未入库，而非被删**。但根因仍是「清理动作没有手册保护规则」。
+
+**约束（强制）**：
+1. `raw/` 下 `.pdf` / `.chm` / `.docx` 等厂商手册类资产 = **唯一权威依据**，任何整理/瘦身/备份清理**不得删除、不得移动出 `raw/`**。
+2. 确需归档只允许移入 raw 下的归档子目录（`_archive`，需先建目录），且 `RawAssetCatalog.md` 登记路径同步更新。
+3. 新增/恢复手册后必须跑 `raw_asset_check.py`，并在 `logs/log.md` 记一条「来源 + 版本日期 + 覆盖章节」。
+4. 涉及厂商协议的代码改动，**先查 `RawAssetCatalog.md`**（规则见 [[lessons/DocDemoDllLookupOrder]]）；未查手册不得把结论标为「待确认」交差。
 
 ---
 
@@ -260,7 +332,9 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
 
 ### 3.6 本项目落地范式
 
-#### MainPage（5 图）
+#### MainPage（2 图）
+
+> ⚠️ **2026-10-21 演进**：本节原描述的「5 图 + 统一走 `SetupChart` + `BindChartVar`」**已被后续重构取代**（现为 2 图：`formsPlot1` 轮廓图 + `formsPlot2` 四合一工艺参数图；`BindChartVar` 已删，由 `AddSeries` 接管）。**现行范式见下方「每张图只有一个构建路径」小节**，本小节代码块仅作历史沿革保留。
 
 - `formsPlot1`：焊缝模型轮廓；`formsPlot2~5`：焊缝宽度/运动速度/送丝速度/激光功率。
 - 初始化统一走 `SetupChart(formsPlot, title, seriesName)`：
@@ -295,7 +369,7 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
 #### DataReviewerPage（1 图）
 
 - 多系列 + 复选框显隐：ScottPlot 无逐系列 `Visible`，故每次按勾选状态 `Clear()` 后重建 plottable。
-- 滑块范围缩放：`formsPlotData.Plot.SetAxisLimits(min, max); formsPlotData.Refresh();`
+- 滑块范围缩放：`formsPlotData.Plot.SetAxisLimits(min, max); formsPlotData.Refresh();` —— ⚠️ **该范例在 `DataReviewerPage` 已不适用**（滑块 `uiTrackBar1` 随「按 X 范围显示区域」模块于 2026-11-02 整体移除）；现存范例见 `MainPage`（轮廓图轴锁定 `formsPlot1.Plot.SetAxisLimits(...)`）
 
 ### 3.7 正确做法
 
@@ -307,6 +381,9 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
 - 引用 `ScottPlot.dll`（核心）+ `ScottPlot.WinForms.dll` 4.1.74，两个程序集都要在 csproj 钉版本；漏引核心会报 CS0012。
 - 高 DPI 缩放字体锯齿修复：`formsPlot.Configuration.DpiStretch = false`（4.1 必需）。
 - 新增/替换 Designer 控件时，同步补 `private ScottPlot.FormsPlot xxx;` 字段声明。
+- ⭐ **每张图只有一个构建路径**（2026-10-21）：「Clear + 建系列 + 建图例 + 设标题/轴」必须由**同一个方法**完成，别的路径不得重复做（重复 = 浪费 + 图例叠加）。图例**只在一个地方创建** —— `Plot.Legend()` 是**方法**不是属性，每次调用**新建一个 Legend renderable 并注册进 plot**；若一条路径不 `Clear()` 就又调 `Legend()`，两个图例实例共存 ⇒ 同一份条目被渲染两遍（右下角出现重复 txt 记录）。运行期实测：Clear 前后渲染位图 8324→6256 字节；"有标题/无标题"两张图位图不同 ⇒ 标题确实参与渲染。
+- ⭐ **`Plot.Clear()` 会连同标题/轴标签一起清掉**（运行期实测，见上）⇒ 任何「Clear 后重建系列」的路径都必须在 Clear 之后**重设 `Title`/`XLabel`/`YLabel`**，否则首帧之后图表标题会消失。
+- ⭐ **初始化期不要「先建空图再重建」**：构造期数据源通常还是空的，此刻 `Clear+AddSeries` 画的是一张空图，紧接着轮询/事件首帧又会 Clear 重建一次 ⇒ 同一张图初始化期被构建两遍，前一次纯浪费。正确做法：初始化只做「订阅/准备」，首帧构图交给**带数据的那一次**触发。
 
 ### 3.8 禁止行为
 
@@ -318,6 +395,8 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
 - 直接传 `ScottPlot.Color` 给 `AddScatter`（4.1 用 `System.Drawing.Color`）。
 - 用 `Plot.Render()` 重绘 `FormsPlot` 控件（应 `Refresh()`）。
 - 将 `AddSignal` 返回值存为 `ScottPlot.Plottable.Signal`（4.1 正确类型名为 `ScottPlot.Plottable.SignalPlot`）。
+- ⛔ 在**同一张图**的两条路径上都调 `Plot.Legend()`（2026-10-21）—— `Legend()` 是方法，每次调用新建一个 Legend renderable；不 Clear 的第二条路径会与第一条叠加成两份图例条目。**图例只允许一个创建点**。
+- ⛔ `Plot.Clear()` 之后**不重设** `Title`/`XLabel`/`YLabel`（2026-10-21）—— Clear 会连同标题/轴一起清掉，重建后图表标题会消失。
 
 ---
 
@@ -327,6 +406,7 @@ plot.SetAxisLimits(minX, maxX, minY, maxY); // 同时设 X/Y 范围
 > 关联决策：模拟模式相关决策已并入 [[api/DeviceControlWork]]
 >
 > ⚠️ **2026-09-03 决策沿革**：原「模拟模式贯穿三大流程」与「自动运行/手动连接模型」两份决策均已**废弃**（承载者 `SimulationWorkflow.cs` 已删除、成员归并 `DeviceControlWork`）。本节**坑点本身继续有效**，但文中 `SimulationWorkflow.*` 一律读作 `DeviceControlWork.*`（`Enable`→`EnableSimulation`、`Disable`→`DisableSimulation`、`IsEnabled`→`IsSimulationEnabled`）；现行架构以 [[architecture/DeviceControlArchitecture]] 为唯一指导。
+> ⛔ **2026-09-17 二次沿革**：ADR-007（2026-09-08）删除 SmartRay 与 `CameraRun`/`VirtualCameraRun`/`CameraSelector`，ADR-032 取消模式选择——本节「选了虚拟相机却仍用真实相机」的场景已不存在（相机访问一律经 [[api/LineLaserManager]] 唯一入口）。本节保留作「初始化必须走统一入口、勿写死硬件单例」的通用教训。
 
 ### 4.1 工作流初始化必须用 CameraSelector.Active
 
@@ -409,7 +489,7 @@ case SimSeamProfile.Flat:
 > **根因**：`LineLaserWorkflow.Initialize()` 是**后台线程异步初始化**——调用后状态仅置为 `Initializing` 并启动 `InitializeWorker` 线程，线程内（虚拟相机分支立即、真实相机分支连接后）才 `TransitionTo(Standby)`。消费方在 `Initialize()` 之后**同步**判断 `State == Standby` 调 `Start()`，此时状态仍是 `Initializing`，`Start()` 因要求 `Standby` 而抛 `InvalidOperationException` 或被跳过，线激光停在待机。
 > **为什么二次正常**：首次点击走 `Initialize()` 分支但 `Start()` 被跳过；点「关闭」时 `Stop()` 因非运行态被 try/catch 吞掉，仅 `Disable()`；二次点击时线激光已是 `Standby`，直接 `Start()` 成功。
 
-#### 正确做法（消费方如 MotionControlPage.BtnStartSim_Click）
+#### 正确做法（消费方如 `ProcessControlPage.BtnStartSim_Click`——模拟测试 2026-09-17 已自 `MotionControlPage` 迁入该页）
 
 - 若 `State == Uninitialized`：订阅 `StateChanged`，置挂起标记 `_pendingSimStart = true`，再调 `Initialize()`；在事件回调中待 `e.NewState == Standby` 时**回到 UI 线程**（`InvokeRequired`/`BeginInvoke`）调 `Start()`，并取消订阅、清除标记；`e.NewState == ErrorAborted` 时清理挂起标记与订阅。
 - 若 `State == Standby`：可直接同步 `Start()`（二次开启场景）。
@@ -427,7 +507,7 @@ if (ll.WeldStatus == SubDeviceWeldStatus.Standby)
     ll.Start();                // 此时仍是 Working → Start 被跳过/抛异常
 ```
 
-> **术语对照（2026-09-02 ADR-028）**：旧代码写作 `ll.State == LineLaserWorkflowState.Uninitialized/Standby`（阶段枚举直接对外）；现行对外只有 `SubDeviceWeldStatus` 七态，阶段枚举降为私有。连接就绪另看 `ll.State`（`SubDeviceState` 两态）。
+> **术语对照（2026-09-02 ADR-034）**：旧代码写作 `ll.State == LineLaserWorkflowState.Uninitialized/Standby`（阶段枚举直接对外）；现行对外只有 `SubDeviceWeldStatus` 七态，阶段枚举降为私有。连接就绪另看 `ll.State`（`SubDeviceState` 两态）。
 
 ### 4.4 模拟测试：行程到达 = 正常停止，不是异常终止
 
@@ -453,7 +533,7 @@ if (ll.WeldStatus == SubDeviceWeldStatus.Standby)
 - `IsValidTransition` 表增加 `Acquiring → Completed`，让任意活动态都能干净结束为 `Completed`。
 - `CheckFailureThresholds` **移除条件2（行程距离）**，仅保留"连续失败次数"这一真正异常阈值。
 - `AcquireImage()` 对虚拟相机（`CameraSelector.IsVirtual`）**每周期重新 `SensorRunContinue()`** 产帧。
-- `MotionControlPage` 监听 `WorkflowCompleted`（reason 含「焊缝行程完成」）→ 联动 `StopSimulationFlows()` + 复位按钮为「开启模拟流程」，
+- `ProcessControlPage`（模拟测试，2026-09-17 自 `MotionControlPage` 迁入）监听 `WorkflowCompleted`（reason 含「焊缝行程完成」）→ 联动 `StopSimulationFlows()` + 复位按钮为「开启模拟流程」，
   形成完整闭环：开启 → 停止（运行中）→ 焊缝完成自动停 → 开启。
 - `TransitionToErrorAborted` 的 `ShowLog`+事件触发移入 `IsValidTransition` 守卫（`transitioned` 标志），杜绝同一异常重复日志。
 
@@ -504,7 +584,7 @@ private void OnCompletedAcqEvent(object sender, AcquisitionEventArgs e)
 ### 5.1 触发场景（真实故障）
 
 - `JobManager` 的 `LoadJobsFromIni()`（恢复 `CurrentId` 与各 `Job_*.ini`）只在 `Initialize()` 内调用；而 `Program.Main()` → `FormMain` 全程**从未调用** `JobManager.Instance.Initialize()`。
-  - 结果：保存正常（`Config/Jobs/JobIndex.ini` 有内容），但每次启动 `_jobs` 为空、`CurrentJobId` 默认 1、`CurrentJob` 为 null → `LLCamWorkJob` 下拉框为空 / 「无可用配置」。
+  - 结果：保存正常（`Config/Jobs/Job_INI/JobIndex.ini` 有内容），但每次启动 `_jobs` 为空、`CurrentJobId` 默认 1、`CurrentJob` 为 null → `LLCamWorkJob` 下拉框为空 / 「无可用配置」。
   - **并非路径错误**——INI 路径逻辑正确，问题在「只写不读（加载未触发）」。
 - `CameraSelector.IsVirtual` 原先**完全没有持久化代码**（仅内存），每次启动重置为真实相机。
 
@@ -513,10 +593,10 @@ private void OnCompletedAcqEvent(object sender, AcquisitionEventArgs e)
 1. 在 `FormMain` 构造函数、设计器模式守卫之后、**`new NavPage()/new NavPage()` 等子页面创建之前**，集中调用：
    ```csharp
    JobManager.Instance.Initialize();   // 加载 Job + CurrentId
-   CameraSelector.Load();              // 从 Config/INI/CameraSelector.ini 恢复相机选择
+   CameraSelector.Load();              // 从 Config/LineLaser/Camera_INI/CameraSelector.ini 恢复相机选择
    ```
 2. 单例若只暴露 `Save()`/`Load()`，必须由启动入口负责调用——不要指望「某个页面第一次访问时自动加载」，UI 页面构造顺序不可控且可能晚于首次读取。
-3. INI 持久化文件位置遵循 [[decisions/ADR-005-ConfigLayout]]：作业类归 `Config/Jobs/`，通用设置归 `Config/INI/`。
+3. INI 持久化文件位置遵循 [[decisions/ADR-033-ConfigArchitectureStandard]] 三段式：作业类归 `Config/Jobs/Job_INI/`，其余按模块归 `Config/<模块>/<主题>_INI/`（2026-09-21 起 `Config/INI/` 已废止并删除）。
 
 ### 5.3 自检清单
 
@@ -595,6 +675,8 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 ## 7. 海康相机运行时（MvCameraControl 原生 DLL 依赖）
 
+> ⛔ **历史参考（2026-09-17 审计标注）**：HikRobotCam/ 已于 2026-09-08 随 ADR-007 删除，本项目现行无海康相机消费方；本节保留作「托管包装 ≠ 原生 DLL」的通用 SDK 依赖教训。
+
 ### 7.1 现象
 
 引用 `MvCameraControl.Net.dll`（托管封装）后**编译通过**，但运行到创建设备/采集时抛出 `DllNotFoundException` / `EntryPointNotFoundException` / `TypeLoadException`，或相机始终无法打开（`MV_CC_OpenDevice_NET` 返回非 0 且无更多信息）。
@@ -622,7 +704,7 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 ### 8.1 NuGet 卫星资源程序集清理
 
-> **已被 [[decisions/ADR-018-NuGetLocalization]] 替代**：项目已完全移除 NuGet PackageReference，改为本地 DLL 引用。卫星程序集清理 Target 不再需要。本小节保留作为历史参考。
+> **已被 [[decisions/ADR-004-NuGetLocalization]] 替代**：项目已完全移除 NuGet PackageReference，改为本地 DLL 引用。卫星程序集清理 Target 不再需要。本小节保留作为历史参考。
 
 #### 现象
 
@@ -657,7 +739,7 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 #### 根因
 
-`bin/Debug/Config/INI/Record.ini` 的 `[Paths]` 节存的是**硬编码绝对路径**，指向旧项目位置。项目整目录复制迁移时 `bin/Debug` 连同 `Record.ini` 一起带走，路径从未更新。
+`bin/Debug/Config/ProductFileControl/Record_INI/Record.ini` 的 `[Paths]` 节存的是**硬编码绝对路径**，指向旧项目位置。项目整目录复制迁移时 `bin/Debug` 连同 `Record.ini` 一起带走，路径从未更新。
 
 路径来源：`RecordConfigForm` 用 `FolderBrowserDialog` 选目录后 `WriteString` 写入**绝对路径**（`RunRecordManager.SaveConfigToIni`）。
 
@@ -676,7 +758,7 @@ public PointCloudData FilterInvalidPoints(PointCloudData data)
 
 ### 8.3 UILight 控件属性误用
 
-> **UILight 已被 [[decisions/ADR-015-UIFrameworkMigration]] 取代**：UI 框架迁移至 AntdUI 后，状态指示灯改用 **`AntdUI.Signal`**（而非 SunnyUI `UILight`）。本小节的 UILight 三要素用法仅作**历史参考**；新代码请使用 `AntdUI.Signal` 的对应属性。
+> **UILight 已被 [[decisions/ADR-008-UIFrameworkMigration]] 取代**：UI 框架迁移至 AntdUI 后，状态指示灯改用 **`AntdUI.Signal`**（而非 SunnyUI `UILight`）。本小节的 UILight 三要素用法仅作**历史参考**；新代码请使用 `AntdUI.Signal` 的对应属性。
 
 #### 问题描述
 

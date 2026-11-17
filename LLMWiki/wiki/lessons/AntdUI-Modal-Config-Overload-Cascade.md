@@ -1,7 +1,9 @@
 ---
 title: AntdUI Modal.Config 第三参数未定义 → 级联误报"Form 无法转换为 Target"
 date: 2026-08-27
+updated: 2026-10-30
 tags: [教训, UI, AntdUI, Modal, 编译错误, 重载解析]
+status: active
 ---
 
 # AntdUI Modal.Config 第三参数未定义 → 级联误报"Form 无法转换为 Target"
@@ -25,8 +27,7 @@ tags: [教训, UI, AntdUI, Modal, 编译错误, 重载解析]
 
 ## 排查口诀
 遇到 `Modal.Config` 报 "Form→Target" 且同时报 "标识符不存在"：**先看 content（第三参数）是否未定义**，而非改 owner。修正 content 后重载解析成功，owner 的 `Form` 会被 `Control` 重载接纳。
-
 ## 相关页面
 - [[guides/AntdUI-Reference]]
-- [[api/MotionControlPage]]
+- [[api/SystemControlPage]]
 - [[guides/WinForms-UI-Threading]]

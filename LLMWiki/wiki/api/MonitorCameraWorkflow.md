@@ -1,8 +1,8 @@
 ﻿---
 title: MonitorCameraWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus）
 date: 2026-09-02
-updated: 2026-09-09
-tags: [API, 工作流, 监控, 权责边界, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-027, ADR-028, ADR-030, ADR-039]
+updated: 2026-11-11
+tags: [API, 工作流, 监控, 权责边界, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-023, ADR-034, ADR-020, ADR-028]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 ---
 
@@ -13,10 +13,10 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 > **命名空间**：`AdaWeldSystem.MainDeviceControl.DeviceWorkflow`
 > **继承**：非泛型 `DeviceWorkflowBase`（17 项契约）→ `DeviceStateBase`；`IDisposable` 由基类实现。
 
-> **✅ 2026-09-04 已落地（ADR-030 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 子设备线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、采集等待改「`WaitOne(0)` 非阻塞探测 + 步骤计时判超时」（⛔ 不再 `WaitOne(5000)` 阻塞）。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
+> **✅ 2026-09-04 已落地（ADR-020 批次 0~4.4）**：本类已按新架构改码——无自带线程（由 `DeviceControlWork` 模组线程驱动 `FlowProcess()`）、`RunStep` 每 case 靠 bool 推进、采集等待改「`WaitOne(0)` 非阻塞探测 + 步骤计时判超时」（⛔ 不再 `WaitOne(5000)` 阻塞）。旧 `GoStep`/`SetStep`/`WorkStep`/`StartRunLoop`/`ManualOn`/`ManualOff`/命令三槽等机制已全部清除，不得据旧内容改码。真编译待 VS（静态自检已通过）。
 > 步骤驱动规范见 [[architecture/DeviceControlArchitecture]] §4（17 契约）· §5（`RunStep` 驱动）· §16（代码模板）。
 
-## 权责边界（ADR-027）
+## 权责边界（ADR-023）
 
 **本流程不产出任何设备数据事件**，职责划分：
 
@@ -27,7 +27,9 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 | 流程进度 | 本流程（基类提供） | `WeldStatusChanged`（`WeldStatusChangedEventArgs`） |
 | 检测结果 | 本流程**只读持有** | `LastResult` / `LastOverlay` 属性，订阅方在流程态转 Completed 后按需拉取 |
 
-> ⚠️ 历史版本曾提供 `DisplayEvent`/`ResultEvent`/`ErrorAborted`/`ManualStopped`/`StatusChanged` 五个自定义事件，**已全部移除**（仅剩基类三事件，ADR-027 R1~R4）。
+> ⚠️ 历史版本曾提供 `DisplayEvent`/`ResultEvent`/`ErrorAborted`/`ManualStopped`/`StatusChanged` 五个自定义事件，**已全部移除**（仅剩基类三事件，ADR-023 R1~R4）。
+>
+> **唯一例外（2026-11-11）**：`WeldPreviewFrame` 交付的是**本流程已 30Hz 节流的成品帧**，开关随焊接启停，丢帧即释放，无订阅方由本流程释放——属 R1 受限例外，不是设备数据事件。理由与许可边界见 [[standards/WorkflowResponsibilityBoundary]] §八。
 
 ---
 
@@ -43,6 +45,41 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 | `RunStep` / `StepWorkTime` / `WorkStepName` / `StepStatusText` | 基类属性 | 执行步 / 步骤用时 / 步中文名 / 可观测摘要 |
 | `Start(phase, continuous)` | `void` | 启动检测；`phase` 指定检测类型，`continuous=true` 连续循环 |
 | `Stop()` | `void` | 手动停止：停相机巡检 + 置 `ManualStopped` |
+| `StartRecording(prefix, out fileName, out failureMessage)` | `bool` | **2026-11-09** 录像触发：前置判断 + `{prefix}{yyyyMMdd_HHmmss}.avi` 命名与落盘目录策略归本层；UI/主控只传前缀常量 |
+| `StopRecording()` | `void` | **2026-11-09** 停止录像（调用方只发起） |
+| `StartWeldPreview()` | `void` | **2026-11-11** 开启焊接过程预览（幂等）；开启态才订阅 `MonitorCamManager.PreviewFrameEvent` |
+| `StopWeldPreview()` | `void` | **2026-11-11** 关闭焊接过程预览（幂等）；退订后关闭态零订阅 |
+| `WeldPreviewFrame` | `event Action<Mat>` | **2026-11-11** 已 30Hz 节流的成品帧；订阅方接管该帧所有权 |
+
+### 焊接过程预览（2026-11-11，R1 受限例外）
+
+| 项 | 实现 |
+|---|---|
+| 节流 | 独立常量 `WeldPreviewHz = 30`；`Stopwatch.Frequency / WeldPreviewHz` 得最小帧间隔，`Stopwatch.GetTimestamp()` 与 `_weldPreviewLastTicks` 比较，不足即丢弃（无定时器线程、无缓冲） |
+| 开关 | `StartWeldPreview()` / `StopWeldPreview()`，`_weldPreviewOn`（`volatile`）+ `_weldPreviewLock` 保证幂等；**关闭态不留订阅** |
+| 焊接启停 | `DeviceControlWork.SimMonitorCamStartWeld` 在 `StartCapture()` 成功后开启；`SimMonitorCamStopWeld` **首行**（早退之前）关闭，三条停止路径（`DoSubStop`/`DoSubManualStop`/`DoSubAlarmStop`）与急停均收敛于此 |
+| 帧所有权 | 管理器对每个订阅方 `Clone()`；**被节流丢弃的帧当场 `Dispose`**；无订阅方时流程自行释放；正常返回即所有权移交订阅方 |
+| 关闭收口 | `DisposeManaged()` 首行 `StopWeldPreview()`，退订失败不阻断释放 |
+| 与调试页 | 调试页仍直连 `MonitorCamManager.PreviewFrameEvent`（逐帧直刷、无节流），两条通道互不影响 |
+
+### 回放门面（2026-11-09 ADR-097）
+
+回放算法在 `EmguALG/RealtimeMonitor/Playback/PlaybackAlgorithm`（`AlgorithmManager.Playback`）；本流程只做门面转发与录像根目录注入，UI 不接触算法对象。
+
+| 成员 | 签名 | 说明 |
+|---|---|---|
+| `CancelScan` | `void` | 取消区间扫描与缩略图解码 |
+| `LoadRange` | `void LoadRange(DateTime start, DateTime end)` | 根目录取 `MonitorCamManager.Instance.RecordDirectory` 后转算法层 |
+| `PlayFile` | `string PlayFile(string path)` | 空串成功，否则为可展示提示 |
+| `TogglePlayPause` | `string` | 无打开文件时返回「请先在右侧列表右键选择要回放的录像文件！」 |
+| `CycleSlow` / `CycleFast` | `void` | 0.8/0.5/0.3/0.1/1.0、1.5/2.0/2.5/3.0/1.0 循环 |
+| `SeekToFrame` | `void SeekToFrame(int frameIndex)` | `CapProp.PosFrames` 定位 |
+| `SeekBySeconds` | `void SeekBySeconds(double seconds)` | ±5 秒按钮入口 |
+| `StopPlayback` | `void` | **幂等**；页面打开时调用即复位到「无源、未播放、速度 1.0」。与设备侧 `Stop()` 语义不同 |
+| `HasSource` / `IsPlaying` / `Speed` | `bool` / `bool` / `double` | 只读状态 |
+| 7 转发事件 | `ScanStarted` / `ScanCompleted` / `ScanCrashed` / `ThumbnailReady` / `FrameReady` / `ProgressChanged` / `PlayStateChanged` | 构造期接线一次，后台线程抛出，UI 自行 `BeginInvoke` |
+
+> 页面关闭只 `StopPlayback + CancelScan + 退订`，**不得 `Dispose`** 单例组件。
 
 > 执行步段位常量（私有）：`StepAcquireTrigger=10` / `StepAcquireWait=20` / `StepAnalyze=30`；通用三常量 `StepIdle=0` / `StepFinishOk=800` / `StepFinishFail=900` 由基类提供。
 > 常量：`AcquireTimeoutSeconds=5`（采集超时，秒）/ `DefaultIp="192.168.1.100"` / `DefaultPort="5000"`（相机未配置时的兜底地址）。
@@ -55,8 +92,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs
 |---|---|---|---|---|
 | 0 | `StepIdle`（基类） | 待机 | 非运行阶段态 | — |
 | 10 | `StepAcquireTrigger` | 触发采集 | `SetPhase(_phase)` + `AcquisitionCompletedSignal.Reset()` + `EnsureConnected()` + `SensorRunContinue()` | → 20 |
-| 20 | `StepAcquireWait` | 等待采集完成信号 | `WaitOne(0)` 非阻塞探测；未就绪且停留 >5s → `Fail("采集等待信号超时 5秒")`；信号就绪但结果无效（采集失败/图像空）→ `Fail`；有效则克隆 `CurrentMat` | → 30（`SetPhase(Analyzing)`） |
-| 30 | `StepAnalyze` | 算法分析 | `AnalyzeImage()`：按 `_phase` 调 `DetectPreWeldAlignment` / `DetectWeldQuality`，锁内写 `_resultMat` 与 `_result`；失败 → `Fail("分析失败")` | → 800（`SetPhase(Completed)`） |
+| 20 | `StepAcquireWait` | 等待采集完成信号 | `WaitOne(0)` 非阻塞探测；未就绪且停留 >5s → `Fail("采集等待信号超时 5秒 " + DescribeLastError(Capture))`；信号就绪但结果无效 → `Fail("采集结果无效 图像为空或采集失败 " + DescribeLastError(Capture))`；有效则克隆 `CurrentMat` | → 30（`SetPhase(Analyzing)`） |
+| 30 | `StepAnalyze` | 算法分析 | `AnalyzeImage()`：按 `_phase` 直调 **`AlgorithmManager.Instance.DetectWireFeed/DetectWeldQuality`**（同级 Manager 不互持算法对象，2026-11-09 ADR-097），锁内写 `_resultMat` 与 `_result`；失败 → `Fail("分析失败 " + DescribeLastError(Analyze))` | → 800（`SetPhase(Completed)`） |
 | 800 | `StepFinishOk` | 成功收尾 | 连续模式 `SetPhase(Acquiring)` 回 10 起下一轮；单轮模式 `SetPhase(Standby)` 回待机 | → 10 / 0 |
 | 900 | `StepFinishFail` | 失败收尾 | `SetPhase(ErrorAborted)` + `IsAlarm` + `RecordFault`（`MonitorStepFail`） | → 0 |
 
@@ -113,6 +150,12 @@ switch (RunStep) {
 
 ---
 
+## 回放（2026-11-09 迁算法层，本层只做门面）
+
+回放的解码、推进、时间基准、进度、暂停、倍速、±5 秒、目录扫描与缩略图全部在算法层 [[api/PlaybackAlgorithm]]（`AlgorithmManager.Playback`）；本流程只做门面转发与录像根目录注入，并负责录像触发的命名与前置判断（`StartRecording`/`StopRecording`）。UI `MonitorCamPage` 只调用与展示。
+
+---
+
 ## 状态转换与关键行为
 
 - `Start(phase, continuous)`：要求 `_flowState == Standby`（否则抛 `InvalidOperationException`，`RequireStandby`）→ 记 `_phase`/`_continuous` → `MonitorCamManager.StartSupervision()`（健康巡检由相机自启停）→ `SetPhase(Acquiring)`。
@@ -147,7 +190,7 @@ switch (RunStep) {
 |---|---|---|
 | `TimeOutSeconds` | 30 | 基类超时阈值（秒） |
 
-`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/XML/MonitorCameraWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。采集超时用步 20 内 `AcquireTimeoutSeconds`（5s）判定，与 `TimeOutSeconds` 相互独立。
+`LoadConfig` / `SaveConfig` **无参**，走 `XdocumentReaderWriter`（XML 文件 `Config/MonitorCam/Workflow_XML/MonitorCameraWorkflow.xml`）；`SaveConfig()` 末尾 `Config.SaveXdocument()` 落盘（裁定 D1）。采集超时用步 20 内 `AcquireTimeoutSeconds`（5s）判定，与 `TimeOutSeconds` 相互独立。
 
 ---
 
@@ -157,19 +200,20 @@ switch (RunStep) {
 
 `SubDeviceLog()`（C7 契约）：输出连接态 / 焊接过程态 / 步骤名 / 检测阶段 / 合格 / 缺陷数。
 
-`DisposeManaged()`（基类 `Dispose()` 钩子，ADR-023）：停相机巡检 + 释放 `_lastMat`/`_resultMat`（`_resultLock` 保护）。
+`DisposeManaged()`（基类 `Dispose()` 钩子，ADR-027）：停相机巡检 + 释放 `_lastMat`/`_resultMat`（`_resultLock` 保护）。
 
 ---
 
 ## 事件
 
-**仅基类事件**，无自定义事件（ADR-027 R1~R4）：
+基类三事件之外，**仅 1 个受限例外**（ADR-016 R1 演进，2026-11-11）：
 
 | 事件 | 来源 | 参数 |
 |---|---|---|
 | `WeldStatusChanged` | `DeviceStateBase` | `WeldStatusChangedEventArgs`（OldStatus/NewStatus/Reason/Timestamp） |
 | `StateSwitched` | `DeviceStateBase` | `SubDeviceStateChangedEventArgs`（连接态） |
 | `AlarmOccurred` | `DeviceStateBase` | `EventArgs` |
+| `WeldPreviewFrame` | 本流程 | `Action<Mat>`，已 30Hz 节流的成品帧；订阅方拥有帧 |
 
 ---
 
@@ -197,7 +241,7 @@ private void ShowResult()
 }
 ```
 
-调用方：`MonitorCamPage.cs`（`Stop()`）、`MotionControlPage.cs`（只读 `WeldStatus`）、`DeviceStatusWork`（按 `SubDeviceState` 参与互锁判定）。
+调用方：`MonitorCamPage.cs`（`Stop()`）、`SystemControlPage.cs`（只读 `WeldStatus`）、`DeviceStatusWork`（按 `SubDeviceState` 参与互锁判定）。
 
 ---
 
@@ -206,7 +250,8 @@ private void ShowResult()
 - [[modules/DeviceControl]] — 所属架构
 - [[architecture/DeviceControlArchitecture]] — 架构规范页（§4 契约 · §5 RunStep 驱动 · §16 模板）
 - [[api/MonitorCamManager]] — 采集运行控制与健康巡检（图像/连接态/巡检的归属）
-- [[api/AlgorithmManager]] — 算法配置管理器（`AlignmentConfig` / `QualityConfig`）
-- [[decisions/ADR-023-WorkflowResponsibilityBoundary]] — 权责边界决策
-- [[decisions/ADR-003-CallbackAcquisition]] — 回调采集（有界可失败语义）
-- [[decisions/ADR-007-MonitorCameraModule]]、[[decisions/ADR-027-ThreeStateModelRefactor]]、[[decisions/ADR-029-RawDesignRefinement20260903]]、[[decisions/ADR-039-MonitorCamBoundaryAndEmguALGRefinement]]
+- [[api/AlgorithmManager]] — 算法层唯一实例化/取用入口（配置 + 检测 + 回放 + 线激光轮廓）；**2026-11-09 ADR-097 起本流程直取 `Instance`**（同级 Manager 不互持算法对象）
+- [[api/PlaybackAlgorithm]] — 回放算法（扫描/解码/时间基准/倍速/跳转）
+- [[decisions/ADR-016-WorkflowResponsibilityBoundary]] — 权责边界决策
+- [[decisions/ADR-018-CallbackAcquisition]] — 回调采集（有界可失败语义）
+- ADR-019（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]）、[[decisions/ADR-013-ThreeStateModelRefactor]]、[[decisions/ADR-035-RawDesignRefinement20260903]]、[[decisions/ADR-019-MonitorCamBoundaryAndEmguALGRefinement]]

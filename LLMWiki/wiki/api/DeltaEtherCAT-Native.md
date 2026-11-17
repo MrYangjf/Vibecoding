@@ -1,11 +1,37 @@
 ---
 title: 台达 EtherCAT 原生 API 速查（EtherCAT_DLL）
 date: 2026-09-05
-tags: [API, 运控, 台达, EtherCAT, P/Invoke, 速查]
+updated: 2026-09-16
+tags: [API, 运控, 台达, EtherCAT, P/Invoke, 速查, CSP, 焊缝跟踪, ADR-042]
 source: "D:/Program Files (x86)/Delta Industrial Automation/EtherCAT/inc/C#/EtherCAT_DLL.cs"
 ---
 
 # 台达 EtherCAT 原生 API 速查（EtherCAT_DLL）
+
+
+## 章节导航
+
+- [调用约定](#调用约定)
+- [1. 主站管理 Master](#1-主站管理-master)
+- [2. 从站信息与状态](#2-从站信息与状态)
+- [3. 运动基础 Motion](#3-运动基础-motion)
+- [4. 回零 Home](#4-回零-home)
+- [5. CSP 点位/速度/停止/变更](#5-csp-点位速度停止变更)
+- [6. CSP 插补与多轴](#6-csp-插补与多轴)
+- [7. CSP 齿轮/虚拟轴/软限位](#7-csp-齿轮虚拟轴软限位)
+- [8. CSV / CST 周期同步速度与扭矩](#8-csv--cst-周期同步速度与扭矩)
+- [9. PP / PV / PT / VL 经典模式](#9-pp--pv--pt--vl-经典模式)
+- [10. 电子凸轮 ECAM（一代）](#10-电子凸轮-ecam一代)
+- [11. 电子凸轮 ECAM2（二代，推荐）](#11-电子凸轮-ecam2二代推荐)
+- [12. 龙门同步 Gantry](#12-龙门同步-gantry)
+- [13. 运动缓冲 MotionBuffer](#13-运动缓冲-motionbuffer)
+- [14. 表运动 TableMotion / PVT](#14-表运动-tablemotion--pvt)
+- [15. 数字 IO（按从站 DIO）](#15-数字-io按从站-dio)
+- [16. 数字 IO（全局位软元件，推荐）](#16-数字-io全局位软元件推荐)
+- [17. AD / DA 与 PDO](#17-ad--da-与-pdo)
+- [18. SDO 通讯](#18-sdo-通讯)
+- [19. 位置锁存 TouchProbe / Compare / Latch](#19-位置锁存-touchprobe--compare--latch)
+- [20. 其他（配置/安全/日志/模块专用）](#20-其他配置安全日志模块专用)
 
 > **章节导航**（本页为超长页，请先按章节定位再读）：
 >
@@ -42,6 +68,13 @@ source: "D:/Program Files (x86)/Delta Industrial Automation/EtherCAT/inc/C#/Ethe
 | C# 示例 | `sample/C#/` — 01 初始化 / 02 回零 / 03 PT / 04 PV / 05 PP / 06 CSP / 07 DI / 08 DO / 09 AD / 10 DA |
 | 官方手册 | `manual/API/DELTA_IA-GMC_EtherCAT_PM_TC_20250428.pdf`（12 MB，API 手册） |
 | API 总数 | **832 个**（本页全量覆盖） |
+
+> **本项目现行主用路径（2026-09-21 ADR-042）**：焊缝跟踪 CSP 经**运动缓冲**写入——
+> `CS_ECAT_Slave_CSP_Start_MotionBuffer_*` 家族（封装见 `Native/EtherCATMotionBufferNative.cs` + `DeltaMontionAxis#region 运动缓冲`）。
+> ~~`CS_ECAT_Slave_CSP_TargetPos_Change`（607A 逐拍改目标）~~ **实测写入不生效已删除**；
+> `CS_ECAT_Slave_CSP_Start_Move` 仍由普通点位 `AbsMove` 使用（保留）。
+> 业务层**不直接调本页原生函数**（[[modules/MotionControl]] 三层铁律）。
+> 单位：全部为**脉冲**，mm→脉冲换算（`ToPulse`）只在 L3 完成。
 
 ## 调用约定
 
@@ -149,7 +182,7 @@ if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
 
 ## 2. 从站信息与状态
 
-> 从站连接态、ESC 寄存器、紧急报文（EMCY）。OpState 语义：0=Init 1=PreOP 2=SafeOP 3=OP。（共 13 个）
+> 从站连接态、ESC 寄存器、紧急报文（EMCY）。OpState 语义：1=Init 2=PreOP 4=SafeOP 8=OP（位掩码：0x01/0x02/0x04/0x08）。（共 13 个）
 
 | 方法 | EntryPoint | 返回值 | 参数 |
 |------|-----------|--------|------|
@@ -180,7 +213,7 @@ if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
 | `CS_ECAT_Slave_Motion_Get_Position` | `_ECAT_Slave_Motion_Get_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Position` |
 | `CS_ECAT_Slave_Motion_Get_Actual_Command` | `_ECAT_Slave_Motion_Get_Actual_Command` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int ActualCommand` |
 | `CS_ECAT_Slave_Motion_Get_Actual_Position` | `_ECAT_Slave_Motion_Get_Actual_Position` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int ActualPosition` |
-| `CS_ECAT_Slave_Motion_Get_Mdone` | `_ECAT_Slave_Motion_Get_Mdone` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Mdone` |
+| `CS_ECAT_Slave_Motion_Get_Mdone` | `_ECAT_Slave_Motion_Get_Mdone` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort Mdone` ⚠️ **多值状态机（台达手册 8.12 / P8-18），非布尔**：`0`=靜止、`1`=加速中、`2`=常態速度、`3`=減速中、`5`=通訊中（Profile 系列 `0`=靜止/`1`=運動中）⇒ **「運動中」= `Mdone != 0`**。旧记「0=运动中」系雷赛语义误植，2026-09-24 依手册修正 |
 | `CS_ECAT_Slave_Motion_Get_Speed` | `_ECAT_Slave_Motion_Get_Speed` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Speed` |
 | `CS_ECAT_Slave_Motion_Get_Current_Speed` | `_ECAT_Slave_Motion_Get_Current_Speed` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref int Speed` |
 | `CS_ECAT_Slave_Motion_Get_Torque` | `_ECAT_Slave_Motion_Get_Torque` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref short Torque` |
@@ -300,7 +333,7 @@ if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
 | `CS_ECAT_Slave_CSP_2D_Compensation_Set_Parameters` | `_ECAT_Slave_CSP_2D_Compensation_Set_Parameters` | `ushort` | `ushort CardNo, ushort CmpNo, ref ushort NodeID, ref ushort SlotID, ref int BeginPos, ref int Spacing, ref int Count, ushort DataType, ref int Dx, ref int Dy, ushort Enable` |
 | `CS_ECAT_Slave_CSP_2D_Compensation_Get_Status` | `_ECAT_Slave_CSP_2D_Compensation_Get_Status` | `ushort` | `ushort CardNo, ushort CmpNo, ref ushort Enable` |
 | `CS_ECAT_Slave_CSP_2D_Compensation_Get_PreCompensationPos` | `_ECAT_Slave_CSP_2D_Compensation_Get_PreCompensationPos` | `ushort` | `ushort CardNo, ushort CmpNo, int CompensationPos1, int CompensationPos2, ref int PreCompensationPos1, ref int PreCompensationPos2, ref ushort OutOfRange` |
-| `CS_ECAT_Slave_CSP_TargetPos_Change` | `_ECAT_Slave_CSP_TargetPos_Change` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int NewPos` |
+| `CS_ECAT_Slave_CSP_TargetPos_Change` | `_ECAT_Slave_CSP_TargetPos_Change` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int NewPos` ★**本项目主用**（ADR-042，1kHz CSP 热路径） |
 | `CS_ECAT_Slave_CSP_Velocity_Change` | `_ECAT_Slave_CSP_Velocity_Change` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int NewSpeed, double Tsec` |
 | `CS_ECAT_Slave_CSP_TargetPos_Velocity_Change` | `_ECAT_Slave_CSP_TargetPos_Velocity_Change` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int NewPos, int NewSpeed, double Tsec` |
 | `CS_ECAT_Slave_CSP_Feedrate_Overwrite` | `_ECAT_Slave_CSP_Feedrate_Overwrite` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Mode, int NewSpeed, double Tsec` |
@@ -419,7 +452,8 @@ if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
 | `CS_ECAT_Slave_CSP_Start_MotionBuffer_BufGear` | `_ECAT_Slave_CSP_Start_MotionBuffer_BufGear` | `ushort` | `ushort CardNo, ushort TableNo, ushort AxisNo, ushort SlotNo, int Distance, ushort FifoNo` |
 | `CS_ECAT_Slave_CSP_Set_Gear` | `_ECAT_Slave_CSP_Set_Gear` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, double Numerator, double Denominator, short Enable` |
 | `CS_ECAT_Slave_CSP_Set_Gear_Adv` | `_ECAT_Slave_CSP_Set_Gear_Adv` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Numerator, double Denominator, ushort Mode, short Enable` |
-| `CS_ECAT_Slave_CSP_Set_Softlimit` | `_ECAT_Slave_CSP_Set_Softlimit` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, int PosiLimit, int NegaLimit, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Set_SoftTargetReach` | `_ECAT_Slave_CSP_Set_SoftTargetReach` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Window_Time, uint Position_Window, ushort Enable` ★**2026-09-24 新增**（**CSP 族专用到位判定**配置：位置窗口 + 时间窗口；签名与台达官方 demo 头文件 `EtherCAT_DLL.cs` 逐字一致） |
+| `CS_ECAT_Slave_CSP_Get_SoftTargetReach_Status` | `_ECAT_Slave_CSP_Get_SoftTargetReach_Status` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref ushort Status` ★**2026-09-24 新增**（到位状态读取）。⚠️ **取值语义与 `Position_Window` 单位待台达手册核实**，核实前只作能力封装、**不得作控制判据** |
 | `CS_ECAT_Slave_CSP_Virtual_Set_Enable` | `_ECAT_Slave_CSP_Virtual_Set_Enable` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ushort Enable` |
 | `CS_ECAT_Slave_CSP_Virtual_Set_Command` | `_ECAT_Slave_CSP_Virtual_Set_Command` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, int Command` |
 
@@ -552,7 +586,7 @@ if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
 | `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_Remain_Buffer_Size` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_Remain_Buffer_Size` | `ushort` | `ushort CardNo, ushort TableNo, ref int RemainBufSize, ushort FifoNo` |
 | `CS_ECAT_Slave_CSP_Start_MotionBuffer_Clear_Buffer` | `_ECAT_Slave_CSP_Start_MotionBuffer_Clear_Buffer` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
 | `CS_ECAT_Slave_CSP_Start_MotionBuffer_Start` | `_ECAT_Slave_CSP_Start_MotionBuffer_Start` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo` |
-| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Stop` | `_ECAT_Slave_CSP_Start_MotionBuffer_Stop` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo, ushort Mode` |
+| `CS_ECAT_Slave_CSP_Start_MotionBuffer_Stop` | `_ECAT_Slave_CSP_Start_MotionBuffer_Stop` | `ushort` | `ushort CardNo, ushort TableNo, ushort FifoNo, ushort Mode` ⚠️ **Mode 语义（手册 9.7.16，P9-180）**：`0` = **Feedhold**（**不清除 FIFO、不解除座標系**，再调 `Start` 可**继续接续执行**＝暂停）、`1` = **平滑停止**（**清除 FIFO 並解除座標系**）、`2` = **緊急停止**（清除 FIFO 並解除座標系）。⛔ **收尾必须用 `1`**——传 `0` 等于暂停，FIFO 与坐标系全部残留 ⇒ 随后 `BufferClear` 被拒（现场「清空失败报警」）+ 残留插补坐标系与下一场单轴点位运动 `CSP_Start_Move` 冲突（手册 9.7 开篇：插補模式下不可随意切换运动模式） |
 | `CS_ECAT_Slave_CSP_Start_MotionBuffer_Feedrate_Override` | `_ECAT_Slave_CSP_Start_MotionBuffer_Feedrate_Override` | `ushort` | `ushort CardNo, ushort TableNo, double SynVelRatio` |
 | `CS_ECAT_Slave_CSP_Start_MotionBuffer_Set_UserSegNum` | `_ECAT_Slave_CSP_Start_MotionBuffer_Set_UserSegNum` | `ushort` | `ushort CardNo, ushort TableNo, int SegNum, ushort FifoNo` |
 | `CS_ECAT_Slave_CSP_Start_MotionBuffer_Get_UserSegNum` | `_ECAT_Slave_CSP_Start_MotionBuffer_Get_UserSegNum` | `ushort` | `ushort CardNo, ushort TableNo, ref int SegNum, ushort FifoNo` |
@@ -687,7 +721,7 @@ if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
 
 ## 18. SDO 通讯
 
-> SDO 读写（非阻塞 Send/Read + 阻塞 QuickSend + Check_Done）。（共 8 个）
+> SDO 读写（非阻塞 Send/Read + 阻塞 QuickSend + Check_Done）。（共 8 个；**2026-11-05 删除 3 个**：下表中 `SDO_Quick_Read_Message` / `SDO_Read_Response` / `SDO_Get_ErrorCode` 的 `DllImport` 已随 P1.087/P1.088 写读链路移除，文档行保留仅作 SDK 对照）
 
 | 方法 | EntryPoint | 返回值 | 参数 |
 |------|-----------|--------|------|
@@ -942,8 +976,8 @@ if (ret != CEtherCAT_DLL_Err.ERR_ECAT_NO_ERROR) { /* 处理 */ }
 | `CS_ECAT_Slave_R1_EC9144_Get_Output_ReturnCode` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ref ushort ReturnCode` |
 | `CS_ECAT_Slave_R1_EC9144_Set_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, double Value` |
 | `CS_ECAT_Slave_R1_EC9144_Get_Output_Value` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotID, ref double Value` |
-| `CS_ECAT_Slave_DeltaServo_Write_Parameter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, int WriteData` |
-| `CS_ECAT_Slave_DeltaServo_Read_Parameter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, ref int ReadData` |
+| `CS_ECAT_Slave_DeltaServo_Write_Parameter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, int WriteData` ★**2026-11-04 新增封装**（`Native/EtherCATMasterNative.cs`；`Page=1` 对应 P1，用于 P1.087/P1.088 写入，见 ADR-080） |
+| `CS_ECAT_Slave_DeltaServo_Read_Parameter` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, ref int ReadData` ★**2026-11-04 新增封装**（写后回读校验，不假设自动生效） |
 | `CS_ECAT_Slave_DeltaServo_Read_Parameter_Info` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, ushort Page, ushort Index, ref ushort ParaType, ref ushort DataSize, ref ushort DataType` |
 | `CS_ECAT_Slave_DeltaServo_Set_Velocity_Limit` | `ushort` | `ushort CardNo, ushort NodeID, ushort SlotNo, uint LimitValue` |
 | `CS_ECAT_Security_Check_Verifykey` | `ushort` | `ushort CardNo, ref uint VerifyKey` |
