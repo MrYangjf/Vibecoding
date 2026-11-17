@@ -1,0 +1,53 @@
+# 场景速查路由源（结构化）—— 每行：场景描述 <TAB> 目标页链接 <TAB> 硬约束提示(≤80字符)
+# 由 tools/wiki_route_rebuild.py 读取并生成 index.md 的「⚡ 场景速查路由」表；勿直接编辑 index.md 的该表。
+# 第 1 列允许含日期（检索线索）；第 3 列严禁日期/删除线/超 80 字符。
+不知道某功能在哪块代码 / 代码依附关系 / 要不要全盘扫代码	[[architecture/CodeMap]]（总览·代码记忆卡）+ [[architecture/CodeMap-Files]]（详表）	⛔ Phase0 先读总览建立代码记忆，命中再读具体代码块；禁一上来全库 Grep；逐文件查详表
+第一次评审优化（41 条需求）在做什么 / 改动落在哪	[[project/ReviewOptimization-P1-StructureDesign]] + [[architecture/CodeMap]]	P1 五份产物；⛔ P2 落地后结构冻结，只可追加不可挪位
+代码精简 / 注释精简 / 日志规范	[[standards/CodeSimplification]]	强制排除仅 `*.Designer.cs`；约束归知识库，0 消费预留成员禁删
+UI 状态判断 / 按钮 text / 连接态刷新	[[standards/UiStateSimplification]]	与 CodeSimplification 互补，二者都要看
+流程与子设备权责 / 这个事件该不该放流程	[[standards/WorkflowResponsibilityBoundary]]	判据「数据是设备的，进度是流程的」，R1~R5
+新增/改造一个模块 / 抽象层·实现层·Manager 怎么摆	[[standards/ModuleOrganizationPattern]]	判据「抽象层+实现层+Manager 三件套」；Manager 唯一对外访问口
+流程怎么推进 / 步骤编号 / 卡在哪一步 / 超时判定	[[architecture/DeviceControlArchitecture]] §5 + §16.3	现行 `RunStep` 由每个 `case` 内 bool 判定推进，无 `GoStep` 入口
+写日志 / 日志标签怎么定 / `Tag` 有什么用	[[api/GlobalCommData]] + [[standards/CodeSimplification]] §三	`Tag` 是日志标签非死成员；设备日志直连 `ShowLog`
+用户改了 `raw/architecture/` 原档，要同步架构	[[architecture/DeviceControlArchitecture]] §15 + [[decisions/ADR-035-RawDesignRefinement20260903]]	原档 > 架构页 > 源码注释；冲突须用户裁定后按 §15.2 推进
+设备状态 / 工作流 / 上电初始化 / 状态机	[[architecture/DeviceControlArchitecture]] → [[modules/DeviceControl]]	三态模型；状态写入唯一入口 `SetState`/`SetWeldStatus`/`SetStatus`
+新增或修改一个工作流	[[architecture/DeviceControlArchitecture]] §4 + §16 + [[modules/DeviceControl]]	⚠️ 改码前必读 §16；现行契约 17 项，配置读写无参，子设备各自持有配置路径
+安全检查 / 安全互锁 / 故障恢复	[[api/DeviceStatusWork]] + [[modules/ProductFileManager]]	故障恢复已归口产品记录模块；记录 key 与注册 key 必须同源
+线激光相机（族总览 / 取相机 / 切模拟）	[[modules/LineLaserCam]] + [[api/LineLaserManager]]	三层：`ILineLaser/` 抽象 + 英莱/虚拟实现，Manager 唯一入口
+线激光结果怎么用 / Y 轴轨迹 / 主页面取点	[[decisions/ADR-042-SeamTrackingConsolidated]] + [[api/SeamMapTrackingAlgorithm]] + [[api/MotionControlWorkflow]]	结果侧只转发 `ResultReady`；CSP 默认、PVT 备用，主页面轮询快照
+英莱相机参数 / Job / 传感器	[[api/IntelligentLaserCam]] + [[lessons/IntelligentLaser-Pitfalls]]	参数以设备为唯一真相源，禁离线缓存
+监控相机 / 焊中质检	[[modules/MonitorCam]] + [[api/MonitorCamManager]]	巡检在 Manager 不在工作流；实现层海康 MVS；页 Tabs 化（设置/回放）
+监控相机换麦格威（MecaVision MVSDK）	[[guides/MecaVision-DevGuide]] + [[api/MecaVisionMVSDK-Native]]	⛔ 载体已退役：现行实现走海康 MVS，见 [[api/HikCam]]
+EmguALG 算法三层改造	[[modules/EmguALG]] + [[api/AlgorithmManager]]	三层 Abstractions + 实时监测 + Manager 统一调度
+运控（台达 EtherCAT）	[[modules/MotionControl]] + [[api/MontionManager]] + [[guides/DeltaEtherCAT-DevGuide]]	⛔ 正运动已移除；三层 Native/IMotion/DeltaEtherCAT + Manager 业务层
+台达 EtherCAT 运动控制模块（全新设计）	[[guides/DeltaEtherCAT-DevGuide]] + [[api/DeltaEtherCAT-Native]]	目录结构与对外消费按原档；API 名以 SDK 头文件为准
+焊接工艺计算 / 功率送丝摆幅	[[modules/WeldParamControl]] + [[api/WeldParamManager]] + [[api/WeldParamControlWorkflow]]	`TriggerAdjustment()` 无参；算法分层 + 去记录化 + 配置合一
+AntdUI 控件用法 / 迁移 / 设计范式	[[guides/AntdUI-Reference]]	禁用 SunnyUI
+WinForms 设计器报错 / 控件不显示	[[guides/WinForms-Designer]]	Designer.cs 不可手改
+跨线程更新 UI / InvokeRequired	[[guides/WinForms-UI-Threading]]	后台线程禁止模态弹窗
+编译错误 / 命名空间 / 新文件不参与编译	[[guides/Namespace-Compilation]]	新建 .cs 必须注册 .csproj（§1.1）
+日志追加位置 / 批量重命名 / .csproj / VibeCoding	[[guides/Project-Tools]]	日志须追加到文件顶部；见 [[standards/WikiPageFormatSpec]] §2.5
+源码/知识库云端备份 / 推送拉取 GitHub	[[guides/SourceBackup-GitHub]]	双仓（代码 + LLMWiki）；SSH over 443；忽略 3rdDepend
+INI / SQLite / XML 配置读写	[[guides/Config-Data-Tools]]	配置读写与工具手册
+产品记录 / 过程数据归档	[[modules/ProductFileManager]]	三记录类 + Manager；订阅方已闭环
+改任何 C# 代码前的通用门禁	[[lessons/CSharp-Language-Pitfalls]]	C# 7.3，禁 C# 8+ 语法（ADR-001）
+写/改静态校验脚本 / 编译错误根因排查	[[lessons/StaticVerifierJudgements]] + [[lessons/StaticCheckSemanticBlindSpots]] + [[lessons/SignatureAndWiringConsistency]]	判据全文库九章；绿灯≠构建过（语义错误只有编译器能定）
+判据不生效 / 阈值自锁 / 改配置默认值没生效排查	[[lessons/JudgementThresholdScaleMismatch]] + [[lessons/AlgorithmControlRecordIsolation]]	阈值须大于信号量子；配置默认值≠生效值（现场 INI 会覆盖）
+改 UI 布局 / 设计器删控件 / 图表重排后编译报错	[[lessons/UiLayoutChangeSyncPitfalls]] + [[lessons/UiRefreshUnifiedEntry]]	改版后全量 Grep 后置引用逐条收敛；状态刷新走 `RefreshUi` 单入口
+删一个 UI 功能模块 / 控件本体与专属字段怎么连带清理	[[lessons/UiModuleRemovalCleanup]] + [[guides/AntdUI-Reference]]	控件 4 落点+专属字段+Span 占位同批清；零引用≠死成员，须查读取点
+启动即崩 / 界面未生成就开硬件 / UI 回调空引用	[[lessons/StartupInitializationOrderGates]]	静态构造禁重入日志；`IsUiReady` 门控按拍重试；回调判句柄状态
+查 AntdUI 控件 / 设备 SDK 用法	[[lessons/DocDemoDllLookupOrder]]	顺序不可跳级：源码文档 → 官方 demo → DLL 侦查（设备 SDK 先厂商 demo）
+AntdUI Modal.Config 编译报错（Form→Target 误报）	[[lessons/AntdUI-Modal-Config-Overload-Cascade]]	第三参数未定义触发重载解析级联；owner 用 `Form.ActiveForm`
+模拟测试 / 虚拟相机 / 轨迹记录	[[lessons/SimulationAutoBranching]]	连接态纯计算派生不缓存；记录模式另开一路防早退丢轨迹
+第三方原生 DLL 报 NullReferenceException	[[lessons/MecaVision-NativeDllLoadNRE]]	静态构造 LoadLibrary 失败静默返回 Zero；3rdDepend 落文件≠部署完成
+GitHub 推送拉取失败 / Wiki 批量改页脚本	[[lessons/GitHubSyncPitfalls]] + [[lessons/WikiDriftCorrectionPitfalls]]	推送前四查；wiki 页 LF 入库，脚本按字节读写原样回写
+流程规则 / 编码前要过哪些门禁	[[rules/Rules-Index]]（编号唯一权威）	⛔ rules/ 只收流程执行类；index 第十二节 → Rules-Index → 规则页
+批量改 wiki 页 / 行尾乱了 / diff 变整文件	[[lessons/WikiDriftCorrectionPitfalls]]	⛔ 按字节读写；joiner 必须与 splitter 匹配；整文件 diff 先归因
+批量替换脚本 / 锚点命中 0 / 替换串含被替换串	[[lessons/StaticVerifier-Batch-Script-Traps]]	⛔ 先干跑校验全部锚点；失败集可二分即先自审判据
+新增规则 / 规则要演进 / KR 编号怎么分配	[[rules/Rules-Index]] + [[standards/WikiPageFormatSpec]] §三	⛔ 先合并后新建；新号 = max+1；废止不回收编号
+出包 / 备份包 / output 与 backup 的区别	[[rules/KR-011-Backup-Output-Timing]]	⛔ backup 在改码前、output 在定稿后；时机不可互换
+无编译器 / 静态检查能不能算通过	[[rules/KR-010-No-Compiler-Honesty]]	⛔ 静态检查 ≠ 构建通过；语义缺陷只有编译器能定
+Skill 与 wiki 冲突 / 该信哪个	[[rules/KR-004-Skill-Demoted]] + [[rules/KR-013-Skill-Pointer-Discipline]]	⛔ wiki 优先；Skill 只写机制，不写死内容页名
+页面格式 / 摘要多长 / 这页该不该拆 / 能不能新建页	[[standards/WikiPageFormatSpec]]	⛔ index 摘要 ≤120 字符；ADR/教训/规则一律先合并后新建
+规则归哪类 / 内容类规则能不能进 rules	[[standards/WikiPageFormatSpec]] §2.4b	⛔ rules/ 只收流程执行类；内容类归 lessons/standards/decisions
+硬件故障文案写在哪 / 流程层能不能拼状态字报警码	[[architecture/DeviceControlArchitecture]] §10.8 + [[decisions/ADR-095-hardware-fault-tree-ownership]]	⛔ 故障文本只由硬件 Manager 产出；流程只附诊断引用，UI 只展示成品

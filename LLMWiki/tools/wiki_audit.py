@@ -6,6 +6,11 @@ import re
 import sys
 from collections import defaultdict
 
+# Windows 控制台默认 GBK，输出 ✅ 等字符会 UnicodeEncodeError；强制 UTF-8 输出
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WIKI = os.path.join(ROOT, "wiki")
 
@@ -177,13 +182,22 @@ for k in pages:
     if m:
         nums.add(int(m.group(1)))
 lo, hi = min(nums), max(nums)
-missing = [n for n in range(lo, hi + 1) if n not in nums]
+# 废止号留档：被并入他页的旧号（ADR-Index 中以指针行留档）不算编号空洞
+# —— 库内不变式「废止不回收编号」⇒ 旧号在表里留档，磁盘无文件是预期态。
+adr_index_path = os.path.join(WIKI, "decisions", "ADR-Index.md")
+_retired = set()
+if os.path.isfile(adr_index_path):
+    _ait = open(adr_index_path, encoding="utf-8-sig").read()
+    _retired = set(int(x) for x in re.findall(r"^\|\s*(\d{3})\s*\|\s*→", _ait, re.M))
+missing = [n for n in range(lo, hi + 1) if n not in nums and n not in _retired]
 print("  已存在编号：%d ~ %d（共 %d 个）" % (lo, hi, len(nums)))
+print("  废止留档号（已并入他页，编号不回收）：%s"
+      % (sorted(_retired) if _retired else "无"))
 print("  空洞编号：%s" % (missing if missing else "无"))
-# index 是否登记全部 ADR
-idx_txt = open(idx, encoding="utf-8-sig").read()
+# index 是否登记全部 ADR —— 唯一权威是 ADR-Index（index.md 按格式契约禁内嵌 ADR 全量表）
+idx_txt = open(adr_index_path, encoding="utf-8-sig").read()
 not_in_idx = sorted(["ADR-%03d" % n for n in nums if "ADR-%03d-" % n not in idx_txt])
-print("  已存在但未登记进 index：%s" % (not_in_idx if not_in_idx else "无"))
+print("  已存在但未登记进 ADR-Index：%s" % (not_in_idx if not_in_idx else "无"))
 
 # ---------- 5. 体积分布 ----------
 print()
@@ -300,3 +314,24 @@ for cat, n in small:
     print("  ⚠️ %-24s %d 页 —— 分类过小，考虑并入相近分类" % (cat + "/", n))
 if not small:
     print("  ✅ 无过小分类（>2 页 / 或已在豁免名单）")
+
+print()
+print("=" * 70)
+print("11. lessons 三处一致性（目录页数 == index §五 表行数 == 分类摘要计数）")
+print("=" * 70)
+# 2026-10-14 治理：ADR 有编号准绳 + 计数同步机制，lessons 此前四项皆无——
+# 曾漂移「摘要 14 条坑 vs 实际 18 页」无人发现。新建 lesson 必三处同步
+# （workflow spec Step 3.4），本项为强制闸门，不一致非零退出。
+lessons_dir = os.path.join(WIKI, "lessons")
+n_disk = len([f for f in os.listdir(lessons_dir) if f.endswith(".md")])
+n_rows = sum(1 for ln in lines if ln.strip().startswith("| [[lessons/"))
+m_sum = re.search(r"历史教训 lessons\]\([^)]*\)\s*\|\s*(\d+) 条坑", "\n".join(lines))
+n_summary = int(m_sum.group(1)) if m_sum else None
+lessons_ok = (n_summary is not None and n_summary == n_disk == n_rows)
+if lessons_ok:
+    print("  ✅ 三处一致：目录 %d 页 == §五表行 %d == 摘要 %d 条坑" % (n_disk, n_rows, n_summary))
+else:
+    print("  ❌ 三处不一致：目录 %d 页 / §五表行 %d / 摘要计数 %s"
+          % (n_disk, n_rows, n_summary))
+    print("     新建/合并/删除 lesson 必须三处同步（见 workflow spec Step 3.4）")
+    sys.exit(1)

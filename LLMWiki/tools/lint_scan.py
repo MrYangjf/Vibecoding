@@ -77,9 +77,14 @@ for p in walk_md(WIKI_ROOT):
         if not resolved:
             dead_links.append((rel_path(p), target))
 
-# 孤儿页面：未被 index.md 索引的页面
+# 孤儿页面：未被 index.md 或 ADR-Index.md 索引的页面
+# 2026-10-30：ADR 通过 ADR-Index.md 索引（index.md 不重复该表），故合并两文件内容作为索引源
 with open(INDEX_FILE, encoding="utf-8-sig") as fh:
     index_content = fh.read()
+adr_index_file = os.path.join(WIKI_ROOT, "decisions", "ADR-Index.md")
+if os.path.exists(adr_index_file):
+    with open(adr_index_file, encoding="utf-8-sig") as fh:
+        index_content += fh.read()
 
 orphans = []
 for p in walk_md(WIKI_ROOT):

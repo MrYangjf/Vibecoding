@@ -3,8 +3,8 @@
 """
 csharp_review.py — .NET Framework 4.8 / C# 7.3 单文件冗余代码扫描器
 
-扫描单个 .cs 文件（不处理 designer.cs、不跟踪外部引用），输出以下类别的问题候选：
-  A. 文件书写整理：成员顺序、#region 划分、XML 注释规范
+扫描单个 .cs 文件（Designer.cs 只做字体规范检查，不跟踪外部引用），输出以下类别的问题候选：
+  A. 文件书写整理：成员顺序、#region 划分、XML 注释规范、字体规范（默认 Microsoft YaHei UI）
   B. 代码逻辑精简：无意义 null 检查、无意义锁、冗余赋值传递、
      过度枚举、过度属性、过度等待、过度缓存、过度资源管理
   C. 函数精简：功能重叠函数、单层嵌套内联候选、疑似死函数
@@ -22,6 +22,10 @@ import json
 import re
 import sys
 from collections import defaultdict
+
+# 存量注释欠账（顶层裁定 3：不追溯、不设全库清零目标）默认不进入清单；
+# --verbose 可查看全部，便于按文件夹渐进偿还。
+INCLUDE_LEGACY = False
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +201,10 @@ def find_matching_brace(text, open_pos):
 # ---------------------------------------------------------------------------
 # 数据结构
 # ---------------------------------------------------------------------------
+
+# 当前被扫描的文件（供判据豁免清单按路径匹配使用；单线程 CLI 工具）
+CURRENT_FILE = ""
+
 
 class Issue:
     """一条审查发现。"""
@@ -411,7 +419,9 @@ def parse_file(source):
         class_info['fields'] = _drop_pseudo_fields(class_info)
 
         classes.append(class_info)
-        pos = end_pos + 1
+        # 2026-10-29：从类名之后继续搜索，才能把**嵌套类型**也收进 classes；
+        # 否则外层类的嵌套方法会被当成外层成员，造成成员顺序假违规。
+        pos = m.end()
 
     return classes
 
@@ -533,6 +543,11 @@ def _parse_methods(clean, source, body_start, body_end, class_name):
         if not m:
             break
         name = m.group('name')
+        # 2026-10-29：析构函数 `~ClassName()` 被 CTOR_RE 误当成构造函数；
+        # 它不是成员顺序里的「构造函数」，不参与顺序判定。
+        if m.start('name') > 0 and source[m.start('name') - 1] == '~':
+            pos = m.end()
+            continue
         if name != class_name:
             pos = m.end()
             continue
@@ -584,6 +599,15 @@ def _parse_fields_and_props(clean, source, body_start, body_end, method_names,
     mask = [True] * (body_end - body_start)  # True = 在成员区域（非方法体）
     # 重新找方法和属性体来屏蔽
     scan_text = clean[body_start:body_end]
+    # 逐字符花括号深度：字段只认类体深度 1，方法内局部变量（深度≥2）一律排除
+    depth_at = []
+    d = 0
+    for ch in scan_text:
+        depth_at.append(d)
+        if ch == '{':
+            d += 1
+        elif ch == '}':
+            d -= 1
 
     # 屏蔽所有方法体
     for m in METHOD_SIG_RE.finditer(scan_text):
@@ -710,6 +734,9 @@ def _parse_fields_and_props(clean, source, body_start, body_end, method_names,
 
     # 普通字段
     for m in FIELD_RE.finditer(fields_text):
+        # scan_text 从类体 '{' 之后开始 ⇒ 类成员深度为 0，方法体内局部变量深度 ≥1
+        if depth_at[m.start()] != 0:
+            continue
         name = m.group('name')
         ftype = m.group('type').strip()
         # 排除方法返回类型行、类名、属性类型等
@@ -810,13 +837,6 @@ def check_regions_and_order(source, classes, issues):
     endregions = [line_of(source, m.start())
                   for m in re.finditer(r'#endregion', source)]
 
-    if not regions:
-        issues.append(Issue(
-            "A.文件整理", Issue.SEVERITY_WARN, 1,
-            "文件中未使用 #region 划分私有变量/公共变量/私有函数/公共函数",
-        ))
-        return
-
     # 检查 region 配对
     if len(regions) != len(endregions):
         issues.append(Issue(
@@ -824,29 +844,84 @@ def check_regions_and_order(source, classes, issues):
             f"#region({len(regions)}) 与 #endregion({len(endregions)}) 数量不匹配",
         ))
 
-    # 检查 region 名称
-    expected_regions = {'私有变量', '公共变量', '构造函数', '私有函数',
-                        '公共函数'}
-    found_region_names = {name for _, name, _ in regions}
-    for expected in expected_regions:
-        matched = any(expected in name for name in found_region_names)
-        if not matched:
+    # 2026-10-26（M2 裁决，见 standards/CodeSimplification 第一节①）：
+    # 语义 region 与类型 region 并存，只强制配对完整性。
+    # 原「未使用类型 region」「缺少某类 region」两条判据已废止（248 处全为误报）。
+    # 新增硬要求：region 名禁含过程性命名。
+    # ⚠ 禁词须避开**领域名词**：「临时文件」是业务术语不是过程性命名，
+    # 裸禁「临时」会误伤（实测 RecordFileStore.cs 的「临时文件处理/临时文件列表」）。
+    bad_region_names = ('新增功能', 'TODO', '待办', '临时改动', '调试用', '废弃')
+    for rln, rname, _ in regions:
+        if any(bad in rname for bad in bad_region_names):
             issues.append(Issue(
-                "A.文件整理", Issue.SEVERITY_INFO, 1,
-                f"未找到 \"{expected}\" 区域的 #region（如该区域为空可忽略）",
+                "A.文件整理", Issue.SEVERITY_WARN, rln,
+                f"#region 名「{rname}」含过程性命名，改为语义或类型命名",
             ))
 
-    # 检查每个类的成员顺序
+    # 检查每个类的成员顺序（2026-10-26 业主裁定：**region 内排序，跨 region 不比较**）
+    lines = source.split('\n')
+    seg_of = [0] * (len(lines) + 2)
+    title_of = [""] * (len(lines) + 2)
+    cur_seg = 0
+    cur_title = "(无 region)"
+    for i, ln_text in enumerate(lines, 1):
+        s = ln_text.strip()
+        if s.startswith('#region'):
+            cur_seg += 1
+            cur_title = s[len('#region'):].strip() or "(未命名 region)"
+        seg_of[i] = cur_seg
+        title_of[i] = cur_title
+        if s.startswith('#endregion'):
+            cur_seg += 1
+            cur_title = "(无 region)"
+    def _nested_ranges(cls):
+        cs = cls.get('start_line') or 0
+        ce = cls.get('end_line') or 0
+        out = []
+        for c in classes:
+            if c is cls:
+                continue
+            s = c.get('start_line') or 0
+            e = c.get('end_line') or 0
+            if cs < s and e <= ce:
+                out.append((s, e))
+        return out
+
     for cls in classes:
+        nested = _nested_ranges(cls)
+
+        def _in_nested(ln, _n=nested):
+            return any(s <= ln <= e for s, e in _n)
+
         members = []
         for f in cls['fields']:
+            # 2026-10-26：嵌套类型（class/struct/interface/enum）被字段正则误收，
+            # 但标准 §一① 明确「嵌套类型/显式接口实现置后独立 region」⇒ 不参与顺序判定。
+            if _in_nested(f.start_line) or re.search(r'\b(class|struct|interface|enum)\b', f.ftype or ''):
+                continue
             order = 1 if f.access == 'private' else 2
             members.append((order, f.start_line, f"字段 {f.access} {f.ftype} {f.name}"))
         for p in cls['properties']:
+            if _in_nested(p.start_line) or re.search(r'\b(class|struct|interface|enum)\b', p.ftype or ''):
+                continue
             order = 2 if p.access in ('public', 'protected') else 1
             members.append((order, p.start_line, f"属性 {p.access} {p.ftype} {p.name}"))
+        cls_name = cls.get('name') or ''
+        ctor_decl_re = re.compile(
+            r'^\s*(?:public|private|protected|internal)\s+'
+            + re.escape(cls_name) + r'\s*\('
+        ) if cls_name else None
         for mth in cls['methods']:
-            if mth.name == '#ctor':
+            if _in_nested(mth.start_line):
+                continue
+            # 解析器会把 `else if (...)` / `while (...)` 等控制流行误收为方法；
+            # 它们不是类成员，不参与顺序判定（否则幽灵方法会把后续构造函数压成违规）。
+            if mth.name in _DECL_SKIP_FIRST:
+                continue
+            decl = lines[mth.start_line - 1] if 0 < mth.start_line <= len(lines) else ''
+            # 构造函数重载：带参构造常被解析成普通 public 方法（order 5），
+            # 会让紧随其后的无参构造（order 3）被误判为顺序错误 —— 一律按 3 计。
+            if mth.name == '#ctor' or (ctor_decl_re and ctor_decl_re.match(decl)):
                 order = 3
             elif mth.access == 'private':
                 order = 4
@@ -855,16 +930,99 @@ def check_regions_and_order(source, classes, issues):
             members.append((order, mth.start_line, f"方法 {mth.access} {mth.name}"))
 
         members.sort(key=lambda x: x[1])
-        prev_order = 0
+        prev = {}
         for order, ln, desc in members:
-            if order < prev_order:
+            sg = seg_of[ln] if 0 < ln < len(seg_of) else 0
+            if order < prev.get(sg, 0):
+                rname = title_of[ln] if 0 < ln < len(title_of) and title_of[ln] else "(无 region)"
                 issues.append(Issue(
                     "A.文件整理", Issue.SEVERITY_WARN, ln,
-                    f"成员顺序错误：{desc} 出现在更高顺序区域之后。"
+                    f"成员顺序错误（region「{rname}」内）：{desc} 出现在更高顺序成员之后。"
                     f"应按 私有变量→公共变量→构造函数→私有函数→公共函数 排列",
                 ))
                 break
-            prev_order = order
+            prev[sg] = order
+
+
+def check_duplicate_members(source, classes, issues):
+    """CS0102 同类内成员重复定义（成员名 + 参数表相同）。
+
+    2026-10-26：批量「成员重排 / 声明前移」编辑曾把同一字段**复制**两份
+    （而非移动），编译器报 CS0102 + 成员二义性。此判据用于自动拦住该类缺陷。
+    排除项（否则误报）：同名**不同参数表**是重载（合法）；P/Invoke 的
+    `[DllImport(DllPath, EntryPoint = "...")]` 属性实参、方法内局部变量不计入。
+    """
+    lines = source.split('\n')
+    # 条件编译指令行：#if / #else 互斥分支内的同名声明**不是**重复定义
+    # （例：台达 Native 层的 DllPath 在 #if X86 / #else 各声明一次，实际只编译一支）
+    pp_lines = set(i for i, ln in enumerate(lines, 1) if ln.lstrip().startswith('#'))
+
+    def _exclusive(lns):
+        """两次声明之间存在预处理指令 ⇒ 位于互斥分支 ⇒ 不算重复。"""
+        return any(lns[0] < p < lns[-1] for p in pp_lines)
+
+    fld_re = re.compile(r'^\s*(?:public|private|protected|internal)\s+'
+                        r'(?:static\s+|readonly\s+|const\s+|volatile\s+|new\s+|async\s+)*'
+                        r'[\w<>\[\],\.]+\s+(\w+)\s*(?:=|;|\{)')
+    for cls in classes:
+        cname = cls.get('name')
+        # 1) 方法：同名 + 同参数表
+        mc = defaultdict(list)
+        for mth in cls.get('methods', []):
+            nm = getattr(mth, 'name', None)
+            if nm == '#ctor':
+                continue
+            ps = tuple(re.sub(r'\s+', ' ', str(p)).strip()
+                       for p in (getattr(mth, 'params', None) or []))
+            mc[(nm, ps)].append(getattr(mth, 'start_line', 0))
+        for (nm, ps), lns in mc.items():
+            if len(lns) > 1 and not _exclusive(sorted(lns)):
+                issues.append(Issue(
+                    "A.文件整理", Issue.SEVERITY_ERROR, lns[1],
+                    f"类 {cname} 内方法 {nm}({', '.join(ps)}) 重复定义"
+                    f"（CS0102），行 {lns}",
+                ))
+        # 2) 字段：类体深度 1 的严格字段声明
+        sl = cls.get('start_line') or 1
+        el = cls.get('end_line') or len(lines)
+        fc = defaultdict(list)
+        depth = 0
+        for ln in range(sl, el + 1):
+            if ln - 1 >= len(lines):
+                break
+            t = lines[ln - 1].strip()
+            if t.startswith('[') and t.endswith(']'):
+                continue
+            if t.endswith('{'):
+                depth += 1
+                continue
+            if t.startswith('}'):
+                depth -= 1
+                continue
+            if depth == 1:
+                m = fld_re.match(lines[ln - 1])
+                if m:
+                    fc[m.group(1)].append(ln)
+        for nm, lns in fc.items():
+            if len(lns) > 1 and not _exclusive(sorted(lns)):
+                issues.append(Issue(
+                    "A.文件整理", Issue.SEVERITY_ERROR, lns[1],
+                    f"类 {cname} 内字段 {nm} 重复定义（CS0102），行 {lns}",
+                ))
+
+
+def check_dispose_pattern(source, issues):
+    """ADR-002：非设计器 .cs 禁 Dispose(bool) 覆写（应实现标准 IDisposable.Dispose()）。
+
+    2026-10-26 补入正式判据：此前该检查只存在于一次性审计脚本中，
+    口径-判据映射表第 7 条与实现不符（由 simplify_selfcheck.py 抓出）。
+    """
+    for m in re.finditer(r'\bvoid\s+Dispose\s*\(\s*bool\b', source):
+        ln = line_of(source, m.start())
+        issues.append(Issue(
+            "A.文件整理", Issue.SEVERITY_ERROR, ln,
+            "禁 Dispose(bool) 覆写（ADR-002）：应实现标准 IDisposable.Dispose()",
+        ))
 
 
 def check_doc_comments(source, classes, issues):
@@ -880,9 +1038,13 @@ def check_doc_comments(source, classes, issues):
             doc = parse_doc_comment(source, _find_sig_start(source, mth))
             if mth.is_public_api:
                 if not doc:
+                    # 2026-10-26（M1 裁决）：public 缺 /// 的覆盖口径收窄为
+                    # 「新增或改动的 public 成员」——存量欠账不追溯、不设全库清零目标，
+                    # 故由 WARN 降为 INFO；「写了就要写对」的质量类检查仍保持 WARN。
                     issues.append(Issue(
-                        "A.注释规范", Issue.SEVERITY_WARN, mth.start_line,
-                        f"公共方法 {mth.name} 缺少 /// XML 注释",
+                        "A.注释规范", Issue.SEVERITY_INFO, mth.start_line,
+                        f"公共方法 {mth.name} 未写 /// XML 注释"
+                        f"（存量欠账不追溯；新增/改动必写）",
                     ))
                     continue
                 mth.has_doc_comment = True
@@ -907,10 +1069,112 @@ def check_doc_comments(source, classes, issues):
                 ))
 
 
+REC_LIMIT_CJK = 20
+_CJK_RE = re.compile(r'[\u4e00-\u9fff]')
+_SENT_RE = re.compile(r'[。；！？!?;]')
+_TAG_STRIP_RE = re.compile(r'<[^>]*>')
+_BLOCK_TAG_RE = re.compile(
+    r'</?(?:summary|remarks|param|returns|value|exception|example|typeparam)\b[^>]*>')
+
+
+def _merge_doc_block(doc):
+    """C18：`///` 块合并成整段，跨行续写不得逃过长度检查。"""
+    parts = []
+    for raw in doc.replace('\r\n', '\n').split('\n'):
+        s = raw.strip()
+        if s.startswith('///'):
+            s = s[3:]
+        s = s.strip()
+        if s:
+            parts.append(s)
+    merged = ' '.join(parts)
+    merged = _BLOCK_TAG_RE.sub('。', merged)
+    return _TAG_STRIP_RE.sub('', merged)
+
+
+def _check_long_records(doc, mth, label, issues):
+    """C16 + C18：一条注释记录正文 ≤20 汉字（跨行合并后计数）。"""
+    for rec in _SENT_RE.split(_merge_doc_block(doc)):
+        rec = rec.strip()
+        if not rec:
+            continue
+        n = len(_CJK_RE.findall(rec))
+        if n > REC_LIMIT_CJK:
+            issues.append(Issue(
+                "A.注释超20字", Issue.SEVERITY_WARN, mth.start_line,
+                f"{label} {mth.name} 的注释单条记录 {n} 汉字（上限 20，跨行合并计），"
+                f"应拆句或迁 wiki",
+                rec,
+            ))
+
+
+_DECL_SKIP_FIRST = frozenset((
+    'return', 'throw', 'break', 'continue', 'goto', 'using', 'yield',
+    'else', 'case', 'lock', 'if', 'while', 'for', 'foreach', 'switch', 'do',
+))
+_DECL_RE = re.compile(
+    r'^\s*(?:(?:public|private|protected|internal|static|readonly|const|volatile|'
+    r'new|unsafe|extern|sealed|override|virtual|partial)\s+)*'
+    r'(?P<type>[A-Za-z_][\w\.]*(?:\s*<[^;=]*?>)?(?:\s*\[\s*\])*\??)\s+'
+    r'(?P<name>[A-Za-z_]\w*)\s*(?:=[^;]*)?;\s*(?P<trail>//(?!/).*)?$'
+)
+
+
+def _is_decl_line(line):
+    line = line.rstrip('\r')
+    m = _DECL_RE.match(line)
+    if not m:
+        return None
+    first = line.strip().split()[0].rstrip('.;')
+    if first in _DECL_SKIP_FIRST:
+        return None
+    return m
+
+
+def _check_var_multiline_comments(source, issues):
+    """C19：一个变量 / 字段的 `//` 注释只允许一行。"""
+    lines = source.replace('\r\n', '\n').split('\n')
+    n = len(lines)
+    i = 0
+    while i < n:
+        s = lines[i].strip()
+        if not s.startswith('//') or s.startswith('///'):
+            i += 1
+            continue
+        j = i
+        while j < n:
+            t = lines[j].strip()
+            if not t.startswith('//') or t.startswith('///'):
+                break
+            j += 1
+        run = j - i
+        above = _is_decl_line(lines[i - 1]) if i > 0 else None
+        below = _is_decl_line(lines[j]) if j < n else None
+        above_trail = 1 if (above and above.group('trail')) else 0
+        below_trail = 1 if (below and below.group('trail')) else 0
+        if above_trail and not below:
+            total, decl_line = run + above_trail, i
+        elif below:
+            total, decl_line = run + below_trail, j + 1
+        else:
+            i = j
+            continue
+        if total > 1:
+            issues.append(Issue(
+                "A.变量注释多行", Issue.SEVERITY_WARN, decl_line,
+                f"变量 / 字段注释占 {total} 行 //（只允许一行），"
+                f"应合并为一行且 ≤20 汉字",
+                lines[decl_line - 1].strip(),
+            ))
+        i = j
+
+
 def _check_method_doc_quality(doc, mth, label, issues):
     """检查方法 XML 注释的质量（summary/param/returns 规范）。
     label 用于报错前缀，如"公共方法"或"私有方法"。
     """
+    # 2026-11-10（C16 业主裁定）：单条注释记录正文 ≤20 汉字
+    _check_long_records(doc, mth, label, issues)
     # summary
     sm = DOC_SUMMARY_RE.search(doc)
     if not sm:
@@ -921,15 +1185,9 @@ def _check_method_doc_quality(doc, mth, label, issues):
     else:
         summary = sm.group(1).strip()
         mth.doc_summary = summary
-        # 20字限制（汉字计数）
-        chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', summary))
-        if chinese_chars > 20:
-            issues.append(Issue(
-                "A.注释规范", Issue.SEVERITY_WARN, mth.start_line,
-                f"{label} {mth.name} 的 summary 超过20字（{chinese_chars}字），"
-                f"应只描述\"做什么\"，不写过程",
-                summary,
-            ))
+        # 单条注释记录 ≤20 汉字由 _check_long_records（C16/C18 分句 + 跨行合并口径）独占。
+        # ⛔ 此处不再按「整段 summary 汉字数」重复判定：两套口径并存会产生假 warn。
+        # 权威证据 = scripts/comment_scan.py long 的 merged_over。
         # 检查是否包含过程描述词
         process_words = ['首先', '然后', '接着', '最后', '步骤',
                          '调用', '通过', '内部']
@@ -948,9 +1206,13 @@ def _check_method_doc_quality(doc, mth, label, issues):
     mth.doc_params = list(found_params.items())
     for pname in param_names:
         if pname not in found_params:
+            # 2026-11-09：缺 <param> 属「存量欠账」，与「public 未写 ///」同口径
+            # （裁定 #3：不追溯、不设清零目标），由 WARN 降为 INFO。
+            # 只有「写了但无信息 / 签名中不存在」才保持 WARN。
             issues.append(Issue(
-                "A.注释规范", Issue.SEVERITY_WARN, mth.start_line,
-                f"{label} {mth.name} 的参数 \"{pname}\" 缺少 <param> 注释",
+                "A.注释规范", Issue.SEVERITY_INFO, mth.start_line,
+                f"{label} {mth.name} 的参数 \"{pname}\" 缺少 <param> 注释"
+                f"（存量欠账不追溯）",
             ))
     for pname, ptext in found_params.items():
         if pname not in param_names:
@@ -965,18 +1227,33 @@ def _check_method_doc_quality(doc, mth, label, issues):
                 f"{label} {mth.name} 的参数 \"{pname}\" 注释无信息"
                 f"（\"{ptext}\"），应说明含义/取值范围",
             ))
+        # 2026-11-09 新增判据：占位式 <param>xxx 参数。</param>，与删除口径闭环
+        if re.fullmatch(rf'{re.escape(pname)}\s*参数\s*[。.]?', ptext, re.I):
+            issues.append(Issue(
+                "A.占位式XML", Issue.SEVERITY_INFO, mth.start_line,
+                f"{label} {mth.name} 的参数 \"{pname}\" 为占位式注释"
+                f"（\"{ptext}\"），应删除",
+            ))
     # returns 检查
     if mth.return_type.strip() != 'void':
         rm = DOC_RETURNS_RE.search(doc)
         if not rm:
             issues.append(Issue(
-                "A.注释规范", Issue.SEVERITY_WARN, mth.start_line,
-                f"{label} {mth.name} 有返回值但缺少 <returns> 注释",
+                "A.注释规范", Issue.SEVERITY_INFO, mth.start_line,
+                f"{label} {mth.name} 有返回值但缺少 <returns> 注释"
+                f"（存量欠账不追溯）",
             ))
         else:
             mth.has_returns = True
             rtext = rm.group(1).strip()
-            if rtext in ('返回结果', '结果', '返回值', ''):
+            # 2026-11-09 新增判据：占位式 <returns>返回值。</returns>
+            if re.fullmatch(r'(返回值|返回结果|返回)\s*[。.]?', rtext):
+                issues.append(Issue(
+                    "A.占位式XML", Issue.SEVERITY_INFO, mth.start_line,
+                    f"{label} {mth.name} 的 <returns> 为占位式注释"
+                    f"（\"{rtext}\"），应删除",
+                ))
+            elif rtext in ('返回结果', '结果', '返回值', ''):
                 issues.append(Issue(
                     "A.注释规范", Issue.SEVERITY_WARN,
                     mth.start_line,
@@ -1043,7 +1320,10 @@ def check_logic_issues(source, classes, issues):
         _check_enums(cls, issues)
         # 属性检查
         _check_properties(cls, issues)
+        # 锁对象字段检查（readonly）
+        _check_lock_fields(source, cls, issues)
 
+        lock_orders = []
         for mth in cls['methods']:
             body = mth.body_text
             body_clean = remove_all_comments(strip_strings_and_chars(body))
@@ -1051,10 +1331,13 @@ def check_logic_issues(source, classes, issues):
 
             _check_null_checks(body, body_clean, offset_line, mth, issues)
             _check_locks(body_clean, offset_line, mth, issues)
+            _check_lock_layers(body_clean, offset_line, mth, issues, lock_orders)
             _check_redundant_assignment(body_clean, offset_line, mth, issues)
             _check_waits(body_clean, offset_line, mth, issues)
             _check_resource_management(body_clean, offset_line, mth, issues)
             _check_temp_vars(body, body_clean, offset_line, mth, issues)
+            _check_singleton_locals(body_clean, offset_line, mth, issues)
+        _check_lock_order(lock_orders, issues)
 
 
 def _check_enums(cls, issues):
@@ -1068,23 +1351,38 @@ def _check_enums(cls, issues):
             ))
 
 
+# ⛔ 不把 lock / new 当重操作：
+#   `get { lock(_x) { return _y; } }` 是跨线程共享字段的强制快照范式；
+#   `get { return new List<T>(_x); }` 是「不返回内部可变引用」的推荐写法。
+#   两者都属正解，判成违规会把项目范式刷成噪声。真在 lock 内做 IO 的，
+#   会被下面的 File./ShowLog/有效行 > 5 兜住。
+_HEAVY_ACCESSOR_RE = re.compile(
+    r'\b(?:for|foreach|while|switch|try|catch|throw|await)\b'
+    r'|\b(?:Thread|Task|File|Directory|StreamWriter|XmlSerializer)\.'
+    r'|\b(?:ShowLog|Invoke|BeginInvoke|RunWorkerAsync)\s*\('
+)
+
+
 def _check_properties(cls, issues):
+    """只报访问器真的含重操作的属性。
+
+    ⛔ 旧口径 `len(body_text) > 20` 连 `get { return _x; }` 都判成「含逻辑」，
+       全库刷出上千条噪声；「public set 能否改只读」需跨文件消费分析，
+       单文件扫描器无能力判定，已移交人工/跨文件项，不再机械上报。
+    """
     for prop in cls['properties']:
-        # public set 但可能只在构造函数用——需要检查
-        if prop.has_set and prop.set_access == 'public':
-            issues.append(Issue(
-                "B.过度属性", Issue.SEVERITY_INFO, prop.start_line,
-                f"属性 {prop.name} 声明了 public set，确认是否需要外部修改；"
-                f"若仅构造函数赋值，应改为 {{ get; }} 只读属性",
-            ))
-        # 属性体有复杂逻辑
-        if prop.body_text and len(prop.body_text) > 20:
-            issues.append(Issue(
-                "B.过度属性", Issue.SEVERITY_INFO, prop.start_line,
-                f"属性 {prop.name} 的访问器包含逻辑，确认是否应改为方法；"
-                f"属性 get 不应包含重操作或副作用",
-                prop.body_text[:100],
-            ))
+        clean = remove_all_comments(strip_strings_and_chars(prop.body_text or ''))
+        effective = [l for l in clean.split('\n')
+                     if l.strip() and l.strip() not in ('{', '}')]
+        heavy = _HEAVY_ACCESSOR_RE.search(clean)
+        if not heavy and len(effective) <= 5:
+            continue
+        why = heavy.group(0) if heavy else '访问器超过 5 行有效代码'
+        issues.append(Issue(
+            "B.过度属性", Issue.SEVERITY_INFO, prop.start_line,
+            f"属性 {prop.name} 的访问器含重操作（{why}），确认是否应改为方法",
+            clean.strip()[:100],
+        ))
 
 
 def _check_null_checks(body, body_clean, offset_line, mth, issues):
@@ -1213,6 +1511,89 @@ def _check_locks(body_clean, offset_line, mth, issues):
             ))
 
 
+LOCK_BLOCK_RE = re.compile(r'lock\s*\(\s*([^)]+?)\s*\)\s*\{')
+
+
+def _lock_spans(body_clean):
+    """提取方法体内所有 lock 块（start/end 为字符位置，obj 为锁对象）。"""
+    spans = []
+    for m in LOCK_BLOCK_RE.finditer(body_clean):
+        brace = body_clean.find('{', m.start())
+        end = find_matching_brace(body_clean, brace)
+        if end == -1:
+            continue
+        spans.append({'start': m.start(), 'end': end, 'obj': m.group(1).strip()})
+    return spans
+
+
+def _check_lock_fields(source, cls, issues):
+    """锁对象字段必须 readonly（否则方法内重新赋值会使锁失效）。"""
+    lines = source.split('\n')
+    for f in cls.get('fields', []):
+        if not re.search(r'(lock|sync|gate)', f.name, re.I) or f.is_readonly:
+            continue
+        if 0 < f.start_line <= len(lines) and 'new object' in lines[f.start_line - 1]:
+            issues.append(Issue(
+                "B.无意义锁", Issue.SEVERITY_WARN, f.start_line,
+                f"字段 {f.name} 作为锁对象但未声明 readonly，重新赋值会使锁失效",
+            ))
+
+
+def _check_lock_layers(body_clean, offset_line, mth, issues, lock_orders):
+    """多层锁：嵌套锁 / 锁字符串 / 锁局部对象 / 记录加锁顺序。"""
+    spans = _lock_spans(body_clean)
+    for inner in spans:
+        for outer in spans:
+            if outer['start'] < inner['start'] and inner['end'] < outer['end']:
+                ln = offset_line + body_clean[:inner['start']].count('\n') + 1
+                issues.append(Issue(
+                    "B.多层锁", Issue.SEVERITY_WARN, ln,
+                    f"方法 {mth.name}: 嵌套锁 lock({outer['obj']}) → lock({inner['obj']})，"
+                    f"须确认全局加锁顺序一致，否则存在死锁风险",
+                ))
+                break
+    locals_new = set(re.findall(
+        r'(?:var|object|Object)\s+(\w+)\s*=\s*new\s+object\s*\(\s*\)', body_clean))
+    seq = []
+    for sp in spans:
+        ln = offset_line + body_clean[:sp['start']].count('\n') + 1
+        if sp['obj'].startswith('"'):
+            issues.append(Issue(
+                "B.多层锁", Issue.SEVERITY_WARN, ln,
+                f"方法 {mth.name}: lock 字符串常量，字符串驻留可被其他代码共享导致死锁",
+            ))
+        if sp['obj'] in locals_new:
+            issues.append(Issue(
+                "B.多层锁", Issue.SEVERITY_WARN, ln,
+                f"方法 {mth.name}: 对局部变量 {sp['obj']} 加锁，其他线程不可见，锁无效",
+            ))
+        if not any(x[0] == sp['obj'] for x in seq):
+            seq.append((sp['obj'], ln))
+    if len(seq) >= 2:
+        lock_orders.append((mth.name, seq))
+
+
+def _check_lock_order(lock_orders, issues):
+    """跨方法锁顺序反转（a→b 与 b→a 并存）→ 经典死锁风险。"""
+    for i in range(len(lock_orders)):
+        for j in range(i + 1, len(lock_orders)):
+            n1, s1 = lock_orders[i]
+            n2, s2 = lock_orders[j]
+            d1 = dict(s1)
+            d2 = dict(s2)
+            common = [o for o, _ in s1 if o in d2]
+            if len(common) < 2:
+                continue
+            p1 = [o for o, _ in s1 if o in d2]
+            p2 = [o for o, _ in s2 if o in d1]
+            if p2 == list(reversed(p1)) and p1 != p2:
+                issues.append(Issue(
+                    "B.多层锁", Issue.SEVERITY_WARN, d2[p2[1]],
+                    f"方法 {n1} 与 {n2} 的加锁顺序相反（{'→'.join(p1)} vs {'→'.join(p2)}），"
+                    f"存在经典死锁风险",
+                ))
+
+
 def _check_redundant_assignment(body_clean, offset_line, mth, issues):
     """检测无意义赋值传递。"""
     lines = body_clean.split('\n')
@@ -1248,6 +1629,19 @@ def _check_redundant_assignment(body_clean, offset_line, mth, issues):
             r'(?:var|[\w<>\?\[\]]+)\s+(\w+)\s*=\s*(\w+)\s*;', s
         )
         if mvar and mvar.group(2) in param_names and mvar.group(1) != mvar.group(2):
+            vname, pname = mvar.group(1), mvar.group(2)
+            rest = '\n'.join(lines[i + 1:])
+            # 豁免 ①：局部后续被重新赋值（可变量 / 钳制前快照 / 失败改写），不是纯透传
+            if re.search(rf'\b{re.escape(vname)}\s*(?:=|\+\+|--|\+=|-=)', rest):
+                continue
+            # 豁免 ②：两变量交换（swap = start; start = end; end = swap;）
+            nxt = '\n'.join(lines[i + 1:i + 4])
+            if re.search(rf'\b{re.escape(pname)}\s*=\s*\w+\s*;', nxt) and \
+               re.search(rf'\b\w+\s*=\s*{re.escape(vname)}\s*;', nxt):
+                continue
+            # 豁免 ③：参数后续被改写（钳制 / 归一化），局部是改写前快照，日志要对比两值
+            if re.search(rf'\b{re.escape(pname)}\s*(?:=|\+\+|--|\+=|-=)[^=]', rest):
+                continue
             ln = offset_line + i + 1
             issues.append(Issue(
                 "B.冗余赋值传递", Issue.SEVERITY_INFO, ln,
@@ -1268,15 +1662,51 @@ def _check_redundant_assignment(body_clean, offset_line, mth, issues):
             ))
 
 
+def _in_loop_body(body, pos):
+    """判断 body[pos] 是否位于 while/for/foreach/do 循环体内。
+
+    2026-10-26：standards/CodeSimplification §四「有意例外」条款 —— 周期性轮询节拍
+    （如安全监控 MonitorLoop 按固定周期读 PLC）用 Thread.Sleep 是正确实现；
+    此类场景无推送事件源，改用 Timer 会降级线程优先级。故循环体内的 Sleep 降为 INFO。
+    """
+    for m in re.finditer(r'\b(while|for|foreach|do)\b', body):
+        i = body.find('{', m.end())
+        if i < 0 or i > pos:
+            continue
+        depth = 0
+        for j in range(i, len(body)):
+            if body[j] == '{':
+                depth += 1
+            elif body[j] == '}':
+                depth -= 1
+                if depth == 0:
+                    if i <= pos <= j:
+                        return True
+                    break
+    return False
+
+
 def _check_waits(body_clean, offset_line, mth, issues):
+    # 判据豁免清单（2026-10-26）：standards/CodeSimplification §四「有意例外」条款落地。
+    # 条目 = (文件路径子串, 方法名)；命中则该处的等待不报（须在报告中标注为有意例外）。
+    WAIT_EXEMPT = (
+        ("DeltaEtherCAT/DeltaMontionAxis.cs", "ServoOn"),
+        ("DeltaEtherCAT/DeltaMontionAxis.cs", "ResetAlarm"),
+    )
     patterns = [
         (r'Thread\.Sleep\s*\(', 'Thread.Sleep',
          '使用 Thread.Sleep 等待，不可靠且阻塞线程；异步操作用 await，'
          '条件等待用事件/信号量'),
         (r'\.Wait\(\)', '.Wait()',
          '阻塞等待 Task，可能死锁（尤其 UI 线程）；应使用 await'),
-        (r'\.Result\b', '.Result',
-         '访问 Task.Result 阻塞，可能死锁；应使用 await'),
+        # 2026-10-26 收窄：原判据 r'\.Result\b' 把**事件参数属性** e.Result / args.Result
+        # 误判为阻塞等待（实测 9 处全为假阳性）。真正的阻塞写法是 Task/ValueTask 的
+        # .Result 或 .GetAwaiter().GetResult()。
+        (r'(?:Task|ValueTask)(?:<[^<>;]*>)?\s*\.\s*(?:Result|GetAwaiter\(\)\s*\.\s*GetResult\(\))',
+         'Task.Result',
+         '阻塞访问 Task 结果，可能死锁；应使用 await'),
+        (r'\.GetAwaiter\(\)\s*\.\s*GetResult\(\)', 'GetAwaiter().GetResult()',
+         '同步阻塞取 Task 结果，可能死锁；应使用 await'),
         (r'Task\.Delay\s*\(\s*0\s*\)', 'Task.Delay(0)',
          'Task.Delay(0) 无意义，直接执行即可'),
         (r'GC\.Collect\s*\(\s*\)', 'GC.Collect()',
@@ -1285,9 +1715,14 @@ def _check_waits(body_clean, offset_line, mth, issues):
     for pattern, label, desc in patterns:
         for m in re.finditer(pattern, body_clean):
             ln = offset_line + body_clean[:m.start()].count('\n') + 1
+            if any(fn in CURRENT_FILE and mn == mth.name for fn, mn in WAIT_EXEMPT):
+                continue          # 判据豁免：有意例外（标准 §四），报告中标注
             sev = Issue.SEVERITY_WARN
-            if 'Sleep' in label or '.Wait' in label or '.Result' in label:
-                sev = Issue.SEVERITY_WARN
+            if label == 'Thread.Sleep' and _in_loop_body(body_clean, m.start()):
+                sev = Issue.SEVERITY_INFO
+                desc = ('Thread.Sleep 位于循环体内（周期轮询节拍）——'
+                        '有意例外：此类场景无推送事件源，改用 Timer 会降级线程优先级；'
+                        '若为直线等待请改用 await/事件/信号量')
             issues.append(Issue(
                 "B.过度等待/延迟", sev, ln,
                 f"方法 {mth.name}: {desc}",
@@ -1332,14 +1767,27 @@ def _check_temp_vars(body, body_clean, offset_line, mth, issues):
     lines = body_clean.split('\n')
     for i, line in enumerate(lines):
         s = line.strip()
+        # 类型位不得是语句关键字：`return value == null;` 曾被误当成变量声明
+        if re.match(r'^(?:' + '|'.join(sorted(_DECL_SKIP_FIRST)) + r')\b', s):
+            continue
         mvar = re.match(
             r'(?:var|[\w<>\?\[\]]+)\s+(temp|tmp|data|result|value|val|item|obj)\s*=\s*(.+);',
             s, re.IGNORECASE,
         )
         if mvar:
             var_name = mvar.group(1)
-            # 检查这个变量在后续使用了几次
+            rhs = mvar.group(2).strip()
             rest = '\n'.join(lines[i + 1:])
+            # 豁免 ①：后续被重新赋值（可变游标 / 钳制前快照），不是纯中转
+            if re.search(rf'\b{re.escape(var_name)}\s*(?:=|\+\+|--|\+=|-=)', rest):
+                continue
+            # 豁免 ②：两变量交换（temp = start; start = end; end = temp;）不可内联
+            if re.match(r'^\w+$', rhs):
+                nxt = '\n'.join(lines[i + 1:i + 4])
+                if re.search(rf'\b{re.escape(rhs)}\s*=\s*\w+\s*;', nxt) and \
+                   re.search(rf'\b\w+\s*=\s*{re.escape(var_name)}\s*;', nxt):
+                    continue
+            # 检查这个变量在后续使用了几次
             uses = len(re.findall(rf'\b{re.escape(var_name)}\b', rest))
             if uses <= 1:
                 ln = offset_line + i + 1
@@ -1350,6 +1798,27 @@ def _check_temp_vars(body, body_clean, offset_line, mth, issues):
                     f"且后续仅使用 {uses} 次，考虑内联或改为有业务含义的名称",
                     raw_snippet,
                 ))
+
+
+def _check_singleton_locals(body_clean, offset_line, mth, issues):
+    """检测同名单例局部变量在方法内重复声明（C17）。"""
+    lines = body_clean.split('\n')
+    seen = {}
+    for i, line in enumerate(lines):
+        m = re.search(r'([\w\.]+)\s+(\w+)\s*=\s*([\w\.]+)\.Instance\s*;', line)
+        if not m:
+            continue
+        key = (m.group(1), m.group(2), m.group(3))
+        seen.setdefault(key, []).append(offset_line + i + 1)
+    for (typ, var, owner), lns in seen.items():
+        if len(lns) < 2:
+            continue
+        issues.append(Issue(
+            "A.单例重复声明", Issue.SEVERITY_WARN, lns[1],
+            f"方法 {mth.name}: {typ} {var} = {owner}.Instance 重复声明 {len(lns)} 次"
+            f"（行 {', '.join(str(x) for x in lns)}），应合并为一处",
+            f"{typ} {var} = {owner}.Instance;",
+        ))
 
 
 def check_function_simplification(source, classes, issues):
@@ -1365,10 +1834,36 @@ def check_function_simplification(source, classes, issues):
         _check_overlapping_methods(methods, issues)
 
         # 嵌套内联候选
-        _check_inline_candidates(methods, issues)
+        _check_inline_candidates(methods, issues, source)
 
         # 死函数检测
         _check_dead_methods(methods, method_names, issues)
+
+        # 同类指令平行入口检测
+        _check_parallel_command_entries(methods, issues)
+
+
+def _check_parallel_command_entries(methods, issues):
+    """同一类中 ≥3 个同前缀、无参、同返回类型的公开方法视为平行指令入口。"""
+    groups = {}
+    for mth in methods:
+        if mth.name == '#ctor' or mth.access != 'public':
+            continue
+        if mth.is_virtual_override or mth.params:
+            continue
+        m = re.match(r'^([A-Z][a-z])[A-Z]', mth.name)
+        if not m:
+            continue
+        groups.setdefault((m.group(1), mth.return_type), []).append(mth)
+    for (prefix, ret), items in groups.items():
+        if len(items) < 3:
+            continue
+        names = "、".join(x.name for x in items)
+        issues.append(Issue(
+            "C.平行指令入口", Issue.SEVERITY_INFO, items[0].start_line,
+            f"同类存在 {len(items)} 个 {prefix} 族平行公开指令方法（{names}），"
+            f"建议合并为单一入口 + 枚举参数内部 switch 分派",
+        ))
 
 
 def _build_call_graph(methods, method_names):
@@ -1427,8 +1922,28 @@ def _jaccard(set_a, set_b):
     return len(set_a & set_b) / len(set_a | set_b)
 
 
+def _is_thin_wrapper(a, b):
+    """a 是否只是调用 b 的薄包装。
+
+    2026-10-26：standards/CodeSimplification ⑤「功能重叠合并」允许
+    「public 保留薄包装」—— 一方方法体只是转发到另一方（可带 null 检查/日志）
+    时不算功能重复，不再报重叠。真正的重复是「两边各写一份实现」。
+    """
+    clean = remove_all_comments(strip_strings_and_chars(a.body_text))
+    kws = {'if', 'else', 'for', 'foreach', 'while', 'do', 'switch', 'case',
+           'return', 'try', 'catch', 'finally', 'using', 'lock', 'new', 'throw',
+           'nameof', 'typeof', 'checked', 'default', 'get', 'set'}
+    calls = set()
+    for m in re.finditer(r'\b([A-Za-z_]\w*)\s*(?:<[^>]+>)?\s*\(', clean):
+        n = m.group(1)
+        if n in kws or n == a.name:
+            continue
+        calls.add(n)
+    return calls == {b.name}
+
+
 def _check_overlapping_methods(methods, issues):
-    # 按归一化名称聚类
+    # 按归一化名称聚类（同一类内 —— 调用方已按 cls 逐类传入）
     clusters = defaultdict(list)
     for mth in methods:
         if mth.name == '#ctor' or mth.is_virtual_override:
@@ -1443,10 +1958,23 @@ def _check_overlapping_methods(methods, issues):
         for i in range(len(group)):
             for j in range(i + 1, len(group)):
                 a, b = group[i], group[j]
+                # 2026-10-29：**同名重载不参与功能重叠判定**——C# 重载本就允许
+                # 同一语义的不同参数版本（如 GetXmlStrValue 取属性/取元素、
+                # CreateTable 带/不带 IsExistTable 守卫、AddFrame 两版薄包装）。
+                # 真正的重复实现由同名方法体内的 token 相似度判定；
+                # 同名重复声明另由 check_duplicate_members（ERROR）拦截。
+                if a.name == b.name:
+                    continue
+                # 排除薄包装形态（标准允许的 public 转发）
+                if _is_thin_wrapper(a, b) or _is_thin_wrapper(b, a):
+                    continue
                 tokens_a = set(_body_tokens(a.body_text))
                 tokens_b = set(_body_tokens(b.body_text))
                 sim = _jaccard(tokens_a, tokens_b)
-                if sim >= 0.5:
+                # 2026-10-26：阈值对齐 standards/CodeSimplification ⑤「功能重叠合并」
+                # 的判定口径「70% 以上方法体相同」——原 0.5 低于标准，会把
+                # 「语义不同的重载」（如 CreateTable 的两版列长/守卫不同）误判为重复。
+                if sim >= 0.7:
                     issues.append(Issue(
                         "C.功能重叠", Issue.SEVERITY_WARN, b.start_line,
                         f"方法 \"{b.name}\" 与 \"{a.name}\"（行{a.start_line}）"
@@ -1469,20 +1997,28 @@ def _check_overlapping_methods(methods, issues):
                     f"属于伪异步，应直接实现异步逻辑或不提供 Async 版本",
                 ))
 
-    # 检查旧函数残留
-    for mth in methods:
-        if re.search(r'(Old|Legacy|Backup|_Old|_Backup|_Deprecated)$', mth.name,
-                     re.IGNORECASE):
-            issues.append(Issue(
-                "C.功能重叠", Issue.SEVERITY_INFO, mth.start_line,
-                f"方法 {mth.name} 名称暗示是旧版本残留，确认无调用后删除",
-            ))
+    # ⛔ 已废止「名称暗示旧版本残留」启发式判据：
+    #   仅凭方法名含 Backup/Legacy/Old 就报「确认无调用后删除」，
+    #   会把有真实消费方的活方法（ConfigSelfHeal.Backup 有 2 处调用、
+    #   WeldHeadSlaveDevice.DescribeTemperatureThreshold 有 2 处调用）误判为死代码。
+    #   死成员一律由 C.疑似死函数（真实零调用）判定，且按顶层裁定 2 只报不删。
 
 
-def _check_inline_candidates(methods, issues):
+def _check_inline_candidates(methods, issues, source):
     # 判断性/校验性函数名即使短也保留（表达独立业务概念）
     predicate_prefixes = ('Is', 'Can', 'Has', 'Should', 'Validate',
                           'Check', 'Ensure', 'Need')
+    # 台账 B-6 / B-8 已逐条裁定保留的语义类别：Log 包装(Tag 载体)、快捷区指令分发、
+    # 解析校验、卫语句、流程步骤与状态机、初始化序列与几何、事件抛出。
+    # 这些短方法表达独立概念，内联会把守卫/语义散到调用方，不再重复上报。
+    inline_keep_prefixes = (
+        'Log', 'Raise', 'DoTa', 'DoLa', 'DoPreWork', 'DoStopping',
+        'Parse', 'Read', 'Load', 'GetElement', 'Normalize', 'ToHome',
+        'Handle', 'Process', 'Clear', 'Add', 'After', 'Subscribe',
+        'Wait', 'Start', 'Update', 'Format', 'Play', 'Save', 'Reset',
+        'Project', 'OnConnected', 'OnDisconnected',
+    )
+    code = remove_preprocessor_directives(remove_all_comments(strip_strings_and_chars(source)))
     for mth in methods:
         if mth.name == '#ctor':
             continue
@@ -1492,9 +2028,11 @@ def _check_inline_candidates(methods, issues):
             continue
         if any(mth.name.startswith(p) for p in predicate_prefixes):
             continue
-        # 只被一个方法调用
-        unique_callers = set(mth.callers)
-        if len(unique_callers) != 1:
+        if any(mth.name.startswith(p) for p in inline_keep_prefixes):
+            continue
+        # 仅 1 个调用表达式（不是仅 1 个调用者方法）
+        call_count = len(re.findall(rf'\b{re.escape(mth.name)}\s*\(', code)) - 1
+        if call_count != 1:
             continue
         # 方法体不超过 3 行有效代码
         if mth.effective_body_lines > 3:
@@ -1510,7 +2048,7 @@ def _check_inline_candidates(methods, issues):
         if re.search(rf'\b{re.escape(mth.name)}\s*\(', body_clean):
             continue
 
-        caller_name = next(iter(unique_callers))
+        caller_name = mth.callers[0] if mth.callers else "调用方"
         issues.append(Issue(
             "C.嵌套内联", Issue.SEVERITY_INFO, mth.start_line,
             f"私有方法 {mth.name} 仅被 {caller_name} 调用一次，"
@@ -1557,6 +2095,123 @@ def _check_dead_methods(methods, method_names, issues):
 # 主流程
 # ---------------------------------------------------------------------------
 
+FONT_DEFAULT_FAMILY = "Microsoft YaHei UI"
+FONT_DECL_RE = re.compile(r'new\s+(?:System\.Drawing\.)?Font\s*\(\s*"([^"]+)"')
+
+
+def check_font_family(source, issues):
+    """A.字体规范：显示字体必须是项目默认 Microsoft YaHei UI（2026-10-30 业主裁定）。
+
+    判定只看 `new Font("族名", ...)` 的族名；字号/样式不限。注释里的示例不报。
+    """
+    for m in FONT_DECL_RE.finditer(source):
+        family = m.group(1)
+        if family == FONT_DEFAULT_FAMILY:
+            continue
+        line_start = source.rfind("\n", 0, m.start()) + 1
+        if "//" in source[line_start:m.start()]:
+            continue
+        issues.append(Issue(
+            "A.字体规范", Issue.SEVERITY_WARN, line_of(source, m.start()),
+            '字体 "%s" 非项目默认 "%s"' % (family, FONT_DEFAULT_FAMILY),
+        ))
+
+
+REFRESH_SWITCH_ON_RE = re.compile(
+    r'this\.(\w*[Rr]efresh\w*)\.Checked\s*=\s*true\s*;')
+
+
+def check_refresh_default(source, issues):
+    """B.刷新默认开：自动刷新开关必须默认关闭（硬件就绪后才由门禁解冻）。"""
+    for m in REFRESH_SWITCH_ON_RE.finditer(source):
+        issues.append(Issue(
+            "B.刷新默认开", Issue.SEVERITY_WARN, line_of(source, m.start()),
+            '自动刷新开关 %s 默认 Checked = true，应改为 false（默认关闭，就绪后才可开）' % m.group(1),
+        ))
+
+
+def check_init_dependency(source, issues):
+    """C.设备初始化分层：初始化链必须按依赖层级驱动，父级未就绪时子级不发起连接。
+
+    只在定义了 InitializeMachineTick 的整机管控类上判定，避免误报子设备工作流。
+    """
+    # 只认方法定义；DeviceStatusWork 每拍驱动里的调用点不应触发本判据
+    m = re.search(r'\b(?:public|private|protected|internal)\s+void\s+InitializeMachineTick\s*\(', source)
+    if not m:
+        return
+    head = m.start()
+    body = source[head:]
+    # ① 父级门禁：必须存在按父节点结果判定并记「跳过」的段落
+    if 'ParentKey' not in body:
+        issues.append(Issue(
+            "C.设备初始化分层", Issue.SEVERITY_WARN, line_of(source, head),
+            "初始化驱动未见父级门禁（ParentKey），疑似平级硬试"),
+        )
+        return
+    if 'DeviceInitOutcome.Skipped' not in body:
+        issues.append(Issue(
+            "C.设备初始化分层", Issue.SEVERITY_WARN, line_of(source, head),
+            "父级门禁未落「跳过」三态（应先记 Skipped 再推进，不发起连接）"),
+        )
+        return
+    # ② 跳过分支不得先发起连接：Skipped 记录必须出现在首次 node.Start 之前
+    i_skip = body.find('DeviceInitOutcome.Skipped')
+    i_start = body.find('node.Start')
+    if 0 <= i_start < i_skip:
+        issues.append(Issue(
+            "C.设备初始化分层", Issue.SEVERITY_WARN, line_of(source, head + i_start),
+            "父级门禁之前已发起连接（node.Start），子级会白试一次"),
+        )
+
+
+def check_init_log(source, issues):
+    """D.初始化日志：模组口径 + 阶段分离 + 汇总收尾唯一。"""
+    for m in re.finditer(r'"\s*子设备', source):
+        issues.append(Issue(
+            "D.初始化日志", Issue.SEVERITY_WARN, line_of(source, m.start()),
+            "日志/文案仍用「子设备」，应统一为「模组」（本设备下的模组，非独立设备）",
+        ))
+
+    m = re.search(r'private void FinishInitialization\s*\(', source)
+    if not m:
+        return
+    body = source[m.start():]
+    nxt = re.search(r'\n        (private|public|protected|internal) ', body[10:])
+    if nxt:
+        body = body[:10 + nxt.start()]
+    i_summary = body.find('初始化汇总')
+    if i_summary < 0:
+        issues.append(Issue(
+            "D.初始化日志", Issue.SEVERITY_WARN, line_of(source, m.start()),
+            "整机初始化缺少唯一收尾行「初始化汇总 成功 X 失败 Y 跳过 Z」",
+        ))
+        return
+    i_gate = body.find('LogAxisGateReport')
+    if 0 <= i_summary < i_gate:
+        issues.append(Issue(
+            "D.初始化日志", Issue.SEVERITY_WARN, line_of(source, m.start() + i_summary),
+            "轴门禁报告出现在汇总之后，汇总不再收尾（应前移到汇总之前）",
+        ))
+    tail = body[i_summary:]
+    tail = tail[tail.find('\n') + 1:]
+    if re.search(r'\bLog\s*\(', tail):
+        issues.append(Issue(
+            "D.初始化日志", Issue.SEVERITY_WARN, line_of(source, m.start() + i_summary),
+            "「初始化汇总」之后仍有日志，收尾不唯一",
+        ))
+
+    # 密度回潮：Info 行里不得出现排查建议/未确证结论/绝对路径
+    dense = re.compile(r'"(?:[^"\\]|\\.)*(?:常见于|未确证|[A-Za-z]:\\\\)')
+    for mm in dense.finditer(source):
+        line_text = line_of(source, mm.start())
+        if 'MessageLevel.Debug' in source[mm.start():mm.start() + 400]:
+            continue
+        issues.append(Issue(
+            "D.初始化日志", Issue.SEVERITY_WARN, line_text,
+            "日志文案含排查建议/未确证结论/绝对路径，应删除或降 Debug（极简密度判据 6.3）",
+        ))
+
+
 def _check_file_level_enums(source, classes, issues):
     """检查类外定义的枚举（命名空间级别）及 Enum 后缀。"""
     clean = strip_strings_and_chars(source)
@@ -1584,18 +2239,18 @@ def _check_file_level_enums(source, classes, issues):
 
 
 def review_file(filepath):
+    global CURRENT_FILE
+    CURRENT_FILE = filepath.replace('\\', '/')
     with open(filepath, 'r', encoding='utf-8-sig') as f:
         source = f.read()
 
     filename = filepath.lower()
     issues = []
 
-    # designer.cs 不处理
+    # 字体规范对 Designer.cs 同样生效（字体恰好全部由设计器写入）；其余项不处理
+    check_font_family(source, issues)
+    check_refresh_default(source, issues)
     if filename.endswith('.designer.cs'):
-        issues.append(Issue(
-            "系统", Issue.SEVERITY_INFO, 1,
-            "designer.cs 文件为设计器自动生成，按规则不检测",
-        ))
         return issues
 
     classes = parse_file(source)
@@ -1608,10 +2263,20 @@ def review_file(filepath):
         return issues
 
     check_regions_and_order(source, classes, issues)
+    check_duplicate_members(source, classes, issues)
+    check_dispose_pattern(source, issues)
     check_doc_comments(source, classes, issues)
+    _check_var_multiline_comments(source, issues)
     check_logic_issues(source, classes, issues)
     check_function_simplification(source, classes, issues)
+    check_init_dependency(source, issues)
+    check_init_log(source, issues)
     _check_file_level_enums(source, classes, issues)
+
+    # 存量注释欠账默认不进清单（顶层裁定 3），--verbose 可查全量
+    if not INCLUDE_LEGACY:
+        issues = [x for x in issues
+                  if not (x.severity == 'info' and x.category == 'A.注释规范')]
 
     # 按行号排序
     issues.sort(key=lambda x: (x.line, x.category))
@@ -1670,6 +2335,16 @@ def format_report(issues, filepath, verbose=False):
 
 
 def main():
+    # 控制台按 GBK 编码时，含 U+2212 等非 GBK 字符的扫描消息会触发
+    # UnicodeEncodeError，导致整份扫描结果丢失（文件级假阴性）。
+    # 输出统一转 UTF-8，并对不可映射字符降级替换。
+    for _stream in (sys.stdout, sys.stderr):
+        if hasattr(_stream, 'reconfigure'):
+            try:
+                _stream.reconfigure(encoding='utf-8', errors='replace')
+            except (ValueError, OSError):
+                pass
+
     parser = argparse.ArgumentParser(
         description='.NET 4.8 / C# 7.3 单文件冗余代码扫描器')
     parser.add_argument('file', help='要扫描的 .cs 文件路径')
@@ -1677,6 +2352,10 @@ def main():
     parser.add_argument('--verbose', action='store_true',
                         help='显示所有项（含提示级别）')
     args = parser.parse_args()
+
+    global INCLUDE_LEGACY
+    if args.verbose:
+        INCLUDE_LEGACY = True
 
     try:
         issues = review_file(args.file)

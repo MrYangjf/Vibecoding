@@ -81,17 +81,47 @@ RENAMED = {
     # UI：SunnyUI 时代页面 -> AntdUI 迁移后现役页面
     "Helix3Drender.cs": "UIDesign/SubDialog/DataReviewerDialog/HelixRenderForm.cs",
     "XMLEditor.cs": "UIDesign/TabPage/FileEditorPage.cs",
-    "CommGeneralPage.cs": "UIDesign/TabPage/CommPage.cs",
-    "CommRobotPage.cs": "UIDesign/TabPage/CommPage.cs",
+    "CommGeneralPage.cs": "UIDesign/TabPage/FilebackupPage.cs",
+    "CommRobotPage.cs": "UIDesign/TabPage/FilebackupPage.cs",
     "ImagePage.cs": "UIDesign/TabPage/MonitorCamPage.cs",
-    "ParamPage.cs": "UIDesign/TabPage/ParamConfigPage.cs",
+    "ParamPage.cs": "UIDesign/TabPage/ProcessControlPage.cs",
     "EmguAlgoPage.cs": "UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs",
     "LLCamWorkJob.cs": "UIDesign/TabPage/ILCamPage.cs",
+    # 2026-09-20 ProductFileControl 记录类职责拆分（用户裁定）
+    "SeamTrackRecord.cs": "ProductFileControl/Records/LineLaserContourRecord.cs",
+    "WeldParamAdjustRecord.cs": "ProductFileControl/Records/WeldParamControlRecord.cs",
     "LLCameraSetting.cs": "UIDesign/SubDialog/IntelligentLaserDialog/ILParamForm.cs",
 }
 
 # 2) 已移除：无现役对应物，历史 ADR 可保留旧名但须加注「（已移除）」
 REMOVED = {
+    # 2026-10-21 RSI 唯一通道落地（ADR-090）：EKI 以太网数据交换通道整体退役
+    # （ADR-026 决策 2 裁定「通讯通道唯一为 RSI」，本轮执行代码清理）
+    "KukaEkiComm.cs": "2026-10-21 删除；ADR-026/ADR-090 通讯通道唯一为 RSI，EKI 通道（TCP 元素级交换）整体退役，整文件删除，csproj 已退注册；CommunicationManager.EkiComm 属性与 ConnectRobot/DisconnectRobot 的 EKI 分支同步清零，UI radioModeEKI 已删",
+    # 2026-10-21 旧摆幅通道退役（业主裁定「旧思路没有使用方，删掉以免干扰」）：
+    # WeaveWidthTable 承载的振镜摆幅取值（查表优先 + 宽×(1+k) 公式兜底）与频率查表整体废止，
+    # 摆幅宽度/摆幅频率改由 AutoParam 系数 + 分段表查表承载（见 modules/WeldParamControl 摆幅宽度链路）
+    "WeaveWidthTable.cs": "2026-10-21 删除；旧摆幅取值通道（WeaveAmplitudeK 的宽×(1+k) 公式 + 第6/7列标定装载）无使用方，业主裁定删除；摆幅宽度/摆幅频率改由 AutoParam.SpotSwingGain + AutoParam.CalSwingFrequency + SwingWidthDic/SwingFrequencyDic 承载，csproj 已退注册",
+    # 2026-10-14 三层架构收敛（ADR-082）：TAConfig 合入 WeldAlgorithmsConfig（业主裁定），独立类与独立 INI 消失
+    "TAConfig.cs": "2026-10-14 删除；TAConfig 合入 WeldAlgorithmsConfig（ADR-082），现役 WeldAlgorithmsConfig.TaForceN/TaPose1Mm/TaPose2Mm（INI 键并入 ProcessControlSection 段），csproj 已退注册",
+    # 2026-10-09 F-7（P3 批F，ADR-074）：光丝对中两套算法合并——mm 三级分级/剪丝判据语义并入
+    # EmguALG/RealtimeMonitor/WireFeedDistance/（WireFeedResult + WireFeedConfig + ImageAlgorithm.DetectPreWeldAlignment），
+    # 整套死代码文件删除（RealtimeMonitorAlgorithm/MonitorConfig/CenteringCheckResult/SeamQualityResult/CheckGrade 均零外部消费）
+    "RealtimeMonitorAlgorithm.cs": "2026-10-09 删除；光丝对中毫米化合并进 WireFeedDistance 三件（F-7/ADR-074），死代码套整文件退役，csproj 已退注册",
+    # 2026-09-29 监控相机实现层切换海康 MVS（ADR-047）：麦格威实现整体删除，新实现 MonitorCam/HikCam/HikCam.cs
+    "MecaVisionCam.cs": "2026-09-29 删除；监控相机实现层切换海康 MVS（ADR-047），新实现 MonitorCam/HikCam/HikCam.cs，csproj 已换注册",
+    "MVSDK.cs": "2026-09-29 删除；麦格威 MVSDK 原生封装随实现层切换海康 MVS（ADR-047）一并退役，改用官方 MvCameraControl.Net.dll",
+    # 2026-09-24 业主令：轨迹 CSV（4 列 RobotX/RobotY/CspY/AxisY）由 SeamTraceY 五列记录取代，
+    # 新记录沿用同会话基名 .csv ⇒ DB 归档链路不动；TrajectoryRecord.cs 真删、csproj 换注册。
+    "TrajectoryRecord.cs": "2026-09-24 删除；由 ProductFileControl/Records/SeamTraceYRecord.cs 取代（5 列 当前RobotX/入图RobotCSPX/CSPinYt/CSPoutY/实时Y，同会话文件夹同基名 .csv）",
+    # 2026-09-23 用户裁定：XL 缓存并入 WeldParamAdjustmentAlgorithm（ADR-056 决 6），独立实现类与调整算法功能重复
+    "WeldParamXLCacheAlgorithm.cs": "2026-09-23 删除；XL 缓存并入 WeldParamAdjustmentAlgorithm（ADR-056 决 6 私有嵌套 XLPoint 承载），csproj 已退注册",
+    # 2026-09-21 用户裁定：607A 实时目标路径整体清除（ADR-044 缓冲流式取代），CspResult 返回码迁至 MontionAxis.cs
+    "ICspMotion.cs": "2026-09-21 删除；607A 逐拍改目标实测不生效（ADR-044 缓冲流式取代），CspResult 迁 MontionAxis.cs",
+    # 2026-09-20 用户裁定：清理旧备份目录 _bak_20260918_105749（DataReviewerPage 快照副本，非现役、未注册 csproj）
+    "DataReviewerPage.resx": "2026-09-20 删除；_bak_20260918_105749 备份快照副本，现役 UIDesign/ControlPage/DataReviewerPage.resx",
+    "DataReviewerPage.Designer.cs": "2026-09-20 删除；_bak_20260918_105749 备份快照副本，现役 UIDesign/ControlPage/DataReviewerPage.Designer.cs",
+    "DataReviewerPage.cs": "2026-09-20 删除；_bak_20260918_105749 备份快照副本，现役 UIDesign/ControlPage/DataReviewerPage.cs",
     # 2026-09-08 线激光三份辅助文件归并进 LineLaserManager.cs（ADR-040）
     "ProfileSnapshot.cs": "2026-09-08 归并进 LineLaserCam/LineLaserManager.cs（同文件内嵌类，不再单独立文件）",
     "ProfileMatRenderer.cs": "2026-09-08 归并进 LineLaserCam/LineLaserManager.cs（同文件内嵌类，不再单独立文件）",
@@ -126,12 +156,13 @@ REMOVED = {
     "KUKADataTypes.cs": "2026-09-14 并入实现类文件：RSI 类型→KukaRsiComm.cs，EKI 类型→KukaEkiComm.cs，管理层事件参数→CommunicationManager.cs（类型名不变）",
     "KUKAXMLConfig.cs": "2026-09-14 并入实现类文件：partial class 拆分，RSI 半边→KukaRsiComm.cs，EKI 半边→KukaEkiComm.cs（类型名不变）",
     "ILModbusData.cs": "2026-09-14 并入实现类文件：InLaserModbusComm.cs（类型名不变）",
-    # 2026-09-14 ProductFileControl 记录类文件自包含（ADR-047）
-    "RecordFileStore.cs": "2026-09-14 并入 ProductFileControl/Records/SeamTrackRecord.cs（internal 类随焊缝追踪记录落位，ADR-047）",
-    "RecordFrame.cs": "2026-09-14 并入 ProductFileControl/Records/SeamTrackRecord.cs（帧 DTO 随焊缝追踪记录落位，ADR-047）",
-    "WeldActionRecord.cs": "2026-09-14 并入 ProductFileControl/Records/WeldParamAdjustRecord.cs（类型名不变，DataReviewerPage 消费不受影响，ADR-047）",
-    "SmartRayConverter.cs": "2026-09-14 整链删除（0 消费；AddSmartRayFrame 于 SeamTrackRecord/Manager 同步删除，ADR-047）",
-    "SeamAdjustRecord.cs": "2026-09-14 改名 Records/WeldParamAdjustRecord.cs（类名 SeamAdjustRecord→WeldParamAdjustRecord，ADR-047）",
+    # 2026-09-14 ProductFileControl 记录类文件自包含（ADR-047）；2026-09-20 记录类职责拆分（RecordFileStore 重新独立成文件）
+    "RecordFrame.cs": "2026-09-14 并入 ProductFileControl/Records/RecordFileStore.cs（帧 DTO 随记录文件存储落位，ADR-047；2026-09-20 RecordFileStore 独立成文件）",
+    "WeldActionRecord.cs": "2026-09-14 并入 ProductFileControl/Records/WeldParamControlRecord.cs（类型名不变，DataReviewerPage 消费不受影响，ADR-047；原文件名 WeldParamAdjustRecord.cs）",
+    "SmartRayConverter.cs": "2026-09-14 整链删除（0 消费；AddSmartRayFrame 于轮廓记录/Manager 同步删除，ADR-047）",
+    "SeamAdjustRecord.cs": "2026-09-14 改名 Records/WeldParamAdjustRecord.cs（类名 SeamAdjustRecord→WeldParamAdjustRecord，ADR-047；2026-09-20 再改名 WeldParamControlRecord.cs）",
+    "SimTrajectoryRecorder.cs": "2026-09-20 删除；轨迹记录并入 ProductFileControl/Records/TrajectoryRecord.cs（模拟与真实统一走 ProductFileRecordManager，模拟文件名加「模拟」前缀）",
+    # 2026-09-20 ProductFileControl 记录类职责拆分（用户裁定）：改名类登记 RENAMED
     "NetworkPortBase.cs": "网络端口抽象层未落地",
     "INetworkPort.cs": "网络端口抽象层未落地",
     "NullMotionController.cs": "ADR-027 删除空控制器",
@@ -140,6 +171,7 @@ REMOVED = {
     "SystemStatus.cs": "已并入 Comm/SystemComm.cs",
     "TCPClinet.cs": "拼写错误的历史名；现役 Comm/CommBase/Ethernet/TCPIPComm.cs",
     "MonitorCameraEventArgs.cs": "事件参数类已移除；配置现由 MonitorCam/MonitorCameraRun.cs 承担",
+    "ImageRoiTools.cs": "2026-11-09 由 WinForms 绑定版改为算法层通用工具：EmguALG/Roi/ImageRoi.cs + ImageRoiTool.cs（ADR-097）",
     "YAxisController.cs": "Y 轴专用控制器已移除；现役 MotionControl/MontionManager.cs + DeltaEtherCAT/DeltaMontionAxis.cs",
     "XMLEditor.Designer.cs": "随 XMLEditor.cs 一并移除；现役 UIDesign/TabPage/FileEditorPage.Designer.cs",
     # 2026-09-07 正运动（ZMotion）整体移除（ADR-034）
@@ -193,6 +225,28 @@ REMOVED = {
     # 2026-09-14 WeldParamControl 算法配置合一（ADR-044）
     "SeamGuideConfig.cs": "2026-09-14 与 WeldParamAdjustmentConfig.cs 合并为 WeldParamControl/WeldAlgorithmsConfig.cs（XML 节 SEAM_GUIDE 名不变；ADR-044）",
     "WeldParamAdjustmentConfig.cs": "2026-09-14 与 SeamGuideConfig.cs 合并为 WeldParamControl/WeldAlgorithmsConfig.cs（XML 节 WELD_PARAM_ADJUST 名不变；ADR-044）",
+    # 2026-09-15 焊接头撤销三层、并入运控单一从站实现类（ADR-051，取代 ADR-049 B3）
+    "LaserWeldHeadController.cs": "2026-09-15 用户裁定删除（原 B3 旧控制器）；现役 MotionControl/DeltaEtherCAT/WeldHeadSlaveDevice.cs（ADR-051）",
+    "ILaserWeldHeadController.cs": "2026-09-15 随三层撤销删除（单实现零复用不做抽象）；现役 MotionControl/DeltaEtherCAT/WeldHeadSlaveDevice.cs（ADR-051）",
+    "WsxScanCutHeadController.cs": "2026-09-15 并入运控单一实现类；现役 MotionControl/DeltaEtherCAT/WeldHeadSlaveDevice.cs（ADR-051）",
+    "WeldHeadManager.cs": "2026-09-15 独立 Manager 撤销；装载与配置持久化归 MontionManager（WeldHead 属性 + WeldHeadConfig，ADR-051）",
+    "LaserWeldHeadData.cs": "2026-09-15 数据结构并入 WeldHeadSlaveDevice.cs 同文件（GalvoParams/温度气压/报警/配置，ADR-051）",
+    # 2026-09-17 运控配置窗体删除（ADR-038 续轮）：整体迁入 SystemControlPage.panel1
+    "MontionConfigForm.cs": "2026-09-17 用户裁定删除（运控配置窗体整体迁入 SystemControlPage.panel1）；仅保留 api/MontionConfigForm.md 历史页",
+    "MontionConfigForm.Designer.cs": "2026-09-17 随 MontionConfigForm.cs 删除",
+    "MontionConfigForm.resx": "2026-09-17 随 MontionConfigForm.cs 删除",
+    # 2026-09-29 UI 容器改造：运控参数页更名为系统控制页（MotionControlPage -> SystemControlPage，panel1 内改 AntdUI.Tabs 四分区）
+    "MotionControlPage.cs": "2026-09-29 更名为 UIDesign/TabPage/SystemControlPage.cs（panel1 内 panelInner TLP -> AntdUI.Tabs 四分区，业务零改动）",
+    "MotionControlPage.Designer.cs": "2026-09-29 随 MotionControlPage.cs 更名为 SystemControlPage.Designer.cs",
+    "MotionControlPage.resx": "2026-09-29 随 MotionControlPage.cs 更名为 SystemControlPage.resx",
+    # 2026-09-29 工艺设置页更名（ParamConfigPage -> ProcessControlPage，tabsConfig -> tabsProcess，四分区重排）
+    "ParamConfigPage.cs": "2026-09-29 更名为 UIDesign/TabPage/ProcessControlPage.cs（Tabs 四分区重排：工艺调试快捷设定 / 自适应调整工艺设置 / 线激光追踪工艺设置 / 光丝对中工艺设置；轨迹点控制与模拟测试迁出至 SystemControlPage）",
+    "ParamConfigPage.Designer.cs": "2026-09-29 随 ParamConfigPage.cs 更名为 ProcessControlPage.Designer.cs",
+    "ParamConfigPage.resx": "2026-09-29 随 ParamConfigPage.cs 更名为 ProcessControlPage.resx",
+    # 2026-09-29 文档备份设置页更名（CommPage -> FilebackupPage，新增 tabsBackup 三分区）
+    "CommPage.cs": "2026-09-29 更名为 UIDesign/TabPage/FilebackupPage.cs（新增 tabsBackup：通讯配置文件 / 工艺配置文件 / 系统配置文件）",
+    "CommPage.Designer.cs": "2026-09-29 随 CommPage.cs 更名为 FilebackupPage.Designer.cs",
+    "CommPage.resx": "2026-09-29 随 CommPage.cs 更名为 FilebackupPage.resx",
 }
 
 # 3) 外部参考 / 第三方库内部 —— 静默
