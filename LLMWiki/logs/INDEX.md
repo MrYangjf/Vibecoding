@@ -20,7 +20,7 @@ status: active
 |---|---|
 | 文件 | `logs/log.md` |
 | 条目数 | 50（上限 50） |
-| 最新条目 | fix | 治理工具常态化：新增 tools/adr_merge.py（整页合并助手 plan/apply/audit）+ WikiPageFormatSpec §3.1.3 合并路径契约 + lessons 两坑沉淀 |
+| 最新条目 | fix | 工具与全量资产纳入 git 管控（Vicoding 4 提交 + AdaWeldSystem 2 提交，双仓库未跟踪清零） |
 
 ---
 
@@ -28,6 +28,7 @@ status: active
 
 | 日期 | 条目数 | 首条摘要 | 归档文件 |
 |---|---|---|---|
+| 2026-11-11 | 1 | refactor ／ 全库零 as 下转型 + 存量三类判据治理；机器人X获取路径调研 | `logs/backup/log_2026-11-11.md` |
 | 2026-11-10 | 15 | fix ／ MainPage 业主界面改版落地 | `logs/backup/log_2026-11-10.md` |
 | 2026-11-09 | 25 | 修复/精简 ／ TA_ZeroPose 手动重试闭环 + 失败上色 + 单飞逾期释放 + Batch B 等价精简 | `logs/backup/log_2026-11-09.md` |
 | 2026-11-08 | 2 | 开发/优化 ／ 流程等待分区补全 + 设备侧等待五项 + 手动轴操作下沉 Workflow | `logs/backup/log_2026-11-08.md` |

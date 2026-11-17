@@ -1,3 +1,10 @@
+## [2026-11-17 21:01:58] fix | 工具与全量资产纳入 git 管控（Vicoding 4 提交 + AdaWeldSystem 2 提交，双仓库未跟踪清零）
+- 来源：业主指令「工具纳入管控」；实际排查发现范围远超工具：Vicoding 仓库 209 项未跟踪（含 167 wiki 页 / 22 工具 / 7 脚本 / 8 raw / 4 logs），AdaWeldSystem 仓库 41 项未跟踪 + 143 项已修改未提交 —— 本轮两轮的核心代码改动（ProcessControlPage/SystemControlPage/MontionManager 等）全部不在版本控制内
+- 操作：
+  1. 提交前验证：csproj Compile 声明 193 项与磁盘 .cs 193 项完全一致（反斜杠路径导致的假阳性已排除）；真编译 Rebuild errors=0 rc=0；bin/obj/3rdDepend 未误纳入
+- 变更文件：Vicoding管理平台/LLMWiki/tools/（29 个新跟踪）; Vicoding管理平台/LLMWiki/scripts/（7 个新跟踪）; Vicoding管理平台/LLMWiki/wiki/（313 文件变更）; Vicoding管理平台/LLMWiki/raw/（118 文件）; Vicoding管理平台/LLMWiki/logs/（23 文件）; Vicoding管理平台/.gitignore; Vicoding管理平台/LLMWiki/AGENTS.md; Vicoding管理平台/LLMWiki/skills/vibecoding-llmwiki/SKILL.md; AdaWeldSystem/（208 文件变更）; AdaWeldSystem/.gitignore
+- 结论 / 遗留：终态：双仓库未跟踪 0 / 未提交 0；Vicoding 仓库 93MB，AdaWeldSystem 仓库 7.2MB。门禁复跑全绿：八闸门 exit=0（死链 0 / 孤儿 0 / ADR 冲突 0 / 外部链接失效 0 / 编号空洞 0，7 个废止留档号单列）；simplify_guard 168 文件 fail=0；simplify_selfcheck PASS。教训沉淀：① 判「删除是否丢内容」不能用逐字比对（承接是改写浓缩，逐字必假阴性）——须用 merged_from 关联 + 特征句检索 + 核心判据逐条落地三重证据；② 页面改名/拆分类重构的特征名会变（类名不同），判据须回落到「控件/成员是否保留」；③ .gitignore 须覆盖 output 定稿包（每轮 Phase 3 重新生成，不应入库）。遗留：① 本轮未做 git push（两仓库均在 main，本地已完整入库，推送与否待业主定）；② 仓库无 LFS，raw/delta 两份台达 PDF 共 17.2MB 直接入 blob，若后续 raw 资产继续增长需评估 LFS；③ 工作区根仍有 3 个 output 包（仓库外，未污染版本控制）
+
 ## [2026-11-17 18:49:07] fix | 治理工具常态化：新增 tools/adr_merge.py（整页合并助手 plan/apply/audit）+ WikiPageFormatSpec §3.1.3 合并路径契约 + lessons 两坑沉淀
 - 来源：承接 ADR 治理轮：把一次性合并脚本沉淀为常态化工具，并把合并契约与两条新坑写入规范/教训页
 - 操作：
@@ -441,16 +448,3 @@
   5. 同步ADR-045演进记录、4个API页、CodeMap、判据库坑10、报告待裁决节
 - 变更文件：AdaWeldSystem/LineLaserCam/LineLaserManager.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/EmguALG/Manager/AlgorithmManager.cs; AdaWeldSystem/UIDesign/TabPage/FilebackupPage.cs; AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs; LLMWiki/scripts/csharp_review.py; LLMWiki/scripts/arch_boundary_scan.py; wiki/decisions/ADR-045; wiki/api/LineLaserManager.md; wiki/api/AlgorithmManager.md; wiki/api/MontionManager.md; wiki/architecture/CodeMap.md; wiki/lessons/StaticVerifier-Checker-FailureModes.md
 - 结论 / 遗留：三批复核：批次1/2 各 build errors=0 rc=0; 最终全套 guard files=168 fail=0、全库warn/error=0、selfcheck四重自证PASS、真编译errors=0 rc=0、ide remaining=0、simplify_run PASS。重扫标记239→233(架构9→5:A2归零/A5 4→1,C.功能重叠2→0)。遗留：A5剩1条DeviceControlWork.SimulationConfig(类注释明确由DeviceControlWork单例持有,已裁定设计); C.疑似死函数101/平行指令4/跨层候选14仍待逐案裁决
-
-## [2026-11-11 00:20:25] refactor | 全库零 as 下转型 + 存量三类判据治理；机器人X获取路径调研
-- 来源：业主三项：LineLaserManager 实时机器人X来源调研(暂不动) / 去 as DeltaMontionAxis / 过度属性与注释规范与嵌套内联逐一审查清理
-- 操作：
-  1. 调研：位姿唯一真相源=WeldParamManager.CurrentRobotX(RSI线程OnRobotDataReceived写RobotWeldData.PosX,get带ADR-045预测外推)；当前LineLaserManager:454走DeviceControlWork.GetEffectiveRobotX()其语义为sim?CurrentRobotX:0.0,真实态轮廓帧X全为0且造成LineLaserCam反向依赖MainDeviceControl；推荐A直读CurrentRobotX(去反向依赖+与算法记录同源),长期B随帧携带X(采集时刻基准ADR-042),不推荐C事件缓存副本；GetEffectiveRobotX另8处为模拟行程判定不能一起改
-  2. 按业主裁定暂不改码
-  3. as清零：AxisRegistry字典/Register/Get/GetAll与MontionManager.AddAxis收紧为DeltaMontionAxis,CreateAxesFromConfig声明改具体类型,GetDeltaAxis直接返回,MotionControlWorkflow.TaAxis改用GetDeltaAxis
-  4. 判据治理：B.过度属性旧len(body_text)>20过报改重操作正则+有效行门限并豁免lock快照与new返回副本,1184→19且19条逐条定性有意保留
-  5. A.注释规范645条存量欠账默认不进清单加INCLUDE_LEGACY开关--verbose可查
-  6. C.嵌套内联49条按台账B-6/B-8七类语义前缀豁免
-  7. 同步4.1映射表22~24行/台账B-8/API页/CodeMap/报告生成器
-- 变更文件：AdaWeldSystem/MotionControl/AxisRegistry.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; LLMWiki/scripts/csharp_review.py; LLMWiki/scripts/arch_boundary_scan.py; wiki/standards/CodeSimplification.md; wiki/project/CodeSimplification-Backlog-20261026.md; wiki/api/MontionManager.md; wiki/architecture/CodeMap.md
-- 结论 / 遗留：三批复核：guard files=168 fail=0；全库warn/error=0；selfcheck四重自证PASS；真编译build errors=0 rc=0；IDE remaining=0；simplify_run PASS。标记2099→239(注释645→0/单文件1229→64/函数204→155/架构A7归零)。待裁决：LineLaserManager是否切到直读CurrentRobotX(真实态行为由0变真值,需业主确认)
