@@ -1730,17 +1730,19 @@ MotionControl/                                    # 运动控制模块
 | **WKC 错误计数** | `CS_ECAT_Master_Get_Working_Counter_ErrorCounter` | `ref ushort Error_Cnt` | 累计错误次数，持续增长=通信质量差 |
 | **帧计数器** | `CS_ECAT_Master_Get_Frame_Counter` | `ref uint TxFrameCnt`, `RxFrameCnt`, `Frame_Error_Cnt` | `Frame_Error_Cnt` 持续增长=丢帧 |
 | **周期耗时** | `CS_ECAT_Master_Get_Cycle_SpendTime` | `ref double Tx_Time`, `Tx_MaxTime`, `Rx_Time`, `Rx_MaxTime` | 最大耗时超过周期=延迟告警 |
-| **从站连接状态** | `CS_ECAT_Slave_Get_Connect_Status` | `ref ushort OpState`, `ref ushort AlarmStatus` | `OpState==3`(OP) 且 `AlarmStatus==0` |
+| **从站连接状态** | `CS_ECAT_Slave_Get_Connect_Status` | `ref ushort OpState`, `ref ushort AlarmStatus` | `OpState==8`(OP，位掩码 0x08) 且 `AlarmStatus==0` |
 | **轴状态字** | `CS_ECAT_Slave_Motion_Get_StatusWord` | `ref ushort StatusWord` | bit2(0x04)=Operation enabled, bit3(0x08)=Fault |
 
 #### 4.2.2 OpState 状态码
 
 | OpState | 含义 | UI 颜色 |
 |---------|------|---------|
-| 0 | Init（初始化） | 灰色 |
-| 1 | Pre-Operational（预运行） | 黄色 |
-| 2 | Safe-Operational（安全运行） | 橙色 |
-| 3 | Operational（运行，正常） | 绿色 |
+| 1 (0x01) | Init（初始化） | 灰色 |
+| 2 (0x02) | Pre-Operational（预运行） | 黄色 |
+| 4 (0x04) | Safe-Operational（安全运行） | 橙色 |
+| 8 (0x08) | Operational（运行，正常） | 绿色 |
+
+> **⚠️ OpState 编码更正（2026-09-18）**：上表原档写成 `0/1/2/3` 枚举，但实测 `CS_ECAT_Slave_Get_Connect_Status` 返回的是 **位掩码** `0x01/0x02/0x04/0x08`，Operational 真实值为 **8** 而非 3。代码常量 `EtherCATMasterNative.OpStateOperational` 已修正为 `8`。
 
 #### 4.2.3 连接监控控件实现（`DeltaConnectionMonitor`）
 

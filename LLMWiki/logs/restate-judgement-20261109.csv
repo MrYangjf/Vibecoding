@@ -1,0 +1,191 @@
+﻿文件,行,档位,原文,下一行代码,判定,理由
+Comm\Communication\CommunicationManager.cs,320,strict,PLC 通讯,"PlcXdoc = new XdocumentReaderWriter(@""Config\Comm\PLC_XML"", ""PLC"");",保留,裁定#1 数组/分区标签（命中「PLC 通讯」）
+Comm\Communication\CommunicationManager.cs,327,strict,Modbus 通讯,"ModbusXdoc = new XdocumentReaderWriter(@""Config\Comm\Modbus_XML"", ""Modbus"");",保留,裁定#1 数组/分区标签（命中「Modbus 通讯」）
+Comm\Communication\Implementations\InLaserModbusComm.cs,292,strict,发送,byte[] request = new byte[mbap.Length + pdu.Length];,删除,「发送」与下一行 new byte[] 组包同义，无附加信息
+FileOperate\ConfigPathMigrator.cs,66,strict,运控,"{ @""Config\MotionControl\Motion_XML\DeltaMotionConfig.xml"", new[] { @""Config\XML\MotionControl\Motion_XML\DeltaMotionConfig.xml"", @""Config\XML\MotionControl\Del",保留,裁定#1 数组/分区标签（命中「运控」）
+FileOperate\ConfigPathMigrator.cs,77,strict,焊参,"{ @""Config\WeldParamControl\Algorithm_XML\WeldParamControl.xml"", new[] { @""Config\XML\WeldParam\Algorithms\WeldParamControl.xml"", @""Config\XML\WeldParam\Algorit",保留,裁定#1 数组/分区标签（命中「焊参」）
+FileOperate\ConfigPathMigrator.cs,91,strict,主控,"{ @""Config\MainDeviceControl\Simulation_INI\SimulationController.ini"", new[] { @""Config\INI\MainDevice\Simulation_INI\SimulationController.ini"", @""Config\INI\Ma",保留,裁定#1 数组/分区标签（命中「主控」）
+Comm\Communication\CommunicationManager.cs,266,wide,Modbus 通讯实例由 InitializeModbusComm 延迟初始化,ModbusComm = null;,保留,裁定#1 数组/分区标签（命中「Modbus 通讯」）
+Comm\Communication\CommunicationManager.cs,482,wide,本机监听端口以 HOST_PORT 为准（新版契约语义）；旧配置缺 HOST_PORT 时回落 PORT,"string hostPort = RobotServerXdoc.GetElementValue(""HOST_PORT"");",保留,协议/格式契约（命中「契约」）
+Comm\Communication\CommunicationManager.cs,842,wide,RSI 3.3 无 Tool 对象，用自由 TAG Tool.X/Y/Z 映射 ETHERNET 输入端 1/2/3（INDX 连续）,"config.SendElements.Add(new RSIElement { Tag = ""Tool.X"", Type = RSIDataType.DOUBLE, Index = ""1"" });",保留,协议/格式契约（命中「RSI」）
+Comm\Communication\CommunicationManager.cs,850,wide,RECEIVE 段：上位机每周期回复（INDX 为 ETHERNET 输出端编号，须连续；HOLDON=1 保持上一有效值）,"config.ReceiveElements.Add(new RSIElement { Tag = ""WeldPower"", Type = RSIDataType.DOUBLE, Index = ""1"", HoldOn = 1 });",保留,协议/格式契约（命中「INDX」）
+Comm\Communication\CommunicationManager.cs,864,wide,机器人端发送格式文档，与 WeldControlConfig.xml 一同拷贝到机器人侧作格式契约,"string formatPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ""Config"", ""Comm"", ""KUKARobot_RSI_XML"", ""WeldControlSendFormat.xml"");",保留,协议/格式契约（命中「契约」）
+Comm\Communication\Implementations\InLaserModbusComm.cs,316,wide,接收 PDU（respLen - 1 是 PDU 长度，减去 Unit ID 占位）,byte[] pduResp = new byte[respLen - 1];,保留,协议/格式契约（命中「PDU」）
+Comm\Communication\Implementations\KukaRsiComm.cs,843,wide,上行指令码（具名元素形式 <RxCmd>4</RxCmd>，LONG）,packet.RxCmd = (int)ParseDouble(node.InnerText);,保留,协议/格式契约（命中「上行指令」）
+Comm\Communication\Implementations\KukaRsiComm.cs,848,wide,上行指令载荷（具名元素形式 <RxPayload>0</RxPayload>，DOUBLE）,packet.RxPayload = ParseDouble(node.InnerText);,保留,协议/格式契约（命中「载荷」）
+Comm\SystemComm\SystemComm.cs,274,wide,（如 RSI 格式契约升级告警），此时静态构造尚未执行到 _logArgs 赋值会空引用崩溃。,_logArgs = new MessageArgs();,保留,协议/格式契约（命中「契约」）
+Comm\SystemComm\SystemComm.cs,283,wide,CommunicationManager 内部负责实例化通用 TCP 通讯对象 TcpIpComm,mCommunicationManager = new CommunicationManager();,保留,字段口径（单位/值域/可空/列序）（命中「mm」）
+LineLaserCam\LineLaserManager.cs,453,wide,数据记录：AddFrame 内部已有 ClonePointCloud + lock，未录制时直接返回零开销；,"ProductFileRecordManager.Instance.AddFrame(e.Cloud, DeviceControlWork.Instance.GetEffectiveRobotX());",保留,复述（无附加信息）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,1083,wide,务必 Dispose：__GetOrCreateInstance 包装的对象拥有原生内存，不释放会在 100Hz 下快速泄漏；,using (var inspect = IntelligentMillionOutlineInspect.__GetOrCreateInstance(pOutlineData)),保留,踩坑/失败经历（命中「泄漏」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,1107,wide,捕获英莱 SDK 自有算法解析结果（InspectResult[0]）并映射为中性结构,var results = inspect.InspectResult;,保留,协议/格式契约（命中「SDK」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,1435,wide,嵌套「类型名」为 TIntelligentJobParam.CurValue（大写 C，partial struct CurValue），,var p = new TIntelligentJobParam,保留,协议/格式契约（命中「Job」）
+MainDeviceControl\DeviceControlWork.cs,309,wide,模拟参数配置对象：文件路径与 INI 读写由 SimulationConfig 独占，本类不再直接 new INIFile,private readonly SimulationConfig _simConfig = new SimulationConfig(,保留,设计归属/职责边界（命中「由」）
+MainDeviceControl\DeviceControlWork.cs,545,wide,每拍前置问询运行态：一旦被改为非 Running（停机 / 报警 / 急停 / 复位）立即停止驱动,if (Current != MainDeviceStatus.Running),保留,运行态/门禁语义（命中「运行态」）
+MainDeviceControl\DeviceControlWork.cs,1597,wide,停止位报文：RxPayload 即机器人停止位 X（模拟测试停止状态由机器人发来）,if (command == CommandCore.RxWeldStopPose && rxPayload != 0.0),保留,协议/格式契约（命中「报文」）
+MainDeviceControl\DeviceControlWork.cs,2106,wide,Running 门禁对 Alarm/EStop 不放开，不清理则模拟永远起不来,if (Current == MainDeviceStatus.Alarm) DoClearAlarm();,保留,运行态/门禁语义（命中「门禁」）
+MainDeviceControl\DeviceStatusWork.cs,301,wide,OK→NG 上升沿：根因归口记一次 Error，置电平型虚拟 IO 并同步执行报警动作链（纯状态迁移 µs 级，与急停同属同步例外）,"Log(""运控总线故障 "" + desc, MessageLevel.Error);",保留,运行态/门禁语义（命中「状态」）
+MainDeviceControl\DeviceWorkflow\LaserWeldHeadWorkflow.cs,154,wide,目标光斑初值 = 曲线A 的 LA=0 锚点光斑（配置读取经 WeldParamManager 唯一口）,_targetSpotMm = WeldParamManager.Instance.AnchorSpotMm;,保留,设计归属/职责边界（命中「唯一」）
+MainDeviceControl\DeviceWorkflow\LineLaserWorkflow.cs,333,wide,模拟虚拟相机无真实线激光结果事件，仍须驱动工艺计算与下发（ComputeAndOutput），,try { WeldParamControlWorkflow.Instance.ComputeAndOutput(); },保留,复述（无附加信息）
+MainDeviceControl\DeviceWorkflow\LineLaserWorkflow.cs,386,wide,停采集 → 关激光 → 关传感器，由 LineLaserManager 统一代理,LineLaserManager.Instance.ShutdownPeripherals();,保留,设计归属/职责边界（命中「由」）
+MainDeviceControl\DeviceWorkflow\LineLaserWorkflow.cs,392,wide,业务处理已上提 LineLaserManager，工作流订阅其转发的结果事件,LineLaserManager.Instance.ResultReady += ManagerResultReady;,保留,设计归属/职责边界（命中「上提」）
+MainDeviceControl\DeviceWorkflow\LineLaserWorkflow.cs,447,wide,焊接工艺计算与下发收敛到 WeldParamControlWorkflow。,_lastAdjustSuccess = WeldParamControlWorkflow.Instance.ComputeAndOutput();,保留,设计归属/职责边界（命中「收敛」）
+MainDeviceControl\DeviceWorkflow\LineLaserWorkflow.cs,933,wide,相机实例由 LineLaserManager 持有并统一释放，工作流不再自行 Dispose,LineLaserManager.Instance.SetWorking(false);,保留,设计归属/职责边界（命中「由」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,1049,wide,「线激光反馈有数据」取轮廓快照的 HasResult（该属性在 ProfileSnapshot 上，Manager 无同名成员）,if (!LineLaserManager.Instance.Profile.HasResult) return;,保留,复述（无附加信息）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,1225,wide,模拟态放开 IsEnable 门禁：模拟无运控仍需跑 UpdateSeamTracking 以记录 CSP 轨迹,if (!IsEnable && !IsSimulation) return;,保留,裁定#1 数组/分区标签（命中「运控」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,1338,wide,_cspOutputRunning 仍为真。旧逻辑此时直接 return，本会话便永不重建坐标系，,if (_cspOutputRunning) StopCspOutput();,保留,复述（无附加信息）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,1496,wide,命令端点对齐到整脉冲（ToPulseMm 与驱动器 ToPulse 同口径，均为截断取整）：,"double command = ToPulseMm(StepCspTarget(target, tickSeconds, minVelocity)) * AxisEquivMm;",保留,字段口径（单位/值域/可空/列序）（命中「口径」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,2681,wide,Retract 先取起点用于日志；Auto 不读位置（保持原行为，不多调一次 GetPosition）,double startMm = retract ? axis.GetPosition() : 0.0;,保留,复述（无附加信息）
+MonitorCam\MonitorCamManager.cs,218,wide,GetInvocationList 返回 Delegate[]，显式强转以满足 IDE0220（事件类型固定为 Action<Mat>，转换必成立）,Action<Mat> single = (Action<Mat>)singleDelegate;,保留,编译/语言约束（命中「IDE0220」）
+MonitorCam\MonitorCamManager.cs,332,wide,录像按日期文件夹区分：根目录下 yyyyMMdd 子目录（回放列表同构读取）,"string dir = Path.Combine(RecordDirectory, DateTime.Now.ToString(""yyyyMMdd""));",保留,字段口径（单位/值域/可空/列序）（命中「列」）
+MotionControl\MontionManager.cs,512,wide,等价改造：原「axis.IsAlarm() || (status & 0x0008) != 0」——IsAlarm 即同一 6041h 的 Fault 位，,if (status.Fault),保留,复述（无附加信息）
+MotionControl\MontionManager.cs,800,wide,等价：原「axis.IsAlarm() || (status & 0x0008) != 0」，理由同 WaitAxisAtTarget,if (status.Fault),保留,设计归属/职责边界（命中「由」）
+MotionControl\MontionManager.cs,859,wide,等价：原「axis.IsAlarm() || (status & 0x0008) != 0」,bool alarm = status.Fault;,保留,复述（无附加信息）
+MotionControl\MontionManager.cs,918,wide,等价：原「axis.IsAlarm() || (status & 0x0008) != 0」,if (status.Fault),保留,复述（无附加信息）
+MotionControl\DeltaEtherCAT\DeltaMontionAxis.cs,567,wide,手册 8.12：CSP 系 Mdone 是多值状态机（0 静止/1 加速/2 常速/3 减速/5 Mailbox），运动中 = Mdone != 0,return mdone != 0;,保留,运行态/门禁语义（命中「状态」）
+PCLOperate\DataIO\PointCloudReader.cs,88,wide,传统 switch 语句（C# 7.3 支持）,switch (extension),保留,编译/语言约束（命中「C# 7.3」）
+PCLOperate\Render\PointCloudViewer.cs,762,wide,创建 SceneNodeGroupModel3D 作为 SceneNode → Element3D 的桥梁,_sceneModel = new SceneNodeGroupModel3D();,保留,框架契约（AntdUI/Helix/SQLite）（命中「Scene」）
+PCLOperate\Render\PointCloudViewer.cs,765,wide,将 Scene 的根节点整体添加到 SceneNodeGroupModel3D 的 GroupNode 中,_sceneModel.GroupNode.AddChildNode(scene.Root);,删除,「将根节点整体添加」逐字复述下一行 AddChildNode
+PCLOperate\Render\PointCloudViewer.cs,825,wide,_viewport.CameraMode = CameraMode.Inspect;,_viewport.FixedRotationPointEnabled = true;,删除,注释内容即被注释掉的旧代码，非说明
+PCLOperate\Render\PointCloudViewer.cs,843,wide,_viewport.CameraMode = CameraMode.Inspect;,_viewport.RotateAroundMouseDownPoint = true;,删除,注释内容即被注释掉的旧代码，非说明
+ProductFileControl\ProductFileRecordManager.cs,390,wide,结果记录随生产会话开启：WeldResultRecord 未 Start 时 IsRecording=false，入队会被静默丢弃，,_resultRecord.Start();,保留,复述（无附加信息）
+ProductFileControl\ProductFileRecordManager.cs,488,wide,_contourRecord.Stop() 触发的 StopSession；若先关轮廓会话，AddRecord 会因 _isSessionOpen=false 丢弃全部动作记录,_adjustRecord.Stop();,保留,复述（无附加信息）
+ProductFileControl\Records\RecordFileStore.cs,516,wide,保存动作记录pDat文件,"string pDatPath = Path.Combine(sessionDir, baseName + "".pDat"");",删除,「保存动作记录pDat文件」复述下一行 pDatPath 拼接
+ProductFileControl\Records\RecordFileStore.cs,971,wide,尝试直接作为UTF8读取,string directText = Encoding.UTF8.GetString(bytes);,保留,复述（无附加信息）
+ProductFileControl\Records\RecordFileStore.cs,1026,wide,13 列起含 JobId（格式 v3）；14/15 列含焊缝特征点（SeamPointY/Z）；,rec.JobId = parts.Length >= 13 ? int.Parse(parts[12]) : 0;,保留,协议/格式契约（命中「Job」）
+Properties\AssemblyInfo.cs,16,wide,将 ComVisible 设置为 false 会使此程序集中的类型,[assembly: ComVisible(false)],保留,复述（无附加信息）
+Properties\AssemblyInfo.cs,18,wide,请将此类型的 ComVisible 特性设置为 true。,[assembly: ComVisible(false)],保留,复述（无附加信息）
+Properties\AssemblyInfo.cs,21,wide,如果此项目向 COM 公开，则下列 GUID 用于类型库的 ID,"[assembly: Guid(""0bcd0a17-e0a0-457b-9521-1bccad206123"")]",保留,字段口径（单位/值域/可空/列序）（命中「列」）
+SQLiteDBControl\Helpers\ProductDatabaseHelper.cs,148,wide,缺表直接跳过：Database.Select 对不存在的表会抛 SQLiteException（GetDataSet 上抛），不能直连,if (Database.IsExistTable(tableName)),保留,踩坑/失败经历（命中「不能」）
+UIDesign\ControlPage\DataReviewerPage.cs,19,wide,继承 NotifyProperty：Selected 变更时通知表格刷新 checkbox 单元格（AntdUI Table 的行模型契约）,public class DataReviewRow : AntdUI.NotifyProperty,保留,协议/格式契约（命中「契约」）
+UIDesign\ControlPage\DataReviewerPage.cs,192,wide,悬停读数：MouseMove 高频事件，处理器内做节流（见 HoverThrottleMs）,formsPlotData.MouseMove += formsPlotData_MouseMove;,保留,复述（无附加信息）
+UIDesign\ControlPage\DataReviewerPage.cs,368,wide,双参 ColumnCheck = 表头渲染纯文字 title，无全选 checkbox（AntdUI-Reference §4.2 源码确证）；,"new AntdUI.ColumnCheck(""Selected"", ""选取"") { Width = ""60"", Fixed = true },",保留,框架契约（AntdUI/Helix/SQLite）（命中「AntdUI」）
+UIDesign\ControlPage\DataReviewerPage.cs,369,wide,全选/全取消/反选由筛选栏 panelSelectBar 三按钮承担；key 须等于 DataReviewRow.Selected，Fixed 冻结首列,"new AntdUI.ColumnCheck(""Selected"", ""选取"") { Width = ""60"", Fixed = true },",保留,字段口径（单位/值域/可空/列序）（命中「列」）
+UIDesign\ControlPage\DataReviewerPage.cs,574,wide,高 DPI 修复：显示缩放 >100% 时 DpiStretch=true 拉伸位图致字体模糊，置 false 按真实 DPI 渲染,formsPlotData.Configuration.DpiStretch = false;,保留,复述（无附加信息）
+UIDesign\ControlPage\DataReviewerPage.cs,656,wide,CellClick 捕获当前选中行（AntdUI.Table 无 SelectedItem），右键行时弹出上下文菜单,"private void uiDataGridView1_CellClick(object sender, AntdUI.TableClickEventArgs e)",保留,框架契约（AntdUI/Helix/SQLite）（命中「AntdUI」）
+UIDesign\ControlPage\DataReviewerPage.cs,841,wide,SetTip 支持原地更新：同一控件重复挂即刷新文本,"_tooltip.SetTip(formsPlotData, _hoverText);",保留,复述（无附加信息）
+UIDesign\ControlPage\MainPage.cs,471,wide,送丝Z轴位置：后端 TaPositionMm 未落地前无数据源，AddSeries 内对空序列直接 return,"if (chkWireZ.Checked) AddSeries(formsPlot2, NameWireZ, WireZ, ColorWireZ);",保留,字段口径（单位/值域/可空/列序）（命中「列」）
+UIDesign\ControlPage\MainPage.cs,720,wide,_uiTimer 常驻不启停；EStop 相位复位（闪烁在 UiTimer_Tick 内按状态判断）,if (state == MainDeviceStatus.EStop),保留,运行态/门禁语义（命中「相位」）
+UIDesign\ControlPage\MainPage.cs,735,wide,EStop 红闪（非 EStop 态不改色，保持 ApplyDeviceStatus 设置的固定底色）,if (_currentStatus == MainDeviceStatus.EStop),保留,复述（无附加信息）
+UIDesign\ControlPage\MainPage.cs,964,wide,每区域标签：Alert 显示设备名，Success/Error 图标与文字色表示连接态,var alert = new AntdUI.Alert,保留,复述（无附加信息）
+UIDesign\ControlPage\MainPage.cs,1109,wide,Tooltip 同步状态文本（SetTip 支持原地更新）,"_tooltip.SetTip(_deviceButtons[i], BuildDeviceTooltipText(i, connected[i]));",保留,运行态/门禁语义（命中「状态」）
+UIDesign\ControlPage\MainPage.cs,1111,wide,每区域 Alert：Success/Error 图标 + 绿/红文字色表示该设备连接态,AntdUI.Alert alert = _deviceAlerts[i];,保留,复述（无附加信息）
+UIDesign\ControlPage\MainPage.cs,1317,wide,① 轮廓线 SignalXY 图：直接引用 _contourSignalXs（X=Y 物理坐标，非等距）+ _contourSignalData（Z 高度）两个显式数组,"_contourSignalPlot = formsPlot1.Plot.AddSignalXY(_contourSignalXs, _contourSignalData,",保留,复述（无附加信息）
+UIDesign\ControlPage\MainPage.cs,1333,wide,图例在本方法创建（plot1 的唯一构建路径）：两个系列带 label，图例据此自动收集,formsPlot1.Plot.Legend();,保留,字段口径（单位/值域/可空/列序）（命中「列」）
+UIDesign\ControlPage\NavPage.cs,68,wide,TabPage 包装子页,"var tab = new AntdUI.TabPage { Text = tabs[i].text, Tag = i };",删除,「TabPage 包装子页」复述下一行 new TabPage
+UIDesign\ControlPage\NavPage.cs,156,wide,已在 _childPages 中说明已加载,if (index < _childPages.Count && _childPages[index] != null),保留,复述（无附加信息）
+UIDesign\MainWindow\FormMain.cs,30,wide,存储被隐藏的 SegmentedItem 引用，用于恢复显示,"AntdUI.SegmentedItem _hiddenItem1, _hiddenItem2, _hiddenItem3;",保留,复述（无附加信息）
+UIDesign\MainWindow\FormMain.cs,90,wide,── 设备初始化：归 DeviceControlWork 管控；置于 Shown，界面先行、Modal 等待、结束自动关闭,this.Shown += FormMain_Shown;,保留,框架契约（AntdUI/Helix/SQLite）（命中「Modal」）
+UIDesign\MainWindow\FormMain.cs,166,wide,保存 SegmentedItem 引用，供权限显隐使用,_hiddenItem1 = segmentedMain.Items[1] as AntdUI.SegmentedItem;,保留,复述（无附加信息）
+UIDesign\MainWindow\FormMain.cs,351,wide,释放英莱相机（LineLaserWorkflow.Dispose 不会被外部调用，此处显式释放）,try { LineLaserWorkflow.Instance.Dispose(); } catch { }   // 退出路径：释放失败不影响进程结束,保留,复述（无附加信息）
+UIDesign\SubDialog\DataReviewerDialog\HelixRenderForm.cs,305,wide,使用 Assimp 直接加载为 Scene 并显示到 Viewport3DX,HelixToolkitScene scene = PointCloudReader.LoadSceneFromFile(selectedFile);,保留,框架契约（AntdUI/Helix/SQLite）（命中「Assimp」）
+UIDesign\SubDialog\DataReviewerDialog\RecordConfigForm.cs,15,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\SubDialog\DataReviewerDialog\RenderParamForm.cs,13,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\SubDialog\IntelligentLaserDialog\ILAlgoForm.cs,288,wide,2) 去 params_ 前缀后相等（SDK 参数名不带前缀）,"string keyCore = key.StartsWith(""params_"", StringComparison.OrdinalIgnoreCase)",保留,协议/格式契约（命中「SDK」）
+UIDesign\SubDialog\IntelligentLaserDialog\ILAlgorithmEditForm.cs,14,wide,注入父 Window（本窗暂无内部 Message/Modal，保留字段供统一调用）,private readonly Window Window;,保留,框架契约（AntdUI/Helix/SQLite）（命中「Modal」）
+UIDesign\SubDialog\IntelligentLaserDialog\ILParamForm.cs,16,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\SubDialog\IntelligentLaserDialog\ILScanForm.cs,13,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\SubDialog\MonitorCamDialog\MonitorCamScanForm.cs,13,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\SubDialog\ParamContolDialog\AutoParamForm.cs,15,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\SubDialog\ParamContolDialog\ConfigForm.cs,24,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\SubDialog\ParamContolDialog\ConfigForm.cs,37,wide,AntdUI.Pagination 分页：ValueChanged → 重新切片绑定（lambda 让编译器推断事件参数类型）,"uiPagination1.ValueChanged += (s, e) => BindPageData(e.Current, e.PageSize);",保留,框架契约（AntdUI/Helix/SQLite）（命中「AntdUI」）
+UIDesign\SubDialog\UserManagerDialog\UserEditForm.cs,17,wide,注入父 Window，内部方法用 this.Window 作 owner,private readonly Window Window;,保留,复述（无附加信息）
+UIDesign\TabPage\FilebackupPage.cs,854,wide,焊接头 PDO 直接读运行期已装载的配置（启动期 MontionManager 构造、保存后的回读校验均已加载），,MontionManager manager = MontionManager.Instance;,保留,协议/格式契约（命中「PDO」）
+UIDesign\TabPage\ILCamPage.cs,44,wide,订阅线激光工作流焊接过程态（WeldStatusChanged），用 WeldStatus 判断自动/空闲，不新增 bool,LineLaserWorkflow.Instance.WeldStatusChanged += OnWorkflowStateChanged;,保留,复述（无附加信息）
+UIDesign\TabPage\ILCamPage.cs,60,wide,订阅「线激光」设备态切换 StateSwitched，统一驱动刷新状态标签,LineLaserWorkflow.Instance.StateSwitched += OnIlStateChanged;,保留,运行态/门禁语义（命中「状态」）
+UIDesign\TabPage\ILCamPage.cs,90,wide,结果表格行模型（与 ILAlgoPage 的 InspectResultRow 一致，统一展示格式）,private class InspectResultRow,保留,设计归属/职责边界（命中「统一」）
+UIDesign\TabPage\ILCamPage.cs,273,wide,线激光工作方式用 SetSensor 启停传感器（回调随之开始/停止）；SetCaptureCamera 不启动传感器，不用,_ilCamera.SetSensor(!_ilCamera.IsCameraOn());,保留,运行态/门禁语义（命中「启动」）
+UIDesign\TabPage\ILCamPage.cs,296,wide,打开独立「相机参数编辑」页（AntdUI.Table 展示 Job Parameter，支持读取/修改/保存）,"using (var dlg = new ILParamForm(this.FindForm() as AntdUI.Window, _ilCamera))",保留,协议/格式契约（命中「Job」）
+UIDesign\TabPage\ProcessControlPage.cs,237,wide,CellClick 后置订阅（5 个先例均为代码后置，AntdUI.Table 无 SelectedItem）,tableConfigList.CellClick += tableConfigList_CellClick;,保留,框架契约（AntdUI/Helix/SQLite）（命中「AntdUI」）
+UIDesign\TabPage\ProcessControlPage.cs,697,wide,TA 区不预选任何指令：预选 TA_Auto 会造成「已选中→再点无 CheckedChanged」的假禁用；,radioQuickLaAuto.Checked = true;,保留,复述（无附加信息）
+UIDesign\TabPage\SystemControlPage.cs,931,wide,流程等待六项 + 设备侧等待五项（DeltaMotionConfig ROOT/FLOW_TIMEOUT，随「保存参数」一并落盘）,var flow = MontionManager.Instance.FlowTimeouts;,保留,复述（无附加信息）
+WeldParamControl\Algorithms\WeldParamAdjustmentAlgorithm.cs,297,wide,轮廓X坐标相对于RobotX的偏移,"ContourChart.Add(robotX, pt.Y);",保留,复述（无附加信息）
+WeldParamControl\Algorithms\WeldParamAdjustmentAlgorithm.cs,449,wide,将数据存入ChartVar（基于RobotX）,"StoreChartData(robotX, contourPoints);",删除,"「将数据存入ChartVar（基于RobotX）」复述下一行 StoreChartData(robotX,…)"
+WeldParamControl\Curves\TaLaCurveConfig.cs,342,wide,自变量域上下界（invert 时自变量为 Y 单调不减；正查时为 X 严格递增）,"double lo = Domain(points[0], invert);",保留,复述（无附加信息）
+Comm\Communication\CommunicationManager.cs,427,ultra,⛔ 通道唯一为 RSI：无论历史 INI 写的是什么，返回值恒为 RSI,return RobotCommModeType.RSI;,保留,协议/格式契约（命中「RSI」）
+Comm\Communication\CommunicationManager.cs,432,ultra,通道唯一为 RSI，写入统一落 RSI 值（保留 INI 键以免破坏既有配置文件结构）,"_iniFile.WriteInt(IniSection, IniKeyRobotCommMode, (int)RobotCommModeType.RSI);",保留,协议/格式契约（命中「RSI」）
+Comm\Communication\CommunicationManager.cs,846,ultra,上行指令数值化（SEND 段 TYPE 仅 BOOL/DOUBLE/LONG，禁 STRING）,"config.SendElements.Add(new RSIElement { Tag = ""RxCmd"", Type = RSIDataType.LONG, Index = ""4"" });",保留,协议/格式契约（命中「SEND」）
+Comm\Communication\Implementations\KukaRsiComm.cs,805,ultra,文本节点形式：按元素名分派语义，禁止把任意文本节点都当 IPOC,"if (string.Equals(elem.Tag, ""IPOC"", StringComparison.OrdinalIgnoreCase))",保留,协议/格式契约（命中「IPOC」）
+Comm\Communication\Implementations\KukaRsiComm.cs,806,ultra,（否则 RxCmd/RxPayload 会被误写成 Ipoc，且数值解析分支不可达）,"if (string.Equals(elem.Tag, ""IPOC"", StringComparison.OrdinalIgnoreCase))",保留,踩坑/失败经历（命中「否则」）
+Comm\Communication\Implementations\KukaRsiComm.cs,1327,ultra,注入运行时收发格式注释（XML 注释为标准语法，机器人端解析器忽略；RSI 本身只定义元素结构，,string xml = writer.ToXmlString();,保留,协议/格式契约（命中「RSI」）
+Comm\SystemComm\SystemComm.cs,277,ultra,日志必须先初始化，后续管理器构造失败时会调用 ShowLog,"MachineLog = new Log(""智能填丝焊接系统日志"");",保留,复述（无附加信息）
+EmguALG\RealtimeMonitor\Playback\PlaybackAlgorithm.cs,353,ultra,帧率取自文件（cv Get(CapProp.Fps)）；异常值才回退 30，避免「固定 30fps 假设」与真实录像错位,_fps = capture.Get(CapProp.Fps);,保留,踩坑/失败经历（命中「避免」）
+FileOperate\ConfigPathMigrator.cs,107,ultra,通讯：INI 开关,"{ @""Config\Comm\Communication_INI\CommunicationSettings.ini"", new[] { @""Config\INI\Comm\Communication_INI\CommunicationSettings.ini"", @""Config\INI\Comm\Communic",保留,裁定#1 数组/分区标签（命中「通讯：」）
+FileOperate\ConfigPathMigrator.cs,110,ultra,通讯：各通道 XML,"{ @""Config\Comm\Tcp_XML\Server.xml"", new[] { @""Config\XML\Server.xml"" } },",保留,裁定#1 数组/分区标签（命中「通讯：」）
+FileOperate\ConfigSelfHeal.cs,281,ultra,File.Replace 在同盘内原子替换；目标只读/被占用时抛异常，由上层捕获,"File.Replace(tempPath, fullPath, null);",保留,踩坑/失败经历（命中「异常」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,83,ultra,线激光三态：连接 / 激光 / 相机（传感器）。_isLaserOn/_isCameraOn 由连接时硬件同步,private volatile bool _isLaserOn = false;,保留,设计归属/职责边界（命中「由」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,95,ultra,_lastErrorCode = 厂商返回码；_lastErrorLocal = true 表示本机拦截/异常，未取得厂商返回码,private int _lastErrorCode = int.MinValue;,保留,踩坑/失败经历（命中「异常」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,470,ultra,显示帧由业务层生成后经 UpdateDisplayMat 回写，此处传 null 即释放基类持有的 Mat,UpdateDisplayMat(null);,保留,设计归属/职责边界（命中「由」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,525,ultra,扫描只需 SDK 已初始化：复用 _sdkInitialized，不重复 InitSDK，finally 不误 UnInitSDK,if (!_sdkInitialized),保留,协议/格式契约（命中「SDK」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,802,ultra,display：该接头类型应显示的参数 key → 默认值（技术员确认的 Job 实际使用参数）,"if (item[""display""] is JObject display)",保留,协议/格式契约（命中「Job」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,1222,ultra,使用 Marshal.OffsetOf 获取所有偏移量，避免硬编码。,int stParamArrayOffset = (int)System.Runtime.InteropServices.Marshal.OffsetOf(,保留,踩坑/失败经历（命中「避免」）
+LineLaserCam\IntelligentLaserCam\IntelligentLaserCam.cs,1358,ultra,避免 SDK 分批推送时 _jobParams 累积无关参数导致「21组变几百组」异常。,if (_jobParams == null) _jobParams = new List<IlJobParamInfo>();,保留,协议/格式契约（命中「SDK」）
+MainDeviceControl\DeviceControlWork.cs,456,ultra,急停态只能经 EstopCancel 解除,if (now == MainDeviceStatus.EStop && target != MainDeviceStatus.NoReset) return false;,保留,运行态/门禁语义（命中「急停」）
+MainDeviceControl\DeviceControlWork.cs,458,ultra,只有 Stop 才允许直接启动；模拟模式放开（不判断子设备连接态，直接进运行驱动工作流）,if (target == MainDeviceStatus.Running && now != MainDeviceStatus.Stop),保留,踩坑/失败经历（命中「才」）
+MainDeviceControl\DeviceControlWork.cs,805,ultra,payload 必须先初始化：已知指令短路时不进 TrySplitPayload，out 不会赋值（否则 CS0165）,string payload = string.Empty;,保留,踩坑/失败经历（命中「否则」）
+MainDeviceControl\DeviceControlWork.cs,1432,ultra,不判 Current==Alarm：初始化部分失败（如监控相机缺失）会残留 Alarm 态，,if (_simulationRunning && (Current == MainDeviceStatus.EStop,保留,踩坑/失败经历（命中「残留」）
+MainDeviceControl\DeviceControlWork.cs,2335,ultra,进入日志由 EnableAxesAfterInit 内部打印一次，避免重复,enableOk = EnableAxesAfterInit();,保留,踩坑/失败经历（命中「避免」）
+MainDeviceControl\DeviceControlWork.cs,2686,ultra,焊接相机收口兜底（异常自动终止路径未经三停止命令；SimMonitorCamStopWeld 幂等）,SimMonitorCamStopWeld();,保留,踩坑/失败经历（命中「异常」）
+MainDeviceControl\DeviceWorkflow\LaserWeldHeadWorkflow.cs,359,ultra,_lastLaTargetMm 只在真正下发时更新；若因死区未下发（可能仍为 NaN），回落到基准位校验,double detectTargetMm = double.IsNaN(_lastLaTargetMm) ? baseMm : _lastLaTargetMm;,保留,实现/兼容说明（命中「回落」）
+MainDeviceControl\DeviceWorkflow\LineLaserWorkflow.cs,334,ultra,使 .pDat 工艺控制记录按拍填充；实际计算在 WeldParamControlWorkflow 自身流程线程消费 _pendingCompute 时执行,try { WeldParamControlWorkflow.Instance.ComputeAndOutput(); },保留,运行态/门禁语义（命中「线程」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,1071,ultra,模拟记录模式（无运控）_seamAxis 为 null 仍须采样记录，不能整体早退,if (_seamAxis == null && !IsSimRecordOnly) return;,保留,裁定#1 数组/分区标签（命中「运控」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,1297,ultra,直接置相位，不经 SetPhase 的映射（清除后必须是 NoReset，杜绝中间态）,"SetWeldStatus(SubDeviceWeldStatus.NoReset, ""状态清除"");",保留,运行态/门禁语义（命中「相位」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,1340,ultra,收尾幂等（内部按 _cspOutputRunning 守卫），无残留时为空操作。,if (_cspOutputRunning) StopCspOutput();,保留,踩坑/失败经历（命中「残留」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,2014,ultra,占位符与实参必须一一对应（4 占位 4 实参）：多写占位符会在调用瞬间抛 FormatException,"Log(string.Format(""运控 连接态 {0} 焊接过程态 {1} 步骤 {2} 已初始化 {3}"",",保留,字段口径（单位/值域/可空/列序）（命中「一一对应」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,2798,ultra,⛔ 本指令自身不受「ZeroPose 已到位」条件限制，否则失败降级后无法重试,"if (!CheckTaMotionReady(""TA ZeroPose"")) return false;",保留,踩坑/失败经历（命中「否则」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,2829,ultra,速度与容差复用 TA_Pose1/2 同一套来源：轴运行速度 MaxVel + 通用指令到位容差（⛔ 不再单独配置）,double vel = axis.MaxVel > 0 ? axis.MaxVel : 1.0;,保留,设计归属/职责边界（命中「不再」）
+MainDeviceControl\DeviceWorkflow\MotionControlWorkflow.cs,2850,ultra,超时按「行程/速度 × 3、下限/上限取配置」估算；无变化早停沿用 FLOW_TIMEOUT 配置,FlowTimeoutConfig flow = FlowTimeoutSettings.Current;,保留,实测值/实测参数（命中「× 3」）
+MainDeviceControl\DeviceWorkflow\WeldParamControlWorkflow.cs,487,ultra,微周期触发门禁：仅 Working（设备主控命令到位）才消费调整触发，开始与结束由主控控制,if (WeldStatus != SubDeviceWeldStatus.Working),保留,裁定#1 数组/分区标签（命中「主控」）
+MonitorCam\HikCam\HikCam.cs,375,ultra,连续模式（软触发单帧后残留 TriggerMode On，此处恢复）,"_device.Parameters.SetEnumValueByString(""TriggerMode"", ""Off"");",保留,踩坑/失败经历（命中「残留」）
+MonitorCam\HikCam\HikCam.cs,784,ultra,IImage.Width/Height 为 uint：显式收窄为 int；宽高乘 int 会经数值提升变 long，必须先用 int 变量相乘,int width = (int)source.Width;,保留,编译/语言约束（命中「uint」）
+MotionControl\MontionManager.cs,513,ultra,Fault 为锁存位，删除同周期重复读取不改变判定，且把每轮两次总线读降到一次。,if (status.Fault),保留,复述（无附加信息）
+MotionControl\DeltaEtherCAT\DeltaMontionAxis.cs,902,ultra,统一上限：位置模式推动阻抗与力矩模式最大出力共用一个值（TA_TORQUE_LIMIT_N）。,int limit = TorqueLimitPerMille < 1 ? 1 : TorqueLimitPerMille;,保留,设计归属/职责边界（命中「统一」）
+MotionControl\DeltaEtherCAT\DeltaMotionConfig.cs,929,ultra,流程等待超时（缺省值单一来源 = FlowTimeoutConfig 构造函数）,FlowTimeoutConfig flow = FlowTimeouts ?? new FlowTimeoutConfig();,保留,实现/兼容说明（命中「缺省」）
+MotionControl\DeltaEtherCAT\DeltaMotionConfig.cs,971,ultra,权威加载（writeLog=true）允许补缺；预览读（false）一律只读不写,"LoadConfig(writeLog, writeLog);",保留,实现/兼容说明（命中「只读」）
+PCLOperate\Render\PointCloudViewer.cs,387,ultra,检查是否为无效/空边界框：Minimum >= Maximum 是空边界框的典型特征,bool isEmpty = b.Minimum.X >= b.Maximum.X,保留,复述（无附加信息）
+PCLOperate\Render\PointCloudViewer.cs,766,ultra,注意：不能遍历 scene.Root.Items 将子节点逐个添加，,_sceneModel.GroupNode.AddChildNode(scene.Root);,保留,踩坑/失败经历（命中「不能」）
+PCLOperate\Render\PointCloudViewer.cs,767,ultra,因为 Importer.Load() 返回的 Scene 中子节点已附加到 scene.Root 上，,_sceneModel.GroupNode.AddChildNode(scene.Root);,保留,框架契约（AntdUI/Helix/SQLite）（命中「Scene」）
+PCLOperate\Render\PointCloudViewer.cs,768,ultra,"再次 AddChildNode 会触发 ""SceneNode already attach to a different node"" 异常",_sceneModel.GroupNode.AddChildNode(scene.Root);,保留,踩坑/失败经历（命中「异常」）
+PCLOperate\Render\PointCloudViewer.cs,909,ultra,检查是否为无效/空边界框：Minimum >= Maximum 是空边界框的典型特征,bool isEmpty = b.Minimum.X >= b.Maximum.X,保留,复述（无附加信息）
+ProductFileControl\Records\RecordFileStore.cs,485,ultra,工艺控制记录以明文 UTF-8 落盘（pDat 需可直接阅读，混淆已关闭；ReadPDatFile 仍兼容历史混淆文件）,"File.WriteAllText(filePath, sb.ToString(), Encoding.UTF8);",保留,实现/兼容说明（命中「兼容」）
+ProductFileControl\Records\RecordFileStore.cs,511,ultra,保存点云PLY文件,"string plyPath = Path.Combine(sessionDir, baseName + "".ply"");",删除,「保存点云PLY文件」复述下一行 plyPath 拼接
+SQLiteDBControl\Helpers\ProductDatabaseHelper.cs,53,ultra,不能用 Columns.Count==业务列数，否则 6!=5 每次写都误 DROP 重建、清掉历史记录,if (existing == null || existing.Columns.Count < _productColumns.Length),保留,踩坑/失败经历（命中「不能」）
+UIDesign\ControlPage\DataReviewerPage.cs,352,ultra,FlowPanel 逆序入流：selSeriesGroup 必须位于集合末位才能保持最左,SelectFlowPanel.Controls.Remove(selSeriesGroup);,保留,踩坑/失败经历（命中「才」）
+UIDesign\ControlPage\DataReviewerPage.cs,371,ultra,"Column(key, title)：key 必须等于 DataReviewRow 的属性名，title 才是表头显示文字","new AntdUI.Column(""No"", ""No."") { Width = ""40"" },",保留,踩坑/失败经历（命中「才」）
+UIDesign\ControlPage\MainPage.cs,100,ultra,硬件快捷开关（AntdUI ButtonShadow + Alert，panelfloatbutton 面板）：2×2 四区域，每区「方按钮 + 等高 Alert（设备名）」,private AntdUI.ButtonShadow[] _deviceButtons;            // 与 _deviceSwitchNames 一一对应,保留,框架契约（AntdUI/Helix/SQLite）（命中「AntdUI」）
+UIDesign\ControlPage\MainPage.cs,409,ultra,本帧有效点范围：MinRenderIndex 固定 0，MaxRenderIndex 限制只渲染前 pointCount 个（替代清除多余点数据）,_contourSignalPlot.MinRenderIndex = 0;,保留,字段口径（单位/值域/可空/列序）（命中「范围」）
+UIDesign\ControlPage\MainPage.cs,591,ultra,事件可能来自后台线程：判 InvokeRequired 并 BeginInvoke 异步封送，避免阻塞发布线程,if (inputLog.InvokeRequired),保留,踩坑/失败经历（命中「避免」）
+UIDesign\ControlPage\NavPage.cs,110,ultra,只创建 TabPage 占位，不实例化子页,"var tab = new AntdUI.TabPage { Text = tabs[i].text, Tag = i };",保留,实现/兼容说明（命中「占位」）
+UIDesign\ControlPage\NavPage.cs,179,ultra,填充 _childPages 列表（确保 index 位置有效）,while (_childPages.Count <= index),保留,字段口径（单位/值域/可空/列序）（命中「列」）
+UIDesign\MainWindow\FormMain.cs,107,ultra,阻塞式 Modal：初始化在后台线程推进，结束后经 DialogResult 关闭并返回,"AntdUI.Modal.open(new AntdUI.Modal.Config(this, ""设备初始化"", _initWaiting, TType.None)",保留,运行态/门禁语义（命中「线程」）
+UIDesign\MainWindow\FormMain.cs,339,ultra,设备连接状态由 MainPage 快捷开关按钮呈现，状态栏只保留整机状态/流程状态/系统时间,mainPage?.RefreshDeviceSwitchUi();,保留,运行态/门禁语义（命中「状态」）
+UIDesign\SubDialog\DataReviewerDialog\HelixRenderForm.cs,316,ultra,恢复默认文件对话框 Filter,"openFileDialog1.Filter = """";",删除,「恢复默认 Filter」= 下一行 Filter 置空，同义
+UIDesign\SubDialog\IntelligentLaserDialog\ILAlgoForm.cs,61,ultra,"Column(key, title)：key 必须等于 IlJobParamRow 的属性名，title 才是表头显示文字","new AntdUI.Column(""Group"", ""分组"") { Width = ""100"" },",保留,协议/格式契约（命中「Job」）
+UIDesign\SubDialog\IntelligentLaserDialog\ILAlgoForm.cs,108,ultra,直接读硬件真相源，不缓存本地连接副本（避免与 IsConnected 脱节）,if (!_ilCamera.IsConnected),保留,踩坑/失败经历（命中「避免」）
+UIDesign\SubDialog\IntelligentLaserDialog\ILAlgoForm.cs,116,ultra,追加当前 JOB 与接头类型语义（jobdesclist.json + jointtypelist.json）,IlJobDescInfo job = _ilCamera.GetCurrentJobInfo();,保留,协议/格式契约（命中「JOB」）
+UIDesign\SubDialog\IntelligentLaserDialog\ILAlgoForm.cs,426,ultra,Modal.Config 4 参构造：TType.Info + 明确 Width，避免内容区尺寸异常导致空白,"AntdUI.Modal.open(new AntdUI.Modal.Config(this.FindForm(), ""新建JOB - 选择接头类型"", flow, TType.Info)",保留,踩坑/失败经历（命中「避免」）
+UIDesign\SubDialog\IntelligentLaserDialog\ILParamForm.cs,80,ultra,直接读硬件真相源，不缓存本地连接副本（避免与 IsConnected 脱节）,bool connected = _ilCamera != null && _ilCamera.IsConnected;,保留,踩坑/失败经历（命中「避免」）
+UIDesign\SubDialog\ParamContolDialog\AutoParamForm.cs,71,ultra,"Column(key, title)：key 必须等于 AutoParamRow 的属性名，title 才是表头显示文字","new AntdUI.Column(""SeamWidth"", ""焊缝宽度"") { Width = ""150"" },",保留,踩坑/失败经历（命中「才」）
+UIDesign\SubDialog\ParamContolDialog\ConfigForm.cs,47,ultra,"Column(key, title)：key 必须等于 ConfigRow 的属性名，title 才是表头显示文字","new AntdUI.Column(""No"", ""No."") { Width = ""50"" },",保留,踩坑/失败经历（命中「才」）
+UIDesign\SubDialog\UserManagerDialog\UserEditForm.cs,38,ultra,"Column(key, title)：key 必须等于 UserRow 的属性名，title 才是表头显示文字","new AntdUI.Column(""UserName"", ""用户名"") { Width = ""150"" },",保留,踩坑/失败经历（命中「才」）
+UIDesign\TabPage\FilebackupPage.cs,201,ultra,RSI 通讯周期下拉：按当前配置选中（读 Manager.RsiCycleMs，只读展示不回写）,int cycleMs = comm.RsiCycleMs;,保留,协议/格式契约（命中「RSI」）
+UIDesign\TabPage\FilebackupPage.cs,600,ultra,默认展示项目现有 XML：打开页面即有数据，不要求先选目录,"_deltaStatusBase = ""数据来源：项目 XML（Config\\MotionControl\\Motion_XML\\DeltaMotionConfig.xml / WeldHead_XML\\WeldHeadSlave.xml）"";",保留,协议/格式契约（命中「XML」）
+UIDesign\TabPage\FilebackupPage.cs,742,ultra,系统配置页日志只走 ShowLog（不进通讯日志）,"GlobalCommData.ShowLog(LogTag, ""目录识别 "" + directoryPath + "" → "" + scan.Message,",保留,复述（无附加信息）
+UIDesign\TabPage\FilebackupPage.cs,795,ultra,独立实例读盘：不触碰运行期 MoveData.MotionConfig，避免预览动作改变运行态,DeltaMotionConfig config = new DeltaMotionConfig();,保留,踩坑/失败经历（命中「避免」）
+UIDesign\TabPage\FilebackupPage.cs,1963,ultra,LoadAlgorithmsConfig 同时加载 Algorithm_XML 与 Algorithm_INI，双后端一致,WeldParamManager.Instance.LoadAlgorithmsConfig();,保留,协议/格式契约（命中「XML」）
+UIDesign\TabPage\ILCamPage.cs,117,ultra,传感器自身帧率（采集分析频率，来自 ScanRateHz）,"lblSenorfps.Text = string.Format(""传感器帧率：{0:F1} Hz"", _ilCamera.ScanRateHz);",保留,字段口径（单位/值域/可空/列序）（命中「Hz」）
+UIDesign\TabPage\ILCamPage.cs,125,ultra,手动模式下 swDisplay 控制是否绘制 Mat（允许只看结果表不看画面）,if (swDisplay.Checked),保留,复述（无附加信息）
+UIDesign\TabPage\ILCamPage.cs,282,ultra,英莱分支下 AlgorithmEditForm 会挂载 ILAlgoPage（JOB 参数编辑），PipelineConfig 仅作占位,"using (ILAlgorithmEditForm dlg = new ILAlgorithmEditForm(this.FindForm() as AntdUI.Window, new PipelineConfig()))",保留,协议/格式契约（命中「JOB」）
+UIDesign\TabPage\ILCamPage.cs,504,ultra,手动/空闲按需开启轮廓 Mat 生成，自动运行时关闭以省资源；生成由 LineLaserManager 承担，本页只切开关,"LineLaserManager.Instance.SetDisplayOptions(!running, LineLaserManager.Instance.DisplayFps, true);",保留,设计归属/职责边界（命中「由」）
+UIDesign\TabPage\ILCamPage.cs,529,ultra,cmbFps 使能由 UpdateFpsDropdownState 管理（需考虑传感器是否运行）,UpdateFpsDropdownState();,保留,设计归属/职责边界（命中「由」）
+UIDesign\TabPage\ILCamPage.cs,585,ultra,Disconnected→Connected 时完整同步一次硬件状态到 UI（Job 列表、帧率、开关状态）,if (e.OldState == SubDeviceState.Disconnected,保留,协议/格式契约（命中「Job」）
+UIDesign\TabPage\ProcessControlPage.cs,108,ultra,「跑过没有」（attempted）与「结果如何」（done / failed）分两维：从未执行不介入，执行失败必须呈红,if (!running && !done && !attempted) return;,保留,复述（无附加信息）
+UIDesign\TabPage\ProcessControlPage.cs,674,ultra,Tracking 指令：LockYCalib=true 回填 Y_ForceCalibPose，否则默认 Y_AutoTracking,radioQuickYForceCalibPose.Checked = cfg.LockYCalib;,保留,踩坑/失败经历（命中「否则」）
+UIDesign\TabPage\ProcessControlPage.cs,825,ultra,LockYCalib 归 ②Quick 区（INI PROCESS_CONTROL/LOCK_Y_CALIB）：只落该分区，禁全量保存,WeldParamManager.Instance.SaveAlgorithmsZone(WeldAlgorithmsConfig.AlgorithmsZone.Quick);,保留,复述（无附加信息）
+UIDesign\TabPage\ProcessControlPage.cs,1195,ultra,Fill 必须置透明，否则 AntdUI 自绘按钮底色会盖住 BackColor（实测证据见上方注释）,radio.Fill = System.Drawing.Color.Transparent;,保留,踩坑/失败经历（命中「否则」）
+UIDesign\TabPage\ProcessControlPage.cs,1449,ultra,进入后由 TaExecute(Auto) 自己完成 CSP→CST→输出使能，失败回滚 CSP，可再次点击重试,return MotionControlWorkflowInstance().TaExecute(,保留,运行态/门禁语义（命中「重试」）
+UIDesign\TabPage\SystemControlPage.cs,316,ultra,固定按钮 ToolTip（AntdUI.TooltipComponent 单实例；只有图标无文字需补语义）,_tooltip = new AntdUI.TooltipComponent();,保留,字段口径（单位/值域/可空/列序）（命中「语义」）
+UIDesign\TabPage\SystemControlPage.cs,922,ultra,等待超时三项（LineLaserConfig 内存对象，随「保存参数」一并落盘）,var ll = LineLaserManager.Instance.Config;,保留,复述（无附加信息）
+UIDesign\TabPage\SystemControlPage.cs,2339,ultra,前置条件②「已切到本页」：不满足只跳过刷新（开关状态保留，见 IsRefreshPageVisible 注释）,if (!IsRefreshPageVisible()) return;,保留,运行态/门禁语义（命中「状态」）
+WeldParamControl\WeldParamManager.cs,892,ultra,INI：借临时文件实例获取期望的「节 + 键 + 当前值」全集，再补写真实文件,"tempPath = Path.Combine(Path.GetTempPath(), ""adaweld_heal_"" + Guid.NewGuid().ToString(""N"") + "".ini"");",保留,复述（无附加信息）
+WeldParamControl\Algorithms\SeamMapTrackingAlgorithm.cs,394,ultra,_lastDy 维持「该帧入图所用等效偏差」诊断语义 = 入图绝对目标 − 测量时刻轴值,_lastDy = targetY - axisPosMm;,保留,字段口径（单位/值域/可空/列序）（命中「语义」）
+WeldParamControl\Algorithms\WeldParamAdjustmentAlgorithm.cs,452,ultra,宽度变化留痕：手动固定宽度源下 CurrentSeamWidth 应全程恒定，任何一次变化都必须可归因,if (Math.Abs(CurrentSeamWidth - _lastLoggedSeamWidth) > WidthChangeLogEpsilonMm),保留,复述（无附加信息）
