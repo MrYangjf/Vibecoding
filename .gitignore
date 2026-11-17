@@ -18,3 +18,5 @@ LLMWiki_backup_*.tar.gz
 
 # ===== 临时脚本 / 一次性产物 =====
 _tmp_*.py
+_tmp_*.txt
+*_out.txt

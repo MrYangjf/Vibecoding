@@ -1,8 +1,8 @@
-﻿# AdaWeldSystem LLM Wiki — AI 知识库管理员工作规则
+# AdaWeldSystem LLM Wiki — AI 知识库管理员工作规则
 
 > 基于 Andrej Karpathy LLM Wiki 理论构建
 > 版本：V1.0 | 创建时间：2026-07-01
-> 位置：`Vicoding管理平台/LLMWiki/` —— 健康检查由 `tools/` 下三个只读扫描器（`wiki_audit.py` / `lint_scan.py` / `drift_scan_precise.py`）承担
+> 位置：`Vicoding管理平台/LLMWiki/` —— 健康检查由 `tools/` 下四个只读扫描器（`wiki_audit.py` / `lint_scan.py` / `drift_scan_precise.py` / `ingest_purity_scan.py`）承担
 
 ---
 
@@ -59,12 +59,18 @@ LLMWiki/
 │   ├── lessons/           ← 历史教训（**踩过什么坑**，编码前门禁检查项）
 │   ├── guides/            ← 操作型指导与参考手册（**怎么做**，2026-09-01 新增，自 lessons/ 迁出）
 │   ├── architecture/      ← 架构设计（设备控制架构规范页）
-│   └── people/            ← 专员职责与协作关系（谁负责什么）
+│   ├── people/            ← 专员职责与协作关系（谁负责什么）
+│   ├── rules/             ← Skill 流程执行强制规则（KR-001~KR-013，**原 Skill Key Rules 的下沉处**，编号唯一权威 = rules/Rules-Index.md）
 │
 │   # 三层「规范性」分类判据（2026-09-01 确立，避免指导文件错放 lessons/）：
 │   #   standards/ = 强制规范，违反即不合格，由 index 场景路由自动触发
 │   #   lessons/   = 教训门禁，记录已发生过的坑，编码前逐条确认规避
 │   #   guides/    = 怎么做，操作手册/参考手册/工具用法，查阅型，非强制非教训
+│
+│   # ⚠️ rules/ 的边界（2026-11-02 收敛）：rules/ 只收**流程执行类**规则
+│   #   （规定「AI 跑这个工作流时该怎么做」）；**约束代码 / 知识库内容本身**的规则
+│   #   一律归 lessons/（坑）、standards/（格式规范）、decisions/（决策理由）。
+│   #   判据与示例见 [[standards/WikiPageFormatSpec]] §2.4b。
 │
 │   # ⚠️ 禁止子目录（2026-09-01 确立）：wiki/ 下各分类一律平铺为 .md 文件，
 │   #   不再新建任何子目录。成组靠「文件名前缀 + 索引分组 + 横幅回链父页」三件套，
@@ -73,12 +79,18 @@ LLMWiki/
 ├── wiki/index/           ← 索引层（独立于日志）
 │   └── index.md           ← 全库内容索引（内容导向，按分类组织）
 │
-├── tools/                 ← 只读健康扫描器（wiki_audit / lint_scan / drift_scan_precise / check_adr_status / truncate_log）
+├── tools/                 ← 脚本工具链（24 个：8 个扫描闸门 / 索引 / 日志与历史 / 治理 / 规范化 / 结构 / 出包）
 ├── scripts/               ← 代码审查与批量脚本（csharp_review.py / scan_by_folder.sh）
-├── skills/                ← 工作流 Skill 的仓库副本（与 `~/.workbuddy/skills/vibecoding-llmwiki/` 同步）
+├── skills/                ← 工作流 Skill 的仓库副本（双副本之一）
+│   # 双副本纪律（2026-11-02 收口）：本目录 + 用户级 `~/.trae-cn/skills/vibecoding-llmwiki/` 必须内容一致（行尾同为 LF）
+│   #   —— 用户级是 Trae 实际加载的那份；两份都要随规范同步更新。
+│   # 历史副本（不再维护、不再同步，仅作历史留存）：`~/.workbuddy/skills/vibecoding-llmwiki/SKILL.md`
+│   #   —— ⛔ 不参与双副本一致性比对，也不由 `tools/skill_pointer_check.py` 校验；文件保留不删。
 │
-└── logs/                  ← 日志层
-    └── log.md             ← 变更日志（时间导向，倒序追加）
+└── logs/                  ← 日志与历史层（三层载体，脚本串联）
+    ├── log.md             ← 当轮变更明细（时间导向，倒序追加，上限 50 条）
+    ├── INDEX.md           ← 归档索引（一行一天，由 wiki_log_tidy.py index 生成；截断后自动重建）
+    └── backup/            ← 跨轮归档（log_YYYY-MM-DD.md，按日一份）
 ```
 
 ---
@@ -130,12 +142,15 @@ Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 > 用户约定 2026-08-12：**日志截断是每周任务，不是每次任务**。
 
 - **平时每次 Ingest 追加日志一律不截断、不备份**——即使条目数超过 50 条也不在本任务内截断。
-- **每周 Phase 4 Lint 时**一次性执行截断（保留最新 50 条，旧条目**直接丢弃，不再归档**——`logs/backup/` 已废弃，统一备份仅压缩包）。
-- 完整命令与规则见 [[project/vibecoding-workflow]] Step 3.6「log 截断（每周任务，非每次任务）」。
+- **每周 Phase 4 Lint 时**一次性执行截断（保留最新 50 条）：`python tools/wiki_log.py truncate` —— 旧条目**按日期归档**到 `logs/backup/log_YYYY-MM-DD.md`（⛔ 截断是**归档不是丢弃**），并自动重建 `logs/INDEX.md` 归档索引（⛔ 归档存在却无索引 = 历史链路断裂）。
+- **⛔ log 截断入口唯一** = `python tools/wiki_log.py truncate`（`wiki_log_tidy.py truncate` 仅是委托，⛔ 禁自建截断脚本）；排序与表头修正在 Phase 4 收尾可一并跑 `python tools/wiki_log_tidy.py all`。
+- **查历史走 `logs/INDEX.md`** —— 定位日期 → 读对应归档文件；⛔ 禁凭记忆断言「上次怎么处理的」。
+- **日志写入统一走脚本**：`python tools/wiki_log.py append <op> "<标题>" --src ... --op-list ... --files ... --note ...`（时间戳由脚本取，⛔ 禁止手填）。
+- 完整命令与规则见 [[project/vibecoding-workflow]] Step 3.8「log 写入与截断」。
 
 ### 布局容器自由化（2026-08-12）
 
-> 见 [[decisions/ADR-024-LayoutContainerFreedom]]。
+> 见 [[decisions/ADR-024-LineLaserThreeLayerRefactor]]。
 
 - **GridPanel/FlowPanel 不再强制使用**——它们会强制排序子控件。
 - 布局容器按需自由选择（GridPanel / FlowPanel / Panel 绝对定位 / Dock / Anchor / WinForms 原生容器等）。
@@ -183,58 +198,67 @@ Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 
 **触发条件**：新增 Skill 文件、代码变更、第三方技术资料、设计决策
 
-**执行步骤**：
+> ⛔ **单一权威**：本工作流的**唯一规范 = [[project/vibecoding-workflow]]（Phase 0~4）**。
+> 本节只作通俗别名（Query=Phase 0、Ingest=Phase 3、Lint=Phase 4），**不得**据此另立流程。
 
-1. **读取源文件**从 raw/ 目录
-2. **提取关键信息**：
-   - 如果是 Skill 更新 → 更新 wiki/people/ 对应专员页面 和 wiki/project/skill-evolution.md
-   - 如果是代码变更 → 更新 wiki/modules/ 对应模块页面 和 wiki/api/ 接口页面
-   - 如果是新决策 → 创建 wiki/decisions/ADR-XXX.md
-   - 如果是踩坑记录 → 更新 wiki/lessons/ 对应分类
-3. **创建或更新 Wiki 页面**
-4. **更新交叉引用**：在新页面中添加 [[相关页面]] 链接，在相关页面中反向链接
-5. **更新 wiki/index/index.md**：新增/更新条目
-6. **追加 logs/log.md**：记录本次 Ingest 操作
+**Phase 0 Query（知识检索）**：读 `wiki/index/index.md` → 按 ⚡ 速查路由定位 1~3 页 → 读该页。⛔ 不得跳过 [[architecture/CodeMap]]（先查代码地图再 Grep）。
+**Phase 3 Ingest（知识沉淀）**：更新 `modules/` / `api/` / `decisions/` / `lessons/` → 重建 index（`tools/wiki_index_build.py`）→ 追加 log（`tools/wiki_log.py append`，时间戳自动取）。
+**Phase 4 Lint（健康检查）**：跑五扫描器 + 人工清单。
 
 ---
 
-## Query 工作流（查询知识库）
+## 页面格式契约（强制）
 
-**触发条件**：用户提问、代码审查前上下文加载、新需求分析
+⛔ 各页的**结构、字段、行数上限、增长规则**唯一规范 = [[standards/WikiPageFormatSpec]]，由 `tools/wiki_format.py` 机械校验（Phase 4 必跑，违规非零退出）。
 
-**执行步骤**：
+四条最常用规则：
 
-1. **读取 wiki/index/index.md**：快速定位相关页面
-2. **找到相关 wiki 页面**：根据索引定位 1~5 个核心页面
-3. **读取页面内容**：深入理解已有知识
-4. **综合回答**：基于 wiki/ 内容合成答案，附带 [[引用页面]]
-5. **答案归档**：如果答案有长期价值，保存为 wiki/ 新页面并更新 index.md
+1. **ADR / 教训 / 规则新增必须「先合并、后新建」**：先跑 `tools/adr_new.py check <关键词>` / `tools/lesson_new.py check <关键词>` / `tools/rules_new.py check <关键词>`；命中同主题就**合并**进既有页（ADR 与规则加「演进记录」节，教训加「追加条目」节），**不新建页**。
+2. **详细叙事只进 `logs/log.md`**：ADR / 教训 / 规则 / index 页只留结论与约束；验证过程（静态 N/N、探针数据、试错记录）属 log。
+3. **index.md 由脚本生成**：⛔ 不得手工编辑其分类表与速查路由表（路由源 = `tools/data/routes.tsv`，由 `tools/wiki_route_rebuild.py` 生成）。
+4. **新页须登记**：新建页面后跑 `tools/wiki_index_build.py` 重建索引，并确认对应索引页同步登记（ADR → [[decisions/ADR-Index]]；规则 → [[rules/Rules-Index]]）。
+
+### 阅读顺序（三层）
+
+| 层 | 内容 | 读多少 | 何时读 |
+|---|---|---|---|
+| **A · 流程约束** | `wiki/rules/`（KR-001~013） | **全读 13 条** | **动手之前**（最先读） |
+| **B · 内容知识** | `wiki/standards/` `wiki/decisions/` `wiki/lessons/` | **按需**：命中才读 | Phase 0 检索时 |
+| **C · 沉淀维护** | 格式契约 / 脚本工具 / log 链路 | **不预读**，用时现查 | Phase 3 沉淀 / Phase 4 校验 |
+
+⛔ **A 层不得跳过**（顺序错 / 门禁漏 / 谎报编译都源于此）；⛔ **B 层不预读整类**（39 页 lessons + 78 页 ADR 全读会耗尽上下文）。
+
+### 流程规则（Key Rules 的下沉处）
+
+⛔ **Skill 里不再维护规则清单** —— 规则正文与判据在 **`wiki/rules/`**（`KR-001~KR-013`，编号唯一权威 = [[rules/Rules-Index]]）。
+查法：index 第十二节 → Rules-Index → 规则页（固定结构：适用范围 / 规则正文 / 判据 / 反例 / 相关页面）。
+新增/演进走 `tools/rules_new.py`（先 check 再 merge/new），校验走 `tools/rules_check.py`。
+
+⛔ **rules/ 只收流程执行类规则** —— 约束「AI 跑这个工作流时该怎么做」；
+⛔ **约束代码 / 知识库内容本身**的规则（csproj 注册 · 行尾守恒 · 锚点构造 · 并发 Edit · 零消费≠死成员 等）**一律不进 rules/**，归 `lessons/`（坑）/ `standards/`（格式规范）/ `decisions/`（决策理由）。判据见 [[standards/WikiPageFormatSpec]] §2.4b。
+
+### Skill 指向纪律
+
+⛔ **Skill 只写角色级锚点与「去哪查」的机制表述**，不写死具体内容页名（具体 ADR / lessons / guides / modules / api 页）—— 这些页会重编、拆分、合并，写死即失效。闸门：`tools/skill_pointer_check.py`。规范见 [[standards/WikiPageFormatSpec]] §六。
 
 ---
 
-## Lint 工作流（健康检查）
+## 健康检查（Phase 4 必跑）
 
-**触发条件**：每周一次、重大版本发布前、用户主动要求
-
-**检查清单**：
-
-- [ ] **矛盾检测**：扫描 wiki/ 中相互冲突的陈述
-- [ ] **过期检测**：标记被新代码推翻的旧设计决策
-- [ ] **孤儿页面**：查找没有入链的孤立页面
-- [ ] **红链检测**：查找 [[提到但没有专属页面的概念]]
-- [ ] **缺失链接**：同一主题在不同页面中未互相引用
-- [ ] **技能同步**：检查 raw/skills/ 和 wiki/people/ 是否同步
-- [ ] **代码漂移**：检查 wiki/modules/ 描述是否与当前代码一致
-
-**自动化扫描（先行，2026-09-12 补）**：在 `Vicoding管理平台/LLMWiki/` 下依次运行——
+⛔ **用绝对路径解释器**（PATH 上的 `python` 是 0 字节占位符，不可用）——见 [[guides/ExecutionEnvironment]]。
 
 ```
-python tools/wiki_audit.py          # 10 项体检：红链 / 孤儿 / 索引重复 / ADR 空洞 / 体积 / 重复度 / 错放 / 入链 / 二级子目录 / 过小分类
+python tools/wiki_audit.py          # 11 项体检：红链 / 孤儿 / 索引重复 / ADR 空洞 / 体积 / 重复度 / 错放 / 入链 / 子目录 / 过小分类 / lessons 三处一致
 python tools/lint_scan.py           # 死链 / 孤儿 / ADR 编号冲突 / 外链失效
 python tools/drift_scan_precise.py  # wiki 引用的 .cs 是否仍存在
+python tools/ingest_purity_scan.py  # 沉淀纯度：index/ADR-Index/CodeMap/架构页禁验证叙事·日期沿革·日志体
+python tools/wiki_format.py         # 页面格式契约：结构 / 字段 / 行数 / 增长规则
+python tools/rules_check.py         # 流程规则页：编号连续 / 结构契约 / 索引一致 / 判据非空
+python tools/skill_pointer_check.py # Skill 指向防漂移：⛔ 不得写死内容页名
+python tools/raw_asset_check.py     # raw 资产检索表与实际内容一致
 ```
 
-**健康判据**：红链 0 · 孤儿 0 · 索引重复行 0 · 二级子目录 0 · 过小分类 0 · drift 待修正 0。脚本一律按 `__file__` 推导路径，禁硬编码绝对路径。
+**健康判据**：红链 0 · 孤儿 0 · 索引重复行 0 · 二级子目录 0 · 过小分类 0 · lessons 三处一致（目录==§五表行==摘要计数）· drift 待修正 0 · 纯度违规 0 · **格式违规 0** · **规则违规 0** · **Skill 指向违规 0**。脚本一律按 `__file__` 推导路径，禁硬编码绝对路径。
 
 ---
 
@@ -302,6 +326,7 @@ wiki/decisions/ →  设计决策（AI 理解"为什么这样设计"）
 3. **Skill 降级为参考**：`raw/skills/` 下的 Skill 文件是**参考资料**，不是**指令源**。如果 Skill 与 LLMWiki 内容冲突，以 LLMWiki 为准。
 4. **Ingest 强制性**：Phase 3 Ingest 不是可选步骤。没有 Ingest 的编码视为未完成。
 5. **新决策必须记录**：编码中如涉及新的架构选择，必须在 `wiki/decisions/` 创建 ADR。
+6. **备份包落点唯一**：所有备份/出包压缩包（`AdaWeldSystem_backup_*.tar.gz`、`AdaWeldSystem_output_*.tar.gz`、`LLMWiki_backup_*.tar.gz`）一律落**工作区根**（workbudddy，由 `tools/backup_adaweld.py` ROOT 推导）；知识库包用 `--llmwiki` 模式生成（按天去重），禁止手搓 tar、禁止落到工作区外（2026-10-14 治理：外层错放 5 包已归位根目录）。
 
 ### 时间戳规范
 
