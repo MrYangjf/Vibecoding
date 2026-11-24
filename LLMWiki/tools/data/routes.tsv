@@ -1,7 +1,7 @@
 # 场景速查路由源（结构化）—— 每行：场景描述 <TAB> 目标页链接 <TAB> 硬约束提示(≤80字符)
 # 由 tools/wiki_route_rebuild.py 读取并生成 index.md 的「⚡ 场景速查路由」表；勿直接编辑 index.md 的该表。
 # 第 1 列允许含日期（检索线索）；第 3 列严禁日期/删除线/超 80 字符。
-不知道某功能在哪块代码 / 代码依附关系 / 要不要全盘扫代码	[[architecture/CodeMap]]（总览·代码记忆卡）+ [[architecture/CodeMap-Files]]（详表）	⛔ Phase0 先读总览建立代码记忆，命中再读具体代码块；禁一上来全库 Grep；逐文件查详表
+不知道某功能在哪块代码 / 代码依附关系 / 要不要全盘扫代码	[[architecture/CodeMap]]（总览·模块骨架+定位陷阱）	⛔ Phase0 先读总览定位模块，再读对应符号分片；命中即读代码块；禁一上来全库 Grep
 第一次评审优化（41 条需求）在做什么 / 改动落在哪	[[project/ReviewOptimization-P1-StructureDesign]] + [[architecture/CodeMap]]	P1 五份产物；⛔ P2 落地后结构冻结，只可追加不可挪位
 代码精简 / 注释精简 / 日志规范	[[standards/CodeSimplification]]	强制排除仅 `*.Designer.cs`；约束归知识库，0 消费预留成员禁删
 UI 状态判断 / 按钮 text / 连接态刷新	[[standards/UiStateSimplification]]	与 CodeSimplification 互补，二者都要看

@@ -1,20 +1,20 @@
 ﻿---
 title: UI 状态刷新统一入口
 date: 2026-08-24
-updated: 2026-10-30
+updated: 2026-11-23
 tags: [教训, UI, 状态刷新, 代码精简, 重构]
 status: active
-source: AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs
+source: AdaWeldSystem/UIDesign/TabPage/LineLaserCamPage.cs
 ---
 
-# UI 状态刷新统一入口（ILCamPage 实践）
+# UI 状态刷新统一入口（LineLaserCamPage 实践）
 
 > 迭代中按"场景补函数"容易在页面里散落多个状态变更入口（连接态/模式/硬件同步各写一个），
 > 调用关系互相嵌套、刷新顺序不统一，后续改动极易漏刷某块 UI。
 
 ## 反模式（踩坑）
 
-`ILCamPage` 曾同时存在三个"状态变更"函数：
+`LineLaserCamPage` 曾同时存在三个"状态变更"函数：
 
 - `UpdateConnectionUi()` — 连接态标签/按钮唯一刷新（ADR-007 状态标签规范）
 - `UpdateModeUi()` — 工作流态→手动按钮可用性 + 设 `IsManualMode`；**内部又调 `UpdateConnectionUi()`**
@@ -62,7 +62,7 @@ private void RefreshUi(RefreshUiScope scope)
 
 ## 关联
 
-- [[modules/UIDesign]] — ILCamPage 状态刷新说明
+- [[modules/UIDesign]] — LineLaserCamPage 状态刷新说明
 - [[decisions/ADR-023-LineLaserWorkflowRefactor]] — 状态机外发驱动刷新
 - [[guides/WinForms-UI-Threading]] — InvokeRequired 封送
 ## 2026-11-17 补充：跨线程刷新 + 每拍整表重绑 = 卡顿与显示异常根因

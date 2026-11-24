@@ -1,7 +1,7 @@
 ---
 title: "配置分区落盘接线：改了不生效 / 保存了没落盘 / 落到了别人的区"
 date: 2026-10-23
-updated: 2026-10-30
+updated: 2026-11-23
 tags: [教训, 配置架构, 分区落盘, AlgorithmsZone, 接线完整性, 静态校验, 读存按钮, UI]
 status: accepted
 ---
@@ -153,6 +153,19 @@ status: accepted
 - **预防**：新增/修改轴动作前先问「这是位置指令还是原点校准」；配置键放 `ROOT/TA_HOME` 的 `TA_HOME_ZERO_POSE_*`
   （目标/速度/容差），⛔ 不要复用 `HomeOffset`（那是回零偏移，单位与语义都不同）。
   关联 [[decisions/ADR-082-TaInitFourStepAndAvailability]] · [[api/MontionManager]]。
+
+### 坑 7 · 同一配置文件两套路径：自愈写历史目录、真实读写走载体目录（2026-11-23）
+- **现象**：每次启动必报「配置自愈 配置缺失，已生成默认配置 `CommunicationSettings.ini` / `MonitorCamera.ini`」，而这两个配置实际一直存在且生效。
+- **判据**：
+  - 同一文件同时存在两个路径来源：调用方手拼的历史路径（`_iniFilePath` / `DefaultConfigPath`）用于 `File.Exists` 与 `EnsureIni`，`ConfigFileManager.GetModuleIni` 的载体路径用于真正 `Read/Write`；
+  - 启动首步 `ConfigPathMigrator.MigrateAll()` 把历史路径文件搬进 `Config\ConfigFileControl\`，随后清空旧目录 ⇒ 历史路径恒 `File.Exists == false` ⇒ 每次启动生成一份默认模板 + 告警，**真实配置毫发无损**；
+  - 同型且更严重：`SimulationConfig` 用手拼路径判存在 ⇒ `LoadPreWorkStartXmm` 恒回退默认值，「焊接前寻位起点 X」界面改了永不生效。
+- **预防**：① 存在性判断、自愈补缺、备份相对路径必须与 `Read/Write` 共用同一载体来源（`ConfigFileManager.ModuleAbsolutePath` / `ModuleRelativeDir`）；② ⛔ 任何 `.cs` 不得再手拼 `Config\...` 历史目录；③ 迁移表的职责只在启动时单向搬迁，⛔ 不得成为运行时路径。
+
+### 坑 8 · 审计的 before 取自「自己刚删掉的表」⇒ 全量误报新增（2026-11-23）
+- **现象**：每个焊前周期打一整轮「参数变更 分段参数表 XX 新增档位 - 转 3=3」，看起来像每次都在新增转档。
+- **判据**：`ReloadCurrentParamValues()` 先 `AutoParamHelper.DeleteTable(...)` 再 `SaveCurrentProfile()`，而后者第一句是 `previous = LoadProfile(...)` ⇒ before 必为空，diff 把每个档位判成新增。实际写盘是整行覆盖（`SaveProfile` DELETE+INSERT / `UpdateProfile` 整行 UPDATE），**数据既没追加也没丢**。
+- **预防**：① 审计的 before 必须在任何破坏性动作**之前**取；② 覆盖写不需要先删表（`SaveCurrentProfile` 内已有 `IsTableExist` 分支）；③ 见到「新增档位」全量刷屏，先怀疑 before 侧被清空，不要当成业务真在加档。
 
 ## 相关页面
 

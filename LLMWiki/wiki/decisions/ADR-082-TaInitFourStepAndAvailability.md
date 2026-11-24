@@ -111,6 +111,11 @@ status: proposed
 - 现场旧习惯「先开力矩模式」失效，需在培训/验收说明中更新操作步骤。
 
 
+### 2026-11-23 · 决策 D34 · TA 复位区分：首次回零+工作位 / 已回零仅工作位
+- **决策**：`MotionControlWorkflow.ResetAxesToWorkZero()` 以 `Manager.TaHomed`（语义＝本次上电是否已回零）为权威判据分支——首次（未回零）先 `TryHomeAxisWithWait` 回零再 `ExecuteTaZeroPose` 走工作位；已回零跳过回零只走工作位。两路各记一条 Info 日志，现场可区分。
+- **理由**：业主明确「设备第一次启动需 T 轴回零后走到工作位；已回过零的复位只走到工作位」。
+- **影响**：模拟自复位（[[decisions/ADR-032-SimulationTestRedesign]] 2026-11-23 演进）复用同一区分；⛔ 不新增复位入口（ADR-099 D6）；回零结论仍唯一置位于 `WaitAxisHomed`（ADR-099 D27）。
+
 ## 相关页面
 
 - [[decisions/ADR-Index]]

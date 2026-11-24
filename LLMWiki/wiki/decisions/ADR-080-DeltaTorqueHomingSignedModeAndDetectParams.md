@@ -194,3 +194,13 @@ status: accepted
 - [[guides/DeltaEtherCAT-DevGuide]]
 - [[api/DeltaEtherCAT-Native]]
 - [[lessons/ConfigZoneSaveWiring]]
+
+## 演进记录
+
+### 2026-11-20 · 回零完成判据改为 Home_Status 权威、位置仅告警
+
+**变更**：`MontionManager.WaitAxisHomed` 原以 `expectHome = HomeOffset` 作硬位置门；扭矩回零模式（-3）下驱动器把 offset 反向应用（现场填 `HOME_OFFSET=1.0mm` → 终位 `-1.000mm`），硬门与实测差 2mm，导致驱动器已由 `Home_Status=0` 确认完成时仍报 `NOT_REACHED`。改为：`homeVerified && Home_Status==0 && speed 稳定` 即达成，位置偏差与 `HomeOffset` 不符时记 Warning 可见但不阻断。`MotionControlWorkflow.TryHomeAxisWithWait` 失败分支删除 `StopAxis`（回零已完成轴再发停止报 4866 无描述码）。
+
+**理由**：回零权威完成信号是驱动器 `Home_Status`（手册 §12.3：0=完成/1=运动中/2=中止/3=错误），位置只是二次证据；负模式 offset 方向手册未覆盖（见本页「负值编码最终裁决」），不应让无手册约定的符号语义阻断已确认的回零。
+
+**影响**：现场 offset 符号不再影响回零成败（只影响告警日志）；位置硬校验能力下降，若需严格位置校验须另行裁定（如按 |HomeOffset| 取绝对值判）。4866 噪声消除。

@@ -8,6 +8,13 @@ status: accepted
 
 # CodeMap-Files — 代码地图详表
 
+> ⚠️ **历史名称提示**
+> 本页为**手写逐文件详表**，已由机器生成的代码地图取代（2026-11-18）：
+> · 模块骨架 + 定位陷阱 → [[architecture/CodeMap]]
+> · 逐类 → `文件:行` → 成员签名 → `CodeMap-Symbols-<模块>.md` 分片
+> · 影响面（谁调用谁）→ [[architecture/CodeMap-Relations]] 及方法级分片
+> 本页保留仅供历史追溯；⛔ **不再维护、不得作为现行定位依据**。
+
 > 本页是 [[architecture/CodeMap]] 总览的**详表分页**：按命名空间列出全部源码文件的职责。
 > 总览页提供一页可读的「代码记忆卡 + 主干依附」，本页提供逐文件检索。
 > ⛔ 本页只做**定位索引 + 一句话职责 + 状态标记**；沿革段落为历史存档，不作为现行职责依据（现行职责看每格首句）。
@@ -36,9 +43,9 @@ status: accepted
 
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
-| `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` | 3121 | class MotionControlWorkflow | 运控工作流（最大单文件）：CSP 写段逐拍、缓冲收尾、回标定位、收工语义、运控轴范围。**2026-10-09 ADR-055**：`MotionControlPhase` 枚举与 `_phase` 已删，`IsRunning` 改判 `MontionAxis.IsServoOn()`；**2026-10-10 ADR-061**：`WeldStatusTrans` 恒假条件修复（停焊沿分支恢复可达）+ `SubDeviceLog` 格式串 5占位→4占位 📄（CSP 写段逐拍、缓冲收尾、回标定位、收工语义、运控轴范围）；**2026-11-16**：CSP 查图 X 改取 `WeldParamManager.CurrentRobotX` 与入图键同源（修复 D21），保留 `_cspQueryXFromWeldParam` 回退开关 |
+| `MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs` | 3367 | class MotionControlWorkflow | 运控工作流（最大单文件）：CSP 写段逐拍、缓冲收尾、回标定位、收工语义、运控轴范围。**2026-10-09 ADR-055**：`MotionControlPhase` 枚举与 `_phase` 已删，`IsRunning` 改判 `MontionAxis.IsServoOn()`；**2026-10-10 ADR-061**：`WeldStatusTrans` 恒假条件修复（停焊沿分支恢复可达）+ `SubDeviceLog` 格式串 5占位→4占位 📄（CSP 写段逐拍、缓冲收尾、回标定位、收工语义、运控轴范围）；**2026-11-16**：CSP 查图 X 改取 `WeldParamManager.CurrentRobotX` 与入图键同源（修复 D21），保留 `_cspQueryXFromWeldParam` 回退开关 |
 | `MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs` | 969 | class LineLaserWorkflow | 线激光工作流：分步 switch-case + 采样节拍 + 稳定性判定。**五个 workflow 的基准实现**（零自建状态枚举、零私有状态字段）📄 📄 |
-| `MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs` | 641 | class WeldParamControlWorkflow | 焊参工作流：功率/送丝/速度/摆幅计算与下发。**2026-10-09 ADR-055**：自建枚举与 `_phase` 已删；⛔ 原来内嵌的 `WeldParamOutput` 已迁至 `WeldParamData.cs` 并改名 `WeldParamAdaptControl`；**2026-10-10 ADR-061**：`WeldStatusTrans` 恒假镜像分支删除（单源化后无存在基础）；**2026-10-20**：`CalcGalvoAmplitude` 改「固定输出光斑模式返 0 / 非固定模式查表摆幅宽度 → 公式兜底」；**2026-10-21**：增 `CalcGalvoFrequency`（查表 → 基准公式兜底），两支路同源填 `GalvoFrequency` |
+| `MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs` | 659 | class WeldParamControlWorkflow | 焊参工作流：功率/送丝/速度/摆幅计算与下发。**2026-10-09 ADR-055**：自建枚举与 `_phase` 已删；⛔ 原来内嵌的 `WeldParamOutput` 已迁至 `WeldParamData.cs` 并改名 `WeldParamAdaptControl`；**2026-10-10 ADR-061**：`WeldStatusTrans` 恒假镜像分支删除（单源化后无存在基础）；**2026-10-20**：`CalcGalvoAmplitude` 改「固定输出光斑模式返 0 / 非固定模式查表摆幅宽度 → 公式兜底」；**2026-10-21**：增 `CalcGalvoFrequency`（查表 → 基准公式兜底），两支路同源填 `GalvoFrequency`；**2026-11-18 ADR-103 落地演进**：`TickXlOutput` 时间维节流（`Environment.TickCount`+`intervalMs`）⇒ **距离维节流**（机器人 X 位移达 `SegmentDistanceMm` 才输出，首拍立即输出），`ParamOutputHz` 已删 ⇒ 阈值复用同一把距离尺 |
 | `MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs` | 679 | class MonitorCameraWorkflow ; class MonitorResult | 监控相机工作流：采集→分析→填充结果；对中/质量两相位；剪丝异常标志位产出方。**2026-10-09 ADR-055**：`MonitorWorkflowState` 与 `_flowState` 已删；⚠️ `_phase` 是 **`MonitorCameraPhase` 算法相位**（`MonitorResult.Phase` 数据源）**保留**；**2026-11-09 ADR-095/096/097**：检测直调 `AlgorithmManager.Instance.Detect*`、三条失败文案引用 `DescribeLastError`；新增 `StartRecording/StopRecording`（录像命名与前置判断归本层）；新增回放门面（9 方法 + 3 属性 + 7 转发事件，`StopPlayback` 与设备侧 `Stop` 分开） |
 | `EmguALG/RealtimeMonitor/Playback/PlaybackAlgorithm.cs` | 620 | class PlaybackAlgorithm | **2026-11-09（ADR-097）**：回放算法（算法层，与 `WireFeedDistance` / `WeldQuality` 同级并排）——录像目录扫描、缩略图后台解码、`VideoCapture` 播放解码、时间基准/进度/暂停/倍速/±5 秒跳转；`AlgorithmManager.Playback` 惰性持有，跨页面共用，`Stop` 幂等、页面不 Dispose。行数据 `PlaybackFileInfo` / `PlaybackScanResult` 为同目录独立文件 |
 | `EmguALG/RealtimeMonitor/Playback/PlaybackFileInfo.cs` | — | class PlaybackFileInfo | **2026-11-09**：回放列表行数据（算法层产出，UI 只绑定显示） |
@@ -46,7 +53,7 @@ status: accepted
 | `EmguALG/Roi/ImageRoi.cs` | — | class ImageRoi | **2026-11-09 新增**：ROI 区域纯数据（启用标志 + X/Y/W/H + `ClampTo` / 坐标映射），不引用 WinForms、不绑控件 |
 | `EmguALG/Roi/ImageRoiTool.cs` | — | static class ImageRoiTool | **2026-11-09 新增**：通用 ROI 工具——`Load/Save`（`Config/EmguALG/Algorithm_INI/ImageRoi.ini`，节 `ImageROI`）+ `Crop` / `ApplyMask`；场景未定，暂不接任何算法（按需加载） |
 | `EmguALG/LineLaserContour/LineLaserContourData.cs` | — | class LineLaserProfileData ; class LineLaserCalibrationData ; struct LineLaserSeamFeature | **2026-11-09 新增**：线激光渲染的算法层 DTO（轮廓 Y/Z 数组 + 点数、标定四角、特征点），硬件层转换后传入，算法层不再引用 `LineLaserCam` / `PCLOperate` |
-| `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs` | 731 | class LaserWeldHeadWorkflow | 焊接头工作流：温控闭环（温度/报警事件 + 二次判阈）。ADR-055 状态枚举已删；ADR-072 删 `StepIdle` 重写；ADR-053/066 振镜频率与光斑来源。**2026-11-05 ADR-082**：`CheckTaAvailable` 降级；`TaZeroPose`（CSP 绝对定位）；**ADR-082**：`TaAuto` 去力矩门禁、先停 ZeroPose 再 `SetTorque` 自切 CST；`TaTorqueActive` 转发 `axis.TorqueOutputEnabled`；**ADR-084/085**：力值 N 按 `TA_FORCE_100PCT_N` 换算 CST 千分比、力大小与方向分离（负值拒绝）；**2026-11-05**：TA/LA 阻塞式状态检测 + 同轴单飞（ADR-063）；**2026-11-16 ADR-098**：TA 分层就绪 `IsEnabled=TaMotionReady`/`IsHomed=TaHomed`/`IsAtWorkZero=TaAvailable` |
+| `MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs` | 835 | class LaserWeldHeadWorkflow | 焊接头工作流：温控闭环（温度/报警事件 + 二次判阈）。ADR-055 状态枚举已删；ADR-072 删 `StepIdle` 重写；ADR-053/066 振镜频率与光斑来源。**2026-11-05 ADR-082**：`CheckTaAvailable` 降级；`TaZeroPose`（CSP 绝对定位）；**ADR-082**：`TaAuto` 去力矩门禁、先停 ZeroPose 再 `SetTorque` 自切 CST；`TaTorqueActive` 转发 `axis.TorqueOutputEnabled`；**ADR-084/085**：力值 N 按 `TA_FORCE_100PCT_N` 换算 CST 千分比、力大小与方向分离（负值拒绝）；**2026-11-05**：TA/LA 阻塞式状态检测 + 同轴单飞（ADR-063）；**2026-11-16 ADR-098**：TA 分层就绪 `IsEnabled=TaMotionReady`/`IsHomed=TaHomed`/`IsAtWorkZero=TaAvailable` |；**2026-11-18 ADR-070 演进**：删 `GalvoDemo()`（零调用方）⇒ 新增 `GalvoManualStart(pattern, shape)` / `GalvoManualStop()`（手动模式输出一次，⛔ 自动模式互斥）；**ADR-076 D3**：新增 `static ResolveGalvoPattern(int)`（配置 0=未设置/越界 ⇒ 逻辑零位直线，⛔ 禁下发协议非法值到 0x7010 子索引 1）；**2026-11-18 ADR-067 演进**：`LaPose2()` → `LaDefaultFocus()`（LA 默认焦平面 = LA 默认工作位）；新增 `MoveToDefaultFocus()`（初始化连接结束后自动就位，非阻塞、不走手动门禁）；**ADR-076 D4**：新增 `static IsGalvoWeaveEnabled()`（实时读 `cfg.EnableGalvoWeave`）并**删过期快照字段 `_galvoWeaveEnabled`**（原 `LoadConfig` 期取值，运行期改开关不刷新 ⇒ 改实时读，与 `WeldParamControlWorkflow.GetAmplitudeMm` 同口径）；图形语义前置条件 = 振镜是否启用（未启用⇒无图形；已启用⇒必有图形，无设置落回 Line 并落盘） |
 
 ### `AdaWeldSystem.Comm.Communication.Implementations`
 
@@ -71,11 +78,11 @@ status: accepted
 
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
-| `UIDesign/TabPage/SystemControlPage.cs` | 2427 | class SystemControlPage ; class AxisRow ; enum SimButtonMode | 系统设置页：轨迹/激光头/模拟测试；gridTrace 2×2（ADR-071/088）、轴表 11 列 + 固定按钮（ADR-073）、四区（ADR-075/093）、分区读存（ADR-076）、唯一 timerRefresh（ADR-075）；TA 区 `tableTa` 复用 `CreateAxisColumns()/FillAxisRuntime()` + `AxisConfigForm`（AXIS + TA_HOME，ADR-080）；`tLPTimeout` 超时卡片含「主站初始化(秒)」项（`txtMasterInit`↔`MasterInitSeconds`，读改存三段式）；见 [[api/SystemControlPage]] |
+| `UIDesign/TabPage/SystemControlPage.cs` | 3197 | class SystemControlPage ; class AxisRow ; enum SimButtonMode | 系统设置页：轨迹/激光头/模拟测试；gridTrace 2×2（ADR-071/088）、轴表 11 列 + 固定按钮（ADR-073）、四区（ADR-075/093）、分区读存（ADR-076）、唯一 timerRefresh（ADR-075）；TA 区 `tableTa` 复用 `CreateAxisColumns()/FillAxisRuntime()` + `AxisConfigForm`（AXIS + TA_HOME，ADR-080）；`tLPTimeout` 超时卡片含「主站初始化(秒)」项（`txtMasterInit`↔`MasterInitSeconds`，读改存三段式）；见 [[api/SystemControlPage]] |
 | `UIDesign/TabPage/FilebackupPage.cs` | 2191 | class FilebackupPage ; class TxCmdOption ; class AxisConfigPreviewRow ; class IoConfigPreviewRow ; class CylinderConfigPreviewRow | 文档备份设置页：通讯配置 + 系统配置两页签（ADR-079）；职能收口 + 项目 XML 每切视图重读盘 + 列宽 1283；表格可编辑：`CellEndEdit`(bool) 写回 + ContextMenuStrip 增删行/反向 CSV + `_viewDirty[4]` 脏标记 + `ValidateCurrentTables(out hints)`；**只校验脏视图**（`MergeView` 脏阻断/未编辑仅提示，焊接头唯一键 = `BuildPdoObjectKey` 复合键，变量名重复非错误）；保存 5 行 / 备份一次 / `ReloadDeltaConfigOnly()` 只重载台达四块；见 [[api/FilebackupPage]] |
 | `UIDesign/TabPage/ILCamPage.cs` | 649 | class ILCamPage ; enum RefreshUiScope ; class InspectResultRow ; class CmbJobItem | 线激光设置页（并入系统参数设置导航，tabs：线激光采集设置，ADR-051） |
 | `UIDesign/TabPage/MonitorCamPage.cs` | 1233 | class MonitorCamPage ; class PlaybackRow ; class PlayScanOutcome | 监控相机页 tabs：焊接相机设置 + 焊接回放（ADR-048/078）；回放 = **日期区间汇总**（`GetDirectories` 一层过滤 `yyyyMMdd` → 每个日期目录 `GetFiles("*.avi", TopDirectoryOnly)` 汇总，表格只出文件行，无日期/扫描文件夹层，`RunPlayScan` 后台线程 + 代数取消）+ 悬停双层播放控件栏；**2026-11-03 时间基准驱动**：`Stopwatch` + 锚点（`TargetPlayFrame`/`RebasePlayClock`）替代每拍固定加帧，1.0x 实测 9.07s/9s；**2026-11-03**：初始化不读盘，首切「焊接回放」才首扫，反复切页幂等；**2026-11-02**：回放页四层 GridPanel 化（回放区零原生布局容器）；**2026-11-09**：对中阈值迁入 `grpParam`（仅 Admin） |
-| `UIDesign/TabPage/ProcessControlPage.cs` | 1816 | class ProcessControlPage ; class ConfigListRow | 工艺设置页 3 tabs；批M GridPanel（ADR-071）；LA 对焦/振镜各自容器独立单选；⑤输出 11 控件入 gridAdaparam（ADR-072/089）；ADR-076 分区落盘；ADR-063：三指令区默认 Auto + `RefreshActionStates` 置灰；**ADR-082**：增 `radioQuickTaZeroPose`（互斥；2026-11-09 删 `CancelTaZeroPose`），`TaAvailable` 置灰其余；**ADR-082**：删力矩门禁与 `TaTorqueModeChanged` 订阅，`DoTaAuto` 直调 `TaAuto`；**ADR-084**：下压力按 N 校验并按 100% 力量基准换算；**ADR-084**：力值只填大小（负号拒绝）、回填取绝对值、方向只读 `TA_TORQUE_DIRECTION`；**2026-11-05**：指令区加初始化闸门、后台检测线程 + `BeginInvoke`、上色改 `BackColor` |
+| `UIDesign/TabPage/ProcessControlPage.cs` | 1931 | class ProcessControlPage ; class ConfigListRow | 工艺设置页 3 tabs；批M GridPanel（ADR-071）；LA 对焦(`tlPLASetting`)/振镜(`gridQuickLa`)各自容器独立单选；⑤输出 11 控件入 gridAdaparam（ADR-072/089）；ADR-076 分区落盘；ADR-063：三指令区默认 Auto + `RefreshActionStates` 置灰；**ADR-082**：增 `radioQuickTaZeroPose`（互斥；2026-11-09 删 `CancelTaZeroPose`），`TaAvailable` 置灰其余；**ADR-082**：删力矩门禁与 `TaTorqueModeChanged` 订阅，`DoTaAuto` 直调 `TaAuto`；**ADR-084**：下压力按 N 校验并按 100% 力量基准换算；**ADR-084**：力值只填大小（负号拒绝）、回填取绝对值、方向只读 `TA_TORQUE_DIRECTION`；**2026-11-05**：指令区加初始化闸门、后台检测线程 + `BeginInvoke`、上色改 `BackColor`；**2026-11-18**：GA 设置区删 `selGalvoPattern`/`lblGalvoPattern`/`btnGalvoDemo`/`btnGalvoHome`，图形选择唯一入口 = GA 指令 Radio（`SetGalvoPattern` 单入口落 ④Preset 区），删 `selGalvoPattern_SelectedIndexChanged` 与两个孤儿按钮处理器，保留 workflow 层 `GalvoDemo`/`GalvoHome` |；；**2026-11-18 ADR-076 D6**：跟踪几何 7 项（轴/激光比例·偏差方向·激光超前量·机器人Y补偿·示教Y锁定·标定中心Y/Z）+ 标定角度迁入系统设置页·轨迹跟踪·标定参数区；工艺页不再落 ①System 区（XML 归轨迹跟踪 TabPage 独占）（控件/文案/配置项 `LaDefaultFocusMm`/INI 键 `LA_DEFAULT_FOCUS_MM` + 旧键一次性迁移）；**ADR-076 D3**：图形语义收敛（配置 0=未设置 ⇒ UI **不预选**任何 Radio，映射 `default` 返 null 不静默落直线）+ 删冗余 `_syncingLaRadios`（被 `_loadingGalvoUi` 覆盖）与字段 `_galvoPatternSelected`（写后无读者，；**ADR-070 演进（2026-11-18）**：GA 宽/长/频**按图形分 4 档**（`WeldHeadConfig.GalvoShapePresets`，XML `GALVO/<图形>/`，缺档回退 Line 档）；GA 区新增「手动下发/关闭退出」按钮组（`btnGalvoManualStart/Stop`，手动模式输出一次，⛔ 自动焊接中互斥置灰）；⛔ 删 GA 卡 `txtManualWidth`/`lblManualWidth` 与轨迹点区 3 个输出控件（光斑系数/输出频率/手动宽度） |
 
 ### `AdaWeldSystem.MainDeviceControl`
 
@@ -86,7 +93,7 @@ status: accepted
 
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
-| `MainDeviceControl/DeviceControlWork.cs` | 2851 | class MainDeviceStatusChangedEventArgs ; class SimulationStoppedEventArgs ; class MachineAlarmInfo ; class DeviceControlWork | 整机唯一编排：ExecuteIo、CascadeWeldStatus、模拟开关、SendRobotCommand、ReportAlarm、MonitorAlignTick + ComposeWireFeedSpeed；ADR-061：CascadeWeldStatus 末尾接 WeldStatusTrans；`InitStepRobotComm` 有 `IsUiReady` 门控 + `RxCmd` 去重 📄；ADR-082 使能逐轴留痕并开初始化闸门；**2026-11-13**：`DisposeComponents` 关闭链改**同步** `CascadeDisconnect()`（⛔ 不再置位脉冲型 `Stop_IO` 指望扫描线程消费——线程随即被关，脉冲必丢 ⇒ 级联断开从未执行）；**2026-11-17 ADR-107 演进**：`InitializeMachine` 只置 `_initAccepted`+开 IO 线程+置 IoInit，5 模组线程与指令线程延后到初始化出结果三出口（Finish/抢占/EndInitWithoutChain）；见 [[api/DeviceControlWork]] |
+| `MainDeviceControl/DeviceControlWork.cs` | 3964 | class MainDeviceStatusChangedEventArgs ; class SimulationStoppedEventArgs ; class MachineAlarmInfo ; class DeviceControlWork | 整机唯一编排：ExecuteIo、CascadeWeldStatus、模拟开关、SendRobotCommand、ReportAlarm、MonitorAlignTick + ComposeWireFeedSpeed；ADR-061：CascadeWeldStatus 末尾接 WeldStatusTrans；`InitStepRobotComm` 有 `IsUiReady` 门控 + `RxCmd` 去重 📄；ADR-082 使能逐轴留痕并开初始化闸门；**2026-11-13**：`DisposeComponents` 关闭链改**同步** `CascadeDisconnect()`（⛔ 不再置位脉冲型 `Stop_IO` 指望扫描线程消费——线程随即被关，脉冲必丢 ⇒ 级联断开从未执行）；**2026-11-17 ADR-107 演进**：`InitializeMachine` 只置 `_initAccepted`+开 IO 线程+置 IoInit，5 模组线程与指令线程延后到初始化出结果三出口（Finish/抢占/EndInitWithoutChain）；见 [[api/DeviceControlWork]] |
 | `MainDeviceControl/DeviceStatusWork.cs` | 789 | class DeviceStatusWork ; class SafetyFlow ; class SafetyInterlockResult ; class SafetyInterlockChecker | 安全与状态巡检三线程：IO 扫描 / 急停 / 灯光；SafetyInterlockChecker 报警源判定中心；**ADR-091（2026-11-06）**：`ScanTaPositionLimit` 与 `_taLimitAlarmActive` 整段删除（越限撤力会打断力矩下压）；**2026-11-17**：IOWork 初始化在途时只推进连接链、冻结互锁/一致性/对齐等全部状态变更 |
 
 ### `AdaWeldSystem.MotionControl.DeltaEtherCAT`
@@ -139,11 +146,11 @@ status: accepted
 
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
-| `WeldParamControl/WeldParamManager.cs` | 1707 | class WeldParamManager | 焊参 Manager：预测性位姿快照、ChartVar 数据源、配置加载、AutoParamHelper 持有；⑤工艺输出 5 facade 透传参数调整算法（ADR-072 §三②）；**2026-10-21** 增 `SwingFrequencyDic` facade + `TryLookupSwingFrequency`，移除 `WeaveTable` 持有；**同日增 `AnchorSpotMm` facade**（曲线A 锚点光斑，外部唯一读取口，ADR-053/ADR-066）📄；**ADR-084**：`TorqueTarget → TaForceN` 迁移按 `TaForceN = TorqueTarget × Force100PctN / 1000`，基准 ≤0 跳过并告警；**ADR-084**：迁移链末增 `NormalizeTaForceDirection`（旧负值 → 缺键置 -1 并取绝对值 / 有键以键值为准并告警）；**11-16**：新增缺值累计距离 `NoValueDistanceMm`/`NoValueSource`（只观测） |
-| `WeldParamControl/WeldAlgorithmsConfig.cs` | 1086 | enum SeamTrackingMode ; enum SeamWidthSource ; class WeldAlgorithmsConfig ; enum AlgorithmsZone | 焊参配置 55 属性 + 四点闭环（键常量/Load/Save/消费者）；含 6 项历史包袱；**2026-10-23（ADR-076）**：`MaxMapPoints` 的 XML 归属由 ④Preset 改 **①System**（UI 落点在系统设置页·线激光点过滤区，键路径 `SEAM_GUIDE/MAX_MAP_POINTS` 不变、存量文件兼容、Preset 区不再写该键）；**ADR-084**：`TaForceN` 单位为 N（非额定千分比），由 `LaserWeldHeadWorkflow.TaAuto` 按 100% 力量基准换算；**2026-11-16**：`NO_VALUE_TOLERANCE_MM` 默认 2.0→5.0，载入钳位 1~50mm、越界一条 Warning |
+| `WeldParamControl/WeldParamManager.cs` | 1613 | class WeldParamManager | 焊参 Manager：预测性位姿快照、ChartVar 数据源、配置加载、AutoParamHelper 持有；⑤工艺输出 5 facade 透传参数调整算法（ADR-072 §三②）；**2026-10-21** 增 `SwingFrequencyDic` facade + `TryLookupSwingFrequency`，移除 `WeaveTable` 持有；**同日增 `AnchorSpotMm` facade**（曲线A 锚点光斑，外部唯一读取口，ADR-053/ADR-066）📄；**ADR-084**：`TorqueTarget → TaForceN` 迁移按 `TaForceN = TorqueTarget × Force100PctN / 1000`，基准 ≤0 跳过并告警；**ADR-084**：迁移链末增 `NormalizeTaForceDirection`（旧负值 → 缺键置 -1 并取绝对值 / 有键以键值为准并告警）；**11-16**：新增缺值累计距离 `NoValueDistanceMm`/`NoValueSource`（只观测） |
+| `WeldParamControl/WeldParamConfig.cs` | 1036 | enum SeamTrackingMode ; enum SeamWidthSource ; class WeldAlgorithmsConfig ; enum AlgorithmsZone | 焊参配置 55 属性 + 四点闭环（键常量/Load/Save/消费者）；含 6 项历史包袱；**2026-10-23（ADR-076）**：`MaxMapPoints` 的 XML 归属由 ④Preset 改 **①System**（UI 落点在系统设置页·线激光点过滤区，键路径 `SEAM_GUIDE/MAX_MAP_POINTS` 不变、存量文件兼容、Preset 区不再写该键）；**ADR-084**：`TaForceN` 单位为 N（非额定千分比），由 `LaserWeldHeadWorkflow.TaAuto` 按 100% 力量基准换算；**2026-11-16**：`NO_VALUE_TOLERANCE_MM` 默认 2.0→5.0，载入钳位 1~50mm、越界一条 Warning |；；**2026-11-18 ADR-076 D6/D7**：`SEAM_GUIDE` 几何 4 项由 ④Preset 区迁 ①System 区（XML 侧 Preset 分支整体删除，存量零迁移）；⛔ 删 `YAxisMinMm`/`YAxisMaxMm`（限幅改接轴软限位）（INI `LA_DEFAULT_FOCUS_MM`，旧键 `LA_POSE2_MM` 一次性迁移后停写）；**ADR-076 D3**：`GalvoPattern` 初值 3→**0=未设置（无图形）**，INI 越界归 0 + Warning（⛔ 不再静默回退直线）；**2026-11-18 ADR-076 D5**：⛔ 删 `SpotWidthGain`/`ManualSeamWidthMm`/`ParamOutputHz`（键常量+默认值+读写+钳位+保存+两层转发属性全清）⇒ ③Adapt 区只余「每段距离」 |
 | `WeldParamControl/WeldParamData.cs` | 727 | enum WeldFlowStep ; class WeldFlowStepInfo ; class WeldFlowSteps ; class RobotWeldData ; class SeamCalData ; enum SeamType ; class WeldParamAdaptControl ; class WeldParamMontionControl ; class AutoParam ; class ChartVar ; class WeldProcessCompletedEventArgs ; class WeldFrameRecordEventArgs ; class WeldAdjustmentRecordEventArgs | 数据模型：RobotWeldData / SeamCalData / AutoParam / ChartVar（线程安全）+ `WeldParamAdaptControl` / `WeldParamMontionControl` + 焊接步条三件 + 3 个记录事件；`AutoParam` 含光斑摆幅系数 `SpotSwingGain`、摆幅宽度 `SwingWidth`、摆幅频率两点基准（2mm→500Hz / 10mm→200Hz） |
 | └─（同上） | — | `class WeldParamAdaptControl ; class WeldParamMontionControl` | **2026-10-09 ADR-055**：参数类归位到此（自适应算法输出 / 主动控制轴位置） |
-| `WeldParamControl/WeldParamChangeLogger.cs` | 326 | class WeldParamChangeLogger | 分段表差异审计（2026-10-21 增摆幅宽度/摆幅频率两行） |
+| `ConfigFileControl/Implementations/ConfigChangeLogger.cs` | 187 | class ConfigChangeLogger | **2026-11-19 改名**（原 `WeldParamChangeLogger`；已记录所有配置变更故去掉 WeldParam 前缀）： **2026-11-19 通用化**：日志标签可传（默认「配置变更」）；⛔ 解除对 `WeldAutoParamProfile`/`Newtonsoft` 的依赖（分段参数表审计迁至 `WeldParamProfileAudit`）。分段表差异审计（2026-10-21 增摆幅宽度/摆幅频率两行） |
 
 ### `AdaWeldSystem.WeldParamControl.Algorithms`
 
@@ -155,9 +162,9 @@ status: accepted
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
 | `WeldParamControl/Algorithms/SeamMapTrackingAlgorithm.cs` | 1060 | struct SeamMapPoint ; class TrackingAlarmEventArgs ; class SeamMapTrackingAlgorithm | 焊缝跟踪地图算法（最大算法文件 1087 行）：绝对目标 Yt=Ya1+dY、空间高斯+突变闸门、禁时间域低通 📄 |
-| `WeldParamControl/Algorithms/WeldParamAdjustmentAlgorithm.cs` | 662 | class WeldParamAdjustmentAlgorithm ; class XLPoint | 焊参调整算法：分段查表送丝/功率/速度；光斑宽度输出；⑤工艺输出 5 属性收编（转发 _config，键/分区落盘兼容，ADR-072 §三②） |
+| `WeldParamControl/Algorithms/WeldParamAdjustmentAlgorithm.cs` | 643 | class WeldParamAdjustmentAlgorithm ; class XLPoint | 焊参调整算法：分段查表送丝/功率/速度；光斑宽度输出；⑤工艺输出属性收编（转发 _config，键/分区落盘兼容，ADR-072 §三②）；**2026-11-18**：Manual 源恒定宽度改取 GA 档（`ManualFixedWidthMm()`，⛔ 无 catch 静默返 0） |
 | `WeldParamControl/Algorithms/SeamTrackingAlgorithm.cs` | 378 | class SeamTrackingAlgorithm |  |
-| `WeldParamControl/Algorithms/WeldParamLookupAlgorithm.cs` | 401 | class WeldParamLookupAlgorithm | 查表算法：五张宽度档映射表（功率/送丝/速度/光斑宽/**摆幅宽度**/**摆幅频率**）+ `TryLookupSwingWidth`/`TryLookupSwingFrequency`（最近档容差 100）；摆幅频率初值由该档摆幅宽度按基准点反算（2026-10-21） |
+| `WeldParamControl/Algorithms/WeldParamLookupAlgorithm.cs` | 367 | class WeldParamLookupAlgorithm | 查表算法：五张宽度档映射表（功率/送丝/速度/光斑宽/**摆幅宽度**/**摆幅频率**）+ `TryLookupSwingWidth`/`TryLookupSwingFrequency`（最近档容差 100）；摆幅频率初值由该档摆幅宽度按基准点反算（2026-10-21）；**2026-11-18 ADR-076 D5**：⛔ 删光斑宽度系数（`SetSpotWidthGain`/`_spotWidthGain`/`RefreshSpotWidthDic` 全清）⇒ 光斑宽 = 焊缝宽（乘 1.0 恒等，行为等价） |
 | `WeldParamControl/Algorithms/SeamGuideSample.cs` | 63 | struct SeamGuideSample |  |
 
 ### `AdaWeldSystem.PCLOperate.Render`
@@ -214,8 +221,8 @@ status: accepted
 
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
-| `MotionControl/WeldHeadSlaveDevice.cs` | 852 | class WeldHeadSlaveDevice ; enum WsgGalvoPattern ; enum MotorRunState ; struct MotorState ; class GalvoParams ; class LaserHeadTemperatureData ; class HeadAlarmStatus ; class WeldHeadConfig | WSX 焊接头从站（万顺兴 ScanCut）：0x6000 温度 / 0x6010 振镜回读 / 0x7010 振镜写 / 0x7020 阈值 / **0x7000+0x6020 电机（LA，2026-10-08 已启用）**；含 `CreateLogicalHome()` 逻辑零位 + `MotorPulsePerMm` 量纲 |
-| `MotionControl/MontionManager.cs` | 1801 | class MontionManager | 运控唯一管理器：轴/IO/缸装载 + 焊接头注册 + 配置持久化 + 六轴控制函数（ADR-073）；TA 门禁族 `LoadTaAxisConfig`/`TaAvailable`（ADR-082）；**2026-11-05**：`LoadTaAxisConfig` 改纯装载判定、`SaveTaHomeConfig` 删 P1（ADR-080 §D6）；ADR-082/084/085 扭矩与日志演进；**2026-11-05**：新增初始化闸门 `IsInitCompleted`/`MarkInitCompleted`、同轴单飞 `TryBeginAxisInstruction` 与 5s 状态检测族（ADR-082/063 演进） |
+| `MotionControl/WeldHeadSlaveDevice.cs` | 1015 | class WeldHeadSlaveDevice ; enum WsgGalvoPattern ; enum MotorRunState ; struct MotorState ; class GalvoParams ; class LaserHeadTemperatureData ; class HeadAlarmStatus ; class WeldHeadConfig | WSX 焊接头从站（万顺兴 ScanCut）：0x6000 温度 / 0x6010 振镜回读 / 0x7010 振镜写 / 0x7020 阈值 / **0x7000+0x6020 电机（LA，2026-10-08 已启用）**；含 `CreateLogicalHome()` 逻辑零位 + `MotorPulsePerMm` 量纲；；**2026-11-18 ADR-076 D7**：新增 `GetAxisConfigByName`（精确名取轴配置，区别于关键字匹配）（10 个全局项）+ `BuildGalvoParamsFor(pattern)`（组装下发：全局项 + 图形档）；`DefaultGalvo` 类型改 `GalvoGlobalParams` ⇒ **物理不存在**图形与宽/长/频；**2026-11-18 ADR-070 演进**：新增 `GalvoShapeParams` + `WeldHeadConfig.GalvoShapePresets`（GA 宽/长/频**按图形分 4 档**）+ `GetGalvoShape()`（缺档回退 Line 档）+ `SyncDefaultGalvoFromShape()`（`DefaultGalvo` = 当前生效参数集合） |
+| `MotionControl/MontionManager.cs` | 2268 | class MontionManager | 运控唯一管理器：轴/IO/缸装载 + 焊接头注册 + 配置持久化 + 六轴控制函数（ADR-073）；TA 门禁族 `LoadTaAxisConfig`/`TaAvailable`（ADR-082）；**2026-11-05**：`LoadTaAxisConfig` 改纯装载判定、`SaveTaHomeConfig` 删 P1（ADR-080 §D6）；ADR-082/084/085 扭矩与日志演进；**2026-11-05**：新增初始化闸门 `IsInitCompleted`/`MarkInitCompleted`、同轴单飞 `TryBeginAxisInstruction` 与 5s 状态检测族（ADR-082/063 演进）；**2026-11-18 ADR-070 演进**：XML 顶层 `GALVO/WIDTH|LENGTH|FREQUENCY` **不再写、不再读进 DefaultGalvo**（存量读一次作各档缺省值）；**2026-11-18 ADR-070 演进**：`GALVO` 段 XML 加 4 组子节点（`GALVO/<CIRCLE\|EIGHT\|LINE\|ARC>/WIDTH\|LENGTH\|FREQUENCY`）+ 存量迁移（各档缺省取顶层旧单档值） |
 | `MotionControl/IORegistry.cs` | 150 | class IORegistry |  |
 | `MotionControl/CylinderRegistry.cs` | 127 | class CylinderRegistry |  |
 | `MotionControl/AxisRegistry.cs` | 121 | class AxisRegistry | 按轴名登记台达轴并回灌控制器；元素类型已收紧为 `DeltaMontionAxis`（全库零 `as` 下转型） |
@@ -233,7 +240,14 @@ status: accepted
 | `FileOperate/XdocumentReaderWriter.cs` | 458 | class XdocumentReaderWriter | XML 配置读写（⛔ 禁 XmlSerializer）：三段式路径由构造注入；**2026-11-04 新增 `Reload()`**：从磁盘重读绑定文件；**2026-11-05 构造函数新增 `createIfMissing`**：预览/审计读传 `false`，禁止隐式建空文档（ADR-086） |
 | `FileOperate/ConfigSelfHeal.cs` | 664 | class ConfigSelfHeal | 配置自愈统一入口（ADR-086）：INI/XML 只增不改补缺、整文件缺失生成模板、备份+临时文件原子替换、写后回读、单文件聚合日志、幂等零写 |
 | `FileOperate/INIFile.cs` | 389 | class INIFile | INI 配置读写：ReadString/ReadInt/ReadDouble/ReadBool + 段与键枚举 |
-| `FileOperate/ConfigPathMigrator.cs` | 224 | class ConfigPathMigrator | 历史配置路径一次性迁移（ADR-033 路径范式落地） |
+| `ConfigFileControl/Implementations/ConfigSnapshot.cs` | 130 | class ConfigSnapshot | 配置快照：把 INI/XML 文档摊平成「路径→值」字典（**取磁盘态**，不干扰载体内存）；`Diff` 只记录有变动的键 |
+| `WeldParamControl/WeldParamProfileAudit.cs` | 164 | class WeldParamProfileAudit | 分段参数表变更审计（按宽度档逐项比较送丝/功率/速度/光斑/摆幅） |
+| `ConfigFileControl/Implementations/ConfigFileManager.cs` | 213 | class ConfigFileManager | **2026-11-19**：新增变更审计钩子 `SaveIniWithAudit`/`SaveXmlWithAudit`/`SaveIni`/`SaveXml`（保存 → 快照 diff → 只记变动项）。**全局配置文档总管**（ADR-006 D2）：唯一持有者 + 唯一对外口；根目录 `Config\ConfigFileControl\`；`GetIni`/`GetXml`/`GetModuleIni`/`GetModuleXml` 路由；其余 Manager 只消费参数不落盘；**2026-11-19 核查**：六个 Manager 正式载体数已全部归零（Records 按业主裁定保留） |
+| `ConfigFileControl/Implementations/IniConfigFile.cs` | 75 | class IniConfigFile | INI 载体实现（包装 `INIFile`） |
+| `ConfigFileControl/Implementations/XmlConfigFile.cs` | 100 | class XmlConfigFile | XML 载体实现（包装 `XdocumentReaderWriter`） |
+| `ConfigFileControl/Abstractions/IConfigFileProvider.cs` | 48 | interface IConfigFileProvider | 载体抽象契约（读/写/存在性/Reload/Save），零第三方依赖 |
+| `ConfigFileControl/Abstractions/IConfigRegion.cs` | 29 | interface IConfigRegion | 区域抽象契约（按 TabPage 分区，**键级**写入） |
+| `FileOperate/ConfigPathMigrator.cs` | 201 | class ConfigPathMigrator | 历史配置路径一次性迁移（ADR-033 路径范式落地） |
 | `FileOperate/Log.cs` | 198 | class Log | 日志文件写入（`yyyy-MM-dd HH:mm:ss:ffff`）+ **统一时间戳 `FormatTimestamp`（`yyyy-MM-dd HH:mm:ss` 24 小时制，界面与文件一致）** |
 | `FileOperate/ConfigBackupHelper.cs` | 106 | class ConfigBackupHelper | 配置写前备份：CreateBackupFolder → `Config\_backup\yyyyMMdd_HHmmss` + BackupFile/BackupDirectory（ADR-079） |
 
@@ -371,7 +385,7 @@ status: accepted
 
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
-| `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs` | 455 | class DeviceWorkflowBase | 模组工作流基类：步号范式(RunStep) + 手动/自动双入口 + 可观测性(StepStatusText/WorkElapsedMs)；**2026-11-05**：`Log` 记录 `_lastActionMessage` 并暴露 `LastActionMessage`；**2026-11-16 ADR-098**：`ReadinessStage` 枚举 + `IsEnabled/IsHomed/IsAtWorkZero` + `EnsureReadiness` 拒绝文案 |
+| `MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs` | 466 | class DeviceWorkflowBase | 模组工作流基类：步号范式(RunStep) + 手动/自动双入口 + 可观测性(StepStatusText/WorkElapsedMs)；**2026-11-05**：`Log` 记录 `_lastActionMessage` 并暴露 `LastActionMessage`；**2026-11-16 ADR-098**：`ReadinessStage` 枚举 + `IsEnabled/IsHomed/IsAtWorkZero` + `EnsureReadiness` 拒绝文案 |；**2026-11-19 ADR-006 D2**：`ConfigRelativeDir` 死属性已删，改用 `ConfigModule`（各 workflow 子类 override 到自身模块）⇒ 5 个 workflow 配置真正走 `ConfigFileManager`（此前 override 仍指旧目录 ⇒ 改造静默失效）
 | `MainDeviceControl/DeviceStateApiCore/DeviceStateBase.cs` | 278 | enum SubDeviceState ; enum SubDeviceWeldStatus ; enum MainDeviceStatus ; class SubDeviceStateChangedEventArgs ; class WeldStatusChangedEventArgs ; class DeviceStateBase | 三组枚举与事件契约：⭐ **SubDeviceState(3态·物理设备态 = Disconnected/Connected/Alarm)** / **SubDeviceWeldStatus(7态·焊接流程态)** / MainDeviceStatus(6态) + AlarmOccurred。⚠️ **前两者正交不可混**：设备态由物理量决定，流程态由流程推进决定 |
 | `MainDeviceControl/DeviceStateApiCore/CommandCore.cs` | 300 | class CommandCore | 机器人上下行指令常量表（const string，非枚举非命令字）+ IsKnownCommand 硬编码链 + 指令释意字典 CommandDescriptions（19 条）与 TranslateCommand（拆载荷查字典，2026-10-19），见 [[api/CommandCore]] |
 | `MainDeviceControl/DeviceStateApiCore/DeviceInitOutcome.cs` | 56 | enum DeviceInitOutcome ; class DeviceInitOutcomeItem ; class DeviceInitSummaryEventArgs | **初始化三态结果（2026-11-09）**：Success/Failed/**Skipped**（上级未就绪未发起连接）+ 逐项 `BlockedBy`/`Reason` + 汇总计数；与运行态 `SubDeviceState` **正交**，⛔ 不给 `SubDeviceState` 加 Skipped。规则见 [[standards/DeviceInitializationDependency]] |
@@ -506,7 +520,7 @@ status: accepted
 
 | 文件 | 行 | 主要类型 | 本文件做什么 |
 |---|---|---|---|
-| `LineLaserCam/VirtualCam/VirtualCam.cs` | 263 | class VirtualCam |  |
+| `LineLaserCam/VirtualCam/VirtualCam.cs` | 263 | class VirtualCam | 虚拟线激光（模拟测试）：生成**恒定宽度**平直搭接轮廓喂自适应算法；**2026-11-18**：`BaseSeamWidth`/`BaseSeamDepth` 收敛为 `const`（无可设入口，⛔ 模拟基准宽度恒定）；`FrameRateHz` 属系统设置页「线激光数据频率」（有外部写入，**不动**） |
 
 ### `AdaWeldSystem.Comm.SystemComm`
 
@@ -694,8 +708,8 @@ status: accepted
 | `DeltaMontionAxis.cs` | `BufferStop` Mode：0=Feedhold / 1=平滑停 / 2=急停，收尾**禁传 0** |
 | `EtherCATMasterNative.cs` | OP=8（ALState 位掩码，取 3 全拦截） |
 | `MontionAxis.cs` | `IsMoving` 存在厂商语义差异；运动收尾须查报警（CiA402 Fault 0x0008） |
-| `ConfigPathMigrator.cs` | 配置迁移必须先于任何 Manager 构造；迁移过程禁调 ShowLog |
-| `ConfigPathMigrator.cs` | 配置迁移必须先于任何 Manager 构造；迁移过程禁调 ShowLog |
+| `ConfigPathMigrator.cs` | **2026-11-19**：加 3 条新 INI 路径（Adaptive/Flow/Trajectory）旧目录映射；配置迁移必须先于任何 Manager 构造；迁移过程禁调 ShowLog |
+| `ConfigPathMigrator.cs` | **2026-11-19**：加 3 条新 INI 路径（Adaptive/Flow/Trajectory）旧目录映射；配置迁移必须先于任何 Manager 构造；迁移过程禁调 ShowLog |
 | `MontionManager.cs` | **轴角色关键字表**（焊接四类运动轴的定位词，轴名包含任一即命中）是轴定位唯一入口：`GetAxisByKeys` / `GetDeltaAxisByKeys` / `GetAxisConfigByKeys`；UI 禁自建关键字数组；六单轴控制函数 `MoveTo`（自动使能绝对定位）/ `StepMove`（posMode=0 相对步进）/ `ToggleServo` / `JogStart`（dir 1=负向 0=正向）/ `StopAxis`（减速停）是**轴控制唯一出口**；⛔ `MoveTo`/`StepMove` 阻塞等到位，UI 线程禁调 → 手动操作走 `MoveToNoBlock`/`StepMoveNoBlock`；⛔ `HomeAxis`（非阻塞回零）已于 2026-11-17 删除（回零统一走 `TryHomeAxisWithWait`，手动回零与复位回零同一实现） |
 | `MontionManager.cs` | **轴硬件故障文本唯一产出点**（ADR-095）：`DescribeAxisDiagnosis` / `DescribeAxisStatusWord` / `DescribeAxisCspRuntime` / `DescribeAxisCommandReturnCode` / `DescribeAxisRetractFailure`；流程层⛔ 禁直读状态字/总线态拼文案 |
 | `MontionManager.cs` | **TA 力矩运行期态唯一读写口 = `DeltaMontionAxis.TorqueOutputEnabled`**（ADR-082 删 `TaTorqueModeEnabled`/`SetTaTorqueMode`/`TaTorqueModeChanged`）；`ExitTaTorqueMode(axis, action)` 命中 TA 且 `TorqueOutputEnabled` 时撤 `CST_Output_Enable` → 回 CSP（`ExitTaTorque(reason)` 已于 2026-11-09 迁 Workflow，ADR-094）；六轴控制函数动作前仍走该出口；⛔ 不持久化；`DeltaAxisConfig.TorqueModeEnabled` 由 TA（送丝即 TA）消费 |
@@ -706,8 +720,8 @@ status: accepted
 
 | 文件 | 约束 |
 |---|---|
-| `WeldAlgorithmsConfig.cs` | CSP 段距门限 = 单脉冲当量 0.001mm；调至每拍步长（约 4.8μm）同量级会**轴停走**；`CspMinSegMm` 已不参与写段判定 |
-| `WeldAlgorithmsConfig.cs` | 输出死区上界 0.02mm（÷速度须 ≲τ150ms，否则阶跃+平台、驱动器耗干停走）；现场值 0.01mm；护栏须加载期钳位 |
+| `WeldParamConfig.cs` | CSP 段距门限 = 单脉冲当量 0.001mm；调至每拍步长（约 4.8μm）同量级会**轴停走**；`CspMinSegMm` 已不参与写段判定 |
+| `WeldParamConfig.cs` | 输出死区上界 0.02mm（÷速度须 ≲τ150ms，否则阶跃+平台、驱动器耗干停走）；现场值 0.01mm；护栏须加载期钳位 |
 | `SeamMapTrackingAlgorithm.cs` | `Yt=(特征Y−标定Y)×方向+轴实时Y+机器人Y`，`Ycsp=Yt−机器人Y`；**禁一切时间域低通**；VirtualCam 特征须随轴反向 |
 | `SeamMapTrackingAlgorithm.cs` | 切向野值判据 limit=0.2+0.15×外推距离；入图键须用外推 X 与查图同源 |
 | `WeldParamManager.cs` | 起焊沿**禁清**工艺调整（1.2→0→1.2 闪断）；空分段表**禁覆盖**内存查找表（否则输出恒 0）；载入序 = 基准兜底 → DB 覆盖 |
@@ -719,9 +733,9 @@ status: accepted
 | `ImageAlgorithm.cs` | 剪丝判据：WireMatched=焊丝未识别、WireHeadAdhesion=光斑未识别；轴向映射可换轴换符号 |
 | `LineLaserContourAlgorithm.cs` | 中心公式**勿改回**英莱 demo 的 fPersent/dwOffset 写法 |
 | `LineLaserContourAlgorithm.cs` | 中心公式**勿改回**英莱 demo 的 fPersent/dwOffset 写法 |
-| `WeldAlgorithmsConfig.cs` | **四分区归属**（`AlgorithmsZone`：①System / ②Quick / ③Adapt / ④Preset），每区唯一写口；`SeamWidthSource` 为**只读派生**（派生源 = `EnableGalvoWeave` 振镜摆动，禁从 INI 读 `SEAM_WIDTH_SOURCE`）；光斑宽度来源三项（`ManualSeamWidthMm`/`SpotWidthGain`/`ParamOutputHz`）归 ③Adapt、`EnableGuide` 唯一入口 ②Quick、`EnableMonotonicConstraint` 唯一入口 ①System；`MaxMapPoints` 归 ①System（XML 键路径 `SEAM_GUIDE/MAX_MAP_POINTS` 不变） |
-| `WeldParamManager.cs` | 曲线实例归本管理器**独占持有**，外部不得直读 `TaLaCurveConfig` 锚点常量（唯一读取口 = `AnchorSpotMm` facade）；**工艺输出 5 项**（手动固定缝宽/光斑宽度系数/参数输出频率/前馈安全系数/单调方向锁）经本管理器透传参数调整算法；TA 下压力 `TorqueTarget → TaForceN` 为**一次性迁移**（仅首次运行且工艺 INI 未写过该键时生效）；**ADR-084**：迁移换算 `TaForceN = TorqueTarget × Force100PctN / 1000`，基准 ≤0 跳过并告警；**ADR-084**：迁移后 `NormalizeTaForceDirection` 统一「大小 + 方向」——缺 `TA_TORQUE_DIRECTION` 时旧负值推断 -1，已有键不覆盖并告警核对翻向风险 |
-| `WeldParamAdjustmentAlgorithm.cs` | 工艺输出 5 项由本算法**统一管理**（落盘走 `WeldAlgorithmsConfig` 分区：手动缝宽/光斑系数/输出频率 ③Adapt，前馈系数/单调锁 ①System） |
+| `WeldParamConfig.cs` | **五区域归属**（`AlgorithmsZone`：①System / ②Quick / ③Adapt / ④Preset）**2026-11-19 ADR-076 D8 新增 ②′Flow 区**（系统页·流程控制与测试的 5 个工艺启用开关，原与 ②Quick 混在同 zone 跨 TabPage）⇒ 拆为 5 区（`Flow = 4`）；**INI 按 TabPage 四文件**（`AlgorithmIniSet.FileFor(zone)` 路由：System→Trajectory / Quick→Preset / Flow→Flow / Adapt→Adaptive / Preset→Preset）⇒ `SaveAlgorithmsZone` 只落目标文件，页面保存不再覆盖别页未保存的值（根因：`INIFile.SaveToFile()` 整文件重写）；新增 `MigrateLegacyAlgorithmIni()` 存量逐键迁移（同名 section 跨文件必须逐键搬，幂等，先写目标落盘再删源键）；⛔ 删 4 个零引用死配置（`LockSpotCalib`/`LockWirePos`/`SpotCalibPosMm`/`WireLockPosMm`）+ XML 死键 `Y_AXIS_MIN_MM`/`Y_AXIS_MAX_MM` 物理清理，每区唯一写口；`SeamWidthSource` 为**只读派生**（派生源 = `EnableGalvoWeave` 振镜摆动，禁从 INI 读 `SEAM_WIDTH_SOURCE`）；光斑宽度来源三项（⛔ `ManualSeamWidthMm`/`SpotWidthGain`/`ParamOutputHz` **已删**（ADR-076 D5）⇒ ③Adapt 只余「每段距离」`SegmentDistanceMm`；`EnableGuide` 唯一入口 ②Quick、`EnableMonotonicConstraint` 唯一入口 ①System；`MaxMapPoints` 归 ①System（XML 键路径 `SEAM_GUIDE/MAX_MAP_POINTS` 不变） |
+| `WeldParamManager.cs` | **2026-11-19 ADR-006 D2**：⛔ **不再持有任何配置载体**（全部由 `ConfigFileManager` 统一持有，本管理器只消费参数，H7）；删 4 个 INI 读写器 + `_configFile` + `AlgorithmIniSet` + `MigrateLegacyAlgorithmIni` 存量迁移（业主裁定完全舍弃旧配置）；`HealAlgorithmsConfigKeys` 补键模板改用 `WriteZoneIniTo`/`WriteConfigTo` 写独立临时载体（不污染正式载体） | 曲线实例归本管理器**独占持有**，外部不得直读 `TaLaCurveConfig` 锚点常量（唯一读取口 = `AnchorSpotMm` facade）；**工艺输出 5 项**（手动固定缝宽/光斑宽度系数/参数输出频率/前馈安全系数/单调方向锁）经本管理器透传参数调整算法；TA 下压力 `TorqueTarget → TaForceN` 为**一次性迁移**（仅首次运行且工艺 INI 未写过该键时生效）；**ADR-084**：迁移换算 `TaForceN = TorqueTarget × Force100PctN / 1000`，基准 ≤0 跳过并告警；**ADR-084**：迁移后 `NormalizeTaForceDirection` 统一「大小 + 方向」——缺 `TA_TORQUE_DIRECTION` 时旧负值推断 -1，已有键不覆盖并告警核对翻向风险 |
+| `WeldParamAdjustmentAlgorithm.cs` | 工艺输出项由本算法**统一管理**（前馈系数/单调锁 ①System）；⛔ **2026-11-18 ADR-076 D5**：手动缝宽/光斑系数/输出频率三项已删 ⇒ Manual 源恒定宽度改取 **GA 档宽度**（`ManualFixedWidthMm()`） |
 
 ### 5.3 主控与流程（MainDeviceControl）
 
@@ -740,7 +754,7 @@ status: accepted
 | `MotionControlWorkflow.cs` | 失步检测后重启；残差禁设死区、禁取本拍输出（零步 26.4%、冻结风险） |
 | `DeviceControlWork.cs` | 级联写入后**立即**调 `WeldStatusTrans()` 委托各子流程自行迁移（停焊沿 / Stopping 入口的唯一入口）；上行指令经具名元素数值码承载（`RxCmd`/`RxPayload`）；焊接中异常与总线故障先发 **`TX_NG`** 通知机器人停止动作，再切报警态（`TxCmd=10` 为备用，`TxCutWire` 指令码不在映射表内）；连接能力由 Comm 提供，本类只调其方法完成 Open + Connect On |
 | `WeldParamControlWorkflow.cs` | RSI 为唯一通道且指令/参数**全部数值化**；文本协议「P功率 S送丝 V速度 G摆幅」**已废止**，禁再走文本通道 |
-| `DeviceControlWork.cs` | **阶段 3（ADR-099）**：初始化只连+使能，结束态「已连接/已使能/未回零/无运动」，回零归复位；`RobotComm` 节点 `Mandatory=true`；`DoInitializeMachine` 拒 Running/EStop/Reseting，`AllInitTargetsConnected()` 全连即跳过；复位沿用既有链（`ResetMachine`→`IoReset`→`DoResetMachine`→`CascadeResetProcess`），运控在级联内 |
+| `DeviceControlWork.cs` | **2026-11-18 ADR-067 演进**：初始化收尾处**主动调用** `_weldHead.MoveToDefaultFocus()`（LA 就位默认焦平面；⛔ 不在 workflow 构造期订阅本类事件）；**阶段 3（ADR-099）**：初始化只连+使能，结束态「已连接/已使能/未回零/无运动」，回零归复位；`RobotComm` 节点 `Mandatory=true`；`DoInitializeMachine` 拒 Running/EStop/Reseting，`AllInitTargetsConnected()` 全连即跳过；复位沿用既有链（`ResetMachine`→`IoReset`→`DoResetMachine`→`CascadeResetProcess`），运控在级联内 |
 | `MotionControlWorkflow.cs` | **阶段 3（ADR-099）**：`ResetProcess` 在既有复位链内做门槛 L1 与能力分支（需回零轴 Home→工作零位 / 免回零轴只去工作零位），轴动作锁外执行；`RunInitAutoHomeIfEnabled` 仅在 `INIT_RUN_TA_HOME=1` 时恢复初始化回零 |
 | `DeviceStatusWork.cs` | **阶段 3（ADR-099）**：`IOWork` 在 `DeviceControlWork.Instance.IsInitializing` 为真时跳过安全互锁门控，避免设备未连先报 Alarm（D16） |
 | `DeviceControlWork.cs` | **阶段 4（ADR-100）**：设备 6 态 × 流程 7 态矩阵，设备态不自动级联流程态；`ConsistencyTick` 挂 `thIOWork` 内部 1 s 节流，只纠 `Stop×Working` / `NoReset×非NoReset` / `Alarm\|EStop×Working`（报警 3 s 宽限）；`ErrorAborted` 只经 `ReportAlarm` 上升；`SetStatus` 变化沿一条 Info；`CheckActionGate` 接 `DoSubWork` L4 与 `DoSubPrework` L0；`GetStatusSnapshot` 统一快照 |
@@ -757,14 +771,14 @@ status: accepted
 | `MotionControlWorkflow.cs` | **2026-11-17（ADR-100 D29 / ADR-082 D30）**：新增 `AxisRejectAutoWelding`；`TryManualAxisOperation`/`TryMoveAxisToTarget`/`TryHomeAxisWithWait`/`TaExecute` 增「自动焊接在跑 ⇒ 拒绝手动」门禁（⛔ `Stop`/`JogStop` 永远放行）；`ExecuteTaZeroPose` 前置改 `CheckTaAvailable`（TA_Zero 同口径要求已回零），删 `CheckTaMotionReady` 与「未回零只告警」块；`GetTaGateReason` 的 `allowZeroPose` 不再放宽 |
 | `SeamMapTrackingAlgorithm.cs` | **阶段 7（ADR-103）**：新增 `PauseIngest`，置位时 `OnLaserResult` 只计无效帧不入图；`ResetTracking` 清零 |
 | `WeldParamManager.cs` | **阶段 7（ADR-103）**：新增 `PoseAgeMs`；`OnSeamLaserResult` 按缺值>0 或位姿 age>2T 设 `PauseIngest`；`FeedLatestSeamWidth` 改调 `AccumulateSeamWidth`；删除 `IsCountType`/`CountNum` facade，改 `SegmentDistanceMm` |
-| `WeldAlgorithmsConfig.cs` | **阶段 7（ADR-103）**：新增 `SEGMENT_DISTANCE_MM`（1~50 默认 5，越界钳位 Warning）；删除 `IsCountType`/`CountNum`/`EnsureSupportedSegmentation`/`DistanceSegmentationUnsupportedReason`；旧键 `IS_COUNT_TYPE`/`COUNT_NUM` 只读忽略记一条 Info 且停写 |
+| `WeldParamConfig.cs` | **2026-11-19 ADR-006 D2**：由 `WeldAlgorithmsConfig` **改名**并扩展为全局配置类（内部按 TabPage 划 5 个 `ConfigRegion`）；载体经 `ConfigFileManager` 取（自身不再 `new`）；`Load/SaveProcessIni` 与 `Load/SaveZoneIni` 改无参/单参签名；**保存前 `carrier.Reload()` + 只写本区域键（键级）** ⇒ 同 section 跨 TabPage 共享时互不覆盖；新增 `BuildRegions()` 区域清单 + `WriteZoneIniTo`/`WriteConfigTo` 模板方法；`RemoveChild` 清理已废 XML 键；**阶段 7（ADR-103）**：新增 `SEGMENT_DISTANCE_MM`（1~50 默认 5，越界钳位 Warning）；删除 `IsCountType`/`CountNum`/`EnsureSupportedSegmentation`/`DistanceSegmentationUnsupportedReason`；旧键 `IS_COUNT_TYPE`/`COUNT_NUM` 只读忽略记一条 Info 且停写 |
 | `WeldParamAdjustmentAlgorithm.cs` | **阶段 7（ADR-103）**：按距离分段实现——`AccumulateSeamWidth` 同步滑动窗与段累计，累计 `|ΔrobotX|` 达 `SegmentDistanceMm` 取段内均值查表；段内无点不查表交缺值报警；`Reset` 清零分段状态 |
 | `ProcessControlPage(.Designer).cs` | **阶段 7（ADR-103）**：删「分段方式」下拉与「每段点数」标签，`txtFlowCountNum` 改「每段距离(mm)」；新增红色 `lblNoValueAlarmHint`；不加续焊按钮 |
 | `DeviceControlWork.cs` | **阶段 7（ADR-103）**：`EvaluateHeartbeatLevel` 接入 H2（`IsNoValueOverLimit`），`LogHeartbeatEdge` 对 H2 只记 Debug；唯一 Error 仍由缺值报警发出 |
 | `DeviceControlWork.cs` | **阶段 7（ADR-104）**：`ReportAlarm` 焊接中发 `TX_NG` 后立即 `CascadeWeldStatus(ErrorAborted)`，不等宽限；`MonitorAlignTick` 入口判 `IsAlarmstop` 停走并归零剪丝相位；`DoClearAlarm`/`ReportAlarmCleared` 调 `ClearRobotCommand` 停发报警标志，只回 `NoReset` 不改流程态 |
 | `WeldParamControlWorkflow.cs` | **阶段 7（ADR-104）**：`FlowProcess` 顶部判 `ErrorAborted`/`IsAlarmstop` 直接返回，`StepCompute`/`StepOutput` 不再推进；`PreWork` 报警期拒单；`SendToRobot` 停止调用即 RSI 载荷冻结 |
 | `CommunicationManager.cs` | **阶段 7（ADR-104）**：新增 `ClearRobotCommand` → `RsiComm.ClearTxCommand`，只清 `TxCmd/TxPayload`，不动焊参缓存与收发周期 |
-| `LaserWeldHeadWorkflow.cs` | **阶段 7（ADR-104）**：`ApplyGalvoAmplitude` 仅 `Working` 读 `LastOutput`，非焊接态幅值归零、`GalvoEnable=false`，不沿用旧自适应摆幅 |
+| `LaserWeldHeadWorkflow.cs` | ；**2026-11-18 ADR-076 D7**：Y 轴限幅与回归越界判据改接**轴软限位**（`TryGetSeamAxisSoftLimit`，0 = 不启用则不限幅），非焊接态幅值归零、`GalvoEnable=false`，不沿用旧自适应摆幅 |
 
 ### 5.4 通讯与权限（Comm）
 

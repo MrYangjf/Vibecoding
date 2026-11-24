@@ -30,7 +30,7 @@ date: 2026-08-26 · 范围：LineLaserCam 模块(17) + IL* UI(4) = 20 文件 / 1
 | LineLaserCam/HikRobotCam/ApiCore/HikCameraDevice.cs | 2 | 29 | 2 | 29 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs | 2 | 28 | 0 | 21 | 已修复 | UI·A类已清（本次修复断裂的嵌套类 IlJobParamRow + 区域错乱） |
 | LineLaserCam/SmartRayCam/CameraPresetManager.cs | 2 | 25 | 2 | 25 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
-| UIDesign/TabPage/ILCamPage.cs | 2 | 22 | 0 | 22 | 已修复 | UI·A类已清（功能型 region 保留，info 级） |
+| UIDesign/TabPage/ILCamPage.cs（已改名 LineLaserCamPage.cs） | 2 | 22 | 0 | 22 | 已修复 | UI·A类已清（功能型 region 保留，info 级） |
 | LineLaserCam/HikRobotCam/ApiCore/HikCameraManager.cs | 1 | 7 | 1 | 7 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | LineLaserCam/SmartRayCam/ApiCore/SensorState.cs | 1 | 5 | 1 | 5 | 待修复 | （2026-09-08 已删除：ADR-007 线激光三层重构，见 modules/LineLaserCam） |
 | UIDesign/SubDialog/IntelligentLaserDialog/ILScanForm.cs | 1 | 4 | 0 | 5 | 已修复 | UI·A类已清 |

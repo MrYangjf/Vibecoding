@@ -67,6 +67,23 @@ status: accepted
 
 - （待补：考虑过什么、为什么放弃）
 
+### 2026-11-23 演进 · 模拟启动自复位（跳过机器人复位指令）
+
+> ⚠️ **本节 D1~D3 已被下方「模拟三阶段命令驱动」演进取代**：复位不再由模拟自行触发，改由模拟注入 `RX_HOME_POSE`（机器人到归零位）触发主控复位链（见 [[decisions/ADR-038-RobotCommandDrivenStepFlow]] 三阶段章节 D1/D7）。D3 中「TA 复位按 `TaHomed` 区分首次回零+工作位/已回零仅工作位」与「Y 到工作零位」的复位链内部语义**继续有效**。
+
+- **决策 D1**：模拟启动链 `EnsureRunningForSimulation` 不再「清警→直接 Running」，而是清警后自行触发既有复位链 `DoResetMachine`（其内部已旁路机器人在位门禁，ADR-099 D3），不新增第二套复位入口（ADR-099 D6）。
+- **D2 时序**：新增 `_simResetPending` + 模拟调度步门控 `SimResetGateTick`：复位在途（Reseting）不推进任何大步；复位成功（Stop）→ `DoStartMachine` 进 Running → 才启动线激光/运控子流程；复位失败（Alarm/EStop）→ `DisableSimulation` 终止并暴露原因。⛔ UI 侧不得在 `StartSimulation()` 后立即 Start 子流程（会与复位链抢轴，现场实证 Y 未复位即回归标定位越界终止）。
+- **D3 理由**：业主改变模拟完整流程中 TA/Y 的要求为「需已复位」；复位链内 TA 复位按本次上电是否已回零分支（见 [[decisions/ADR-082-TaInitFourStepAndAvailability]]），Y 到工作零位。无实轴场景（运控未连）仍只清状态（ResetToIdle）。
+
+### 2026-11-23 演进 · 模拟三阶段命令驱动（Home→复位→焊前→焊接）
+
+- **决策 D4（仿真器扮演机器人）**：模拟调度步重排为「注入 Rx 命令 → 等阶段应答」：`step 5` 注入 `RX_HOME_POSE` → `step 6` 等 `IsResetCompleted`（并在此启动模拟位姿时钟喂入与 `StartSimulationSubflowsAfterReset`）→ `step 10/20` 等线激光 PreWork 与完成反馈 → `step 21` 注入 `RX_PRE_WELD_REQUEST`（**并同步启动寻位段 X 推进**：`StartRobotXSeeking`）→ `step 22` 注入 `RX_PRE_WELD_POSE`（带寻位起点 X，仅记录）→ `step 23` 等 `IsPreWorkCompleted` → `step 24` 注入 `RX_WELD_START_POSE` → `step 25` 等 `IsWeldStartAcknowledged` → `step 30` 等待到程。
+- **D5 注入入口**：新增 `DeviceControlWork.InjectSimRobotCommand(command, payloadX)`，把命令塞进**真实指令队列** `_commCommandQueue`，与真实机器人指令同队列同处理链（`CommCommandWork` → `MapCommandToIo` → 虚拟 IO → 派发）。⛔ 禁旁路直调 `DoSubPrework`/`DoSubWork`（否则模拟与真实分叉，违背 ADR-038「模拟走主控命令面」）。
+- **D6 限频重试注入**：单动作锁（`DispatchAction` 的 `_actionBusy`）会导致前序动作未结束时命令被丢弃，故模拟侧对同一条命令按 `SimInjectRetryIntervalMs = 1000ms` 限频重发，直到收到阶段应答（命令幂等）。
+- **D7 寻位起点 X 复用**：注入 `RX_PRE_WELD_POSE` 的坐标载荷取配置的「焊接前寻位起点 X」（`SimPreWorkStartXmm`），与 ADR-114 的模拟寻位判据同源。
+- **D8 X 推进两段式（审查修正）**：模拟 X 的推进拆为**寻位段**（`StartRobotXSeeking`，与焊前准备同步起 ⇒ 边走边建图）与**焊接段**（`StartRobotXMoving`，`DoSubWork` 内起）。⛔ `StartRobotXSimulation` 只喂位姿不推进——复位完成后、焊前准备下发前若 X 已移动，则「移动段早于跟踪段」会产生大截未引导数据（触发 NoValueAlarm）。
+- **D9 运控步机统一由主控启动（审查修正）**：真实流程中 `MotionControlWorkflow.Start()` 此前零调用方 ⇒ 运控 `RunStep` 停在 0、焊前寻位不可达。改由 `DoStartMachine` 统一启动（真实与模拟同一条路径）；`Start()` 非幂等，模拟侧不再重复调用。
+
 ## 相关页面
 
 - API：[[api/VirtualCam]]（平直搭接 1000 点 + 频率可配）· [[api/DeviceControlWork]]（`StartSimulation` / `ShouldUseVirtualCamera` / `ShouldMoveAxis` / `SimLaserFrequencyHz` / `SimTrajectoryRecorder`）· [[api/ProcessControlPage]]（UI 精简：模拟测试面板 + 线激光标定/轨迹点控制面板（2026-09-22 改名））· [[api/MotionControlWorkflow]]（`RecordOnlyTick` / `StepCspTarget` 解耦）

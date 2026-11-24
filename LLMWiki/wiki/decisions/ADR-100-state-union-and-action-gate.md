@@ -64,6 +64,16 @@ status: accepted
 - **理由**：手动与生产流程同时驱动同一根轴会互相打架；IsWelding 过宽会连正常调试一起禁掉
 - **影响**：新增 DeviceControlWork.IsAutoWeldingRunning（焊接过程态 PreWork/Working/Stopping）为主设备级权威判据；轴与焊接头手动入口各自前置拒绝，停
 
+### 2026-11-23 · 决策 D30 · 主页面轮廓显示门禁（手动模式隐藏）
+- **决策**：`MainPage.ProfilePollLoop` 的轮廓显示门禁由 `RunMode != Manual` 改为 `IsAutoWeldingRunning || IsSimulationEnabled`；手动调试时 `HideContourForManual` 隐藏轮廓线与特征点并清零版本，切回自动/模拟按最新帧恢复。工艺曲线轮询不受影响。
+- **理由**：① 模拟启动时 UI 把线激光流程置 `Manual`（界面动作语义），旧判据会把模拟轮廓误挡；② 手动调试切回主页面仍见轮廓（旧判据只不推进版本、不清空显示）。
+- **影响**：沿用 D29 的 `IsAutoWeldingRunning` 为「手动 vs 生产」权威判据，不新增状态字段；⛔ 不用 `RunMode` 判主页显示（模拟态会被误挡）。
+
+### 2026-11-23 · 决策 D31 · 动作入口按「手动 / 自动流程」分家：D29 门禁只约束手动入口
+- **决策**：D29 的「自动焊接流程进行中 ⇒ 禁手动动作」门禁**只作用于 UI 手动入口**（`MotionControlWorkflow.TaExecute` / `LaserWeldHeadWorkflow.LaAuto` / `GalvoManualStart` 等）。主控在自动流程内部派发的动作属**流程组成**，不视为手动干预，故新增流程内自动入口：`MotionControlWorkflow.TaExecuteAuto()`、`LaserWeldHeadWorkflow.LaAutoAuto()`、`LaserWeldHeadWorkflow.GalvoWeaveStartAuto()`，三者⛔ 不做 D29 门禁检查。
+- **理由**：焊前阶段（PreWork）已属自动流程（`IsAutoWeldingRunning` 在 PreWork 态为真），若复用手动入口会被 D29 全量拒绝，导致「真正工作自 PreWork 起」无法落地（TA/LA/振镜无法进工作模式）。
+- **影响**：手动入口行为**不变**（D29 仍然生效，正常调试不被误伤）；自动入口仅由主控流程调用，⛔ 不暴露给 UI。见 [[decisions/ADR-038-RobotCommandDrivenStepFlow]] 三阶段章节 D5。
+
 ## 相关页面
 
 - [[decisions/ADR-Index]]

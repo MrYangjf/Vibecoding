@@ -1,3 +1,451 @@
+## [2026-11-24 11:34:50] review | 模拟流程审查复核通过 + 三项加固落地
+- 来源：业主 2026-11-24『审查刚刚对模拟流程的判断，修复是否正确』；复核对象=上轮 6 条判断 + 6 处修复
+- 操作：
+  1. N1 ResetSimulationSessionState 补 _subWorkPending/_subWorkPendingLogTs（15 项→17 项）；N2 StartSimulation 开启端补 ResetSeamTracking(模拟会话开启复位)；N3 删 6 处孤儿 summary（SimulationConfig/LineLaserConfig/MontionManager/DeltaMotionConfig/TaLaCurveConfig/WeldParamConfig）
+- 变更文件：MainDeviceControl/DeviceControlWork.cs; MainDeviceControl/SimulationConfig.cs; LineLaserCam/LineLaserConfig.cs; MotionControl/MontionManager.cs; MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs; WeldParamControl/Curves/TaLaCurveConfig.cs; WeldParamControl/WeldParamConfig.cs; wiki/lessons/SimulationAutoBranching.md; wiki/lessons/CommentSimplificationBatchPitfalls.md; wiki/api/DeviceControlWork.md
+- 结论 / 遗留：复核结论：上轮 J1~J6 判断全部成立（缺值累计未随会话复位为真根因，62.6mm 可复现）；三项残留均属登记不全/晚清/注释残留，非功能性故障。真编译 errors=0 rc=0；字节级比对仅目标行变动（BOM 与行尾守恒）。现场仍需覆盖三种结束方式（焊缝行程完成/手动停止/异常自动停止）各连点两轮验证
+
+## [2026-11-24 11:18:51] refactor | 模拟测试时序复审 + 注释与代码精简：case7 发出才推进、位姿心跳证伪、单一注入出口
+- 来源：-
+- 操作：
+  1. case7 改发出才推进（拒发原地重试）与 case21/24 统一
+  2. 清除两文件注释中全部 ⛔/ADR-/remarks 元信息并压缩长注释
+  3. TryInject/TryReinject 尾部重复提取 FireSimCommand 单一注入出口
+  4. T2 跳喂经代码链证伪故保留位姿心跳
+  5. Ack 三方法归一经评估回退（净行数反增）
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; wiki/api/DeviceControlWork.md; wiki/lessons/SimulationAutoBranching.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态断言 56/56 PASS（T2b 判据首版字符串匹配过脆已修正）；T2 不改码有据：PoseAgeMs 入图门禁依赖持续喂入
+
+## [2026-11-24 10:51:33] coding | 恢复 SystemControlPage 误删的温度警告/报警四个控件
+- 来源：-
+- 操作：
+  1. Designer 补回 lblTempWarnCaption/txtTempWarn/lblTempAlarmCaption/txtTempAlarm 四件套
+  2. 挂载 gridTemp 第 5 行
+  3. TabIndex 163-166 按 HEAD 原值
+  4. 属性逐项比对 HEAD 一致
+- 变更文件：AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; wiki/guides/ExecutionEnvironment.md; wiki/lessons/UiModuleRemovalCleanup.md
+- 结论 / 遗留：真编译 errors=0 rc=0（首次失败为 HTTPS_PROXY/https_proxy 环境撞键 MSB3883，unset 小写后通过）；属性比对 20/20 PASS
+
+## [2026-11-24 09:08:49] coding | 模拟测试新增会话变量统一复位函数，任意次点击均从 Home 重新开始
+- 来源：-
+- 操作：
+  1. 新增 ResetSimulationSessionState(reason, restartFromHome) 复位 15 项会话变量
+  2. StartSimulation 传 true 且前移到线程拉起前
+  3. DisableSimulation 传 false 停在无效步
+  4. 新增 _simHardwareSuspended 防使能快照被覆盖
+  5. 重复开启改为有日志的幂等返回
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; wiki/lessons/SimulationAutoBranching.md; wiki/api/DeviceControlWork.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态断言 15/15 PASS（R15 判据首版失效已修正）
+
+## [2026-11-23 21:53:43] coding | 模拟测试第二轮首拍缺值报警：会话复位补清缺值累计与位姿锚点
+- 来源：-
+- 操作：
+  1. ResetNoValueDistance 同时清 _noValueHasPoseAnchor/_noValueLastPoseX/_noValueLastPoseTime
+  2. ResetSeamTracking 与 ResetTrackingForWeldStart 调用 ResetNoValueDistance
+  3. DisableSimulation 复位焊缝跟踪会话
+  4. StartSimulation 调度步复位前移到线程拉起之前
+- 变更文件：AdaWeldSystem/WeldParamControl/WeldParamManager.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; wiki/lessons/SimulationAutoBranching.md; wiki/api/WeldParamManager.md
+- 结论 / 遗留：根因：上一轮末段 60mm 无数据行程残留 62.6mm 被第二轮 PreWork 首拍继承；真编译 errors=0 rc=0；静态断言 9/9 PASS
+
+## [2026-11-23 21:15:45] coding | 日志三问题收口：自愈路径统一、审计 before 保真、注入超时重发
+- 来源：-
+- 操作：
+  1. 通讯自愈路径改 ConfigFileManager.ModuleAbsolutePath
+  2. 相机默认配置路径改载体路径
+  3. 仿真配置暴露 DefaultFilePath
+  4. ReloadCurrentParamValues 去掉 DeleteTable
+  5. 模拟注入 21/22 合并为发出后推进
+  6. 新增 TryReinjectOnAckTimeout 超时重发
+- 变更文件：AdaWeldSystem/Comm/Communication/CommunicationManager.cs; AdaWeldSystem/MonitorCam/MonitorCamConfig.cs; AdaWeldSystem/MainDeviceControl/SimulationConfig.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; wiki/lessons/ConfigZoneSaveWiring.md; wiki/lessons/SimulationAutoBranching.md; wiki/api/ConfigSelfHeal.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态断言 16/16 PASS；焊前位X此前从未送达，本轮修复
+
+## [2026-11-23 17:30:26] review | 澄清 4610 官方语义并沉淀 0x12xx 错误码对照表
+- 来源：台达《EtherCAT 程式開發手冊》§33-4 命令回傳值與訊息描述（PDF P941）
+- 操作：
+  1. 确认 4610=0x1202=ERR_ECAT_SLAVE_TYPE 官方描述「此模組不支援此 API」
+  2. 区分邻近码 4609参数错/4611目标到达/4612模式不支持/4613轴不支持该运动模式/4614PDO未映射/4615固件版本不支持/4618原点偏移
+  3. 结论 4610 应按「该模块不支持该 API」判定 不再继续调参数
+- 变更文件：wiki/api/DeltaEtherCAT-Native
+- 结论 / 遗留：纯知识澄清，代码零改动
+
+## [2026-11-23 17:27:58] fix | 按现场原型校准建系参数：orgFlag=1 sCurveTime=10 上限留余量
+- 来源：业主提供的早期可运行原型代码（EtherCAT MotionBuffer 调用样例）+ 业主口径（别写 Disable、MultiAxis2 轴数写 1 可以、Get_Remain_Buffer_Size 取剩余缓存）
+- 操作：
+  1. 建系 Set_Crd_Parameters 的 orgFlag 由 0 改为 1（原型值 需要工作坐标偏移 传0时坐标系未按驱动器要求建立）
+  2. sCurveTime 由 0 改为 10（台达建议值与原型一致 轴配置优先）
+  3. 坐标系速度加速度上限放大4倍留余量（手册9.7.1 参数超上限即回传错误 段速会被积压提速短时放大）
+  4. 建系日志补 工作坐标偏移/轴数/节点/槽/表 便于现场核对
+  5. 确认未调用 MotionBuffer_Disable 且余量查询已用于诊断
+  6. 沉淀原型基准参数表到ADR-042 D5e 与 lessons 教训
+- 变更文件：AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs; wiki/decisions/ADR-042; wiki/lessons/SimulationAutoBranching
+- 结论 / 遗留：真编译 errors=0 rc=0。待现场复测 4610 是否消失
+
+## [2026-11-23 17:22:31] fix | 4610 回退三次重试 + 双接口写段排查
+- 来源：现场日志 20261123 17:11（建系成功但写段持续4610 队列段恒0 运行0 轴不动）+ 业主（CSP完全没奏效不能移动 以前只有电机没问题 装轴上 脉冲当量1000 4610确实是没有移动的报错 恢复三次重试后报错终止）
+- 操作：
+  1. 回退4610降级Debug：恢复计故障+跨拍挂起重写+达3次Fail终止焊接
+  2. 核对官方EtherCAT_DLL.cs头文件与手册P9-150范例 建系参数/写段签名/脉冲当量全部一致 排除参数错位
+  3. 发现从站被标「未识别设备」厂商0x1DD产品码0x60010 基础CSP可用但MotionBuffer被拒
+  4. BufferLineTo改为优先Line_MultiAxis(手册标准流程Step3) 遇4610回落MultiAxis2 双失败打印节点槽表FIFO与目标脉冲
+- 变更文件：AdaWeldSystem/MotionControl/DeltaEtherCAT/Native/EtherCATMotionBufferNative.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; wiki/decisions/ADR-042
+- 结论 / 遗留：真编译 errors=0 rc=0。若两接口均4610则判定驱动器固件不支持缓冲插补。待现场复测
+
+## [2026-11-23 17:08:02] fix | 4610 降级 Debug：不计故障不重试不阻断
+- 来源：业主裁定（将4610报错降级到Debug 不影响程序继续 不需要重试）
+- 操作：
+  1. CspResult 新增 EcatSlaveType=4610 常量
+  2. ReportCspResult 遇4610输出Debug级 其余仍Error
+  3. QueueCspSegment 写段遇4610直接返回 false 不计_cspWriteFailCount不挂起
+  4. 挂起重写遇4610作废挂起段不再重试
+  5. 其余非0返回码仍按故障挂起重写达3次Fail
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MotionControl/IMotion/MontionAxis.cs; wiki/decisions/ADR-042; wiki/api/MotionControlWorkflow
+- 结论 / 遗留：真编译 errors=0 rc=0。区分 4610(降级) 与 其他返回码(仍故障) 的处置口径
+
+## [2026-11-23 16:51:33] fix | CSP 全程一条缓冲流：到达焊前X不停启
+- 来源：业主口径（到达焊接前X时不希望CSP停止 一直入一直按X出 无停止再启动）
+- 操作：
+  1. TryStartPreWorkTracking 在PreWork启动即建系(TryStartPreWorkCsp)并立即写段 Y边扫边跟
+  2. 移除QueueCspSegment的X未到位不写段判定 改为全程连续写
+  3. 到达焊前X与起焊沿均不停启 起焊沿走复用分支不重建系不收尾
+  4. 仅停焊沿StopCspOutput收尾
+  5. 建系紧贴首次写缓存保证无4610
+  6. 知识库ADR-042 D5/D5b/D5d与api页改为全程连续语义
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; wiki/decisions/ADR-042; wiki/api/MotionControlWorkflow
+- 结论 / 遗留：真编译 errors=0 rc=0。待现场复测：PreWork建系后立即写段无4610、X移动期间Y即开始跟随、到达焊前X与起焊沿均无缓冲停启日志
+
+## [2026-11-23 16:47:56] fix | 按现场CSP缓冲语义回退「容忍预载失败」：写缓存失败即故障
+- 来源：业主现场口径（台达CSP缓冲开启后按缓存值移动直到耗尽 结束后须重新开启 标准时序=线激光提前扫→提前写缓存→到位开启→监控空拍→清零后重启）
+- 操作：
+  1. 回退预载期容忍分支 写段失败一律计故障并跨拍挂起重写 达3次Fail暴露
+  2. Start阈值恢复为成功段数_cspQueuedSegments(原用尝试次数会导致空缓存开启轴不动并掩盖故障)
+  3. 删除_cspPreloadAttempts字段与8处赋值
+  4. 保留建系紧贴首次写缓存(X到位才建系)与空拍60拍判耗尽后重新Start语义
+  5. 知识库修正D5c为「写缓存失败即故障」并新增D5d现场标准时序五步
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; wiki/decisions/ADR-042; wiki/lessons/SimulationAutoBranching; wiki/api/DeltaEtherCAT-Native
+- 结论 / 遗留：复核通过：①提前扫②提前写缓存③到位开启④空拍监控⑤清零后重启 五步与业主口径一致。真编译 errors=0 rc=0。output 包见最新 AdaWeldSystem_output_*.tar.gz
+
+## [2026-11-23 16:43:04] fix | 4610 定论：建系须紧贴首次写段（经 git 版本对比定位）
+- 来源：现场日志 20261123 16:29 轮（建系后1.4s首次写段即4610）+ 业主提示（看未修改前代码 那时跟踪正常 现在插入寻位跑不下去）+ git show HEAD 对比原始版本
+- 操作：
+  1. 查明真因 原始代码建系后下一拍即写段(约10ms) 改版后PreWork先建系等1.4s X到位才写段 台达坐标系表闲置失效致4610
+  2. 重构 TryStartPreWorkTracking 只激活地图跟踪与喂帧不建系 新增 TryStartPreWorkCsp 由DoPreWorkSeek在X到位时调用建系
+  3. 预载期写段失败不计故障不挂起 只计_cspPreloadAttempts Start阈值改用尝试次数而非成功段数
+  4. StartCspOutput复用分支加_cspOutputRunning判定 未建系则补建
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; wiki/decisions/ADR-042; wiki/lessons/SimulationAutoBranching; wiki/api/MotionControlWorkflow; wiki/api/DeltaEtherCAT-Native
+- 结论 / 遗留：三轮假设（坐标系表未激活/先Start/点位运动切模式）均被现场证伪，最终靠版本对比定位。真编译 errors=0 rc=0。output=AdaWeldSystem_output_20261123_164212.tar.gz。待现场复测 4610是否消失且寻位阶段Y跟随移动
+
+## [2026-11-23 16:24:29] fix | 焊前寻位先扫后跟 + 回退错误的先Start时序 + 消除三处假报错
+- 来源：现场日志 20261123 16:15:44~16:16:13（BufferStart成功仍4610 + 寻位开始0.147s即报焊前完成 + 4352重复清缓冲 + 从站未装载记Error）+ 业主口径（寻位与以前工作方式一致 线激光提前扫 X到了才开启Y跟随 线激光还没看到Y就报错）
+- 操作：
+  1. 回退建系后立即BufferStart（空缓冲先Start致FIFO已启动拒写段=4610真因 手册P9-146先存指令方能执行 恢复建系→写段(预载2段)→Start）
+  2. 新增先扫后跟 QueueCspSegment 入口 X未到位不写段不驱轴 X到位后才开Y跟随
+  3. 新增 _preWorkSeekReady/IsPreWorkSeekReady 独立标志 修正_calReturnReady在回归标定位即置位致寻位刚要0.147s就判完成
+  4. CheckPreWorkCompleted与IsSubWorkGateOpen改判IsPreWorkSeekReady
+  5. StopCspOutput 的BufferStop成功后清_cspBufferStartedOnce 消除重复Stop的4352假报错
+  6. 新增LaserWeldHeadWorkflow.IsSlaveReady 从站未装载时跳过LA/振镜只记Warn不记Error
+  7. 寻位会话态补_preWorkSeekReady双清零
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; wiki/decisions/ADR-042; ADR-114; wiki/lessons/SimulationAutoBranching; wiki/api/MotionControlWorkflow; api/DeltaEtherCAT-Native
+- 结论 / 遗留：修正上一轮错误结论（坐标系表提前激活假设已被现场证伪）。真编译 errors=0 rc=0。output=AdaWeldSystem_output_20261123_162420.tar.gz。待现场复测：4610是否消失、寻位阶段X到位后Y是否真移动、4352与从站Error是否消失
+
+## [2026-11-23 16:10:29] fix | 焊前寻位真实移动到焊接点 + 坐标系表提前激活 消除 4610 二度复发
+- 来源：现场日志 20261123 15:45:36~15:46:11（CSP 缓冲写入 4610 连续失败3次 运控异常终止 + 寻位阶段轴反馈恒 -37.000 段距0.0000 轴未动）+ 业主口径（Y轴真实移动到焊接位置 未移动到要报PREWORK错误）+ 业主线索（早几天 CSP 缓存模式提前开启就没问题）
+- 操作：
+  1. 根因 4610=坐标系表未激活 同轴同API先失败后成功 排除轴类型与运动模式(点位运动本身即CSP API不切模式) 排除未Start不许写(ADR-042预载3段后Start为现场实证时序)
+  2. 新增 DeltaMontionAxis.EnsureCspMode 读模式非CSP则切并校验读回 建系前/写段失败时调用
+  3. ServoOn 的 Set_MoveMode 返回值不再忽略
+  4. PreWork建系后立即 BufferStart 激活坐标系表 空缓冲Start失败则降级写满2段后Start
+  5. 写段失败重写时先尝试Start激活再重写
+  6. 寻位到位判据加轴累计位移>=0.002mm 禁止目标约等于当前位置假到位
+  7. 寻位超时失败原因统一为 焊前寻位失败 PREWORK
+  8. 寻位会话态 _preWorkSeekStartTicks/_preWorkXArrived/_preWorkSeekStartAxisPos 在 ClearStatus 与 ResetProcess 双清零
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs; wiki/decisions/ADR-042; ADR-114; wiki/lessons/SimulationAutoBranching; wiki/api/MotionControlWorkflow; api/DeltaEtherCAT-Native
+- 结论 / 遗留：真编译 errors=0 rc=0。待现场复测确认 4610 消失且寻位阶段轴位置发生变化(累计位移>0.002mm)
+
+## [2026-11-23 15:17:08] fix | 修复模拟注入反复重发：PreWork 阶段工作实际未发生的三处缺陷
+- 来源：现场日志 20261123 15:05:17~15:05:32（模拟注入机器人指令反复重发 + 拒收 整机非 Stop 态 当前 Running + 地图点恒0 平滑跳过持续递增）
+- 操作：
+  1. 缺陷1 喂帧门禁只看得焊沿开关 _seamTrackingActive PreWork阶段为false致每帧被丢地图恒空寻位超时 改为加 !_cspPreWorkTracking 放行
+  2. 缺陷2 OnSeamTrackingStart 起焊沿调 ResetTrackingForWeldStart 清空PreWork建好的地图 改为 _cspPreWorkTracking 为真时不复位跟踪算法 复用地图与基准
+  3. 缺陷3 模拟步6自行DoStartMachine致随后 RX_PRE_WELD_REQUEST 被 IoStart 的Stop前置拒收 改为模拟不自行启动 交给注入命令触发 并放宽 IoStart 前置为 Stop或Running均放行
+  4. 另加 DoSubPrework 幂等守卫 判据取运控PreWork态 不用线激光态(模拟会提前切)避免焊前准备被永久跳过
+  5. 模拟步序重排 5/6/7/8/20/21/22/23/24/25/30
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; wiki/decisions/ADR-038; wiki/lessons/SimulationAutoBranching; wiki/api/DeviceControlWork; wiki/api/MotionControlWorkflow
+- 结论 / 遗留：根因共性 命令发出不等于阶段工作已发生。真编译 errors=0 rc=0。output=AdaWeldSystem_output_20261123_151655.tar.gz。待现场复测确认 PreWork 阶段地图点开始增长、寻位在60s内完成
+
+## [2026-11-23 14:56:30] review | 核对机器人作业循环全景 + TA_Auto 门禁问题确认已解决
+- 来源：业主给出的作业循环口径 + 业主提问（PreWork 能否执行 TA_Auto）
+- 操作：
+  1. 逐节点核对 8 个循环节点与协议指令映射 全部一致 过渡点RX_START_SAFE_POSE无动作 焊接结束点RX_WELD_STOP_POSE仅记录由行程监视收口 预停语义由lead前置量实现
+  2. 确认闭环条件 ConnectOff 只置子流程Disconnected不调InitializeOff 故第二轮Home复位仍可受理 EnsureResetReadiness通过
+  3. 确认 TA_Auto 门禁问题已解决 新增 TaExecuteAuto 流程内入口绕过 CheckAutoWeldingConflict 仍受 CheckTaAvailable 约束(TaMotionReady&&TaHomed 复位链后成立)
+  4. 沉淀 ADR-038 循环全景表 + api/MotionControlWorkflow 与 api/DeviceControlWork 横幅
+- 变更文件：wiki/decisions/ADR-038; wiki/api/MotionControlWorkflow; wiki/api/DeviceControlWork
+- 结论 / 遗留：本轮代码零改动（仅核查与沉淀），真编译 errors=0 rc=0。遗留：对外回复指令未接线、LA机械回零未实现、模拟侧只跑一轮焊接不做安全离开→Home收尾（下一轮=重新开启模拟）
+
+## [2026-11-23 14:39:01] fix | 审查修正：四处真实流程断链 + PreWork 启动时机
+- 来源：业主审查要求（梳理流程/查 manager 与 workflow 越界）+ 业主对 RxWeldStartPose 语义澄清
+- 操作：
+  1. 修正 RxPreWeldPose 误映射 IoSubPrework 改为仅记录坐标 PreWork 改由 RxPreWeld_REQUEST 启动（移动期间须起 否则X停地图建不起寻位必超时）
+  2. RxPreWeld_REQUEST 额外置 IoSubPrework 与 IoStart 同时
+  3. ScanPulseIo requireRunning 未满足改为保留IO供下拍重试 原为取走后丢弃
+  4. IsCommandPreconditionMet 对 IoSubPrework/IoSubWork 改为不拒收 原为拒收丢指令
+  5. DoStartMachine 统一启动运控步机 真实流程 Start() 此前零调用方致运控RunStep停0寻位不可达
+  6. DoResetMachine 补 Running态拒绝复位 避免Running→NoReset被拒致状态不一致
+  7. 模拟 EnsureRunningForSimulation 先停机再清态
+  8. 模拟X推进拆两段 StartRobotXSeeking 与焊前准备同步起 消除移动段早于跟踪段的未引导数据
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs; wiki/decisions/ADR-038; ADR-032; wiki/lessons/SimulationAutoBranching; wiki/api/DeviceControlWork; DeviceStatusWork
+- 结论 / 遗留：越界自查：主控仅调子流程公开成员零私有直访；运控无 AdvanceStep(StepWorking) 不自迁跨阶段步；跨workflow直读两处为既有代码非本轮引入。真编译 errors=0 rc=0。output=AdaWeldSystem_output_20261123_143852.tar.gz
+
+## [2026-11-23 14:29:52] fix | 三阶段命令驱动：Home→复位→焊前→焊接 + 阶段应答
+- 来源：业主需求（三阶段信号交互）+ 业主裁定（主控被动接受命令/阶段完成需回复/对外指令待定）+ 业主确认（Home→触发复位、WELD_START_POSE 触发焊接、真正工作从prework开始）
+- 操作：
+  1. MapCommandToIo 补映射 RxHomePose→IoReset(原IoStop) RxPreWeldPose→IoSubPrework(原仅记录) RxWeldStartPose→IoSubWork(原仅记录)
+  2. 新增阶段应答态 IsResetCompleted/IsPreWorkCompleted/IsWeldStartAcknowledged 对外回复指令待协议确定
+  3. DoSubPrework 新增 EnterPreWorkWorkingModes 调 TA自动/LA自动/振镜按自适应基准值开启摆动
+  4. 新增流程内自动入口 TaExecuteAuto/LaAutoAuto/GalvoWeaveStartAuto 不做手动动作门禁
+  5. 焊接头ResetProcess 新增振镜回逻辑零位 LA机械回零待实现
+  6. 模拟改注入Rx命令到真实队列 InjectSimRobotCommand 调度步重排5/6/10/20/21/22/23/24/30 并按1s限频重试注入
+  7. DispatchAction 忙时保留IO供下拍重试 不再丢弃指令
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs; wiki/decisions/ADR-038; ADR-032; ADR-100; wiki/lessons/SimulationAutoBranching; wiki/api/DeviceControlWork; MotionControlWorkflow; LaserWeldHeadWorkflow; DeviceStatusWork
+- 结论 / 遗留：真编译 errors=0 rc=0。遗留：对外回复指令未接线(等协议确定)、LA机械回零未实现、振镜LA工作模式待现场验证。output=AdaWeldSystem_output_20261123_142943.tar.gz
+
+## [2026-11-23 13:43:46] fix | 新增焊前寻位流程与模拟寻位起点X配置
+- 来源：业主需求（重做PreWork环节）+ 前序 4610 诊断
+- 操作：
+  1. 新增运控步 StepPreWorkSeek=13 焊前寻位 判据 X到位且Y到焊接点 超时60s报PreWork失败停焊
+  2. PreWork阶段只激活地图跟踪不开缺值量测 不报NoValueAlarm
+  3. 机器人焊前位X由 RX_PRE_WELD_POSE 报文记录 到位判据差≤5mm
+  4. 模拟新增可配置 焊接前寻位起点X(mm) 存 SimulationController.ini 的 PreWorkStartXmm
+  5. 模拟X两段式 开启即自0移向设定点到达即停 起焊段继续沿焊缝前进
+  6. 建系后留50ms稳定窗口再写段
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; MainDeviceControl/DeviceControlWork.cs; MainDeviceControl/SimulationConfig.cs; UIDesign/TabPage/SystemControlPage.cs; SystemControlPage.Designer.cs; wiki/decisions/ADR-114; ADR-042; ADR-Index
+- 结论 / 遗留：ADR-114 新建（新号=max+1=114 脚本页内标题需人工修正为114）。真编译 errors=0 rc=0。风险：真实流程依赖机器人先移动到焊前位，否则地图建不起寻位超时失败
+
+## [2026-11-23 11:53:57] fix | PreWork 起跟踪 + 写段失败挂起重试 消除 CSP 4610
+- 来源：现场日志 11:11:15:0260 CSP 缓冲写入失败 4610 + 台达官方手册 PM_TC_20250428 P941/P956
+- 操作：
+  1. 新增 TryStartPreWorkTracking PreWork 建系并激活地图跟踪 起焊沿复用不重建系
+  2. 抽出 BuildCspCoordinateSystem 供 PreWork 与写段重试共用
+  3. 写段失败不推进队列账本 段挂起延时0.05s跨拍重写 连续失败3次报警停焊
+  4. 新增 BeginSeamTrackingForPreWork 只激活跟踪不开缺值量测
+  5. 模拟X时钟前移到DoSubPrework 只喂位姿X不动 DoSubWork 调 StartRobotXMoving 起步
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; wiki/decisions/ADR-042; wiki/lessons/SimulationAutoBranching; wiki/api/MotionControlWorkflow; api/DeviceControlWork; api/WeldParamManager
+- 结论 / 遗留：4610=0x1202=ERR_ECAT_SLAVE_TYPE 此模块不支持此API(官方手册)，判定为建系后未Start窗口瞬态被拒。真编译 errors=0 rc=0。待现场复测确认不再出现4610
+
+## [2026-11-23 11:25:28] diagnose | 诊断 CSP 缓冲写入 4610（只出诊断不改码）
+- 来源：现场日志片段 2026-11-23 11:11:14~15:0260 + 台达官方手册 PM_TC_20250428 P941/P956
+- 操作：
+  1. 4610=0x1202=ERR_ECAT_SLAVE_TYPE 官方释义 此模块不支持此API
+  2. 判定为建系后缓冲未Start窗口瞬态被拒 非永久轴类型问题
+  3. 查出真正隐患 QueueCspSegment 写失败仍推进队列账本且 ReportCspResult 只限频记录无处置
+  4. 沉淀 lessons/SimulationAutoBranching 陷阱廿四
+- 变更文件：wiki/lessons/SimulationAutoBranching
+- 结论 / 遗留：业主裁定本轮只出诊断不改码，代码零改动。写失败处置口径待业主确认后另案。无 output 包（无代码交付）
+
+## [2026-11-23 11:08:13] fix | 模拟X时钟延后到PreWork完成 + 自适应复位首帧播种
+- 来源：运行日志 20261123_智能填丝焊接系统日志.log（10:42~10:47 轮）+ 业主三问
+- 操作：
+  1. StartRobotXSimulation 从 StartSimulation 移到 DoSubWork 在 BeginWeldMonitor 前
+  2. 起点复位改 ResetTrackingForWeldStart 不再全复位工艺调整
+  3. WeldParamAdjustmentAlgorithm 增 _seamWidthSeeded 首帧有效宽度播种不算突变
+  4. 问题3诊断 模拟线程职责边界合规不改码
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/WeldParamControl/Algorithms/WeldParamAdjustmentAlgorithm.cs; wiki/decisions/ADR-045; ADR-103; lessons/SimulationAutoBranching; api/DeviceControlWork
+- 结论 / 遗留：真编译 errors=0 rc=0。output=AdaWeldSystem_output_20261123_110805.tar.gz。问题3按业主裁定保持 thSimTestWork 线程（位姿+日志），不改线程模型
+
+## [2026-11-23 10:34:15] fix | 模拟测试自复位 + TA 复位区分 + 主页面轮廓手动门禁
+- 来源：运行日志 20261123_智能填丝焊接系统日志.log + 业主口述需求
+- 操作：
+  1. 模拟启动自行触发 DoResetMachine 跳过机器人复位指令
+  2. 新增 SimResetGateTick 门控 复位完成才进 Running 并启动子流程
+  3. TA 复位按 TaHomed 区分首次回零+工作位/已回零仅工作位
+  4. 主页面轮廓门禁改 IsAutoWeldingRunning||IsSimulationEnabled 手动时隐藏
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/UIDesign/ControlPage/MainPage.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; wiki/decisions/ADR-032; ADR-082; ADR-100; lessons/SimulationAutoBranching
+- 结论 / 遗留：真编译 errors=0 rc=0。遗留：现场 TeachLockYMm=-37 越界 Y 软限位由业主自行修正，不在本轮改配置
+
+## [2026-11-23 09:27:14] 修复 | 线激光调试页校准框显示不全：统一仿射变换
+- 来源：业主报障（换新英莱相机后黄框只显示一半）
+- 操作：
+  1. 定位根因：渲染层沿用 demo 角点公式 center±|corner*rate|，隐含「毫米原点居中」假设，新相机标定原点偏置致顶边出画布；改为单一仿射变换（比例取四角毫米包围盒跨度、原点落点使包围盒居中）；角点/轮廓/毫米刻度栅格共用 ToPixel()；视图锚点取标定中心点、越界回退包围盒中心；数值仿真复现旧实现 y 范围 [-52.3,441.7]、新实现 [30,524]；顺带补齐上一轮遗留漂移（ILCamPage→LineLaserCamPage 改名登记 drift RENAMED + api 页改名 + CodeMap 生成器红链修复 + ADR-111 slug 修正）
+- 变更文件：AdaWeldSystem/EmguALG/LineLaserContour/LineLaserContourAlgorithm.cs; wiki/decisions/ADR-113-line-laser-calib-affine-render-transform.md; wiki/decisions/ADR-Index.md; wiki/lessons/IntelligentLaser-Callback-Mechanism.md; wiki/api/LineLaserContourAlgorithm.md; wiki/api/LineLaserCamPage.md; wiki/tools/codemap_build.py; wiki/tools/drift_scan_precise.py
+- 结论 / 遗留：真编译 errors=0 rc=0；八闸门全绿（死链 0、ADR 冲突 0、漂移待修正 0）；对称标定数据下新旧像素完全一致 ⇒ 旧相机零回归
+
+## [2026-11-23 09:05:19] refactor | 撤回上一轮BUG2未标定提示修复（业主澄清相机已标定，黄框画一半属比例尺问题另案）
+- 来源：业主澄清：不会出现相机未标定状况，撤回上一轮 DrawNoCalibrationHint 修复
+- 操作：
+  1. LineLaserContourAlgorithm.cs 用改码前backup二进制覆盖，精确删 DrawNoCalibrationHint 方法+Render调用（md5还原468c8f47）
+  2. BUG1回零修复保留不动
+  3. api/LineLaserContourAlgorithm 去未标定提示横幅
+  4. 教训页删坑二并改名 HomeStatusAuthorityPitfall
+  5. MotionControlWorkflow 引用改新页名
+  6. index重建
+- 变更文件：EmguALG/LineLaserContour/LineLaserContourAlgorithm.cs,wiki/lessons/HomeStatusAuthorityPitfall.md,wiki/api/LineLaserContourAlgorithm.md,wiki/api/MotionControlWorkflow.md
+- 结论 / 遗留：真编译errors=0 rc=0；代码md5精确还原改码前；ADR-080演进纯BUG1未动；BUG2黄框显示一半（比例尺）为另案待查；无配置键变更
+
+## [2026-11-22 21:26:35] fix | 修复Y轴回零NOT_REACHED误判与新相机无标定框
+- 来源：现场报障：回零完成却报NOT_REACHED+4866；换英莱新型号后黄色标定框消失
+- 操作：
+  1. WaitAxisHomed改为Home_Status=0权威+位置偏差仅Warning
+  2. TryHomeAxisWithWait失败分支删StopAxis
+  3. LineLaserContourAlgorithm无标定时画黄色未标定提示
+- 变更文件：MotionControl/MontionManager.cs,MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs,EmguALG/LineLaserContour/LineLaserContourAlgorithm.cs
+- 结论 / 遗留：真编译errors=0 rc=0；静态判据0失败；配置同步=现场HOME_OFFSET=1.0mm不在包内但新判据已不受其符号影响；新相机需现场重新标定才有黄框；ADR-080演进+新教训HomeStatusAuthorityAndCalibFramePitfalls；output=AdaWeldSystem_output_20261122_212625.tar.gz
+
+## [2026-11-20 17:48:20] fix | 修复线激光两BUG：手动数据串主页 + SignalXY xs回退异常
+- 来源：业主报障：手动调试数据传主页显示；换新相机后 xs must not descend 异常
+- 操作：
+  1. BUG1 ProfilePollLoop加RunMode!=Manual门控仅自动模式消费轮廓（判据=workflow基类WorkflowRunMode，UI命令置Manual）
+  2. BUG2 ApplyProfileSnapshot写_contourSignalXs时剔除X回退点保升序，X/Z成对写，渲染点数取written
+- 变更文件：UIDesign/ControlPage/MainPage.cs
+- 结论 / 遗留：真编译errors=0 rc=0；静态判据0失败；无配置键变更；现场提示=手动期间主页不显示轮廓，自动焊接启动置Auto后恢复；新教训ScottPlotSignalXyMonotonicPitfall；output=AdaWeldSystem_output_20261120_174812.tar.gz
+
+## [2026-11-20 17:26:14] refactor | 温度显示迁至设备监控页并移除温度刷新开关
+- 来源：业主需求：SystemControlPage温度显示迁DeviceMonitorPage，只留节点+阈值，移除温度刷新按钮
+- 操作：
+  1. DeviceMonitorPage 加9个温度显示控件+采集链+自有500ms Timer（保留业主VS布局image3D1/tlPTemp）
+  2. SystemControlPage 删10控件+swTempRefresh+全套温度刷新链
+  3. 阈值6项保留
+  4. flowPanel3容器保留
+- 变更文件：UIDesign/ControlPage/DeviceMonitorPage.cs(+Designer),UIDesign/TabPage/SystemControlPage.cs(+Designer)
+- 结论 / 遗留：真编译errors=0 rc=0；双轮Grep温度链唯一归属DeviceMonitorPage；配置键无变更；output=AdaWeldSystem_output_20261120_172606.tar.gz；延时(ms)=气压报警消抖，下发从站OD子索引6
+
+## [2026-11-20 14:44:30] refactor | UI 页面拆分与死弹窗清理
+- 来源：用户需求：删除 SubDialog 死页面 / FilebackupPage 拆分 / ControlPage 新建空监控页
+- 操作：
+  1. 删除零消费弹窗 ConfigForm+IoConfigForm+CylinderConfigForm 及 csproj 注册
+  2. FilebackupPage 去 tabsBackup 改作设置备份页
+  3. 新建 CommSettingPage 承载通讯配置并挂入 navPageParam
+  4. 新建 DeviceMonitorPage 空页挂入 FormMain.tabMonitor
+  5. 更新 modules/api/ADR-112/lessons/CodeMap/drift
+- 变更文件：UIDesign/MainWindow/FormMain.cs,UIDesign/TabPage/FilebackupPage.cs(+Designer/resx),UIDesign/TabPage/CommSettingPage.cs(+Designer/resx,新增),UIDesign/ControlPage/DeviceMonitorPage.cs(+Designer/resx,新增),AdaWeldSystem.csproj
+- 结论 / 遗留：真编译 errors=0 rc=0；静态判据 0 失败；output=AdaWeldSystem_output_20261120_144422.tar.gz；配置同步清单：本轮无配置键变更
+
+## [2026-11-20 09:00:41] refactor | 注释优化+新增约束C20：注释只写作用，禁⛔/日期/ADR元信息
+- 来源：业主诉求「注释优化，且增加约束：新增代码注释不要包含⛔/日期/ADR，只写作用即可」
+- 操作：
+  1. 全库扫描145行违规（28文件）；精确整行映射批改143条+9处多行块合并；comment_scan long merged_over 82→0/var_multiline 7→0/legacy_line 3→0；元信息残留0；csharp_review新增A.注释含元信息(error级)+selfcheck JUDGE27+标准页裁定4/映射表行27；ADR-111+lesson CommentMetadataCleanup；index/route重建
+- 变更文件：28个.cs源码; CodeSimplification.md; csharp_review.py; simplify_selfcheck.py; ADR-111; lessons/CommentMetadataCleanup.md
+- 结论 / 遗留：阴性对照副本命中143/0遗漏；新判据阴阳性对照干净0误报/违规各命中1；真编译errors=0 rc=0；守卫175/0；200文件BOM/行尾零漂移；selfcheck PASS；output包20261120_090025.tar.gz
+
+## [2026-11-19 17:50:45] refactor | 全库代码精简 P0：语法简化八则 IDE 17 项清零（官方 dotnet format 修复器）+ P1 注释超长项待业主裁决
+- 来源：业主诉求「全库代码精简-按照wiki的代码精简要求来」→ Phase0 扫描器聚合 E=0、IDE 17、注释超长 82+7
+- 操作：
+  1. backup/基线快照
+  2. dotnet format style 批改 17 项（IDE0059×8 out→弃元 / IDE0018×7 out var 内联 / IDE0270×1 ?? / IDE0031×1 ?.）
+  3. 逐项复核弃元退化 0
+  4. 真编译 errors=0 rc=0
+  5. IDE 复验 0 诊断
+  6. 结构守卫 175/0 PASS
+- 变更文件：ConfigFileControl/Implementations/{ConfigFileManager,XmlConfigFile}.cs; MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; MotionControl/{DeltaEtherCAT/DeltaMotionConfig,WeldHeadSlaveDevice}.cs; UIDesign/TabPage/SystemControlPage.cs; WeldParamControl/WeldParamConfig.cs
+- 结论 / 遗留：P0 完成：17→0 IDE 诊断，7 文件改动均语义等价、无弃元退化，真编译通过。P1（注释超长 82 条 + 变量注释多行 7 条）经判定为防错约束注释（含⛔/日期/ADR），机械压缩会丢失约束，按顶层裁定「只报不删、逐案裁决」列为待业主裁决项，本轮不擅自改写；465 warn 属存量 public 缺 /// 欠账（顶层裁定第3条不追溯）。output 包 AdaWeldSystem_output_20261119_175035.tar.gz
+
+## [2026-11-19 17:40:13] fix | Phase3 复查补齐：修复 ADR-110 半成品（编号错写/正文截断/占位符）并登记索引；补登 drift RENAMED 关闭 1 处遗留漂移；清理 3 个临时脚本
+- 来源：业主反馈「未按 skill 执行」→ 复查上一轮标定项迁移任务的 Phase3/4
+- 操作：
+  1. 修复 ADR-110 内部编号为 110、补全决策/备选/后果正文、去待补占位符；ADR-Index 登记 110 行；wiki_index_build + route_rebuild 重建索引；drift RENAMED 补登 WeldAlgorithmsConfig.cs→WeldParamConfig.cs（纯路径）+ ADR-067 旧名加注；清理 _tmp_migrate_{designer,code,meta}.py
+- 变更文件：ADR-110-yt-calib-move-to-process-page.md; ADR-Index.md; drift_scan_precise.py; ADR-067-LATaSettingsSemanticRework.md; wiki/index/index.md
+- 结论 / 遗留：八闸门 rc 全 0（drift 待修正 1→0）；output 包 AdaWeldSystem_output_20261119_174001.tar.gz（3.0MB）。Phase2 代码改动经复核全部在位（UI 落点/接线/分区归属三键写口），未改动代码逻辑
+
+## [2026-11-19 15:20:29] fix | 补回标定区误删控件（示教Y轴锁定/标定中心点Y）并按业主裁定重排：Y与Z同行、示教Y下一行；跨页迁移五段完整性核查
+- 来源：AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs（业主 2026-11-19 在 VS 调整标定区布局时误删 2 个控件）+ UIDesign/TabPage/SystemControlPage.cs（.cs 侧引用仍在 ⇒ CS0103 编译失败 4 处）
+- 操作：
+  1. Phase0 Query（定位三个标定项：TeachLockY 示教Y轴锁定坐标 / CalibratedCenterY 标定中心点Y / CalibratedCenterZ 标定中心点Z；查 Designer 发现 txtTeachLockY 与 txtCalibCenterY 的实例化+字段声明+Controls.Add 三处全丢，而 SystemControlPage.cs 仍在引用 ⇒ 必然 CS0103；查 git diff 确认 CalibCenterZ 为本轮新加、行 5 占用原行 5、行 6/7 空置；从上一版定稿包提取四个控件的原始属性块与文案）；Phase1 Plan（业主裁定布局：标定中心点 Y 与 Z 同行、示教Y轴锁定坐标下一行）；Phase2 Code（补回 lblCalibCenterY/txtCalibCenterY/lblTeachLockY/txtTeachLockY 的实例化+字段声明+属性块（文案照原：标定中心点Y(mm)/示教Y轴锁定坐标(mm)）+ 挂载；CalibCenterZ 由列0/1 移到列2/3 与 Y 并排；TeachLockY 落行 6；修 txtCalibCenterZ 字段声明重复 CS0102）；Phase3 Ingest（新建 lessons/MigrationCompletenessAudit + api/SystemControlPage 补标定区布局表）；Phase4 Lint（8 闸门 + 真编译 + 46 项自检 + 字节安全）
+- 变更文件：AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; LLMWiki/wiki/lessons/MigrationCompletenessAudit.md; LLMWiki/wiki/api/SystemControlPage.md
+- 结论 / 遗留：真编译 errors=0 rc=0（⚠️ 修复前是 errors=4 rc=1）；静态守卫 files=175 fail=0 PASS；46 项自检全通过；字节安全 200 个 .cs 行尾/BOM 零变化。根因：业主 2026-11-19 15:12 在 VS 调整标定区布局（把 CalibCenterZ 上移占行 5）时误删了同行的 CalibCenterY 与下一行的 TeachLockY（实例化+字段声明+Controls.Add 三处全丢），而 SystemControlPage.cs 的 LoadLaserCalibOnForm 与 BtnApplyParams_Click 仍在引用 ⇒ CS0103 四处。⭐ 关键教训两条：① **编译结论是带时点的快照** —— 我上一轮报的 errors=0 是 15:11 的状态，业主 15:12 的 VS 改动使其失效，若不复编译就会带红灯交付；已固化进 lessons/MigrationCompletenessAudit。② **「控件存在」不等于「链路完整」** —— 本轮建五段核查表逐项机器断言（控件落点 / 回填 / 写入内存 / 落盘分区 / 持久化读写）：上一轮迁移的 14 项控件全部落位正确、链路完整（selGeoGuideSign 两处 FAIL 为判据误报 —— Select 控件用 SelectedIndex 而非 Text），工艺页零残留引用，YT 设置区现只剩 Y 指令三选项。修复后标定区布局：行5 = 标定中心点Y(列0/1) + 标定中心点Z(列2/3)，行6 = 示教Y轴锁定坐标(列0/1)，RowCount=10 / RowStyles=10 / 格位冲突 0。遗留：现场配置需重新填一遍（业主已确认）；通讯 8 个 XML 未合并（按 RSI 语义分层保留）；6 个孤儿配置文件全仓零引用已从迁移表移除但磁盘文件未删；存量 INI 的 LA_POSE2_MM 旧键仍留在 Preset 文件（运行时一次性迁移读它后停写）
+
+## [2026-11-19 15:07:04] refactor | WeldParamChangeLogger → ConfigChangeLogger 改名 + 读取按钮严格按 TabPage 生效（修三处越界）+ 代码精简（删 4 项死成员）
+- 来源：AdaWeldSystem/ConfigFileControl/Implementations/{ConfigChangeLogger.cs（改名）,ConfigFileManager.cs,ConfigSnapshot.cs} + WeldParamControl/WeldParamManager.cs + UIDesign/TabPage/{ProcessControlPage.cs,SystemControlPage.cs} + MonitorCam/MonitorCamManager.cs + UIDesign/ControlPage/MainPage.cs + UIDesign/MainWindow/FormMain.cs + AdaWeldSystem.csproj（业主 2026-11-19 三要求：① 变更日志记录所有变更故重命名为 ConfigChangeLogger ② 查每个页面读取-修改-保存按钮是否只对本页面生效并保证之 ③ 注释精简后再做一次代码精简）
+- 操作：
+  1. Phase0 Query（三问检索：读取链路实测为四层 UI→Manager→配置类→ConfigFileManager；变更日志机制本就支持只记变动项但覆盖面仅焊参；UI 读改存三段式实测建立「按钮→属性→zone」四段映射矩阵，得出三处「读取」越界 + 零引用扫描 74 个事件处理器/3 个空壳/115 个 public 零调用方分类）；Phase1 Plan（业主裁定：严格按 TabPage 边界 + 先出零调用方分类清单再定）；Phase2 Code（改名：文件重命名 + 类名 + 7 处引用 + csproj 同步 + 残留 0；读取按钮改造：LoadAlgorithmsZone 复活为 params 多 zone 重载 + 先 Reload 再读 + 写回现有对象不 new 不替换；三个读取按钮改刷本 TabPage zone 且移除跨 TabPage 回填；代码精简：删 MonitorCamManager.SensorStop（空壳+零调用）、ConfigFileManager.SaveWithAudit 与 SaveXml（自造未用 API）、MainPage.AddNewDataLineChart（空壳）+ FormMain 调用点）；Phase3 Ingest（ADR-076 决策 D9 含三处越界表+两缺陷+TabPage↔zone 对照表 + 新建 lessons/UiButtonZoneBoundary + api/ProcessControlPage + api/SystemControlPage + api/ConfigFileManager 改名同步 + CodeMap 改名与职责）；Phase4 Lint（8 闸门 + 真编译 + 19 项自检 + 死代码复扫 + 字节安全）
+- 变更文件：AdaWeldSystem/ConfigFileControl/Implementations/ConfigChangeLogger.cs; AdaWeldSystem/ConfigFileControl/Implementations/ConfigFileManager.cs; AdaWeldSystem/ConfigFileControl/Implementations/ConfigSnapshot.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/MonitorCam/MonitorCamManager.cs; AdaWeldSystem/UIDesign/ControlPage/MainPage.cs; AdaWeldSystem/UIDesign/MainWindow/FormMain.cs; AdaWeldSystem/AdaWeldSystem.csproj; LLMWiki/wiki/decisions/ADR-076-SettingsZoneSaveWiring.md; LLMWiki/wiki/lessons/UiButtonZoneBoundary.md; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/api/SystemControlPage.md; LLMWiki/wiki/api/ConfigFileManager.md; LLMWiki/wiki/architecture/CodeMap-Files.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态守卫 files=175 fail=0 PASS；8 闸门全过；19 项自检全通过；字节安全 vs backup 基线零变化。关键结论：① 改名 —— WeldParamChangeLogger → ConfigChangeLogger（它现记录所有配置变更，焊参专用依赖已解除，旧名名不副实）；② 读取按钮边界 —— 实测三处越界：三个「读取」都调 LoadAlgorithmsConfig()（全量 5 区 + new 对象替换 _algorithmsConfig ⇒ 其它 TabPage 未保存的内存改动被整体丢弃），且每页顺带回填别的 TabPage 控件（LoadFlowSwitchOnForm / LoadProcessEnableOnForm 被两页互用）；正解 = LoadAlgorithmsZone 复活为 params 多 zone 重载（先 Reload 载体 ⇒ 读磁盘真值；只读指定 zone；写回现有对象不 new 不替换）+ 三按钮只刷本 TabPage zone 并移除跨 TabPage 回填（被移走的控件由页面构造时的批量回填负责）；⛔ 写路径本就正确（SaveZoneIni 先 Reload 再只写本区键 = 键级隔离），「修改」「保存」两按钮原本就只写本区故未改；③ 代码精简 —— 零调用 public 115 个分类清单：未启用通道 9（PLC/Modbus）+ 预留 API 4 + 接口覆写契约 85 + 待甄别 17；按「删确认无用的、预留 API 保留」只删 4 项（MonitorCamManager.SensorStop 空壳+零调用、ConfigFileManager.SaveWithAudit 与 SaveXml 上轮自造未用 API、MainPage.AddNewDataLineChart 空壳+调用点）；保留 ImageAlgorithm 7 个算法库工具、PermissionLevel.GetDutyText/SetLevel、ConfigBackupHelper.BackupDirectory、RenderConfig.GetAlgorithmName/ResetToDefaults、KukaRsiComm.SaveRSIConfig、PointCloudReader.LoadFromPlyWithAssimp（均为合理公开能力）；⛔ radioModeRSI_CheckedChanged 虽空壳但 Designer 有反射订阅 ⇒ 删了编译不过，保留。遗留：现场配置需重新填一遍（业主已确认）；通讯 8 个 XML 未合并（按 RSI 语义分层保留）；6 个孤儿配置文件全仓零引用已从迁移表移除但磁盘文件未删；存量 INI 的 LA_POSE2_MM 旧键仍留在 Preset 文件（运行时一次性迁移读它后停写）
+
+## [2026-11-19 14:21:26] refactor | 全库注释瘦身（remarks 一律移除 + summary 只记作用 ≤20 字）+ 配置变更审计下沉到 ConfigFileManager（载体快照，只记变动项）
+- 来源：AdaWeldSystem/ 全库 173 个 .cs（注释）+ ConfigFileControl/Implementations/{ConfigSnapshot,ConfigFileManager,WeldParamChangeLogger}.cs（新建/改造）+ WeldParamControl/WeldParamProfileAudit.cs（新建）+ 10 个配置类的保存入口接入审计 + Vicoding管理平台/LLMWiki/scripts/simplify_strip_docs.py（新建工具）
+- 操作：
+  1. Phase0 Query（CodeMap 定位配置领域；三问检索：三层读取链路实测为四层（UI→Manager→配置类→ConfigFileManager，配置类夹在中间承载「配置项↔文件键」映射）；变更日志机制实测 LogObjectDiff 已是逐项 diff 但只服务焊参、仅 4 处调用；UI 按钮读写分派实测两页各一套「读取/修改/保存」三段式）；Phase1 Plan（业主三裁定：全库 1137 处全清 / 变更日志下沉到 ConfigFileManager 统一钩子 / 修「修改参数写了但保存只落 ①System 区」）；Phase2 Code（C 组：新增 scripts/simplify_strip_docs.py（删 remarks + 压 summary + 复用 simplify_guard 守卫 + 逐文件快照回滚）→ 副本目录试跑 → 四道校验 → 源目录执行 1137 处全清 595 处压缩；A1：WeldParamChangeLogger 通用化（Tag 可传、解除 WeldAutoParamProfile/Newtonsoft 依赖）+ LogProfileDiff 迁至 WeldParamProfileAudit；A2：新增 ConfigSnapshot（磁盘态快照 + Diff 只记变动项）+ ConfigFileManager 加 SaveIniWithAudit/SaveXmlWithAudit/SaveIni/SaveXml；A3：10 个配置类保存入口接入审计（线激光/监控相机/焊接头/运动控制/视觉ROI/渲染/仿真/视觉算法/通讯设置 9 处+TA曲线/焊参区）；XmlConfigFile 修文件名重复拼扩展名（TaLaCurve.xml.xml））；Phase3 Ingest（ADR-007 追加 D2 + standards/CodeSimplification 同步（remarks 一律移除 + 判据表 +2 行）+ 新建 lessons/CommentStripToolchain + 新建 api/ConfigSnapshot + api/ConfigFileManager 补审计钩子 + CodeMap 6 处行数 2 处职责 2 条新条目）；Phase4 Lint（8 闸门 + 真编译 + 35 项自检 + 四道校验 + 字节安全）
+- 变更文件：AdaWeldSystem/ConfigFileControl/Implementations/ConfigSnapshot.cs; AdaWeldSystem/ConfigFileControl/Implementations/ConfigFileManager.cs; AdaWeldSystem/ConfigFileControl/Implementations/WeldParamChangeLogger.cs; AdaWeldSystem/ConfigFileControl/Implementations/XmlConfigFile.cs; AdaWeldSystem/WeldParamControl/WeldParamProfileAudit.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; AdaWeldSystem/LineLaserCam/LineLaserConfig.cs; AdaWeldSystem/MonitorCam/MonitorCamConfig.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs; AdaWeldSystem/EmguALG/Roi/ImageRoiTool.cs; AdaWeldSystem/EmguALG/Manager/AlgorithmManager.cs; AdaWeldSystem/PCLOperate/Render/RenderConfig.cs; AdaWeldSystem/MainDeviceControl/SimulationConfig.cs; AdaWeldSystem/Comm/Communication/CommunicationManager.cs; AdaWeldSystem/WeldParamControl/Curves/TaLaCurveConfig.cs; AdaWeldSystem/AdaWeldSystem.csproj; AdaWeldSystem/ 全库 173 个 .cs（注释精简）; Vicoding管理平台/LLMWiki/scripts/simplify_strip_docs.py; Vicoding管理平台/LLMWiki/wiki/decisions/ADR-007-CodeSimplificationStandard.md; Vicoding管理平台/LLMWiki/wiki/standards/CodeSimplification.md; Vicoding管理平台/LLMWiki/wiki/lessons/CommentStripToolchain.md; Vicoding管理平台/LLMWiki/wiki/api/ConfigSnapshot.md; Vicoding管理平台/LLMWiki/wiki/api/ConfigFileManager.md; Vicoding管理平台/LLMWiki/wiki/architecture/CodeMap-Files.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态守卫 files=175 fail=0 PASS；8 闸门全过；35 项自检全通过；字节安全 vs 本轮 backup 基线 173 文件行尾/BOM 零变化。关键结论与修正：① 业主问「应用层读各 manager 配置、manager 读配置走 configfilemanager」的理解基本正确，但实测是四层而非三层 —— 配置类（LineLaserConfig/DeltaMotionConfig/WeldParamConfig 等 10 个）夹在 Manager 与 ConfigFileManager 之间，承载「配置项 ↔ 文件键」的映射语义，ConfigFileManager 只提供载体与路径，不懂业务项；② 变更日志机制本就支持「只记变动项」（IsChanged 逐项过滤），缺口在覆盖面与位置 —— 本轮下沉为 ConfigFileManager 的载体快照钩子（SaveIniWithAudit/SaveXmlWithAudit），10 个配置类保存入口全部接入，Tag 可传（默认「配置变更」）；③ 关键正确性判据：快照必须取磁盘态而非载体内存态，否则写入已先于快照发生 ⇒ diff 检不出变更；④ ⚠️ B 组前提被实测推翻：BtnApplyParams 改写的 29 个属性经属性→zone 映射实测全部属 System 区，BtnSaveLocal 落 System 区是正确的，各页「改→存」分区闭环无缺口，本轮未改该处代码；⑤ C 组口径：remarks 一律移除、summary 只记作用 ≤20 字一字、余文直接删除不迁移（承载方是 CodeMap 与 wiki）；⑥ 批量工具链四个坑已入库 lessons/CommentStripToolchain（行尾基线须用 backup 包而非 git show HEAD、读写两侧归一化行尾、自闭合标签排除配对、逐文件独立读写禁跨脚本共享 cache）。遗留：① 现场配置需重新填一遍（业主已确认）；② 通讯 8 个 XML 未合并（按 RSI 语义分层保留，待业主裁定）；③ 6 个孤儿配置文件全仓零引用已从迁移表移除但磁盘文件未删；④ 存量 INI 的 LA_POSE2_MM 旧键仍留在 Preset 文件（运行时一次性迁移读它后停写）
+
+## [2026-11-19 13:22:14] refactor | 配置收归后全量核查：Manager 载体清零验证 + 迁移完整性核对 + 死代码/过期注释清理（8 项修复）
+- 来源：AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs + DeviceWorkflow/*.cs（5 个 workflow）+ MotionControl/MontionManager.cs + UIDesign/TabPage/ProcessControlPage.cs + UIDesign/SubDialog/MotionControlDialog/AxisConfigForm.cs + WeldParamControl/WeldParamConfig.cs + FileOperate/ConfigPathMigrator.cs（业主 2026-11-19 三问：① 8 个通讯 XML 按 RSI 模式判断是否合并 ② 路径是否有需清理的 ③ 配置迁移大动作后的三项核查：各 Manager 是否还重复持有配置/参数修改记录、迁移是否完全是否缺配置项、涉及文件代码精简检测）
+- 操作：
+  1. Phase0 检索（RSI 通讯模式实测：4 个通讯实现类 EthernetXmlComm/InLaserModbusComm/KukaRsiComm/SiemensS7Comm；8 个 Xdoc 消费方逐个追踪 —— RobotServerXdoc 是 RSI 核心（IP/PORT/HOST_IP/HOST_PORT/SENTYPE/CYCLE + RSI 格式节），Server/Client/Send/Recive 仅 UI 文件编辑器用，RobotClient/Plc/Modbus 零消费方；PLC 与 Modbus 启用条件为「IP+Rack+Slot / IP+PORT 非空」且用户明确无 PLC、Modbus 未启用）；Phase1 Plan（8 项修复 F1-F8）；Phase2 Code（F1 删 ConfigRelativeDir 死属性 + F2 workflow 配置改按 ConfigModule 走 ConfigFileManager + F3 删 InstructionTorqueConfirmSamples 零引用常量 + F4 删 LoadParamOutOnForm 空壳方法及 3 处调用 + F5 删 Adapt 区已废旧键 IS_COUNT_TYPE/COUNT_NUM 读取与常量 + F6 修 WeldParamConfig 类注释旧路径 + F7 ConfigPathMigrator 补 5 条 workflow 配置路径 + F8 删 7 个孤儿配置文件与 3 个空目录）；Phase3 Ingest（ADR-006 D2 追加核查结论 + 新建 lessons/RefactorPostChecklist + CodeMap 更新）；Phase4 Lint（8 闸门 + 真编译 + 静态守卫 + 三项检查复核）
+- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LineLaserWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/UIDesign/SubDialog/MotionControlDialog/AxisConfigForm.cs; AdaWeldSystem/WeldParamControl/WeldParamConfig.cs; AdaWeldSystem/FileOperate/ConfigPathMigrator.cs; LLMWiki/wiki/decisions/ADR-006-ModuleOrganizationPatternStandard.md; LLMWiki/wiki/lessons/RefactorPostChecklist.md; LLMWiki/wiki/architecture/CodeMap-Files.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态守卫 files=173 fail=0 PASS；8 闸门全过。核查结论三项：① 各 Manager 载体持有 —— LineLaser/MonitorCam/Montion/Algorithm/Communication/WeldParam 六个 Manager 正式载体全部为 0（CommunicationManager 的 8 个 Xdoc 成员来自 ConfigFileManager；WeldParamManager 残留 1 处 INI + 1 处 Xdoc 均为补键模板的临时载体）；ProductFileRecordManager 保留 2 处（Records 按业主裁定不变）；参数修改记录 WeldParamChangeLogger 仅 WeldParamManager 一处调用 4 次（已迁 ConfigFileControl 模块）。② 迁移完整性 —— WeldParamConfig 五个区域的实际读写键数与区域声明键清单逐项比对全部一致（Adapt 4→2 修掉已废旧键、Flow 5、Preset 12、Quick 1、System 19）；57 个 public 属性中 6 个未落盘（Name 属 ConfigRegion、其余 5 个是 PVT 回退路径明确不持久化）。③ 代码精简 —— 零引用私有成员 0、空壳方法 0（修掉 LoadParamOutOnForm）、注释率整体约 20%（新建的两个抽象接口 46~55% 属接口文档惯例）。本轮发现并修复 8 项：⭐ 真实缺口是 F1/F2 —— 收归后 5 个 workflow 的 ConfigRelativeDir override 仍指向旧目录使基类新默认值被 override 掉，且该属性在改造后已成死属性（无人读）⇒ workflow 配置根本没走 ConfigFileManager 且旧目录文件变孤儿；改为 ConfigModule 属性后 5 个 workflow 配置正确落到 Config\ConfigFileControl\<模块>\。路径清理：7 个孤儿配置文件全仓零引用已删（JobIndex.ini/Job_001.ini/IntelligentLaserJobParams.ilini/CameraPresets.ini/CameraSelector.ini/AlgorithmParams.ini/IntelligentLaser.ini）+ 3 个空目录（Jobs/LineLaser/Camera_INI/IntelligentLaserCam）。通讯结论（回答第一问）：RSI 模式下 RobotServer.xml 是唯一必需的本机通讯配置（含 RSI 格式节），Send/Recive/Server/Client 仅供 UI 文件编辑器查看、PLC.xml 与 Modbus.xml 因无 PLC 且 Modbus 未启用而未启用 ⇒ 不合并 8 个为一个（它们的语义层次不同：本机通讯参数 / UI 模板 / 机器人端部署件），但 RobotClient/Plc/Modbus 三个零消费方文件建议随未启用通道一并停用。遗留：① 现场配置仍需全部重填（业主已确认）；② 通讯 8 个 XML 未合并（按 RSI 语义分层保留，如需合并需业主裁定「本机通讯参数归一」）；③ RobotClient.xml / PLC.xml / Modbus.xml 三个零消费方文件已确认为未启用通道的产物，本轮只标注未删
+
+## [2026-11-19 11:41:22] refactor | 新增 ConfigFileControl 模块（抽象+实现+ConfigFileManager）统一管理全局配置文档；WeldAlgorithmsConfig 改名 WeldParamConfig 并按 TabPage 分区域；10 个配置类载体收归；完全舍弃旧配置
+- 来源：AdaWeldSystem/ConfigFileControl/（新建 6 文件）+ WeldParamControl/WeldParamConfig.cs（改名）+ WeldParamManager.cs + LineLaserCam/LineLaserConfig.cs + MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs + MotionControl/MontionManager.cs + MotionControl/WeldHeadSlaveDevice.cs + MonitorCam/MonitorCamConfig.cs + PCLOperate/Render/RenderConfig.cs + MainDeviceControl/SimulationConfig.cs + MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs + EmguALG/Manager/AlgorithmManager.cs + EmguALG/Roi/ImageRoiTool.cs + WeldParamControl/Curves/TaLaCurveConfig.cs + Comm/Communication/CommunicationManager.cs + FileOperate/ConfigPathMigrator.cs（业主 2026-11-19 裁定：① 新增文件夹 ConfigFileControl，按抽象/实现/ConfigFileManager 写，独立不由 WeldParamManager 管 ② DB 类与 Records 类不变 ③ 其余 Manager 不再管配置文件只应用参数 ④ 全局配置文档与目录由 ConfigFileManager 统一管 ⑤ 重构 WeldAlgorithmsConfig 与 WeldParamChangeLogger，WeldAlgorithmsConfig 改名 WeldParamConfig ⑥ WeldParamConfig 不再只管焊接算法，管所有的，内部按 tabpage 分区按区域读写 ⑦ 完全舍弃旧配置，生成默认值）
+- 操作：
+  1. Phase0 Query（8 个 Manager / 32 个配置文件 / 10 个配置类全量摸底；ADR-006 四件套范式 + ADR-005 命名空间规则 + ModuleOrganizationPattern H1~H11 硬规则核对；12 个 TabPage 全清单；6 个孤儿配置零读写方实证）；Phase1 Plan（业主三裁定：单一目录 ConfigFileControl/ + 完全舍弃旧配置 + 一轮全部收归；通讯按功能分类：本机 8 个 + 机器人端部署件 2 个）；Phase2 Code（S1 建模块骨架：抽象 IConfigFileProvider/IConfigRegion + 实现 IniConfigFile/XmlConfigFile/ConfigFileManager，csproj 注册 6 文件；S2 WeldAlgorithmsConfig→WeldParamConfig 改名（117 处 / 18 文件 + 文件重命名 + csproj 同步）；S3 区域模型：AlgorithmIniSet 换成 ConfigRegion + Regions 字典 + BuildRegions 落地 5 区域；载体改由 ConfigFileManager 提供；保存前 carrier.Reload() + 键级写入；补键模板加 WriteZoneIniTo/WriteConfigTo 写独立临时载体；S4 收归 10 个配置类 + DeviceWorkflowBase + WeldData.ini（31 处 new 载体收敛）；S5 清理：LA_POSE2_MM 全清（业主指出上轮漏删）+ 7 个死路径常量 + ConfigPathMigrator 迁移表指向新目录 + 旧根目录清理清单 + WeldParamChangeLogger 迁入新模块 + XML 死键清理）；S6 全量自检 + 路径一致性验证 + 区域隔离验证）；Phase3 Ingest（ADR-006 追加 D2 含六项判据 + 新建 lessons/ConfigOwnershipByManager + 新建 api/ConfigFileManager + api/WeldParamManager + CodeMap-Files 行数与职责 + 新模块 5 条条目）；Phase4 Lint（8 闸门 + 真编译 + 44 项自检 + 路径一致性验证 + 区域键级隔离验证 10 断言 + 字节安全核查）
+- 变更文件：AdaWeldSystem/ConfigFileControl/Abstractions/IConfigFileProvider.cs; AdaWeldSystem/ConfigFileControl/Abstractions/IConfigRegion.cs; AdaWeldSystem/ConfigFileControl/Implementations/IniConfigFile.cs; AdaWeldSystem/ConfigFileControl/Implementations/XmlConfigFile.cs; AdaWeldSystem/ConfigFileControl/Implementations/ConfigFileManager.cs; AdaWeldSystem/ConfigFileControl/Implementations/WeldParamChangeLogger.cs; AdaWeldSystem/WeldParamControl/WeldParamConfig.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; AdaWeldSystem/LineLaserCam/LineLaserConfig.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/MonitorCam/MonitorCamConfig.cs; AdaWeldSystem/PCLOperate/Render/RenderConfig.cs; AdaWeldSystem/MainDeviceControl/SimulationConfig.cs; AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs; AdaWeldSystem/EmguALG/Manager/AlgorithmManager.cs; AdaWeldSystem/EmguALG/Roi/ImageRoiTool.cs; AdaWeldSystem/WeldParamControl/Curves/TaLaCurveConfig.cs; AdaWeldSystem/Comm/Communication/CommunicationManager.cs; AdaWeldSystem/FileOperate/ConfigPathMigrator.cs; AdaWeldSystem/AdaWeldSystem.csproj; LLMWiki/wiki/decisions/ADR-006-ModuleOrganizationPatternStandard.md; LLMWiki/wiki/api/ConfigFileManager.md; LLMWiki/wiki/lessons/ConfigOwnershipByManager.md; LLMWiki/wiki/architecture/CodeMap-Files.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态守卫 PASS；8 闸门全过；44 项自检全通过；路径一致性验证全通过（根目录常量 + 10 个模块常量 + 目标目录结构）；区域键级写入隔离验证 10 断言全通过。关键决策：① 新建 ConfigFileControl 模块（ADR-006 四件套 · 场景 B 无 Core）：抽象层 IConfigFileProvider/IConfigRegion + 实现层 IniConfigFile/XmlConfigFile/ConfigFileManager，全局根目录 Config\ConfigFileControl\；② 归属模型由「按 TabPage 分文件」纠正为「配置归 Manager 管、TabPage 只做区域划分」——上轮 4 个 TabPage 各一套 INI 的做法把 Manager 的配置所有权切碎了；③ 覆盖根因重新认定：不是文件数而是写入粒度（载体整文件重写 + 未涉及 section 取内存旧值）⇒ 正解是保存前 Reload + 只写本区域键（键级，因 PROCESS_CONTROL/SEAM_GUIDE 均被两个 TabPage 共用，section 粒度不够）；④ 完全舍弃旧配置：删 MigrateLegacyAlgorithmIni 全部迁移代码，新目录由 ConfigSelfHeal 按默认模板生成；⑤ 补键模板必须写独立临时载体（WriteZoneIniTo/WriteConfigTo），否则模板把默认值写进真实配置；⑥ DB/Records 按业主裁定不动（ProductFileRecordManager 保留自有载体）。遗留：① 现场所有配置需重新填一遍（业主已确认可接受，旧文件保留在磁盘但代码不再读）；② 通讯模块 10 个 XML 按功能分类（8 个本机 RSI 用 + 2 个机器人端部署件 WeldControlConfig/WeldControlSendFormat），本轮只收归读写器与路径、未合并文件（业主指示按功能分类，本机配置可由一个管理）；③ 6 个孤儿配置文件（IntelligentLaser.ini/CameraPresets.ini/CameraSelector.ini/JobIndex.ini/Job_001.ini/AlgorithmParams.ini）全仓零读写方，已从迁移表移除但磁盘文件未删；④ ConfigPathMigrator 仍保留（一次性把旧目录同名文件搬到新目录），如后续不再需要可整体删除
+
+## [2026-11-19 10:33:40] refactor | INI 按 TabPage 逐项逐文件拆分（4 文件）+ 存量逐键迁移 + 4 个零引用死配置物理删除 + XML 死键清理
+- 来源：AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs + WeldParamManager.cs + UIDesign/TabPage/SystemControlPage.cs + FileOperate/ConfigPathMigrator.cs（业主 2026-11-19 裁定：① 完成逐项逐文件迁移 ② INI 拆到 4 个 TabPage 各一套 ③ 存量一次性逐键迁移、旧文件停读 ④ 删 4 个零引用死配置）
+- 操作：
+  1. Phase0 Query（四段映射脚本：配置项→控件→TabPage→(zone,载体,section)；实测推翻了 ADR-076 D6 方案表三处 —— ②Quick 的 5 个 Enable 开关实际在系统页·流程控制与测试（非工艺页）、同 zone 内部跨 TabPage、XML 只有一区拆不了；发现根因更深一层：INIFile.SaveToFile 是 File.WriteAllText 整文件重写 ⇒ INI 侧才是覆盖主战场；发现 4 个零引用死配置 LockSpotCalib/LockWirePos/SpotCalibPosMm/WireLockPosMm）；Phase1 Plan（业主三裁定：4 套 INI / 逐键迁移+旧文件停读 / 删死配置）；Phase2 Code（新增 AlgorithmsZone.Flow=4 区；WeldAlgorithmsConfig 新增 AlgorithmIniSet（FileFor 路由 + AllFiles 去重）；Load/SaveProcessIni 改按文件分组签名；SaveAlgorithmsZone 只落目标文件；Quick 区只剩 LOCK_Y_CALIB、新增 LoadZoneIniFlow/SaveZoneIniFlow；Manager 持 4 个 INI 读写器 + MigrateLegacyAlgorithmIni 逐键迁移（26 键迁移 + 36 键物理清理，幂等，先写目标落盘再删源键）；HealAlgorithmsConfigKeys 补键模板按文件分组；ConfigPathMigrator 加 3 条新路径；删 4 个死配置（属性+键常量+读写+默认赋值）；XML 死键 Y_AXIS_MIN_MM/Y_AXIS_MAX_MM 物理清理（新增 RemoveChild）；系统页 SaveProcessEnable 改走 Flow 区）；Phase3 Ingest（ADR-076 决策 D8 含 D6 方案表实测修正 + api/WeldParamManager + api/SystemControlPage + api/ProcessControlPage + CodeMap-Files 4 处行数 4 处职责 + 新建 lessons/ConfigFileSplitByTabPage）；Phase4 Lint（8 闸门 + 真编译 + 32 项自检 + 迁移逻辑验证 16 断言 + 核心诉求隔离验证 7 断言 + 字节安全核查）
+- 变更文件：AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/FileOperate/ConfigPathMigrator.cs; LLMWiki/wiki/decisions/ADR-076-SettingsZoneSaveWiring.md; LLMWiki/wiki/api/WeldParamManager.md; LLMWiki/wiki/api/SystemControlPage.md; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/architecture/CodeMap-Files.md; LLMWiki/wiki/lessons/ConfigFileSplitByTabPage.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态守卫 files=168 fail=0 PASS；32 项自检全通过（1 项判据误报：ConfigPathMigrator 新路径行内出现 2 次而判据写 ==1）；迁移逻辑验证 16 断言全通过（副本目录、模拟存量、键分布 Trajectory 19/Adaptive 2/Flow 5/Preset 13、值保真 5 项逐值、幂等二次迁移 moved=0、空 section 自动清除对齐 INIFile.DeleteKey 删空节语义）；核心诉求隔离验证 7 断言全通过（拆分前「页B 保存覆盖页A 磁盘值」根因复现，拆分后页B 保存不触碰页A 文件）。关键决策：① 实测推翻 ADR-076 D6 方案表三处 ⇒ 新增 AlgorithmsZone.Flow 拆出系统页的 5 个 Enable 开关（原来与 ②Quick 混在同 zone 跨 TabPage）；② INI 由单文件拆 4 文件（工艺·激光工艺设置 / 工艺·自适应 / 系统·流程控制与测试 / 系统·轨迹跟踪），同名 section（PROCESS_CONTROL、SEAM_GUIDE）跨文件必须逐键迁移；③ 迁移源就是 Preset 文件本身（路径未变）—— 独立 legacy reader 会与 Preset reader 争用同一文件导致旧 section 被写回；④ 4 个零引用死配置物理删除；⑤ XML 死键 Y_AXIS_MIN_MM/Y_AXIS_MAX_MM 物理清理；⑥ 补键模板按文件分组（否则会把别页键补进本文件）。遗留：① 迁移后 Preset 文件只剩 PROCESS_CONTROL 一段，LA_POSE2_MM 旧键仍留在其中（运行时一次性迁移读它，迁完才停写）；② 轨迹跟踪 TabPage 的 19 项阈值在 Trajectory.ini，系统页该 TabPage 的「修改参数」按钮落 System 区、「保存参数」落 System 区，读取按钮亦然 —— 该 TabPage 独占该文件，跨页隔离成立；③ ConfigPathMigrator 为 3 个新文件加了旧目录映射，但旧目录下的同名文件内容是拆分前的单文件形态，迁移后仍需走一次逐键迁移逻辑（幂等）
+
+## [2026-11-19 10:03:47] refactor | 代码地图改为机器生成（repomap 引擎 + 分片 + 调用边自研补齐）
+- 来源：业主指令：codemap 不好用，改用 coderepomap 套 Claude Code Skill，并嵌入 skill 流程
+- 操作：
+  1. 安装官方 coderepomap 0.2.1（源码装，PyPI 未发布）并验证 C# 解析
+  2. 新增 tools/codemap_build.py（官方引擎 + tree-sitter 全量成员 + 自研调用边 + 幂等生成）
+  3. 产出 31 页代码地图（总览 + 符号分片 + 关系分片）入 wiki/architecture/
+  4. 补齐官方缺口：public-only 过滤（47% 覆盖）→ 全量成员；零方法调用点 → 598 条高置信类型边 + 方法级低置信边
+  5. 旧手写详表 CodeMap-Files.md 退役，6 处引用改指
+  6. SKILL.md Step 0.0/2.5/3.6 接线并同步双副本
+  7. 新建 ADR-108 + lessons/RepomapCSharpCallEdgeGap
+- 变更文件：tools/codemap_build.py; tools/data/namespace_meta.json; wiki/architecture/CodeMap*.md; wiki/decisions/ADR-108-codemap-machine-generation.md; wiki/lessons/RepomapCSharpCallEdgeGap.md; skills/vibecoding-llmwiki/SKILL.md; wiki/project/vibecoding-workflow.md; AGENTS.md
+- 结论 / 遗留：八闸门全绿（wiki_audit/wiki_format/ingest_purity_scan/lint_scan/drift_scan_precise/rules_check/skill_pointer_check/raw_asset_check）；重复度 0、孤儿仅剩退役页；生成器幂等（41 页 0 变更）；未改业务源码
+
+## [2026-11-18 17:52:55] refactor | 跟踪几何项迁系统设置页标定参数区 + Y 轴行程上下限取消（限幅改接轴软限位）+ 配置文件按 TabPage 分割（第一步：XML 独占）
+- 来源：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs + .Designer.cs + SystemControlPage.cs + .Designer.cs + MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs + MotionControl/MontionManager.cs + WeldParamControl/WeldAlgorithmsConfig.cs（业主 2026-11-18 裁定：① YT 设置下轴/激光比例系数、偏差方向、激光超前量、机器人Y补偿系数等跟踪几何项迁到系统设置页·轨迹跟踪·标定参数区 ② 取消 Y 轴行程上下限（Y 轴点击设置里已有）③ 配置文件按 tabpage 分割成不同文件）
+- 操作：
+  1. Phase0 Query（CodeMap 卡6；6 项控件定位 gridQuickTracking 行4-6；目标区 gridLaserCalib「线激光辅助参数/标定参数」；重复性核查：轴软限位 PositiveLimit/NegativeLimit 仅存储不下发、工艺侧 YAxisMin/MaxMm 是唯一限幅判据 ⇒ 判断不重复但配置两套并存）；Phase1 Plan（业主三裁定：限幅改接轴软限位 / 每 TabPage 一套文件 XML+INI / 本轮一并实施）；Phase2 Code（A 跨页搬 14 个控件（7 几何 + 标定中心Y/Z + 示教Y）+ 代码侧读写迁移 + 两容器行号重排；B 删 YAxisMin/MaxMm 六处 + 新增 GetAxisConfigByName 与 TryGetSeamAxisSoftLimit + ClampToStroke/ReportStrokeClamp 改接轴软限位 + 回归越界改判软限位；C-1 XML 侧 SEAM_GUIDE 几何 4 项由 ④Preset 区迁 ①System 区 ⇒ Load/SaveZoneXmlPreset 整体删除（section 名不变 ⇒ 存量零迁移）；C-2 标定项迁标定参数区 + 工艺页不再落 ①System 区 ⇒ XML 成轨迹跟踪 TabPage 独占）；Phase3 Ingest（ADR-076 决策 D6/D7 + api/ProcessControlPage + api/SystemControlPage + CodeMap-Files 5 处行数 4 处职责）；Phase4 Lint（8 闸门 + 真编译 + 16 项自检 + TLP 结构 + 字节安全）
+- 变更文件：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs; LLMWiki/wiki/decisions/ADR-076-SettingsZoneSaveWiring.md; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/api/SystemControlPage.md; LLMWiki/wiki/architecture/CodeMap-Files.md
+- 结论 / 遗留：真编译 errors=0 rc=0；静态守卫 files=168 fail=0 PASS；16 项自检全通过（3 项为判据误报：lbl* 只在 Designer、YAxisMin/MaxMm 唯一残留是注释沿革）；10+ 个 TLP 结构 0 异常；字节安全 vs HEAD 全一致。关键结论：① 重复性核查=判断不重复但配置两套并存（轴软限位仅存储不下发，工艺侧是唯一限幅判据）② 限幅改接轴软限位后行为变化：原区间[-15,+15] ⇒ 现取轴软限位（现场实测正20/负-1，负值疑占位）⇒ 区间[-1,20]，需现场把 Y 轴正负软限位配成真实行程 ③ 根因：SaveAlgorithmsZone 只写自己 zone 但 SaveXdocument 重写整文件，未写 section 取内存旧值 ⇒ 另一页未保存的改动被覆盖；zone≠TabPage，跨页隔离必须物理分文件 ④ 本轮落地 XML 侧（几何 4 项归 ①System 区，section 名不变 ⇒ 存量零迁移）+ 工艺页不再落 System 区 ⇒ XML 成轨迹跟踪 TabPage 独占。遗留（下一轮）：INI 侧按 TabPage 拆文件（工艺设置页两个 TabPage 各自一套）+ LASER_CALIBRATION/SEAM_GUIDE 逐键迁移到第三个标定参数文件
+
+## [2026-11-18 17:03:09] refactor | GA 默认长宽频清理（DefaultGalvo 拆 GalvoGlobalParams）+ LA_Pose2 → LA 默认焦平面（含初始化后回工作位）+ 死代码过期代码审查
+- 来源：AdaWeldSystem/MotionControl/WeldHeadSlaveDevice.cs + MontionManager.cs + UIDesign/TabPage/ProcessControlPage.cs + .Designer.cs + SystemControlPage.cs + WeldParamControl/WeldAlgorithmsConfig.cs + MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs + MainDeviceControl/DeviceControlWork.cs（业主 2026-11-18 裁定：① GA 分档后未按图形区分的默认长宽频清理掉不再任何地方起作用 ② LA_Pose2 改为 LA_DefultFocus＝默认焦平面 LA 的位置 ③ 接入焊接头后初始化连接结束回该默认位置（LA 无轴 Home，此处回零＝回工作位）④ 审查大段改动产生的死代码与过期代码并精简）
+- 操作：
+  1. Phase0 Query（CodeMap 卡3/卡4/卡6；DefaultGalvo 消费面全量实测；LA 位置语义辨析 Spot=设光斑推算 vs Pose=直接移动；零引用扫描 179 候选全为事件处理器/单次调用）；Phase1 Plan（11 项改动 + 与业主确认默认焦平面是否自动引用）；Phase2 Code（DefaultGalvo 类型改 GalvoGlobalParams 物理删除图形与宽长频；新增 BuildGalvoParamsFor 组装下发；删镜像方案两方法；XML 顶层长宽频停写停读＋存量迁移；LA 全链路改名含 INI 旧键迁移；新增 MoveToDefaultFocus 并由 DeviceControlWork 初始化收尾主动调用；修 LoadConfig 过期注释）；Phase3 Ingest（ADR-070 §五 + ADR-067 演进记录 + api/ProcessControlPage + api/LaserWeldHeadWorkflow + api/SystemControlPage + CodeMap-Files 7 处行数 6 处职责 + 新建 lessons/PythonEditByteSafety）；Phase4 Lint（8 闸门 + 真编译 + 25 项自检 + 零引用复扫 + 字节安全核查）
+- 变更文件：AdaWeldSystem/MotionControl/WeldHeadSlaveDevice.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; LLMWiki/wiki/decisions/ADR-070-GalvoWeaveAsWidthSource.md; LLMWiki/wiki/decisions/ADR-067-LATaSettingsSemanticRework.md; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/api/LaserWeldHeadWorkflow.md; LLMWiki/wiki/api/SystemControlPage.md; LLMWiki/wiki/architecture/CodeMap-Files.md; LLMWiki/wiki/lessons/PythonEditByteSafety.md
+- 结论 / 遗留：真编译 errors=0 rc=0（VS18 Insiders 构建器 /t:Rebuild）；静态守卫 files=168 fail=0 PASS；25 项链路自检全通过；零引用私有成员复扫=0（无死成员）；字节安全 vs HEAD 复核 14 个 .cs 全一致（BOM＋CRLF）。关键决策：DefaultGalvo 拆为 GalvoGlobalParams（10 全局项）⇒ 默认长宽频物理删除而非标记弃用；振镜下发改 BuildGalvoParamsFor(pattern) 组装（全局项+图形档）；XML 顶层 GALVO/WIDTH|LENGTH|FREQUENCY 停写停读，老文件读一次作各档缺省值；LA 默认焦平面全链路改名且 INI 旧键 LA_POSE2_MM 一次性迁移后停写；MoveToDefaultFocus 由 DeviceControlWork 初始化收尾主动调用（⛔ 不在 workflow 构造期订阅 InitializationCompleted，否则构造期读 DeviceControlWork.Instance 触发整机初始化；⛔ 非阻塞下发不等到位；⛔ 不走手动门禁；不属 ADR-099 轴回零范畴）。遗留：① LaDefaultFocusMm 默认 0.0 ⇒ 未配置时初始化后自动就位跳过（现场示教后经 UI 保存才有值）；② 跨页/跨模块的 LA 就位状态未做 UI 显示同步；③ 本轮在 wiki 侧新建 lessons/PythonEditByteSafety（记录 Python 读写 .cs 的三坑：读不指定 newline 丢 CRLF、写用 utf-8-sig 误加 BOM、git show HEAD 路径须正斜杠否则核查脚本自身失效）
+
+## [2026-11-18 16:03:11] refactor | GA 按图形分档 + 手动/自动两套模式 + ③自适应区删三项（ManualSeamWidthMm/SpotWidthGain/ParamOutputHz）
+- 来源：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs + .Designer.cs + MotionControl/WeldHeadSlaveDevice.cs + MotionControl/MontionManager.cs + WeldParamControl/WeldAlgorithmsConfig.cs + WeldParamManager.cs + Algorithms/WeldParamAdjustmentAlgorithm.cs + Algorithms/WeldParamLookupAlgorithm.cs + MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs + WeldParamControlWorkflow.cs + LineLaserCam/VirtualCam/VirtualCam.cs（业主 2026-11-18 裁定：GA 图形按每种图形各存一档且未配置默认加载 Line；GA 设置即自适应无输出时的宽度；手动/自动两套模式互斥；输出频率改用段落长度）
+- 操作：
+  1. Phase0 Query（CodeMap 卡3/卡4/卡6；EnableGalvoWeave 与 DefaultGalvo 消费面实测；ADR 门禁命中 ADR-070/076/103 走合并路径；lessons 查重）；Phase1 Plan（9 项任务 + 4 项裁定 Q1-Q8）；Phase2 Code（删 GalvoDemo 改 GalvoManualStart/GalvoManualStop；删 SpotWidthGain 含查表 3 处乘算与 RefreshSpotWidthDic/RefreshSpotWidthByGain 四链；删 ManualSeamWidthMm 且 Manual 源宽度改取 GA 档 ManualFixedWidthMm；删 ParamOutputHz 且 TickXlOutput 时间维节流改距离维复用 SegmentDistanceMm；GA 宽长频按图形分 4 档含 GalvoShapeParams/GalvoShapePresets/GetGalvoShape/XML 4 组子节点与存量迁移；新增 GA 手动下发/关闭退出按钮组；删 GA 卡手动宽度与轨迹点区 3 个输出控件；VirtualCam 基准宽度改 const；DefaultGalvo 镜像当前档 SyncDefaultGalvoFromShape）；Phase3 Ingest（ADR-070 演进节 + ADR-076 决策 D5 + ADR-103 落地演进 + api/ProcessControlPage + api/LaserWeldHeadWorkflow + CodeMap-Files 9 处职责与 10 处行数 + 新建 lessons/ConfigKeyRemovalAndTruthSourceMigration）；Phase4 Lint（8 闸门 + 真编译 + 22 项链路自检）
+- 变更文件：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs; AdaWeldSystem/MotionControl/WeldHeadSlaveDevice.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; AdaWeldSystem/WeldParamControl/Algorithms/WeldParamAdjustmentAlgorithm.cs; AdaWeldSystem/WeldParamControl/Algorithms/WeldParamLookupAlgorithm.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/WeldParamControlWorkflow.cs; AdaWeldSystem/LineLaserCam/VirtualCam/VirtualCam.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; LLMWiki/wiki/decisions/ADR-070-GalvoWeaveAsWidthSource.md; LLMWiki/wiki/decisions/ADR-076-SettingsZoneSaveWiring.md; LLMWiki/wiki/decisions/ADR-103-no-value-hold-and-distance-segment.md; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/api/LaserWeldHeadWorkflow.md; LLMWiki/wiki/architecture/CodeMap-Files.md; LLMWiki/wiki/lessons/ConfigKeyRemovalAndTruthSourceMigration.md
+- 结论 / 遗留：真编译 errors=0 rc=0（VS18 Insiders 构建器 /t:Rebuild）；静态守卫 files=168 fail=0 PASS；22 项链路自检全通过；字节安全复核（7 个文件行尾 CRLF 化 + 5 个文件 BOM 还原 + 2 个 wiki 文件 BOM 还原）。关键决策：GA 宽长频按图形分 4 档（缺档回退 Line 档），DefaultGalvo 改为当前生效参数集合并由 SyncDefaultGalvoFromShape 镜像当前档（修复整体下发刷陈旧旧值的缺口）；输出触发改按段落长度复用 SegmentDistanceMm（不新增变量，_lastXlOutputTick 被 _lastXlOutputRobotX 替换）；手动下发走 EnsureManualWeldHeadActionAllowed 互斥，UI 置灰 laReady && !IsAutoWeldingRunning 且不按振镜启用态禁用。事故与遗留：① 本轮中途 git checkout 覆盖了业主的 Designer 改动，已用可重放脚本从 HEAD 基线重建（11 控件删除 + label7/label8 新增 + tableLayoutPanel2 改名 tlPLASetting + gridQuickLa 布局重排 + 三个 TLP 行数调整），机检 10 个 TLP 结构 0 异常，但 TabIndex/Location 等初值可能与业主原版有细微差异，需业主在 VS 中目视确认；② 存量 WeldHeadSlave.xml 只有顶层单档时，迁移会把旧单档值灌进 4 个档（现场需确认是否符合预期）；③ 手动下发为输出一次语义，改参数后需再点一次；④ GA 手动按钮的置灰随 RefreshActionStates 刷新，自动焊接开始/结束未加事件即时刷新（点击时门禁为主防线）。
+
+## [2026-11-18 13:30:41] fix | 振镜图形语义修正（以振镜启用态为前提）+ 系统设置页 Designer decimal? 赋值修复
+- 来源：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs + MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs + UIDesign/TabPage/SystemControlPage.Designer.cs（业主 2026-11-18 补充裁定：未开启振镜自动运行=没有图形；启用了必须有一个图形，有设置用设置，没有则落回默认 Line；并报系统设置页 Designer 报错 Int32→Nullable<Decimal>）
+- 操作：
+  1. Phase0 Query（CodeMap 卡3/卡4/卡6；EnableGalvoWeave 链路实测；ADR-076 D3；lessons UiModuleRemovalCleanup 坑六/坑七）；Phase1 Plan（语义三层：配置/UI选态/设备下发 + 跨页启用态实时读）；Phase2 Code（UI 按启用态分支：未启用清空选中+整组置灰，已启用必有图形无设置落回 Line 并落盘；新增 LaserWeldHeadWorkflow.IsGalvoWeaveEnabled 实时读；删过期快照字段 _galvoWeaveEnabled；Designer numWeldHeadNode Maximum/Minimum/Value 加 M 后缀）；Phase3 Ingest（ADR-076 D4 + api/ProcessControlPage + api/LaserWeldHeadWorkflow + CodeMap-Files + lessons 坑七补充/坑八新增）；Phase4 Lint（8 闸门 + 真编译）
+- 变更文件：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; LLMWiki/wiki/decisions/ADR-076-SettingsZoneSaveWiring.md; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/api/LaserWeldHeadWorkflow.md; LLMWiki/wiki/architecture/CodeMap-Files.md; LLMWiki/wiki/lessons/UiModuleRemovalCleanup.md
+- 结论 / 遗留：真编译 errors=0 rc=0（VS18 Insiders 构建器 /t:Rebuild）；静态守卫 files=168 fail=0 PASS；Designer 报错根因=AntdUI InputNumber 的 Minimum/Maximum 为 decimal?，int 无隐式转换（int→decimal 有，故 Value 安全）⇒ 补 M 后缀；全库机检 decimal? 属性裸字面量 0 处。语义修正：未启用振镜⇒没有图形（清选中+整组置灰，物理上摆幅 0 不使能）；已启用⇒必有图形（无设置落回 Line 并落盘）；删 workflow 的 LoadConfig 期快照 _galvoWeaveEnabled 改实时读配置（运行期改开关立即生效）。遗留：① 跨页联动依赖切回工艺设置页触发 ParamAutoPage_Shown 刷新（未加事件总线）；② LaserWeldHeadWorkflow.GalvoDemo() 仍无 UI 入口，API 保留待裁定
+
+## [2026-11-18 11:55:56] refactor | GA 图形语义收敛（三层：配置 0=未设置 / UI 不预选 / 下发兜底直线）+ 冗余清理
+- 来源：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs + WeldParamControl/WeldAlgorithmsConfig.cs + MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs（业主 2026-11-18 裁定：初始使用读取、未读到默认没有图形、图形始终以实际为准）
+- 操作：
+  1. Phase0 Query（CodeMap 卡3/卡4/卡6；ADR-076 D3 追加；lessons UiModuleRemovalCleanup 坑七）；Phase1 Plan（语义分三层：配置/UI选态/设备下发）；Phase2 Code（删 _syncingLaRadios + 字段 _galvoPatternSelected；RadioToGalvoPattern/GalvoPatternToRadio 的 default 返 null；配置初值 3→0；INI 越界归 0 + Warning；新增 LaserWeldHeadWorkflow.ResolveGalvoPattern 兜底协议非法值）；Phase3 Ingest（ADR-076 D3 + api/ProcessControlPage + api/LaserWeldHeadWorkflow + CodeMap-Files + lessons 坑七）；Phase4 Lint（8 闸门 + 真编译）
+- 变更文件：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; LLMWiki/wiki/decisions/ADR-076-SettingsZoneSaveWiring.md; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/api/LaserWeldHeadWorkflow.md; LLMWiki/wiki/architecture/CodeMap-Files.md; LLMWiki/wiki/lessons/UiModuleRemovalCleanup.md
+- 结论 / 遗留：真编译 errors=0 rc=0（VS18 Insiders 构建器 /t:Rebuild）；静态守卫 files=168 fail=0 PASS；删 2 个冗余成员（_syncingLaRadios 被 _loadingGalvoUi 完全覆盖、_galvoPatternSelected 写后无读者）；三处静默兜底直线全部消除。遗留：① 存量 INI 无 GALVO_PATTERN 键时首次上机 GA 指令区无预选项，须手动选一次（符合业主裁定，属现场行为变化）；② LaserWeldHeadWorkflow.GalvoDemo() UI 侧唯一入口已删，API 保留待业主裁定
+
+## [2026-11-18 10:34:58] fix | 工艺设置页 GA 设置区 4 控件删除后代码后置收敛 + 编译修复
+- 来源：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs + .Designer.cs（业主 2026-11-18 删 selGalvoPattern/lblGalvoPattern/btnGalvoDemo/btnGalvoHome）
+- 操作：
+  1. Phase0 Query（CodeMap 卡6 + index 路由 + ADR-076/067/070/075 + lessons UiModuleRemovalCleanup/UiLayoutChangeSyncPitfalls）
+  2. Phase1 Plan（只改 ProcessControlPage.cs，Designer 不动）
+  3. Phase2 Code（删 selGalvoPattern_SelectedIndexChanged；SetGalvoPattern 去 Select 回写；删 btnGalvoDemo_Click/btnGalvoHome_Click；保留 _syncingLaRadios/_loadingGalvoUi/workflow 层 GalvoDemo/GalvoHome）
+  4. Phase3 Ingest（api/ProcessControlPage + CodeMap-Files + lessons/UiModuleRemovalCleanup 坑六）
+  5. Phase4 Lint（8 闸门）
+- 变更文件：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; LLMWiki/wiki/api/ProcessControlPage.md; LLMWiki/wiki/architecture/CodeMap-Files.md; LLMWiki/wiki/lessons/UiModuleRemovalCleanup.md
+- 结论 / 遗留：基线真编译 errors=2（CS0103 selGalvoPattern ×2）→ 修复后 errors=0 rc=0（VS18 Insiders 构建器 /t:Rebuild），exe 时间戳已刷新；静态守卫 files=168 fail=0 PASS；10 个 TableLayoutPanel 行列数与格位冲突机检 0 异常；workflow 层 GalvoDemo 保留（UI 唯一入口删但属公共 API，留待业主裁定）
+
 ## [2026-11-17 21:01:58] fix | 工具与全量资产纳入 git 管控（Vicoding 4 提交 + AdaWeldSystem 2 提交，双仓库未跟踪清零）
 - 来源：业主指令「工具纳入管控」；实际排查发现范围远超工具：Vicoding 仓库 209 项未跟踪（含 167 wiki 页 / 22 工具 / 7 脚本 / 8 raw / 4 logs），AdaWeldSystem 仓库 41 项未跟踪 + 143 项已修改未提交 —— 本轮两轮的核心代码改动（ProcessControlPage/SystemControlPage/MontionManager 等）全部不在版本控制内
 - 操作：
@@ -40,411 +488,3 @@
   5. SystemControlPage：全局忙标志拆为 ManualOpGroup 四组独立标志（Trace/Ta/La/Galvo），一个电机的操作只禁用自己那组按钮；自动焊接中禁手动（_manualActionAllowed 由焊接状态事件驱动，⛔ 构造期不读 DeviceControlWork 单例避免触发主控初始化）
 - 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs
 - 结论 / 遗留：真编译 Rebuild errors=0 rc=0 + simplify_guard 168 文件 fail=0。沉淀：按先合并后新建未新建 ADR —— ADR-100/082/063/075 各追加 2026-11-17 演进记录（D29~D32）；api/DeviceControlWork·MotionControlWorkflow·LaserWeldHeadWorkflow·SystemControlPage·ProcessControlPage 各追加改版段；lessons/TorqueModeAsUiGate（选中态与结果色必须是同一控件）与 UiRefreshUnifiedEntry（按钮管控作用域按设备隔离）各合并一条新坑；CodeMap 卡3/卡6 与 CodeMap-Files 同步；index 重建 165 条无重复。遗留：① 手动动作禁入的判据取焊接过程态 PreWork/Working/Stopping，是否还需把焊前准备段（对齐/光丝对中）纳入待业主确认；② 振镜按钮焊接中禁切换改由整机焊接状态事件驱动，焊接起止沿须现场验证；③ TA_Zero 现要求已回零 ⇒ 初始化后必须先回零才能用 TA 指令（含 TA_Zero），首台现场须确认操作顺序
-
-## [2026-11-17 17:30:48] lint | Phase 4 健康检查与知识库卫生（刷新与手动操作链路重构轮 收尾）
-- 来源：Phase 4 Lint 八闸门 + 人工矛盾扫描 + 卫生巡检
-- 操作：
-  1. 矛盾扫描修正两处现行描述旧门禁语义：standards/DeviceInitializationDependency §七 与 api/MontionManager 回零结论行（ADR 决策原文不改，改版只在演进记录）
-  2. log 卫生：修正一条历史条目格式（修复 … | --src → fix | …）+ 按 wiki_log.py truncate 归档 2 条至 logs/backup/log_2026-11-10.md（保留最新 50 条，归档非丢弃）
-  3. index 重建（165 条无重复，project 8 页归属完整）
-- 变更文件：Vicoding管理平台/LLMWiki/wiki/standards/DeviceInitializationDependency.md; Vicoding管理平台/LLMWiki/wiki/api/MontionManager.md; Vicoding管理平台/LLMWiki/logs/log.md; Vicoding管理平台/LLMWiki/logs/backup/log_2026-11-10.md; Vicoding管理平台/LLMWiki/logs/INDEX.md
-- 结论 / 遗留：最终真编译 Rebuild errors=0 rc=0 + simplify_guard 168 文件 fail=0 + simplify_selfcheck PASS（注入对照与零变化一致性均通过，守卫非空过）。定稿 output 包 = AdaWeldSystem_output_20261117_173041.tar.gz（3.1 MB）。遗留同上一条：① AntdUI Table 差分重绘须上机实测；② 振镜按钮焊接中禁切换改事件驱动须现场验证；③ TA 绝对定位以「已回零」为位置可信依据须首次上机实测定位基准
-
-## [2026-11-17 17:26:56] fix | 系统设置/工艺设置页刷新与手动操作链路重构（轴按钮卡顿与重复生效 · TA 指令区状态逻辑 · 去跨线程刷新）
-- 来源：业主需求 1 轴运动按钮卡顿与重复生效 / 2 TA 指令区状态逻辑（TA未回零 + 点一下多一个红）/ 3 取消 UI 线程刷新、轴操作防呆、确认后执行 + 执行消息通知；补充约束：两页各自建立定时器不共用
-- 操作：
-  1. MontionManager：TaAvailable 改为「已使能+已回零」，拆出 TaAtWorkZero/TaZeroPoseReason 观测位；新增 MoveToNoBlock/StepMoveNoBlock；删除 HomeAxis 与 AxisManualOperation.Home
-  2. MotionControlWorkflow：TryManualAxisOperation 的 MoveTo/StepMove 改非阻塞、移除 Home 分支；GetTaGateReason 附工作零位未到位观测
-  3. LaserWeldHeadWorkflow：IsAtWorkZero 改读 TaAtWorkZero（L4 与指令可执行解耦）
-  4. SystemControlPage：新增手动操作执行器（按钮禁用=执行中 → 后台执行 → 执行消息回 UI）；刷新去跨线程采集回贴、差分才重绑、按钮管控改事件驱动；停止键去重（只下发一次）
-  5. ProcessControlPage：删除门禁快照（ActionGateSnapshot/_gateSnapshot/_actionDirty/_gateBusy），门禁改点击时直读权威源；TA 区互斥单色（最多一个有色）；本页 timerRefresh 移入 Designer 托管（页内唯一实例）
-- 变更文件：AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs
-- 结论 / 遗留：真编译 Rebuild errors=0 rc=0（VS18 Insiders 工具链）+ simplify_guard 168 文件 fail=0 + simplify_selfcheck PASS（含注入对照与零变化一致性）。沉淀：ADR-063/073/077/082/099 各追加 2026-11-17 演进记录（按先合并后新建，未新建 ADR）；api 四页各追加改版段；lessons/UiRefreshUnifiedEntry 与 TorqueModeAsUiGate 各合并一条新坑；CodeMap 卡3/卡6 与 CodeMap-Files 同步；index 重建 165 条无重复。遗留：① AntdUI Table 差分重绑依赖重绘语义，须上机实测位置与灯变化可见；② 振镜按钮「焊接中禁切换」改由整机状态事件驱动，焊接起止沿需现场验证；③ TA_Break/Pose 绝对定位改以「已回零」为位置可信依据，首次上机需实测定位基准；④ 两页定时器均为页内独立实例，刷新节拍沿用 FLOW_TIMEOUT/UI_REFRESH_MS 未改
-
-## [2026-11-17 15:31:38] fix | 系统设置页 Y轴/TA轴 参数弹窗改值不生效（写回移到弹窗内确定按钮）
-- 来源：-
-- 操作：-
-- 变更文件：-
-- 结论 / 遗留：-
-
-## [2026-11-17 14:38:07] fix | 修复启动期配置重复读取与初始化未完成即变更设备状态
-- 来源：现场日志 2026-11-17 14:09（用户报障）
-- 操作：
-  1. DeltaMotionConfig 四处日志加 writeLog 门控,预览读静默
-  2. InitializeMachine 改置 _initAccepted+仅开 IO 线程,5 模组与指令线程延后到初始化出结果三出口
-  3. IOWork 初始化在途只推进连接链冻结全部状态变更巡检
-  4. ADR-107 追加演进记录
-  5. StartupInitializationOrderGates 追加坑 8
-  6. 更新 api/DeviceControlWork 与 CodeMap-Files
-- 变更文件：AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs;AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs;AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
-- 结论 / 遗留：静态校验 34/34 通过(含阴性对照);真编译 errors=0 rc=0;output=AdaWeldSystem_output_20261117_143741.tar.gz;遗留:预览读仍会发布流程超时快照(同文件故当前无害,后续可评估隔离);真实模式现场需确认全连跳过路径指令线程正常
-
-## [2026-11-17 14:24:42] governance | CodeMap 重构为代码记忆总览 + 详表分页
-- 来源：业主反馈：CodeMap 利用率低，反复全盘扫描使其失去代码记忆作用
-- 操作：
-  1. CodeMap.md 瘦身为总览(6张功能域记忆卡含主干依附+需求速查+陷阱，无沿革)
-  2. 新建 CodeMap-Files.md 承原49命名空间166文件表+工程约束+分层判据(沿革存档保留)
-  3. 沿革从总览移出(详情仍在详表存档与ADR/log)
-  4. 新增只读工具 codemap_deps.py
-  5. KR-003/KR-009 加 Grep 时机硬判据
-  6. 工作流 Step0.0 与三份Skill副本同步
-- 变更文件：wiki/architecture/CodeMap.md,wiki/architecture/CodeMap-Files.md,wiki/rules/KR-003-No-Skipping-Query.md,wiki/rules/KR-009-Grep-Default.md,wiki/project/vibecoding-workflow.md,tools/codemap_deps.py,tools/data/routes.tsv
-- 结论 / 遗留：八闸门全绿；CodeMap.md 从1006行瘦到约180行；主干依附经 codemap_deps.py 与 ADR-093/094 交叉验证；原文件备份 CodeMap.md.bak-pre-split 供回滚
-
-## [2026-11-17 14:05:17] fix | 初始化期禁重连与设备动作 + 机器人端 XML 写入并发保护（ADR-107）
-- 来源：业主强制要求：初始化动作时任何重连线程和动作都不要开启，必须等初始化结束拿到结果才能重连；现场报错 WeldControlConfig.xml 正由另一进程使用
-- 操作：
-  1. 排查根因:SaveRobotRsiXml无并发保护,三条路径并发到达同一文件(初始化链/自愈重连/手动开启),自愈线程在InitializeMachine中先启动形成竞争
-  2. 修复:thCommCommandWork延后到初始化链结束经EnsureCommandWorkStarted开启(正常结束+抢占中止两出口)
-  3. FilebackupPage新增TryPassCommAction两档门控拒绝初始化期手动设备动作
-  4. SaveRobotRsiXml加_rsiXmlLock+临时文件File.Replace原子替换+5x60ms占用退避重试
-  5. 新建ADR-107
-- 变更文件：MainDeviceControl/DeviceControlWork.cs,Comm/Communication/CommunicationManager.cs,UIDesign/TabPage/FilebackupPage.cs,wiki/decisions/ADR-107-init-phase-reconnect-gate.md
-- 结论 / 遗留：真编译 errors=0 rc=0; 心跳线程维持原状只检测不重连; output=AdaWeldSystem_output_20261117_140458.tar.gz
-
-## [2026-11-17 13:33:36] fix | 自动重连轮询结果日志降级 Debug（ADR-106 演进 D1）
-- 来源：业主纠正：轮询结果不在主系统显示，只记录降级Debug；边界限定为自动重连自愈循环
-- 操作：
-  1. CommManager L794 重连成功 Info→Debug
-  2. KukaRsiComm L597/605/619/666 启动失败 Warning→Debug(撤销上轮错误提级)
-  3. 保留配置加载/线程异常/停止异常/初始化汇总在主系统
-  4. ADR-106 追加演进 D1
-  5. 修订 CodeSimplification 规则4 与 api/GlobalCommData 降噪约定
-- 变更文件：Comm/Communication/CommunicationManager.cs,Comm/Communication/Implementations/KukaRsiComm.cs,wiki/decisions/ADR-106-comm-log-view-channel.md
-- 结论 / 遗留：真编译 errors=0 rc=0; 5处字节级替换行尾守恒; output=AdaWeldSystem_output_20261117_133316.tar.gz; 用户观察日志含 XML 文件被占用(疑似多实例)，非本轮范围
-
-## [2026-11-17 13:21:59] coding | 通讯日志查看通道：行为入通讯日志、结果入主系统（ADR-106）
-- 来源：业主多轮澄清：通讯日志记录RSI配置/启停/交互，FilebackupPage打开才显示；主系统只留行为反馈结果
-- 操作：
-  1. 新增 CommLogViewEvent + ShowCommLogForView（写TcpMessageLog+仅FilebackupPage显示）
-  2. 日志按行为/结果二分:行为21处转通讯通道,结果类保留ShowLog
-  3. 启动停止失败Debug提Warning
-  4. FilebackupPage订阅/退订/handler
-  5. 新建ADR-106
-  6. 修订CodeSimplification⑤规则4
-  7. 同步api/GlobalCommData与api/FilebackupPage与CodeMap
-- 变更文件：Comm/SystemComm/SystemComm.cs,Comm/Communication/CommunicationManager.cs,Comm/Communication/Implementations/KukaRsiComm.cs,UIDesign/TabPage/FilebackupPage.cs,wiki/decisions/ADR-106-comm-log-view-channel.md
-- 结论 / 遗留：真编译errors=0 rc=0; 事件闭环完整; 未复用CommunicationCommandReceived避免污染4订阅者含2 Workflow; output=AdaWeldSystem_output_20261117_132142.tar.gz
-
-## [2026-11-17 11:23:24] fix | 删除 FilebackupPage 通讯页签切换残留 恢复编译
-- 来源：业主指令：删除设计器 tabs/tabpage 后清理关联代码，保证编译 ok
-- 操作：
-  1. 定位 CS0103 根因 tabs1 全项目仅 L242 引用无定义
-  2. 删除 OnRadioModeChanged 方法(radio→tabs 联动空壳)
-  3. 删除 Designer radioRobot.CheckedChanged 订阅
-  4. 删除 ctor 冗余 radioRobot.Checked 赋值
-  5. 保留 radioModeRSI_CheckedChanged(设计器仍订阅)
-  6. 同步 api/FilebackupPage.md 4 处 stale
-- 变更文件：UIDesign/TabPage/FilebackupPage.cs,UIDesign/TabPage/FilebackupPage.Designer.cs,wiki/api/FilebackupPage.md
-- 结论 / 遗留：真编译 errors=0 rc=0; tabs1/OnRadioModeChanged 全项目零命中; 行尾守恒; output=AdaWeldSystem_output_20261117_112314.tar.gz; 并发改动时间线 11:17:03 已核实
-
-## [2026-11-17 11:15:59] coding | 机器人重连链路轮询日志降级为 Debug
-- 来源：业主指令：轮询级别 log 降 debug 不在 loginput 显示，连接成功保留一次
-- 操作：
-  1. CommunicationManager.EnsureRobotChannelHealthy 未监听/重连失败/重连异常 3处降 Debug，重连成功保留 Info
-  2. KukaRsiComm 接收线程启动/回复线程启动/监听已绑定 3处降 Debug
-  3. 复用既有 MessageLevel.Debug + ShowDebugToUi 机制未新增机制
-  4. 同步 api/GlobalCommData.md 枚举四档与级别映射表
-- 变更文件：Comm/Communication/CommunicationManager.cs,Comm/Communication/Implementations/KukaRsiComm.cs,wiki/api/GlobalCommData.md
-- 结论 / 遗留：真编译 errors=0 rc=0; 静态 8/8; 行尾守恒; output=AdaWeldSystem_output_20261117_111531.tar.gz; 未改配置默认值; 首连成功可见性由 RecordInitOutcome 保留
-
-## [2026-11-17 10:51:48] fix | 阶段9收口 补 ADR-105 登记与总纲 S9 并入
-- 来源：业主检查指令：核对阶段0~9完成情况与架构一致性
-- 操作：
-  1. 真编译 errors=0 rc=0
-  2. 八扫描器 rc=0 但 lint_scan 报 ADR-105 孤儿
-  3. ADR-Index 补第105行并同步计数说明
-  4. 总纲 v1.0→v1.1 补 S9(N23~N25)与 V18
-  5. 重建索引路由
-- 变更文件：wiki/decisions/ADR-Index.md,.trae/documents/MRDF-2608-设备与线程全生命周期改造总纲.md
-- 结论 / 遗留：代码层面阶段0~8全部落地且无架构偏离；修复两处文档收口遗漏；孤儿页与S9追溯缺口消除；实机项仍待现场确认
-
-## [2026-11-17 09:21:46] update | 阶段8 页面动作统一经工作流与权限门控
-- 来源：ADR-105
-- 操作：-
-- 变更文件：AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs,AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs
-- 结论 / 遗留：ILCamPage 连接断开改走 LineLaserWorkflow，删 UI 线程直连；页面释放不断设备；手动连接工程师权限、模拟启动管理员权限；初始化期连接置灰并给原因；回写 ADR-105 与 api/modules/CodeMap
-
-## [2026-11-17 08:58:17] update | 阶段7 报警停焊自适应输出全停与 RSI 载荷冻结
-- 来源：设备与线程全生命周期改造总纲
-- 操作：-
-- 变更文件：DeviceControlWork.cs,WeldParamControlWorkflow.cs,LaserWeldHeadWorkflow.cs,CommunicationManager.cs
-- 结论 / 遗留：ReportAlarm 同拍级联 ErrorAborted；FlowProcess/PreWork/MonitorAlignTick 加报警门禁；摆焊执行器非 Working 归零；新增 ClearRobotCommand 清警停发 TX_NG；新建 ADR-104 且 api/modules/CodeMap 同步
-
-## [2026-11-17 05:16:26] update | 阶段 7 缺值策略与自适应按距离
-- 来源：MRDF-2608 总纲 N08/N09/N10/N11/N15
-- 操作：-
-- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs,AdaWeldSystem/WeldParamControl/WeldParamManager.cs,AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs,AdaWeldSystem/WeldParamControl/Algorithms/WeldParamAdjustmentAlgorithm.cs,AdaWeldSystem/WeldParamControl/Algorithms/SeamMapTrackingAlgorithm.cs,AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs,AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs,AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs
-- 结论 / 遗留：缺值期 CSP 取 held 不回落标定位；达阈值一次报警停焊（TX_NG+ErrorAborted，不复用 DoStopMachine，不清累计器）；缺值或位姿 age>2T 暂停入图；自适应改 SEGMENT_DISTANCE_MM 按段距取段内均值查表，旧键只读忽略；UI 合并每段距离并加红色提示；心跳 H2 接缺值超限
-
-## [2026-11-17 05:01:05] update | 阶段6 心跳分级与通讯层重连落地
-- 来源：MRDF-2608 总纲 N07 / D09
-- 操作：-
-- 变更文件：decisions/ADR-102-heartbeat-levels-and-comm-reconnect,api/DeviceControlWork,api/CommunicationManager,architecture/CodeMap
-- 结论 / 遗留：心跳线程连接成功后惰性创建；H0/H1/H3/H4 变化沿；移除线程内重连；EnsureRobotChannelHealthy 5s 冷却；新增 NeedHeartbeat 配置
-
-## [2026-11-17 04:52:40] update | 阶段5 关闭闭环与急停落地
-- 来源：MRDF-2608 总纲 N05/N06
-- 操作：-
-- 变更文件：decisions/ADR-101-shutdown-closure-and-estop,api/DeviceControlWork,api/DeviceStatusWork,api/MotionControlWorkflow,modules/DeviceControl,architecture/CodeMap
-- 结论 / 遗留：DisposeComponents 幂等+30s预算；CascadeDisconnect 等待；通讯线程标志拆分；急停不断设备；运控关闭唯一入口；线激光/模拟线程 Join；FormMain 补管理器释放
-
-## [2026-11-17 00:23:03] update | 阶段 4 两套状态联合与动作双闸门（ADR-100）
-- 来源：总纲 §4.1.1-4.1.5 / D20 / V8
-- 操作：-
-- 变更文件：DeviceControlWork.cs,DeviceStatusWork.cs,ADR-100-state-union-and-action-gate.md,ADR-Index.md,api/DeviceControlWork.md,api/DeviceStatusWork.md,modules/DeviceControl.md,architecture/CodeMap.md
-- 结论 / 遗留：设备6态×流程7态矩阵；1s巡检挂thIOWork只纠三类非法组合；ErrorAborted只经ReportAlarm上升；SetStatus变化沿一条Info；CheckActionGate接DoSubWork L4与DoSubPrework L0；GetStatusSnapshot统一快照
-
-## [2026-11-16 21:20:12] update | 阶段3 返工 复位挂回既有复位链（ADR-099 修订）
-- 来源：业主返工指令
-- 操作：-
-- 变更文件：MotionControlWorkflow.cs; DeviceControlWork.cs; ADR-099; api/*; modules/DeviceControl; CodeMap
-- 结论 / 遗留：撤销 ResetToWorkZero 独立入口；ResetProcess 内做门槛L1与能力分支并落到管理器动作；初始化只连接使能不变
-
-## [2026-11-16 18:21:31] update | 阶段3 初始化与复位分离（ADR-099）
-- 来源：业主推进 阶段3
-- 操作：-
-- 变更文件：DeviceControlWork.cs; MotionControlWorkflow.cs; DeviceStatusWork.cs; SystemControlPage.cs; ADR-099; api/*; CodeMap
-- 结论 / 遗留：初始化只连接使能；机器人通讯强制；受理门禁与补连；初始化期不判互锁；复位门槛L1按轴能力；回退开关INIT_RUN_TA_HOME
-
-## [2026-11-16 18:11:20] coding | 阶段2 分层就绪L0~L4与轴级能力
-- 来源：总纲v1.0 阶段2（业主授权自主推进）
-- 操作：
-  1. DeviceWorkflowBase 新增 ReadinessStage 枚举与就绪分层 region：IsConnected/IsEnabled/IsHomed/IsAtWorkZero/NeedHoming/HasAbsoluteEncoder/WorkZeroSource/ReadinessStage/EnsureReadiness
-  2. MotionControlWorkflow 覆盖 Y 轴就绪（绝对编码器使能即 Homed，工作零位取 TeachLockYMm）
-  3. LaserWeldHeadWorkflow 覆盖 TA 轴就绪（TaMotionReady/TaHomed/TaAvailable）
-  4. 新建 ADR-098 并登记 ADR-Index；api/modules/CodeMap 同步
-- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceStateApiCore/DeviceWorkflowBase.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs; wiki/decisions/ADR-098-readiness-layering-axis-capability.md; wiki/decisions/ADR-Index.md; wiki/api/MotionControlWorkflow.md; wiki/api/LaserWeldHeadWorkflow.md; wiki/modules/DeviceControl.md; wiki/architecture/CodeMap.md
-- 结论 / 遗留：Rebuild 0错0警；simplify_run PASS（EOL 修复后）；comment_scan 全 0。L4 容差复用 CalReturnToleranceMm，未新增常量。阶段3 起 Home/GotoWorkZero 按轴实现可直接消费本层能力声明。
-
-## [2026-11-16 17:59:07] coding | 阶段1 缺值距离量测与CSP查图同源
-- 来源：总纲v1.0 阶段1（业主授权自主推进）
-- 操作：
-  1. RunCspTick查图X改取WeldParamManager.CurrentRobotX（D21，保留回退开关）
-  2. WeldParamManager新增缺值累计距离NoValueDistanceMm/NoValueSource（起焊沿开窗、激光帧清零、|dX|与停滞推定）
-  3. NO_VALUE_TOLERANCE_MM默认5.0并载入钳位1~50mm
-  4. 轴组与TA_HOME增已配置/未配置Debug日志
-- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/WeldParamControl/WeldParamManager.cs; AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs
-- 结论 / 遗留：编译0错0警; simplify_run PASS remaining=0; comment_scan 全0; 阶段1只观测不触发停焊（动作在阶段7）; 存量INI若仍为2.0则生效值仍2.0（起焊沿Info日志自证生效阈值）
-
-## [2026-11-16 11:45:09] 修改 | 界面触发的指令统一置手动模式，振镜与运控动作日志按模式甄别
-- 来源：业主复核 RunMode 用法
-- 操作：
-  1. LaserWeldHeadWorkflow 振镜回零与演示日志改 LogAction
-  2. ProcessControlPage/SystemControlPage/MonitorCamPage 界面入口置手动；模拟启停改由界面置手动；删除 DeviceControlWork 模拟分支的自动置位
-- 变更文件：LaserWeldHeadWorkflow.cs; ProcessControlPage.cs; SystemControlPage.cs; MonitorCamPage.cs; DeviceControlWork.cs
-- 结论 / 遗留：Rebuild 0/0；simplify PASS；comment_scan 三项 0；八扫描器 rc=0
-
-## [2026-11-16 10:24:29] 修改 | 工作流基类新增运行模式（自动/手动），动作日志按模式甄别，消除初始化打印手动连接的歧义
-- 来源：现场日志 20261113 初始化段
-- 操作：
-  1. 基类新增 WorkflowRunMode 与 RunMode/SetRunMode/ModeName/ModeText/LogAction
-  2. 监控相机与线激光连接/断开日志改由模式生成
-  3. 初始化/编排/关停入口置自动，界面按钮置手动
-- 变更文件：DeviceWorkflowBase.cs; MonitorCameraWorkflow.cs; LineLaserWorkflow.cs; DeviceControlWork.cs; MainPage.cs; ILCamPage.cs
-- 结论 / 遗留：Rebuild 0/0；simplify PASS；comment_scan 三项 0；八扫描器 rc=0
-
-## [2026-11-13 22:02:56] 修复 | 现场日志9项整改：运控配置单次加载与关停顺序反转
-- 来源：现场日志 20261113_17:22
-- 操作：
-  1. 移除重复运控配置加载
-  2. 日志文案通顺化
-  3. 删除噪声日志
-  4. 关停改为线程→设备→主站
-  5. 主站正常关闭不触发急停
-  6. 健康巡检同因去重
-- 变更文件：MotionControl/MontionManager.cs; UIDesign/MainWindow/FormMain.cs; LineLaserCam/LineLaserConfig.cs; UIDesign/TabPage/SystemControlPage.cs; UIDesign/ControlPage/MainPage.cs; MainDeviceControl/DeviceControlWork.cs; MainDeviceControl/DeviceStatusWork.cs; Comm/Communication/Implementations/KukaRsiComm.cs; MonitorCam/MonitorCamManager.cs
-- 结论 / 遗留：启动日志运控配置由3次降为1次；退出顺序固定为先停线程再断设备；Rebuild 0/0、simplify PASS、八扫描器全绿
-
-## [2026-11-13 17:26:56] governance | 日志截断：51→50 条，归档 1 条
-- 来源：每周 Phase 4 Lint 例行截断
-- 操作：
-  1. wiki_log.py truncate 保留最新 50 条
-  2. 归档 1 条旧条目到 logs/backup/
-  3. 重建 logs/INDEX.md（58 行）
-- 变更文件：logs/log.md; logs/INDEX.md; logs/backup/
-- 结论 / 遗留：截断前 51 条 → 截断后 50 条; 归档 1 条; INDEX.md 已同步重建
-
-## [2026-11-13 17:25:44] governance | 每周例行维护：知识库自检+代码漂移+日志截断
-- 来源：定时任务（每周 Phase 4 Lint）
-- 操作：
-  1. 修复 logs/backup/log_2026-11-02.md 中 3 处模板占位符红链（去链接化）
-  2. api/DeviceControlWork.md 补章节导航（604→631 行）
-  3. 5 个 IntelligentLaser 拆分页页头去重（消除 0.69/0.72 内容重复）
-  4. 代码漂移抽查 CodeMap 222 路径仅 2 处已标注移除
-  5. 清理 14 个 _tmp_*.txt 与 4 个 .pyc 缓存
-- 变更文件：logs/backup/log_2026-11-02.md; wiki/api/DeviceControlWork.md; wiki/lessons/IntelligentLaser-Delegate-Gc.md; wiki/lessons/IntelligentLaser-Sdk-Interop.md; wiki/lessons/IntelligentLaser-Callback-Mechanism.md; wiki/lessons/IntelligentLaser-Job-System.md; wiki/lessons/IntelligentLaser-Ui-State.md
-- 结论 / 遗留：八扫描器全绿（exit=0）; 代码漂移待修正 0; ADR 编号 1~97 连续无空洞; 孤儿页 0; 红链 0; 日志截断前 50 条
-
-## [2026-11-13 16:31:29] refactor | 主页面导航重组：相机设置并入系统参数设置 + 设备监控空页
-- 来源：业主界面优化五项（跨会话转入）
-- 操作：
-  1. 删除顶部「相机设置」页及 navPageImage；参数设置改名系统参数设置；系统参数设置 NavPage 扩为 5 子页（工艺/系统/线激光/监控相机/文档备份）；新增空 TabPage「设备监控」于主页面之后；ILCamPage tabsIL.Text 改线激光设置；MonitorCamPage 原样不动
-- 变更文件：AdaWeldSystem/UIDesign/MainWindow/FormMain.cs；AdaWeldSystem/UIDesign/TabPage/ILCamPage.Designer.cs；LLMWiki/wiki/api/FormMain.md；LLMWiki/wiki/architecture/CodeMap.md；LLMWiki/wiki/modules/UIDesign.md；LLMWiki/wiki/decisions/ADR-051-ILCamPageTabsConversion.md
-- 结论 / 遗留：顶部四页=主页面/设备监控(空)/系统参数设置/数据追溯，dataPage 仍 index 3、_hiddenItem1~3 仍三项；字号未动（另开一轮）；Config 未覆盖：本轮无新增/无覆盖配置键；遗留：设备监控内容待后续在 Designer 补
-
-## [2026-11-13 16:15:17] fix | 追溯页诊断撤除+首进不弹窗；主站初始化超时暴露与失败码上报；关闭链同步级联断开与硬件释放
-- 来源：业主现场日志四问（追溯页报错/30s超时设置/关闭只见线激光断开）
-- 操作：
-  1. DataReviewerPage 撤除正常路径 DiagLog（残留脚手架），InitPCLDir 增 userInitiated，首进 0 行只更新中性文案不弹窗
-  2. SystemControlPage tLPTimeout 新增 主站初始化(秒) 控件 txtMasterInit + 读改存三段式接线
-  3. DeltaMontionControl Master_Initial/Get_CardSeq 失败码如实上报（不再记哨兵卡号99空等超时），新增 _masterOpened 标志
-  4. DeviceControlWork 关闭链改同步 CascadeDisconnect（不再置位脉冲型 Stop_IO 指望扫描线程消费），逐模组补 模组断开 已受理 日志
-  5. FormMain_FormClosed 补释放运控工作流（关台达主站）与监控相机工作流（停监督释放Mat）
-- 变更文件：AdaWeldSystem/UIDesign/ControlPage/DataReviewerPage.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionControl.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/UIDesign/MainWindow/FormMain.cs; Vicoding管理平台/LLMWiki/wiki/api/DataReviewerPage.md; Vicoding管理平台/LLMWiki/wiki/api/SystemControlPage.md; Vicoding管理平台/LLMWiki/wiki/api/DeviceControlWork.md; Vicoding管理平台/LLMWiki/wiki/api/MontionManager.md; Vicoding管理平台/LLMWiki/wiki/modules/MotionControl.md; Vicoding管理平台/LLMWiki/wiki/lessons/StartupInitializationOrderGates.md; Vicoding管理平台/LLMWiki/wiki/architecture/CodeMap.md
-- 结论 / 遗留：MSBuild /t:Rebuild 0 error 0 warning；静态自检 14/14 PASS（Designer三面/TLP扩行四处同步/InitPCLDir调用点/关闭链接线/csproj完整性）；output 包 AdaWeldSystem_output_20261113_161504.tar.gz（3.1MB）；教训页合并追加 坑6（不新建）；遗留：现场需实测台达主站初始化失败的真实厂商返回码（此前被超时掩盖），本轮只保证不再掩盖
-
-## [2026-11-13 13:52:19] refactor | 工艺设置页 lblQuickTrackingTip 改名 + 指令区状态标签清零
-- 来源：业主两项要求（跨会话转入）
-- 操作：
-  1. lblQuickTrackingTip→lblQuickTracking（Designer 16 处）；删除 UpdateCommandAreaTips 及其调用；ApplyActionBack 去掉无消费者 reason 形参；InstructionWorker 执行异常补 Error 日志；wiki api 页与 ADR-082 同步
-- 变更文件：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs；AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs；Vicoding管理平台/LLMWiki/wiki/api/ProcessControlPage.md；Vicoding管理平台/LLMWiki/wiki/decisions/ADR-082-TaInitFourStepAndAvailability.md
-- 结论 / 遗留：lblQuickTrackingTip 全仓 0 命中；lblQuickTaTip/lblQuickLaTip 代码中本就不存在（仅历史文档残留）；状态出口=按钮底色+轴表灯/状态码+日志
-
-## [2026-11-13 10:35:50] refactor | 系统设置页新增 tLPFlowSetting/tLPTimeout 两区：工艺启用开关跨页迁移 + 两页字号行高统一
-- 来源：业主三项要求（MRDF-2608：开关迁移 / 等待超时迁移 / 两页字体高度严格统一，样本 gridFitterControl）
-- 操作：
-  1. 1. 新建 gridSimTestZones 卡片 panelFlowSetting+panelTimeout；tLPFlowSetting 收 5 组工艺启用（标签+开关，4 列自然换行，1 组/2 列，3 行）
-  2. 2. 5 个 CheckedChanged 处理器与 SaveProcessEnable 由 ProcessControlPage 迁至 SystemControlPage，新增 _loadingProcessEnable 守卫与 LoadProcessEnableOnForm 回填（构造 + 读取按钮）
-  3. 3. 状态字段仍为 WeldParamManager.AlgorithmsConfig（共享单例，非页面私有），写回仍落 AlgorithmsZone.Quick，行为不变
-  4. 4. gridLaserCalib 的流程等待/设备侧等待两段（2 小标题 + 14 字段）迁入 tLPTimeout，gridLaserCalib 收缩为 标题/小标题/标定角度 4 行
-  5. 5. 两页全部 TLP 单元格控件字号高度归一：title 12pt/35（Bold）、段内小标题 10pt/30、label/Input/Select/Radio/Button/Switch 9pt/28，显式 Microsoft YaHei UI，行样式同步
-  6. 6. gridProcessDebug 按业主要求保留空容器，2x2 框架与 gridQuickZones 行列定义未动
-- 变更文件：AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/WeldParamControl/WeldAlgorithmsConfig.cs
-- 结论 / 遗留：MSBuild /t:Rebuild 0 error 0 warning；simplify_run --skip-build PASS（guard 168/0、ide remaining=0）；comment_scan 三项 0；八扫描器 rc=0；包 AdaWeldSystem_output_20261113_103528.tar.gz（356 项，两页 GridPanel=0、.Span=0，tLPFlowSetting 11 项 / tLPTimeout 31 项在包内）；自检脚本 312 个单元格控件字号+行高偏差 0（title 14 / 小标题 10 / label 122 / input·select·radio·button 161 / switch 5）；各 TLP 固定行高合计均未超卡片可用高（gridQuickLa 440→320，余 76）；无新增配置键；Designer 时间戳 10:28 晚于出包前写入、包后无回退；遗留待业主裁定：删空 gridProcessDebug 并让其余三格上移（本轮按要求未重排）
-
-## [2026-11-12 18:37:12] refactor | 两页布局返工：28 个 GridPanel 拆平为单层 TableLayoutPanel（一行四列 160x32 / 标题跨4行高40）
-- 来源：业主否定上一轮「外层单列+嵌套 TLP」方案：TLP 不需要多层，一个区域一个 TLP，显式坐标落格
-- 操作：
-  1. 每区域仅一个 TLP（Dock=Fill 放入 panel），4 列；字段区 Absolute 160、容器区 Percent 25（gridWeldZones 16/28/28/28 复刻 260+fill）
-  2. 一律 Controls.Add(child,col,row) 带坐标，标题占第 0 列并 SetColumnSpan(4)，禁止无坐标顺序 Add
-  3. 行高：标题 Absolute 40、字段行 Absolute 32，末尾补一行 AutoSize 空行吸收余高
-  4. 子控件：字段/标题 Anchor=Left|Top + Size 160x32（标题 640x40）+ Margin=0；结构子控件 Dock=Fill
-  5. 纯纵向堆叠的内层网格并入外层并删除容器（gridQuickLaFocus/gridQuickLaGalvo/gridLaserLa/gridLaserGalvo/gridLaserTa/gridWeldPonts），原无 Dock 的 4 个网格补 Dock=Fill
-  6. ShadowOpacityAnimation 全 false（SCP 9 / PCP 8，含 panelProcessDebug 补写）
-- 变更文件：AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs
-- 结论 / 遗留：MSBuild /t:Rebuild 0 警告 0 错误（真编译已跑，非 skip）；simplify_run --skip-build ide remaining=0；comment_scan 三项 0；八扫描器 rc=0；包 AdaWeldSystem_output_20261112_184108.tar.gz（356 项，包内 GridPanel=0 / Span=0 / Shadow=true=0 / TLP 12+10 且每个 4 列样式 + 尾行 AutoSize）；几何自检 347 子控件全部带坐标、行列不越界；仅剩 gridPanelRight 一层嵌套（右栏需再上下二分，结构必需）；gridQuickLa 固定行合计 440 > 卡片可用约 394，底部约 1 行会被裁
-
-## [2026-11-12 16:11:29] uifont | SystemControlPage/ProcessControlPage 全量 GridPanel 换 TableLayoutPanel 且面板阴影动画关闭
-- 来源：业主需求（MRDF-2608 双页布局治理）
-- 操作：
-  1. 17 个 Panel 的 ShadowOpacityAnimation 置 false（含补写 panelProcessDebug）
-  2. 28 个 GridPanel 换 TableLayoutPanel（12+16）
-  3. AntdUI 忽略 Dock，112 个单元格子控件补/改 Dock=Fill 以保持铺满几何
-  4. 网格内多列行用嵌套 TableLayoutPanel（SCP 17 组 / PCP 14 组）还原逐行独立列宽
-- 变更文件：AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs
-- 结论 / 遗留：MSBuild /t:Rebuild 0 警告 0 错误；simplify_run ide remaining=0；comment_scan 三项 0；八扫描器 rc=0；包 AdaWeldSystem_output_20261112_161043.tar.gz 356 条目，包内 ShadowOpacityAnimation=true 0 处、GridPanel 0 处；子控件落格与控件集合经脚本核对全等；业务逻辑/事件/配置键/命名未动
-
-## [2026-11-12 13:45:33] 变更 | 工艺设置页合并：激光页并入快捷页 2x2
-- 来源：-
-- 操作：
-  1. 删除 tabPageLaserProcess；三区参数并入 gridQuickTracking/gridQuickTa/gridQuickLa；GA 指令标识改 GA_*；清理引用不存在标签的遗留编译错误
-- 变更文件：AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.Designer.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs
-- 结论 / 遗留：2x2 框架未动，功能零丢失，配置键未改
-
-## [2026-11-12 09:39:13] 新增 | 系统设置温控区增加焊接头从站启用开关
-- 来源：-
-- 操作：-
-- 变更文件：AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs; AdaWeldSystem/UIDesign/TabPage/SystemControlPage.Designer.cs
-- 结论 / 遗留：开关随保存写 ROOT/WELD_HEAD_SLAVE/ENABLED，读取按钮回填，不即时下发
-
-## [2026-11-11 16:17:29] 修订 | 从站在线判定分层
-- 来源：-
-- 操作：-
-- 变更文件：AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionControl.cs
-- 结论 / 遗留：焊接头未配置/未启用/未连接三态；Y 轴与焊接头未上总线报从站未连接，不再读状态字 0x0000
-
-## [2026-11-11 15:27:21] 修复 | 日志显示端按级别过滤 + 初始化赘述裁剪 + 焊接头从站计跳过
-- 来源：现场日志 2026-11-11 14:56:32（业主：分级日志全部显示）
-- 操作：
-  1. ShowLog 的 Debug 分支默认不触发界面事件，文件仍全量；新增 [Display] ShowDebugLog 开关
-  2. RSI/线激光/台达轴/运动管理器初始化配置回显统一降 Debug，RSI 与他人失败原因去路径与嵌套括号
-  3. TA ZeroPose/轴闸门/TA_Auto 去变量名括号与解释尾巴；回零仅保留初始化回零一条 Info
-  4. 焊接头从站未启用改为规划期跳过，汇总只统计真实失败
-- 变更文件：Comm/SystemComm/SystemComm.cs; Comm/Communication/CommunicationManager.cs; Comm/Communication/Implementations/KukaRsiComm.cs; LineLaserCam/IntelligentLaserCam/IntelligentLaserCam.cs; MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs; MotionControl/MontionManager.cs; MotionControl/AxisRegistry.cs; MotionControl/IORegistry.cs; MotionControl/CylinderRegistry.cs; MotionControl/MoveControlData.cs; MotionControl/DeltaEtherCAT/DeltaMontionControl.cs; MainDeviceControl/DeviceControlWork.cs; MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; UIDesign/TabPage/ProcessControlPage.cs; wiki/standards/InitializationLogSpec.md
-- 结论 / 遗留：Rebuild 0 error 0 warning；simplify_run PASS（guard 168/0、ide remaining=0）；comment_scan 三项 0；八扫描器 rc=0；同场景 91 条/3459 字符 → 28 条/596 字符（-69.8% 条数、-82.8% 字符）；接口区分：16#60E0/E1 探测成功、0x6072 回落成功，暂不切 60E0/E1 方案，待现场复核
-
-## [2026-11-11 14:53:05] fix | 回零门禁解环 / TA 指令改 Click 派发 / 初始化日志极简重写
-- 来源：现场：回零被 TaHomed 挡住；TA 点第二下无反应；初始化日志废话过多
-- 操作：
-  1. 新增 GetAxisHomingGateReason 摘掉 TaHomed 依赖，TryHomeAxisWithWait 改用它
-  2. 新增 HomeEvidence 全链路证据，失败不再空证据
-  3. TA 六个 Radio 改 Click 派发，CheckedChanged 只清底色
-  4. 门禁被拒补按钮变红
-  5. 初始化日志按极简密度重写，明细降 Debug
-  6. InitializationLogSpec 新增第六节
-- 变更文件：AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; wiki/standards/InitializationLogSpec.md; scripts/csharp_review.py
-- 结论 / 遗留：循环依赖：TryHomeAxisWithWait 用 GetAxisGateReason，TA 分支读 TaHomed。点击不响应：挂 CheckedChanged，已选中再点不触发。日志样例 11 行 631 字 → 10 行 197 字。
-
-## [2026-11-11 14:23:12] fix | 行尾统一为 CRLF（DeltaMontionAxis / ProcessControlPage）并补齐 WaitAxisHomed 判据注释
-- 来源：simplify_guard 结构守卫 eol-mixed fail=2
-- 操作：
-  1. DeltaMontionAxis.cs 20 处独立 LF 归一为 CRLF
-  2. ProcessControlPage.cs 5 处独立 LF 归一为 CRLF
-  3. WaitAxisHomed remarks 改为须驱动器确认完成；BOM 保持
-- 变更文件：AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs; AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs; AdaWeldSystem/MotionControl/MontionManager.cs
-- 结论 / 遗留：guard files=168 fail=0 PASS；仅行尾与注释，无逻辑改动；simplify_run --skip-build PASS rc=0。
-
-## [2026-11-11 14:10:31] fix | TA 回零误判修复：必须看驱动器 Home_Status 1→0；回零后扭矩上限在线回落
-- 来源：现场：回零没顶到极限位就被置 0 / 业主：不能只在回零的时候满扭矩
-- 操作：
-  1. WaitHomeDone 重写为必须观察 Home_Status 1→0，2s 内始终 0 判未启动失败
-  2. 新增 HomeVerified 与 StartHome 复位；WaitAxisHomed 完成条件加权威信号
-  3. 新增 HomeAxisAndWait 阻塞入口，TryHomeAxisWithWait 失败即停轴中止、不进 ZeroPose
-  4. 新增 RestoreTorqueLimitAfterHome，回零确认后在线写回 TorqueLimitPerMille 并回读
-  5. 新增 16#60E0/16#60E1 只读探测（每进程一次）取证
-- 变更文件：AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs; AdaWeldSystem/MotionControl/DeltaEtherCAT/DeltaTaHomeConfig.cs; wiki/decisions/ADR-088-TaSharedTorqueLimit.md; wiki/lessons/StartupInitializationOrderGates.md
-- 结论 / 遗留：根因三条叠加：初始化走 HomeNoBlock 从不查 Home_Status；Home_Status==0 兼作未启动与已完成；HomeOffset 缺省 0 + 增量编码器上电≈0 使判据 t=0 成立、3 拍封完成。0x6072 在线可写性仍未获手册确证，回落走在线写 + 回读，失败只告警不加 OFF/ON 循环（须业主拍板）。HomeMode=-3 语义本机资料无法确证，待现场回读 16#6098。
-
-## [2026-11-11 13:36:45] refactor | 指令按钮 Tooltip 全部收敛为静态功能说明
-- 来源：业主令：Tooltip 不写状态，只介绍按钮作用
-- 操作：
-  1. InitCommandTooltips 仅构造时 SetTip 一次；删除 ApplyHoverTip/RestoreBaseTip/AttachHoverTips 与 _baseTips/_diagTooltip；清掉执行成功/失败/执行中/不可执行/忙/已取消 六类状态文案；失败原因改写 lblQuickTaTip
-- 变更文件：UIDesign/TabPage/ProcessControlPage.cs; wiki/api/ProcessControlPage.md
-- 结论 / 遗留：状态渠道收敛为底色+轴表指示灯与状态码+状态标签+日志；刷新与悬停均不再碰 Tooltip
-
-## [2026-11-11 13:24:41] fix | TA 控制按钮卡顿改控件层：后台采集+差分上屏+Tooltip 悬停
-- 来源：业主澄清：卡的是 TA 控制按钮控件层本身
-- 操作：
-  1. ActionRefresh_Tick 改 Task.Run 采集门禁快照并单飞；RefreshActionStates 只读快照并差分赋值；Tooltip 改 MouseEnter/MouseLeave 驱动；点击路径改读快照不再取硬件；非当前页不采
-- 变更文件：UIDesign/TabPage/ProcessControlPage.cs; wiki/api/ProcessControlPage.md
-- 结论 / 遗留：刷新原生状态字 5→0 次/拍，Tooltip 6→0 次/拍；上色同色不重绘；诊断日志走 Debug 级
-
-## [2026-11-11 12:02:00] feature | TA 按钮卡顿治理 + 回零满扭矩 + 初始化先回零后 TA_Auto
-- 来源：业主：TA 指令 UI 点击会卡；按钮点击不能刷新/循环，刷新统一单线程 30Hz（缺省 33ms）；TA 回零用满扭矩；初始化应先回零再 TA_Auto，伺服下电位置会变
-- 操作：
-  1. C: 新增配置 UI_REFRESH_MS（缺省 33ms）进 FlowTimeoutConfig；SystemControlPage.timerRefresh 由 PollIntervalMs(16ms) 改 UiRefreshMs 并逐拍自校正；ProcessControlPage 增 _actionTimer + _actionDirty，13 处 RefreshActionStates 直调改 RequestActionRefresh 置脏，唯一刷新入口 ActionRefresh_Tick，销毁 DisposeActionTimer
-  2. A: DeltaMontionAxis 增 FullTorqueOnEnable，使能时 16#6072 写满量程；TA 轴置真；WaitAxisHomed 判据改按 HomeOffset 比对并加回零后复读校验
-  3. B: MontionManager 增 TaHomed，TaAvailable 纳入门禁，TaDegradedReason 增未回零原因，MarkInitCompleted(false) 清零；MotionControlWorkflow 增 RunTaHomeThenZeroPose，初始化链改调；ExecuteTaZeroPose 未回零告警
-- 变更文件：UIDesign/TabPage/ProcessControlPage.cs;UIDesign/TabPage/SystemControlPage.cs;MotionControl/DeltaEtherCAT/DeltaMotionConfig.cs;MotionControl/DeltaEtherCAT/DeltaMontionAxis.cs;MotionControl/MontionManager.cs;MainDeviceControl/DeviceWorkflow/MotionControlWorkflow.cs;MainDeviceControl/DeviceControlWork.cs;wiki/standards/DeviceInitializationDependency.md;wiki/api/MontionManager.md;wiki/api/MotionControlWorkflow.md;wiki/api/ProcessControlPage.md;wiki/api/SystemControlPage.md;wiki/api/DeviceControlWork.md;wiki/decisions/ADR-093-FlowTimeoutConfigAndLayering.md
-- 结论 / 遗留：Rebuild 0 警告 0 错误；simplify_run ide: remaining=0；comment_scan merged_over/var_multiline/legacy_line 三项 0。回零稳定性采样未改（3×16ms≈48ms），另加收尾复核日志；满扭矩仅抬驱动侧 6072，CST 目标仍按软件钳制。
-
-## [2026-11-11 11:39:13] feature | 主页面焊接预览改经监控相机工作流（30Hz 节流 + 随焊接启停开关）
-- 来源：业主口径：主页面预览属焊接过程，与调试页不是一个路数；显示节流 30Hz
-- 操作：
-  1. MonitorCameraWorkflow 新增 WeldPreviewHz=30 / StartWeldPreview / StopWeldPreview / OnManagerPreviewFrame / DisposeFrame，DisposeManaged 首行退订
-  2. DeviceControlWork.SimMonitorCamStartWeld 采集成功后开启预览；SimMonitorCamStopWeld 首行关闭预览
-  3. MainPage 订阅 WeldPreviewFrame，BeginInvoke 后赋 imb_WeldViewer.Image，显式释放上一帧；DisposeComponents 退订并释放末帧
-  4. WorkflowResponsibilityBoundary 新增 §八 双通道并存；ADR-016 追加演进记录；MonitorCameraWorkflow / MainPage / MonitorCam / ADR-050 同步
-- 变更文件：MainDeviceControl/DeviceWorkflow/MonitorCameraWorkflow.cs;MainDeviceControl/DeviceControlWork.cs;UIDesign/ControlPage/MainPage.cs;wiki/standards/WorkflowResponsibilityBoundary.md;wiki/decisions/ADR-016-WorkflowResponsibilityBoundary.md;wiki/decisions/ADR-050-SimulationWeldCameraIntegration.md;wiki/api/MonitorCameraWorkflow.md;wiki/api/MainPage.md;wiki/modules/MonitorCam.md
-- 结论 / 遗留：Rebuild 0 警告 0 错误（产物 bin\\Release\\AdaWeldSystem.exe）；simplify_run ide: remaining=0；comment_scan limit=20 merged_over=0 var_multiline=0 legacy_line=0。调试页未改动（仍直连 PreviewFrameEvent）；RelayPreviewFrame 的 Clone/释放契约与 DrawSpotMark 未动。
-
-## [2026-11-11 11:15:41] fix | 初始化收尾先开闸再判轴，恢复自动 TA_ZeroPose
-- 来源：现场日志 2026-11-11 10:42:17（TA 使能成功但无 ZeroPose 记录）
-- 操作：
-  1. FinishInitialization 顺序改为 使能→MarkInitCompleted→按轴判定→自动ZeroPose→轴闸门报告
-  2. else if(!taConfigOk) 改 else，未就绪不再静默
-  3. 更新 lessons 坑4 / modules/DeviceControl / api/DeviceControlWork / api/MainPage
-- 变更文件：AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs; Vicoding管理平台/LLMWiki/wiki/lessons/StartupInitializationOrderGates.md; Vicoding管理平台/LLMWiki/wiki/modules/DeviceControl.md; Vicoding管理平台/LLMWiki/wiki/api/DeviceControlWork.md; Vicoding管理平台/LLMWiki/wiki/api/MainPage.md
-- 结论 / 遗留：根因 TaMotionReady 首条 !_initCompleted，而 MarkInitCompleted 排在自动回零之后；门禁 Rebuild 0/0、simplify_run ide:remaining=0、comment_scan 0
-
-## [2026-11-11 00:50:03] refactor | P0 双路X反依赖消除 / P1 配置所有权收归Manager / P2 名称启发式误报判据删除
-- 来源：业主三项裁决：LineLaserManager获取X有模拟X与真实X两条路不可断；配置整理到Manager禁止外部NEW且UI经Manager路由；功能重叠删除
-- 操作：
-  1. P0: LineLaserManager删using MainDeviceControl,454行改读WeldParamManager.Instance.CurrentRobotX
-  2. 模拟路由SimTick→UpdateRobotPose与真实路由RSI→OnRobotDataReceived两条写入链原样保留,GetEffectiveRobotX另8处模拟行程判定不动,真实态轮廓帧X由0变真值(业主批准)
-  3. P1: MontionManager新增CreatePreviewMotionConfig()(封装new+LoadConfig(false)),AlgorithmManager新增CreateEmptyPipelineConfig(),FilebackupPage两处与ILCamPage一处改经Manager路由,SystemControlPage本就走MontionManager.Instance
-  4. P2: 取证发现ConfigSelfHeal.Backup有2处调用(207/248)、WeldHeadSlaveDevice.DescribeTemperatureThreshold有2处调用(LaserWeldHeadWorkflow 195/201),业主裁定不删方法,删除csharp_review.py名称暗示旧版本残留启发式子判据
-  5. 同步ADR-045演进记录、4个API页、CodeMap、判据库坑10、报告待裁决节
-- 变更文件：AdaWeldSystem/LineLaserCam/LineLaserManager.cs; AdaWeldSystem/MotionControl/MontionManager.cs; AdaWeldSystem/EmguALG/Manager/AlgorithmManager.cs; AdaWeldSystem/UIDesign/TabPage/FilebackupPage.cs; AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs; LLMWiki/scripts/csharp_review.py; LLMWiki/scripts/arch_boundary_scan.py; wiki/decisions/ADR-045; wiki/api/LineLaserManager.md; wiki/api/AlgorithmManager.md; wiki/api/MontionManager.md; wiki/architecture/CodeMap.md; wiki/lessons/StaticVerifier-Checker-FailureModes.md
-- 结论 / 遗留：三批复核：批次1/2 各 build errors=0 rc=0; 最终全套 guard files=168 fail=0、全库warn/error=0、selfcheck四重自证PASS、真编译errors=0 rc=0、ide remaining=0、simplify_run PASS。重扫标记239→233(架构9→5:A2归零/A5 4→1,C.功能重叠2→0)。遗留：A5剩1条DeviceControlWork.SimulationConfig(类注释明确由DeviceControlWork单例持有,已裁定设计); C.疑似死函数101/平行指令4/跨层候选14仍待逐案裁决

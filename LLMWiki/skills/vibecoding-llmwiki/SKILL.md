@@ -79,8 +79,8 @@ WORKSPACE_ROOT = D:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系�
 | Standards | `Vicoding管理平台/LLMWiki/wiki/standards/` |
 | Guides | `Vicoding管理平台/LLMWiki/wiki/guides/` |
 | Architecture | `Vicoding管理平台/LLMWiki/wiki/architecture/` (single source of truth: `DeviceControlArchitecture.md`) |
-| **Code Map** | `Vicoding管理平台/LLMWiki/wiki/architecture/CodeMap.md` — **代码地图：文件↔功能↔wiki 对应表**。Phase 0.0 必读，Phase 3.6 必更新 |
-| Tool Scripts | `Vicoding管理平台/LLMWiki/tools/` —— **24 个脚本**，按用途分组（⛔ 全部由 `__file__` 推导路径，可在任意 CWD 运行）：<br>· **扫描（Phase 4 必跑 8 个）**：`wiki_audit.py` / `wiki_format.py` / `ingest_purity_scan.py` / `lint_scan.py` / `drift_scan_precise.py` / `rules_check.py` / `skill_pointer_check.py` / `raw_asset_check.py`<br>· **索引**：`wiki_index_build.py` / `wiki_route_rebuild.py` / `wiki_route_slim.py`<br>· **日志与历史**：`wiki_log.py`（⛔ **log 截断的唯一入口** = `wiki_log.py truncate`）/ `wiki_log_tidy.py`（排序 / 表头修正 / 索引；其 `truncate` 仅委托 `wiki_log.py`）<br>· **治理（先合并后新建）**：`adr_new.py` / `lesson_new.py` / `rules_new.py`<br>· **规范化**：`wiki_normalize.py` / `wiki_narrative_strip.py` / `wiki_narrative2.py` / `wiki_skeleton_clean.py`<br>· **结构**：`wiki_split.py` / `wiki_toc.py`<br>· **ADR 状态**：`check_adr_status.py`<br>· **出包**：`backup_adaweld.py`（⚠️ 在 `tools/` 外，见 Phase 2.1 / 3.7） |
+| **Code Map** | `Vicoding管理平台/LLMWiki/wiki/architecture/CodeMap.md` — **代码地图总览**（模块骨架 + 定位陷阱 + 功能域标注）。Phase 0.0 必读，Phase 3.6 必更新。**配套机器分片**（同目录）：`CodeMap-Symbols-<模块>.md`（逐类 → `file:line` → 成员签名）· `CodeMap-Relations.md`（类型级影响面）· `CodeMap-Relations-Methods-<模块>.md`（方法级影响面）。⛔ 分片由 `tools/codemap_build.py` 生成，禁手工编辑 |
+| Tool Scripts | `Vicoding管理平台/LLMWiki/tools/` —— **25 个脚本**，按用途分组（⛔ 全部由 `__file__` 推导路径，可在任意 CWD 运行）：<br>· **扫描（Phase 4 必跑 8 个）**：`wiki_audit.py` / `wiki_format.py` / `ingest_purity_scan.py` / `lint_scan.py` / `drift_scan_precise.py` / `rules_check.py` / `skill_pointer_check.py` / `raw_asset_check.py`<br>· **索引**：`wiki_index_build.py` / `wiki_route_rebuild.py` / `wiki_route_slim.py`<br>· **代码地图**：`codemap_build.py`（生成器，官方 `coderepomap` 引擎 + 自研 C# 调用边抽取；`--check` 判地图是否与源码同步）<br>· **日志与历史**：`wiki_log.py`（⛔ **log 截断的唯一入口** = `wiki_log.py truncate`）/ `wiki_log_tidy.py`（排序 / 表头修正 / 索引；其 `truncate` 仅委托 `wiki_log.py`）<br>· **治理（先合并后新建）**：`adr_new.py` / `lesson_new.py` / `rules_new.py`<br>· **规范化**：`wiki_normalize.py` / `wiki_narrative_strip.py` / `wiki_narrative2.py` / `wiki_skeleton_clean.py`<br>· **结构**：`wiki_split.py` / `wiki_toc.py`<br>· **ADR 状态**：`check_adr_status.py`<br>· **出包**：`backup_adaweld.py`（⚠️ 在 `tools/` 外，见 Phase 2.1 / 3.7） |
 | Raw Skills | `Vicoding管理平台/LLMWiki/raw/skills/AdaWeldsys_Skills/` |
 | C# Style Guide | `Vicoding管理平台/LLMWiki/raw/skills/AdaWeldsys_Skills/04-Style/CSharpStyle.md` |
 | History | `Vicoding管理平台/LLMWiki/raw/history/history.md` |
@@ -303,23 +303,26 @@ python tools/rules_check.py                                               # 校�
 - **Output**：本轮生效的流程约束清单（哪几条规则在管本轮任务 → 各自怎么遵守）。
 
 ### Step 0.0: Consult the Code Map (Forced, precedes every other lookup)
-- **Action**: Read `Vicoding管理平台/LLMWiki/wiki/architecture/CodeMap.md` (the **overview** — one page, code memory). Read `CodeMap-Files.md` (detail pagination) only when per-file lookup is needed.
-- **Purpose**: **Build code memory; stop re-scanning the whole tree.** CodeMap is split into two layers:
-  - **Overview `CodeMap.md`**: 6 "function-domain memory cards" (entry → flow → Manager → device = main dependency direction) + requirement quick-lookup + location traps. **Read this page once to build the mental model of code and dependencies** — no full-tree Grep needed.
-  - **Detail `CodeMap-Files.md`**: 49 namespaces / 166 files, one-line responsibility + state markers + dependency/history archive. Consult only for "which namespace is file X in / is it ⛔ or ⚠️".
+- **Action**: Read `Vicoding管理平台/LLMWiki/wiki/architecture/CodeMap.md` (the **overview** — module skeleton + location traps + judgment layer). Then open the **matching symbol shard** (`CodeMap-Symbols-<模块>.md`) for the target module, and the **relations shards** (`CodeMap-Relations.md` / `CodeMap-Relations-Methods-<模块>.md`) when the task touches an existing symbol.
+- **Purpose**: **Build code memory; stop re-scanning the whole tree.** The map has two layers:
+  - **Overview `CodeMap.md`**: module skeleton (module → type count → method count → function-domain label) + requirement quick-lookup + location traps. **Read this page once** — no full-tree Grep needed.
+  - **Symbol shards `CodeMap-Symbols-<模块>.md`**: per-type → `file:line` → member signatures (methods / ctor / properties / fields). Open only the module you need.
+  - **Relation shards `CodeMap-Relations*.md`**: referenced-type → caller-file list (type-level, high confidence) + method-level (low confidence) — the **impact-radius accelerator** for Step 2.5.
+- **⛔ Machine-generated pages — never hand-edit**: all shards carry `⛔ 由 tools/codemap_build.py 生成，禁手工编辑`. Regenerate with `python tools/codemap_build.py`; verify freshness with `python tools/codemap_build.py --check` (non-zero exit = stale map).
 - **⛔ Grep timing hard constraint (added 2026-11-17 after owner feedback)**:
-  - Phase 0: read the overview to build memory first; on hit go **straight to Step 0.7** and read the specific code block.
+  - Phase 0: read the overview + the matching symbol shard first; on hit go **straight to Step 0.7** and read the specific code block.
   - ⛔ **NEVER start Phase 0 with a broad keyword Grep over the whole `AdaWeldSystem/` tree** (e.g. scanning Chinese semantic terms across all files) — this is the exact behavior that made CodeMap useless.
-  - Step 0.7 Grep MUST carry a **concrete symbol name** and a path narrowed to the 1–3 files/dirs CodeMap identified. Whole-tree Grep is a fallback **only on CodeMap miss**, with the reason stated in the report.
+  - Step 0.7 Grep MUST carry a **concrete symbol name** and a path narrowed to the 1–3 files/dirs the map identified. Whole-tree Grep is a fallback **only on map miss**, with the reason stated in the report.
   - **Multi-level impact Grep (Step 2.5) only in Phase 2 (coding)**, not during Query.
-  - For dependency candidates run `python tools/codemap_deps.py --module <dir>` (read-only; never auto-writes Wiki).
+  - For dependency candidates, the relations shards replace the old ad-hoc scan (`tools/codemap_deps.py` is superseded by the generated relation pages).
 - **Rules**:
   1. On a hit, go straight to Step 0.7 and read exact line ranges. ⛔ Do not scan the tree.
   2. On a miss, fall back to Steps 0.1–0.5 as usual.
-  3. Line numbers in CodeMap are a **snapshot** — always re-confirm via Step 0.7 Grep before editing.
+  3. Line numbers in the map are a **snapshot** — always re-confirm via Step 0.7 Grep before editing.
   4. **"Not implemented" has three distinct meanings**: (a) no code at all; (b) code exists but has **no consumer**; (c) code exists as a **placeholder returning a constant**. Each needs a different response; conflating them is the single most expensive error this map prevents.
   5. Also read the overview's 「易踩的定位陷阱」 — real misjudgements (e.g. `LineLaserSeamResult` is a `struct`, so a `class X` Grep reports zero hits).
-- **Output**: a located candidate set (function domain → entry file → main dependency chain → related wiki pages) that narrows Step 0.7 from 166 files to 1–3.
+  6. **Confidence discipline**: relation pages are a **candidate-set generator**, not a verdict. Type-level edges (receiver is the project type) are high confidence; method-level edges (bare identifier calls) may mis-link same-named methods ⇒ **Grep still decides** (see [[rules/KR-009-Grep-Default]]).
+- **Output**: a located candidate set (function domain → module → type → `file:line` → related wiki pages) that narrows Step 0.7 from the whole tree to 1–3 files.
 
 ### Step 0.1: Read Index (Forced)
 - **Action**: Use Read tool to read `Vicoding管理平台/LLMWiki/wiki/index/index.md`
@@ -449,10 +452,12 @@ python tools/rules_check.py                                               # 校�
 
 ### Step 2.5: Impact Radius Verification via Grep (Default)
 - **Action**: After code changes, verify impact scope using manual multi-level Grep tracing:
-  1. `Grep(pattern="<changed_public_symbol>", path="AdaWeldSystem/", output_mode="content", -n=true)` -- find all references
-  2. Trace each caller recursively (A->B->C: grep B, then grep each caller of B, etc.)
-  3. Cross-check: every caller found must be reviewed for compatibility
-  4. **Re-run with a different pattern before declaring done** -- Step 0.7's first Grep is exactly the one that got truncated (2 vs 6 consumers). This step is the safety net: do **not** skip it just because Phase 0 already grepped the symbol.
+  1. **Start from the map** (cheaper than blind Grep): look the changed type/method up in the **relation shards listed on the code-map overview page** (type-level = high confidence; method-level = low confidence) → get the **candidate caller files**; then:
+  2. `Grep(pattern="<changed_public_symbol>", path="<narrowed dir from the map>", output_mode="content", -n=true)` -- find all references
+  3. Trace each caller recursively (A->B->C: grep B, then grep each caller of B, etc.)
+  4. Cross-check: every caller found must be reviewed for compatibility
+  5. **Re-run with a different pattern before declaring done** -- Step 0.7's first Grep is exactly the one that got truncated (2 vs 6 consumers). This step is the safety net: do **not** skip it just because Phase 0 already grepped the symbol.
+- **⚠️ Map ≠ verdict (2026-11-18)**: the relation shards are a **candidate-set generator**, not proof. Type-level edges (receiver is the project type) are high confidence; method-level edges (bare identifier calls, e.g. `Log(...)`) **may mis-link same-named methods** ⇒ ⛔ **Grep still decides**. The map narrows the search; the Grep confirms it.
 - **Purpose**: Catch indirect call chain breakages (A->B->C: changing B breaks A -- grep B, then grep callers of B to find A)
 - **Output**: Impact report (affected files, caller chain depth, any broken references)
 - **Note**: Manual multi-level Grep is the default method -- the code graph tool has been retired.
@@ -512,17 +517,20 @@ python tools/rules_check.py                                               # 校�
 - **完整沉淀链路见本文「Knowledge Accumulation Chain（知识积累与沉淀链路）」** —— 三层落位（结论进 wiki / 过程进 log / 原始资料进 raw）+ 沉淀三步（写入 → 登记 → 记录）+ 5 道机械闸门。
 
 ### Step 3.6: Update the Code Map (Forced)
-- **Action**: update `wiki/architecture/CodeMap.md`
-- **Why mandatory**: it is the only by-source-file view of functionality. If it goes stale, the next Phase 0 falls back to a full tree scan — exactly the cost this map exists to remove.
-- **Update triggers** (any one hit ⇒ update):
+- **Action**: regenerate the machine map, then update the judgment layer.
+  1. `python tools/codemap_build.py` —— regenerates `CodeMap.md` + all symbol/relation shards from source (idempotent; only changed files are rewritten). Then `python tools/codemap_build.py --check` must exit 0.
+  2. Hand-edit **only the judgment layer** of `wiki/architecture/CodeMap.md` (功能域标注 · 定位陷阱 · 需求速查). ⛔ **Never hand-edit the generated shards** (`CodeMap-Symbols-*.md` / `CodeMap-Relations*.md`) — they carry `禁手工编辑` markers and the next regeneration would silently discard the edit.
+- **Why mandatory**: the map is the only by-source-file view of functionality. If it goes stale, the next Phase 0 falls back to a full tree scan — exactly the cost this map exists to remove.
+- **Update triggers** (any one hit ⇒ regenerate + refresh):
   | Trigger | Action |
   |---|---|
-  | a `.cs` added / deleted / moved | add/remove the row; on move or rename also register `RENAMED` in `drift_scan_precise.py` (**plain path, no parenthetical**) |
-  | a file's responsibility changed (feature added / placeholder now implemented / consumer count changed) | refresh the 「本文件做什么」 text and the `⛔` / `⚠️` state marker |
-  | new requirement landed | add a row to 「需求 → 代码落点速查」 |
+  | a `.cs` added / deleted / moved | regenerate (shards self-update; stale shards are auto-removed) |
+  | a file's responsibility changed (feature added / placeholder now implemented / consumer count changed) | regenerate + refresh the 「功能域标注」 row in the overview |
+  | new requirement landed | add a row to 「需求 → 代码落点速查」 (judgment layer only) |
   | an ADR changed hardware ownership | update the 「约束 ADR」 column and any hardware-ownership rows |
-  | Step 2.6 static verification found new dead code / placeholders | update the corresponding state markers |
-- **Boundary**: the CodeMap is a **locator + one-line responsibility + state marker** only. ⛔ Do not expand it into a feature specification — that belongs in `modules/`.
+  | a new misjudgement was hit (wrong file / wrong type assumption) | add a row to 「易踩的定位陷阱」 (judgment layer only) |
+- **Boundary**: the map is a **locator + one-line responsibility + state marker** only. ⛔ Do not expand it into a feature specification — that belongs in `modules/`.
+- **Note**: the previous hand-maintained detail page (`CodeMap-Files.md`) is **superseded** by the generated shards (which carry real `file:line` + member signatures). ⛔ Do not hand-maintain per-file tables anymore.
 
 ### Step 3.7: Generate the Field-Verification Package (output -- 强制，Phase 3 专属)
 - **⛔ 为什么 output 必须落在 Phase 3 而不是 Step 2.1（2026-10-10 用户纠正）**：Step 2.1 跑在**改码之前**，那一刻打出来的包反映的是本轮改动**之前**的代码。现场拿这份包做验证，验的是旧码 —— 结论无效，且比没有包更危险（看起来验证过了）。output 的语义是**本轮定稿后的交付物**，只有走完 Phase 2（实现 + 自审 + 影响面 + 静态校验）之后才成立。

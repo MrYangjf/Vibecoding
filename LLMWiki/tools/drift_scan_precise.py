@@ -86,7 +86,12 @@ RENAMED = {
     "ImagePage.cs": "UIDesign/TabPage/MonitorCamPage.cs",
     "ParamPage.cs": "UIDesign/TabPage/ProcessControlPage.cs",
     "EmguAlgoPage.cs": "UIDesign/SubDialog/IntelligentLaserDialog/ILAlgoForm.cs",
-    "LLCamWorkJob.cs": "UIDesign/TabPage/ILCamPage.cs",
+    "LLCamWorkJob.cs": "UIDesign/TabPage/LineLaserCamPage.cs",
+    # 2026-11-20 英莱相机页改名（ADR-112 UI 页面拆分轮）：ILCamPage -> LineLaserCamPage
+    "ILCamPage.cs": "UIDesign/TabPage/LineLaserCamPage.cs",
+    # 2026-11-19 配置类改名（Phase 3 复查补登）：WeldAlgorithmsConfig -> WeldParamConfig
+    # 2026-11-19 配置类改名（Phase 3 复查补登，ADR-076）：WeldAlgorithmsConfig -> WeldParamConfig
+    "WeldAlgorithmsConfig.cs": "WeldParamControl/WeldParamConfig.cs",
     # 2026-09-20 ProductFileControl 记录类职责拆分（用户裁定）
     "SeamTrackRecord.cs": "ProductFileControl/Records/LineLaserContourRecord.cs",
     "WeldParamAdjustRecord.cs": "ProductFileControl/Records/WeldParamControlRecord.cs",
@@ -95,6 +100,10 @@ RENAMED = {
 
 # 2) 已移除：无现役对应物，历史 ADR 可保留旧名但须加注「（已移除）」
 REMOVED = {
+    # 2026-11-20 UI 页面拆分与死弹窗清理（ADR-112）：三个弹窗两轮 Grep 确认零消费者
+    "ConfigForm.cs": "2026-11-20 删除；SubDialog/ParamContolDialog 系统配置弹窗，2026-09-29 系统设置页改造后无调用方，ADR-112 物理删除含 Designer/resx，csproj 已退注册",
+    "IoConfigForm.cs": "2026-11-20 删除；SubDialog/MotionControlDialog IO 配置弹窗，输入IO表取消后无调用方，ADR-112 物理删除，csproj 已退注册",
+    "CylinderConfigForm.cs": "2026-11-20 删除；SubDialog/MotionControlDialog 气缸配置弹窗，气缸操作表取消后无调用方，ADR-112 物理删除，csproj 已退注册",
     # 2026-10-21 RSI 唯一通道落地（ADR-090）：EKI 以太网数据交换通道整体退役
     # （ADR-026 决策 2 裁定「通讯通道唯一为 RSI」，本轮执行代码清理）
     "KukaEkiComm.cs": "2026-10-21 删除；ADR-026/ADR-090 通讯通道唯一为 RSI，EKI 通道（TCP 元素级交换）整体退役，整文件删除，csproj 已退注册；CommunicationManager.EkiComm 属性与 ConnectRobot/DisconnectRobot 的 EKI 分支同步清零，UI radioModeEKI 已删",

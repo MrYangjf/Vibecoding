@@ -1,22 +1,22 @@
 ---
 title: ADR-Index — 编号唯一准绳
 date: 2026-09-17
-updated: 2026-11-17
+updated: 2026-11-23
 tags: [索引, 决策, ADR, 编号体系, 知识库治理]
 status: accepted
 ---
 
 # ADR-Index — 编号唯一准绳
 
-> **现行编号：001~107 连续无断号**（2026-10-30 全库重编：原 068~094 段整体前移 16 位补齐 052~067 空段）。**新增 ADR 取 max+1 = 108**。
+> **现行编号：001~114 连续无断号**（2026-10-30 全库重编：原 068~094 段整体前移 16 位补齐 052~067 空段）。**新增 ADR 取 max+1 = 115**。
 >
 > **本库只保留现行编号**——历史编号段与旧号映射表已全部移除（旧决策的内容已并入对应现行页，追溯请直接读该页）。⛔ 废止号不回收、不复用（被并入他页的旧号在表中以指针行留档，并在承接页 `merged_from` 中留痕）。
 >
 > 任何新 ADR 必须同步本表 + `wiki/index/index.md` 对应行；两处计数不一致即治理违规。
 
-## 全部 ADR（001~107，按主题族分组）
+## 全部 ADR（001~113，按主题族分组）
 
-> **现行有效页 = 100 页**（另有 7 个旧号已并入他页，以指针行留档 —— **废止不回收编号**，旧号不重用）。
+> **现行有效页 = 106 页**（另有 7 个旧号已并入他页，以指针行留档 —— **废止不回收编号**，旧号不重用）。
 
 | 编号 | 页面 | 主题 | 状态 | 日期 |
 |---|---|---|---|---|
@@ -33,6 +33,11 @@ status: accepted
 | 034 | [[decisions/ADR-034-ArchitectureRawSource]] | 架构原档单一来源约定（raw/architecture；旧 037） | accepted | 2026-09-02
 | 035 | [[decisions/ADR-035-RawDesignRefinement20260903]] | 原档 9-03 细化：主控设计完全重构与冲突裁定（旧 038） | accepted | 2026-09-03
 | 066 | [[decisions/ADR-066-ThreeLayerConvergence]] | 三层架构收敛：① 轴定位唯一入口（MontionManager 新增 GetAxisByKeys/GetDeltaAxisByKeys/GetAxisConfigByKeys + 内置四类角色关键字表，FindAxisNameByKeys 为 private）；② TAConfig 合入 WeldAlgorithmsConfig（TaForceN/TaPose1Mm/TaPose2Mm，TAConfig.cs 已注明移除（2026-10-14 ADR-066 合入工艺配置并删除；独立 INI 文件不再使用））；③ WeldParamManager 不再触碰运动轴，迁移并入 LoadAlgorithmsConfig | accepted | 2026-10-14
+| 108 | [[decisions/ADR-108-codemap-machine-generation]] | 代码地图改为机器生成：官方 `coderepomap` 引擎（tree-sitter C# 解析 + PageRank）+ 自研补齐官方缺口（官方只收 public 方法 47% 覆盖、零方法调用点）；产物入 `wiki/architecture/` 分片（总览 + 符号分片 + 关系分片），人工层只留判断（功能域/定位陷阱/命名空间约束 ADR）；关系分片按置信度二分（类型级高 / 方法级低）且**仅为候选集**，结论仍以 Grep 为准；旧手写逐文件详表退役；`tools/codemap_build.py` 幂等生成，`--check` 判同步 | accepted | 2026-11-19
+| 111 | [[decisions/ADR-111-comment-purpose-only-hard-constraint]] | 注释只写作用硬约束（C20）：所有代码注释禁含 ⛔/ADR 编号/日期/业主裁定/改版/原为X现为Y，只写作用 ≤20 字；判据 A.注释含元信息（error 级）+ selfcheck JUDGE 27 + 标准页映射表行 27 同步；存量 143 条就地改写清零 | accepted | 2026-11-20 |
+| 112 | [[decisions/ADR-112-ui-page-split-and-dialog-cleanup]] | UI 页面拆分与死弹窗清理：FilebackupPage 去 tabsBackup 外壳改作「设置备份」页（panelSystemCfg 为根，只做配置文档生成 + .awcfg 导入导出），新建 CommSettingPage 承载 RSI 通讯配置/调试/日志，两页同级挂入 navPageParam.LoadTabs；删除零消费弹窗 ConfigForm/IoConfigForm/CylinderConfigForm；新建 DeviceMonitorPage 空页挂入 FormMain.tabMonitor 替换空占位 | accepted | 2026-11-20 |
+| 110 | [[decisions/ADR-110-yt-calib-move-to-process-page]] | 标定中心 Y/Z 与示教 Y 轴锁定坐标迁入工艺设置页 YT 设置区：UI 落点 SystemControlPage.gridLaserCalib → ProcessControlPage.gridQuickTracking（行 4/5）；XML 落盘分区随 UI 落点由 ①System 区迁至 ④Preset 区（键路径不变 ⇒ 存量零迁移）；三键写口唯一（Preset 区独占） | accepted | 2026-11-19 |
+| 109 | [[decisions/ADR-109-UiButtonTabPageBoundary]] | UI 读改存三按钮的 TabPage 边界（严格化）：「读取」只刷本 TabPage 的 zone 且写回现有配置对象（⛔ 禁 new + 替换实例 ⇒ 其它 TabPage 未保存改动不丢）；三处越界修正（三个读取按钮原调 `LoadAlgorithmsConfig()` 全量重载 + 跨 TabPage 回填） | accepted | 2026-11-19 |
 
 **UI 框架 · 布局 · 控件**
 
@@ -134,6 +139,8 @@ status: accepted
 | 087 | [[decisions/ADR-087-TaCstEntryRampAndNoPositionResidual]] | TA 力矩进入协议：冷启动先停稳位置运动 → 切 CST → ±1‰ 方向种子 → 开输出 → 再下发目标与 slope（保证冷启动也走斜坡）；热切换直接重发目标；删除「参数未变即跳过」复用捷径；方向种子覆盖驱动器内残留反向扭矩，消除位置转力矩「先反跑」 | accepted | 2026-11-06
 | 103 | [[decisions/ADR-103-no-value-hold-and-distance-segment]] | 缺值保持与自适应按距离分段：缺值期 CSP 取上次有效目标（held），仅首个有效目标前允许标定位起步；缺值或位姿 `age>2T` 暂停入图；达 `NoValueToleranceMm` 一次报警（Error + `TX_NG` + `ErrorAborted(NoValueAlarm)`，不复用 `DoStopMachine`、不清累计器）；自适应改 `SEGMENT_DISTANCE_MM`（1~50 默认 5）按段距取段内均值查表，旧键 `IS_COUNT_TYPE`/`COUNT_NUM` 只读忽略；UI 合并为「每段距离(mm)」加红色提示条；心跳 H2 接缺值超限 | accepted | 2026-11-17
 | 104 | [[decisions/ADR-104-rsi-channel-payload-freeze-alarm-stop]] | 报警停焊时 RSI 通道保持与自适应载荷冻结：通道由收包信号驱动、周期不变；报警链立即 `CascadeWeldStatus(ErrorAborted)`，`FlowProcess`/`PreWork`/`MonitorAlignTick` 以 `ErrorAborted`/`IsAlarmstop` 收口，摆焊执行器非 `Working` 归零；五具名元素停止刷新即冻结；`TxNG` 锁存示警，清警 `ClearRobotCommand` 停发；清警只回 `NoReset` 不续焊 | accepted | 2026-11-17
+| 113 | [[decisions/ADR-113-line-laser-calib-affine-render-transform]] | 线激光校准渲染统一为单一仿射变换：像素=原点+毫米×比例（Z 取反），比例取四角毫米包围盒跨度、原点落点使包围盒居中 ⇒ 校准框恒完整可见；角点/轮廓/毫米刻度栅格共用同一变换（`ToPixel()` 唯一入口），校准框与轮廓严格对齐；视图锚点取标定中心点、越界回退包围盒中心；废止 demo「center±\|corner×rate\|」隐含的「毫米原点居中」假设（对称标定数据下像素不变 ⇒ 旧相机零回归） | accepted | 2026-11-23
+| 114 | [[decisions/ADR-114-prework-seek-position]] | 焊前寻位：PreWork 新增运控步 `StepPreWorkSeek=13`，寻位方式与焊接工作模式一致（X 移动中边走边建图、Y 跟随跟踪）；完成判据 = X 到位（机器人焊前位 X / 模拟设定点）且 Y 在跟踪目标容差内（0.1mm），超时 60s 判 PreWork 失败报警停焊；PreWork 阶段不启用缺值量测、不报 NoValueAlarm（引导未稳属正常），仅到达 X 时 Y 未到位才判失败；机器人焊前位 X 由 `RX_PRE_WELD_POSE` 报文记录；模拟侧新增可配置「焊接前寻位起点 X(mm)」（`PreWorkStartXmm` 键），模拟开启即自 X=0 移向该点、到达即停，起焊段继续沿焊缝前进 | accepted | 2026-11-23
 
 **通讯 · 机器人 · RSI**
 

@@ -1,12 +1,15 @@
 ---
 title: LaserWeldHeadWorkflow API 参考（焊接头工作流 · 骨架期）
 date: 2026-09-02
-updated: 2026-10-16
-tags: [API, 工作流, 焊接头, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-034, ADR-020, ADR-057, ADR-067]
+updated: 2026-11-18
+tags: [API, 工作流, 焊接头, RunStep, SubDeviceWeldStatus, DeviceWorkflowBase, ADR-034, ADR-020, ADR-057, ADR-067, ADR-070, ADR-076, 振镜图形, 默认焦平面]
 source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs
 ---
 
 # LaserWeldHeadWorkflow API 参考
+
+> 🔄 **2026-11-23 焊前工作模式入口**：新增两个**流程内自动入口**（⛔ 不做「自动焊接中禁手动动作」门禁检查，供焊前阶段进工作模式）：`bool LaAutoAuto()`（LA 自动随动：施加目标光斑 + 开随动标志）与 `bool GalvoWeaveStartAuto()`（振镜按自适应基准值 `AutoParam.SwingWidth` + `SwingFreqHz1` 开启摆动，⛔ 不依赖 Working 态的 `LastOutput`）。手动入口 `LaAuto()` / `GalvoManualStart()` 行为不变。
+> 🔄 **2026-11-23 焊接头复位**：`ResetProcess()` 新增把振镜退回**逻辑零位**（`GalvoHomeForReset`）；⛔ **LA 机械回零尚未实现**（待现场方案确定），复位日志已明确标注待办。见 [[decisions/ADR-038-RobotCommandDrivenStepFlow]] 三阶段章节 D1/D5。
 
 > 焊接头工作流（单例，**骨架期**：私有相位驱动 + 差异化职责待落地）。
 > **位置**：`AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs`
@@ -42,9 +45,14 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs
 | `TaPose1()` / `TaPose2()` | 入口 `ExitTaTorqueMode`（撤 CST 输出回 CSP，仅设备态变化）→ `AbsMove` 到预设调试位；⛔ 不影响 Auto 可用性 | 19 |
 | `LaAuto()` | 开随动：按拍 `LA = QueryLaPositionMm(目标光斑) + QueryLaOffsetMm(TA位置)`（0.01mm 死区防刷总线） | 20/21 逻辑2 |
 | `LaSpot1()` / `LaSpot2()` | 设目标光斑 → 曲线A 反查基准 → **按当前 TA 位置推算**下发（TA=0 退化纯曲线A） | 21 逻辑1/22 |
-| `LaPose1()` / `LaPose2()` | 直达预设位，不经曲线，退出随动 | 22 |
+| `LaPose1()` | 直达预设调试位，不经曲线，退出随动 | 22 |
+| `LaDefaultFocus()` | 直达 **LA 默认焦平面**（= LA 默认工作位，配置 `LaDefaultFocusMm`），不经曲线，退出随动。2026-11-18 业主裁定：原 `LaPose2()` 语义改名（不再是随意设置的 LA_POSE） | 2026-11-18 |
+| `MoveToDefaultFocus()` | **接入焊接头后自动就位**到默认焦平面（初始化连接结束时由 `DeviceControlWork` 主动调用）。LA 无轴 Home ⇒ 此处「回零」= **回工作位**（移到配置位置）。⛔ 非阻塞下发不等到位；⛔ 不走手动门禁（初始化非手动动作） | 2026-11-18 |
 | `GalvoHome()` | 回逻辑零位（直线+最小摆幅+不使能），中心补偿状态清零（F-4「回到零位」） | 23 |
-| `GalvoDemo(pattern)` | 手动演示（圆/八字/直线/圆弧）：一次性下发（摆幅 1.0mm），`IsWelding` 时拒绝（与生产互斥），停止=回零位（F-3） | 23 |
+| `GalvoManualStart(pattern, shape)` | **振镜手动下发**（替代已删的 `GalvoDemo`）：按 GA 设定档（图形 + 该图形的宽/长/频）**一次性下发并使能**，不进随动循环。⛔ 自动焊接流程在跑时拒绝（`EnsureManualWeldHeadActionAllowed`，手动/自动两套模式互斥）。UI 落点：工艺设置页 GA 区「手动下发」按钮 | 2026-11-18 |
+| `GalvoManualStop()` | **振镜手动停止**：撤销使能并回逻辑零位（直线 + 零摆幅），与 `GalvoManualStart` 成对（UI「关闭退出」按钮）。同样受自动模式互斥门禁 | 2026-11-18 |
+| `ResolveGalvoPattern(configValue)` | **static**：配置图形编号 → 可下发的协议图形。`0`（未设置）/越界 ⇒ **逻辑零位的直线**（`WsgGalvoPattern` 协议枚举为 1..4 **无 0**，⛔ 禁把 0 或越界值写入 0x7010 子索引 1）。振镜摆幅下发路径与工艺设置页「保存参数」共用此入口（ADR-076 D3） | 2026-11-18 |
+| `IsGalvoWeaveEnabled()` | **static**：振镜摆动是否启用（实时读 `cfg.EnableGalvoWeave`）。**振镜图形语义的前置条件** —— 未启用 ⇒ 没有图形（UI 清空选中 + 整组置灰；物理上摆幅 0 + 不使能，图形无意义）；已启用 ⇒ 必有图形（无设置则落回 Line 并落盘）。工艺设置页与本类共用此入口（ADR-076 D4） | 2026-11-18 |
 | `ApplyGalvoCenterOffset(xMm, yMm)` | 光丝对中→振镜中心补偿**单写口**（只改状态，随动步合并下发防互覆；F-4，默认门控见 ADR-059） | 23 |
 
 - **状态标志**（bool，无枚举·ADR-055）：`TaTorqueActive`（转发 `DeltaMontionAxis.TorqueOutputEnabled`，设备真实态）/ `LaFollowActive` / `TargetSpotMm`（只读，供 UI 显示动作位）
@@ -122,7 +130,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceWorkflow/LaserWeldHeadWorkflow.cs
 | 消费方法 | `ApplyGalvoAmplitude()`：从 `WeldParamControlWorkflow.Instance.LastOutput.GalvoAmplitude` 取摆幅 |
 | 下发内容 | `GalvoParams.CreateLogicalHome()` 为基底，只改 `Width` / `Length` / `GalvoEnable`；⛔ 局部变量**不可命名 `params`**（C# 关键字），本类统一用 `galvo` |
 | 降抖 | `_lastGalvoAmplitudeMm` 记住上次值，变化 < 0.01mm 直接跳过（不逐帧刷 EtherCAT 总线） |
-| 关闭摆动 | `_galvoWeaveEnabled`（`LoadConfig` 从 `WeldAlgorithmsConfig.EnableGalvoWeave` 取）false ⇒ 下发摆幅 0 + 不使能，而非保持上次摆幅 |
+| 关闭摆动 | `IsGalvoWeaveEnabled()`（**static**，实时读 `WeldAlgorithmsConfig.EnableGalvoWeave`）false ⇒ 下发摆幅 0 + 不使能，而非保持上次摆幅。⚠️ **2026-11-18**：原为 `LoadConfig` 期快照字段 `_galvoWeaveEnabled`（运行期改开关不刷新）⇒ 已删，改实时读配置，与 `WeldParamControlWorkflow.GetAmplitudeMm` 同真相源同实时性 |
 | 失败处理 | `SetGalvoParams` 返回 false 时**不更新** `_lastGalvoAmplitudeMm`，下拍重试 |
 
 ⚠️ **中心偏移不由本链路写**：`XCenter/YCenter` 归光丝对中补偿链路（`ApplySpotAlignCompensation`，P3 待实现）。两条链路都碰中心偏移，**必须各自单一写入口**，否则互相覆盖（P1 §1.6 结构冲突项）。
@@ -210,8 +218,8 @@ string status = head.StateName + " / " + head.WorkStepName;
 | `TaAuto` / `TaBreak` / `TaPose1` / `TaPose2` / `TaRetract` / `TaZeroPose` | 本类实现 | `MotionControlWorkflow` 实现 | **2026-11-06 薄转发壳已整体删除（ADR-092）**：本类不再有同名方法，全库唯一入口 = `MotionControlWorkflow`（`TaRecheck` 早已更名 `TaRetract`） |
 | ~~`CancelTaZeroPose`~~ | 本类实现 | 已于 2026-11-09 **整个删除** | 全库无此接口（ADR-094 D4）；TA 指令只响应急停 / 停止两类外部终止，ZeroPose 等待由 `StopAxis` 的单轴取消打断 |
 | `TaTorqueActive` / `TaBreakHoldMm` / `TaBreakHoldValid` | 本类 | `MotionControlWorkflow` | 已移除本类成员，UI 改读流程层 |
-| `LaAuto` / `LaSpot1` / `LaSpot2` / `LaPose1` / `LaPose2` / `LaMoveTo*` | 本类 | 本类（不变） | 直接保留 |
-| `GalvoHome` / `GalvoDemo` / `ApplyGalvoCenterOffset` / `ApplyGalvoAmplitude` | 本类 | 本类（不变） | 直接保留 |
+| `LaAuto` / `LaSpot1` / `LaSpot2` / `LaPose1` / `LaDefaultFocus` / `MoveToDefaultFocus` / `LaMoveTo*` | 本类 | 本类（不变） | 直接保留 |
+| `GalvoHome` / `GalvoManualStart` / `GalvoManualStop` / `ApplyGalvoCenterOffset` / `ApplyGalvoAmplitude` | 本类 | 本类（不变） | 直接保留 |
 | 焊接头从站温度 / IO / 报警（`LastTemperature` / `LastAlarmStatus` / `IsTemperatureAlarm`） | 本类 | 本类（设备层，不随 TA 迁移） | 直接保留 |
 | `LaReady` / `LaGateReason` | — | 本类新增（委托 `MontionManager` 从站状态） | UI 三区取值来源之一 |
 | `IsEnabled` / `IsHomed` / `IsAtWorkZero` | — | **ADR-098**：TA 轴分层就绪——使能 = `TaMotionReady`；回零 = `TaHomed`；工作零位 = `TaAtWorkZero`（⛔ 2026-11-17 改版：原误用 `TaAvailable`，L4 与「指令可执行」已解耦） | 需回零轴，使能后 L2、回零后 L3 |
@@ -235,7 +243,7 @@ string status = head.StateName + " / " + head.WorkStepName;
 
 - 判据唯一来源 = `DeviceControlWork.Instance.IsAutoWeldingRunning`（主设备级权威）。
 - 自动焊接流程进行中 ⇒ **拒绝**一切焊接头手动动作（LA 对焦电机 / GA 振镜），拒绝原因同时进日志。
-- 覆盖入口：`LaAuto` / `LaSpot1` / `LaSpot2` / `LaPose1` / `LaPose2` / `GalvoHome` / `GalvoDemo`。
-- ⛔ `GalvoDemo` 原用 `DeviceControlWork.IsWelding` 判定（覆盖整段开机期、过宽）⇒ 改用统一门禁。
+- 覆盖入口：`LaAuto` / `LaSpot1` / `LaSpot2` / `LaPose1` / `LaDefaultFocus` / `GalvoHome` / `GalvoManualStart` / `GalvoManualStop`。
+- ⛔ 原 `GalvoDemo` 用 `DeviceControlWork.IsWelding` 判定（覆盖整段开机期、过宽）⇒ 改用统一门禁；该方法已于 2026-11-18 **彻底删除**（零调用方），由 `GalvoManualStart`/`GalvoManualStop` 承接手动模式。
 - 系统设置页直接写从站的 LA/GA 操作（电机使能 / 位置下发 / 振镜使能 / 振镜回零）也必须先过本门禁。
 - 关联：[[decisions/ADR-100-state-union-and-action-gate]] · [[api/SystemControlPage]]

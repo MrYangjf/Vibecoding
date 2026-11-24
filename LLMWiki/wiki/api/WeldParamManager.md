@@ -115,11 +115,20 @@ WeldParamManager（配置 + 算法实现持有者 + 配置持久化 + 机器人�
 | `SaveCurrentProfile` | `void ()` | 保存当前分段参数到 SQLite |
 | `ReloadCurrentParamValues` | `void ()` | 重新载入当前配置并重建查找表 |
 | `LoadProfileIntoLookupTable` | `void (string identityInfo)` | 从 SQLite 读分段数据写入查找表（空集合不覆盖内存；载入次序=基准兜底在前、本方法覆盖在后，ADR-043） |
-| `LoadAlgorithmsConfig` | `void ()` | **无参**：从双后端载入——XML `Config/WeldParamControl/Algorithm_XML/WeldParamControl.xml`（`SEAM_GUIDE` 几何段 + `LASER_CALIBRATION`）+ INI `Config/WeldParamControl/Algorithm_INI/WeldParamControlAlgorithm.ini`（`SEAM_GUIDE` 阈值段 + `WELD_PARAM_ADJUST`），同一实例分发给算法（构造时自动调用一次）★ADR-043 / ADR-033 |
+| `LoadAlgorithmsConfig` | `void ()` | **无参**：从双后端载入——XML `Config/WeldParamControl/Algorithm_XML/WeldParamControl.xml`（`SEAM_GUIDE` 几何段 + `LASER_CALIBRATION`，**轨迹跟踪 TabPage 独占**）+ **INI 四文件**（见下表），同一实例分发给算法（构造时自动调用一次）★ADR-043 / ADR-033 / ADR-076 D8 |
 | `SaveAlgorithmsConfig` | `void ()` | **无参**：把当前焊接算法配置写回双后端（XML 节 `SaveXdocument()` 落盘 + INI `SaveToFile()` 落盘）★ADR-043 / ADR-033 |
 
 > **配置由本管理器独占**（ADR-008 第三次修订 + ADR-033 + ADR-043 + ADR-033）：唯一实例由 `AlgorithmsConfig` 只读属性暴露
-> （类型 `WeldAlgorithmsConfig`，XML+INI 双后端），持久化由 Manager 独占两套读写器——XML `Config/WeldParamControl/Algorithm_XML/WeldParamControl.xml`（`SEAM_GUIDE` 几何段 + `LASER_CALIBRATION`）+ INI `Config/WeldParamControl/Algorithm_INI/WeldParamControlAlgorithm.ini`（`SEAM_GUIDE` 阈值段 + `WELD_PARAM_ADJUST`）——外部只读 `AlgorithmsConfig`。
+> （类型 `WeldAlgorithmsConfig`，XML+INI 双后端），持久化由 Manager 独占五套读写器——XML `Config/WeldParamControl/Algorithm_XML/WeldParamControl.xml`（`SEAM_GUIDE` 几何段 + `LASER_CALIBRATION`，**轨迹跟踪 TabPage 独占**）+ **INI 按 TabPage 四文件**（`Config/WeldParamControl/Algorithm_INI/`）：
+
+| 文件 | 归属 TabPage | section |
+|---|---|---|
+| `WeldParamControlAlgorithm.ini` | 工艺·激光工艺设置 | `PROCESS_CONTROL`（Preset 12 + `LOCK_Y_CALIB`） |
+| `WeldParamControlAlgorithmAdaptive.ini` | 工艺·自适应工艺参数设置 | `WELD_PARAM_ADJUST` |
+| `WeldParamControlAlgorithmFlow.ini` | 系统·流程控制与测试 | `PROCESS_CONTROL`（4 开关）+ `SEAM_GUIDE`/`ENABLE_GUIDE` |
+| `WeldParamControlAlgorithmTrajectory.ini` | 系统·轨迹跟踪参数设置 | `SEAM_GUIDE`（19 跟踪阈值） |
+
+——外部只读 `AlgorithmsConfig`。⭐ **2026-11-19 ADR-076 D8**：INI 由单文件拆为 4 文件 ⇒ 页面保存只重写自己的文件，不再覆盖其它页面未保存的值（`INIFile.SaveToFile()` 是整文件重写，是覆盖的根因）。zone → 文件路由见 `WeldAlgorithmsConfig.AlgorithmIniSet.FileFor(zone)`。
 > ⛔ 外部不得 `new WeldAlgorithmsConfig()`、不得持有或回灌实例；原 `LoadSeamGuideConfig(SeamGuideConfig)` 重载、`WeldParamControlWorkflow.SeamGuide` 属性与 `SaveSeamGuide()` 方法均已删除。
 > ~~`SeamGuideConfig`~~ / ~~`WeldParamAdjustmentConfig`~~ 两类与 ~~`LoadAdjustmentConfig`~~ / ~~`SaveAdjustmentConfig`~~ / ~~`LoadSeamGuideConfig`~~ / ~~`SaveSeamGuideConfig`~~ 四方法于 2026-09-14 合并为上述一对（ADR-043）。
 
@@ -140,10 +149,11 @@ WeldParamManager（配置 + 算法实现持有者 + 配置持久化 + 机器人�
 | `FeedSeamTracking` | `PVTPoint[] (LineLaserSeamResult, double measuredFps, double axisCurrentPos)` | 喂入一帧线激光结果，返回 PVT 点数组 |
 | `TickSeamTracking` | `PVTPoint[] ()` | 按最长间隔强制输出 PVT 点 |
 | `DrainSeamTracking` | `PVTPoint[] ()` | 排空轨迹算法剩余点 |
-| `ResetSeamTracking` | `void (reason = "")` | 复位轨迹跟踪算法（**CSP 与 PVT 两个实现一并复位）并级联复位工艺调整运行期状态**（宽度/四曲线/输出缓存版本号）；⚠️ 2026-09-23 ADR-043 起调用点 = **会话边界**（点击模拟测试 / 焊前检查 `DoSubPrework` 播种之前），起焊沿不再调用本方法 |
+| `ResetSeamTracking` | `void (reason = "")` | 复位轨迹跟踪算法（**CSP 与 PVT 两个实现一并复位）并级联复位工艺调整运行期状态**（宽度/四曲线/输出缓存版本号）；⚠️ 2026-09-23 ADR-043 起调用点 = **会话边界**（点击模拟测试 / 焊前检查 `DoSubPrework` 播种之前），起焊沿不再调用本方法。**2026-11-23**：同时调 `ResetNoValueDistance()` 清缺值累计距离与位姿锚点 —— 否则上一轮的缺值累计会被下一轮 PreWork 首拍继承，直接判超阈值报警停焊 |
 | `ResetTrackingForWeldStart` | `void (reason = "")` | **2026-09-23 ADR-043 新增**：起焊沿复位——只复位跟踪算法（PVT + 焊缝地图），**不清工艺调整**（起焊沿已处于播种后的管控窗口内，清参数会产生 1.2→0→1.2 闪断）；由 `MotionControlWorkflow.OnSeamTrackingStart` 调用 |
 | `ClearSeamTrackingAlarm` | `void ()` | **2026-09-22 ADR-042 新增**：清除焊缝跟踪折返报警态，转发至 `_seamMapTrackingAlgorithm.ClearAlarmState()`。只清报警态、**不清地图与位姿基准**（整轮复位用 `ResetSeamTracking`）；由 `MotionControlWorkflow.ClearSeamAlarm()` 在模拟启停两侧调用 |
 | `OnSeamLaserResult` | `void (LineLaserSeamResult, double axisPosMm)` | **CSP 模式**：喂入一帧线激光结果 + **测量时刻跟踪轴实际位置**（ADR-042 起签名加参，运控侧传 `_seamAxis.GetPosition()`），更新**绝对目标地图**（ADR-042 / ADR-042 / ADR-042 / ADR-042）。**2026-11-16**：有效帧到达顺手清零缺值累计距离 |
+| `BeginSeamTrackingForPreWork` | `void ()` | **PreWork 激活地图跟踪（2026-11-23 新增）**：只调 `_seamMapTrackingAlgorithm.BeginCorrection()` 放开跟踪门禁（否则 `TryGetTargetY` 恒返回 false、目标回标定位无跟踪修正），⛔ **不开缺值量测**、⛔ 不清零缺值距离——PreWork 引导未稳，量测若开必误累计并触发 `NoValueAlarm` 停焊；缺值量测仍留到起焊沿 `BeginSeamTrackingCorrection` 启用 |
 | `BeginSeamTrackingCorrection` | `void ()` | **CSP 模式**：起焊沿激活目标输出（ADR-042 起基准为**测量时刻轴值**：前置量段内无地图点 → `TryGetTargetY` 返回 `false` → 运控回落标定轴值，轴本就在该位，天然零跳变）★ADR-042 / ADR-042。**2026-11-16**：清零并开启缺值量测窗口，Info 日志打印生效阈值 |
 | `UpdateRobotPose` | `void (double x, double y, double z)` | **模拟态喂入机器人位姿（等效 RSI 回包）**：写 `RobotWeldData.PosX/Y/Z` + `SeamMapTrackingAlgorithm.OnRsiPose`，置位算法 `_hasRobotY` 放开特征帧拦截。**模拟位姿唯一喂入口**（真实链路走 `OnRobotDataReceived`，两条来源互不覆盖）★2026-09-22。**2026-09-28 ADR-045**：喂入即**喂入位姿预测器**（模拟与真实同为按节拍采样喂入、同为阶梯，业主裁定同病同修；`UpdatePosePredictor`） |
 
@@ -158,7 +168,7 @@ WeldParamManager（配置 + 算法实现持有者 + 配置持久化 + 机器人�
 | `SeamTrackingCorrectionMm` | `double` | **CSP 模式**：当前修正量（ADR-042 起 = 绝对目标 − **测量时刻轴值**，仅诊断）★ADR-042 / ADR-042 |
 | `SeamTrackingLastCorrectionMm` / `SeamTrackingLastFeatureY` / `SeamTrackingPathYOffset` | `double` | **2026-09-21 新增（ADR-042 三跑诊断）**：最近一帧特征偏差修正量 / 最近一帧线激光特征点 Y / 机器人 Y 漂移补偿项（未乘系数） |
 | `SeamTrackingHasAlarm` / `SeamTrackingAlarmReason` | `bool` / `string` | **CSP 模式**：折返超限报警标志与原因 ★ADR-042 |
-| `NoValueDistanceMm` | `double` | **2026-11-16 新增**：缺值累计行进距离（毫米，只读观测值）。起焊沿清零并开窗，停焊沿关窗；激光有效帧到达清零。位姿有效按 `|ΔX|` 累计，位姿停滞（间隔 > 2×RSI 周期）按 `v_weld×Δt` 推定，推定速度钳位 100 mm/s；本阶段只观测不触发动作 ★ADR-042 |
+| `NoValueDistanceMm` | `double` | **2026-11-16 新增**：缺值累计行进距离（毫米，只读观测值）。起焊沿清零并开窗，停焊沿关窗；激光有效帧到达清零；**2026-11-23**：会话复位（`ResetSeamTracking` / `ResetTrackingForWeldStart`）同样清零，且**数值与位姿锚点同清**（只清数值会按旧锚点补出整段跨会话位移）。位姿有效按 `|ΔX|` 累计，位姿停滞（间隔 > 2×RSI 周期）按 `v_weld×Δt` 推定，推定速度钳位 100 mm/s；本阶段只观测不触发动作 ★ADR-042 |
 | `NoValueSource` | `string` | **2026-11-16 新增**：缺值距离尺源（`实测` / `推定`），只供日志标注 |
 | `SeamTrackingMapPointCount` / `SeamTrackingOutlierCount` / `SeamTrackingInvalidFrameCount` / `SeamTrackingSmoothSkipCount` | `int` | **CSP 模式**：地图点数 / 野值剔除数 / 无效帧数 / 平滑跳过数 ★ADR-042 |
 | `SeamTrackingRobotX` | `double` | **CSP 模式**：最近一次机器人 X 坐标（观测用：判断机器人位姿回调链路是否活跃）★2026-09-22 |

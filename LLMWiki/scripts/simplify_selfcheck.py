@@ -39,6 +39,7 @@ JUDGE = {
     "8 命名空间": ["命名空间"],
     "9 多层锁": ["B.多层锁", "嵌套锁", "加锁顺序相反"],
     "11 平行指令入口": ["平行指令入口", "枚举参数内部 switch 分派"],
+    "27 注释只写作用": ["A.注释含元信息", "COMMENT_META_RE", "注释禁含元信息"],
 }
 
 
@@ -75,7 +76,7 @@ def main():
     if os.path.exists(STD):
         t = open(STD, encoding="utf-8").read()
         need = ["4.1 口径-判据映射表", "private 允许且建议写", "不得据此删除既有",
-                "region 内", "跨 region 不比较"]
+                "region 内", "跨 region 不比较", "注释只写作用", "A.注释含元信息"]
         miss = [n for n in need if n not in t]
         if miss:
             ok = False

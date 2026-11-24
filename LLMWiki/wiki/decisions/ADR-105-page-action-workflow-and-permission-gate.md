@@ -55,6 +55,6 @@ status: accepted
 
 - [[decisions/ADR-Index]]
 - [[decisions/ADR-101-shutdown-closure-and-estop]]
-- [[api/ILCamPage]]
+- [[api/LineLaserCamPage]]
 - [[api/SystemControlPage]]
 - [[modules/UIDesign]]

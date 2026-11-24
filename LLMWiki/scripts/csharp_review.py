@@ -1169,6 +1169,37 @@ def _check_var_multiline_comments(source, issues):
         i = j
 
 
+# 注释元信息判据（2026-11-20 业主裁定）：代码注释只写作用，
+# 禁含 ⛔ / ADR 编号 / 日期 / 业主裁定 / 改版 / 「原为 X 现为 Y」等过程性元信息。
+# 约束、历史、裁定一律由 LLMWiki 承载（CodeMap / api / lessons / decisions）。
+COMMENT_META_RE = re.compile(
+    r'(⛔|ADR-\d{2,3}|20\d{2}-\d{2}-\d{2}|20\d{2}-\d{2}\b'
+    r'|业主裁定|业主实测|裁定[:：]|改版|原为.{0,10}现为)')
+
+
+def _check_comment_metadata(source, issues):
+    """代码注释禁含 ⛔/日期/ADR/裁定等元信息（只写作用）。"""
+    lines = source.replace('\r\n', '\n').split('\n')
+    in_block = False
+    for idx, raw in enumerate(lines):
+        s = raw.strip()
+        # 块注释 /* ... */ 的每行也算注释
+        is_comment = s.startswith('//') or in_block or s.startswith('*')
+        if '/*' in s:
+            in_block = True
+            is_comment = True
+        if is_comment:
+            m = COMMENT_META_RE.search(s)
+            if m:
+                issues.append(Issue(
+                    "A.注释含元信息", Issue.SEVERITY_ERROR, idx + 1,
+                    "注释禁含元信息（⛔/日期/ADR/裁定/改版），只写作用；约束归 wiki",
+                    s[:100],
+                ))
+        if '*/' in s:
+            in_block = False
+
+
 def _check_method_doc_quality(doc, mth, label, issues):
     """检查方法 XML 注释的质量（summary/param/returns 规范）。
     label 用于报错前缀，如"公共方法"或"私有方法"。
@@ -2267,6 +2298,7 @@ def review_file(filepath):
     check_dispose_pattern(source, issues)
     check_doc_comments(source, classes, issues)
     _check_var_multiline_comments(source, issues)
+    _check_comment_metadata(source, issues)
     check_logic_issues(source, classes, issues)
     check_function_simplification(source, classes, issues)
     check_init_dependency(source, issues)

@@ -7,6 +7,26 @@ source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 
 # DeviceControlWork API 参考
 
+> 🔄 **2026-11-23 焊前寻位（[[decisions/ADR-114-prework-seek-position]]）**：新增 `IsPreWorkXArrived`（X 到位判据：真实＝当前 X 与 `RX_PRE_WELD_POSE` 记录的焊前位 X 差 ≤`PreWorkXArrivedToleranceMm=5mm`；模拟＝已到设定点）、`ApplyRobotPreWeldPose`（记录机器人焊前位 X）、`SimPreWorkStartXmm`（模拟寻位起点 X，可配置）；模拟 X 两段式：开启即自 X=0 移向设定点（**到达即停**），起焊段由 `StartRobotXMoving` 继续沿焊缝前进。
+>
+> 🔄 **2026-11-23 模拟 X 两段式移动**：模拟开启即自 X=0 移向配置的「焊接前寻位起点 X」（**到达即停 X 前进**），起焊段由 `DoSubWork` 调 `StartRobotXMoving()` 继续沿焊缝前进。对应真实「机器人先移动到焊前位、边走边让 Y 轴寻位」。见 [[decisions/ADR-114-prework-seek-position]]。
+>
+> 🔄 **2026-11-23 模拟 X 时钟延后**：`StartRobotXSimulation` 从 `StartSimulation` 移到 `DoSubWork`（下发 Working）内、`BeginWeldMonitor` 前；PreWork 期间 X 固定起点，对齐真实「机器人收到 PreWork 完成才移动」。起点复位改 `ResetTrackingForWeldStart`（只复位跟踪、不清工艺调整）。见 [[decisions/ADR-045-PredictiveRobotPoseSnapshot]] 演进 · [[lessons/SimulationAutoBranching]] 陷阱廿三。
+>
+> 🔄 **2026-11-23 机器人作业循环全景（业主口径）**：`Home → 过渡点(可省略·无动作) → 焊前请求 → 到达焊前位 → 达到焊接点(出光) → 焊接结束点 → 焊接安全离开过渡点 → 机器人 Home`。映射：`RX_HOME_POSE`→`IoReset` · `RX_START_SAFE_POSE`→无动作 · `RX_PRE_WELD_REQUEST`→`IoStart`+`IoSubPrework` · `RX_PRE_WELD_POSE`→仅记录 X · `RX_WELD_START_POSE`→`IoSubWork` · `RX_WELD_STOP_POSE`→仅记录 X（到程由行程监视收口，线激光按 `lead` 提前收工=预停语义）· `RX_STOP_SAFE_POSE`→`IoStop`。⛔ 循环闭合依赖：`ConnectOff` 不清 `_initialized`/`Manager.IsInitialized` ⇒ 第二轮 Home 复位仍可受理。见 [[decisions/ADR-038-RobotCommandDrivenStepFlow]] 循环全景表。
+>
+> 🔄 **2026-11-23 三阶段命令驱动与阶段应答（最新，覆盖上方模拟相关条目）**：主控改为**纯被动接受机器人命令 → 完成阶段工作后置应答态**。命令映射（`MapCommandToIo`）：`RxHomePose`→`IoReset`（**原 `IoStop`**）、`RxWeldStartPose`→`IoSubWork`（**原坐标类仅记录**）、`RxStopSafePose`→`IoStop` 不变、`RxPreWeldRequest`→`IoStart` 并**额外置 `IoSubPrework`**；`RxPreWeldPose` **仍为坐标类仅记录**（载荷 = 焊前位 X，作寻位到位判据）——⛔ 不得映射 `IoSubPrework`：PreWork 须在机器人移动期间启动，否则 X 已停、地图建不起、寻位必超时。阶段应答态：`IsResetCompleted` / `IsPreWorkCompleted` / `IsWeldStartAcknowledged`（⛔ 对外回复指令待协议确定后接线）。模拟侧改为**注入 Rx 命令到真实指令队列**（`InjectSimRobotCommand`），调度步序 `5→6→10→20→21→22→23→24→25→30`。见 [[decisions/ADR-038-RobotCommandDrivenStepFlow]] 三阶段章节 · [[lessons/SimulationAutoBranching]] 陷阱廿五。
+>
+> 🔄 **2026-11-23 审查修正（同一轮）**：`DoStartMachine` 统一启动运控步机（真实流程此前 `MotionControlWorkflow.Start()` 零调用方 ⇒ 运控 `RunStep` 停在 0、焊前寻位不可达）；`DoResetMachine` 补「Running 态拒绝复位」；`EnsureRunningForSimulation` 先停机再清态；`IsCommandPreconditionMet` 对 `IoSubPrework`/`IoSubWork` **不拒收**（运行态判据交由扫描线程保留重试）。
+>
+> ⚠️ **2026-11-23 焊前寻位改版后本条已被取代**：X 改为「模拟开启即自 0 移向寻位起点、到达即停」，见上方「模拟 X 两段式移动」。
+>
+> ⚠️ **2026-11-23 三阶段命令驱动后本条已被取代**：`EnsureRunningForSimulation` 只清警清态（复位由注入 `RX_HOME_POSE` 触发），`_simResetPending` 已删除，模拟位姿时钟改在**复位完成后**启动（调度步 6）。
+>
+> 🔄 **2026-11-23 模拟启动自复位**：`StartSimulation` → `EnsureRunningForSimulation` 不再直接进 Running，而是清警后触发既有 `DoResetMachine`（旁路机器人在位门禁）；`_simResetPending` + `SimResetGateTick` 门控复位在途不推进大步，复位成功（Stop）→ `DoStartMachine` → `StartSimulationSubflowsAfterReset`（线激光 + 运控才启动），失败（Alarm/EStop）→ `DisableSimulation`。⛔ UI 侧不得在 `StartSimulation()` 后立即 Start 子流程。见 [[decisions/ADR-032-SimulationTestRedesign]] 演进 · [[lessons/SimulationAutoBranching]] 陷阱二十一。
+>
+> 🔄 **2026-11-24 模拟会话变量统一复位**：新增 `ResetSimulationSessionState(reason, restartFromHome)`，一处复位 15 项会话变量（阶段应答 3 / 调度游标 / 注入节流 2 / 位姿时钟 7 / 焊前位记录 2）；`StartSimulation` 传 `true`（指向 Home 起步步）、`DisableSimulation` 传 `false`（调度停在无效步，防停止中的线程再注入 `RX_HOME_POSE` 在 Stop 态触发复位）；⛔ 调用必须早于 `SimTestWorkOpen()`。另加 `_simHardwareSuspended`，防二次点击用「已置假的使能」覆盖首次快照。见 [[lessons/SimulationAutoBranching]]。
+>
 > **本页述 `DeviceControlWork`（单例，整机运行主控）**，见 [[decisions/ADR-013-ThreeStateModelRefactor]]。
 > 主设备对外状态为 **运行态 `MainDeviceStatus`**（6 态：Running/Alarm/EStop/Stop/NoReset/Reseting），由 `SetStatus(...)` 单一入口写入，禁手工赋值。
 >
@@ -72,7 +92,7 @@ source: AdaWeldSystem/MainDeviceControl/DeviceControlWork.cs
 | `DoInitializeMachine` | 线性阻塞链 → **受理制**（置首步 `_initStep=10` 即返回，非阻塞）；步驱动由 `InitializeMachineTick` 承担（IOWork 每拍调用）：10 机器人通讯 → 12 运控 → 14 焊接头 → 20/21 线激光受理/等待 → 30/31 监控相机受理/等待 → 40 聚合判定；等待小步按拍轮询 `ConnectSettled`（false→true）或超时放行（10s，步进入时刻起算） |
 | ⛔ 已删除 | `WaitChildConnected`（`Thread.Sleep` 轮询等连接——曾阻塞 thIOWork 致 IO 刷新停摆）、`IsInitAborted`（被 `IsInitPreempted`+就地日志取代）、`WaitChildPollMs` |
 | `DoSubWork`（焊接启动） | **受理制门控**：`IsSubWorkGateOpen()`（仅「运控 PreWork 且 `!IsCalibrationYReady`」关门）不过 → `_subWorkPending` 挂起；`CheckSubWorkPending` 由 5 条模组线程每拍锁内幂等问询，就绪补执行 / ErrorAborted 弃单 / 停止·急停·清状态链清挂起标志；等待期 2s 限频告警 |
-| `SimScheduleTick`（模拟） | 步号 0/1 → **10/20/21/22/30** 与主设备同构（⚠️ 2026-09-23 ADR-043 补下发参数步）：10 等线激光进 PreWork → 20 等反馈（变量 false→true）→ 21 门控等待（与真实 `IoSubWork` 同一扇门），门开先 `DoSubPrework()`（级联 PreWork + 焊前预置播种 = 预焊接点，真实 `IoSubPrework` 同构）→ 22 `DoSubWork()`（start，生产会话开启）→ 30 焊接中；`EnableSimulation` 复位 `_simSchedStep=10` |
+| `SimScheduleTick`（模拟） | 步号 **5/6/7/8/20/21/23/24/25/30**：5 注入 `RX_HOME_POSE` → 6 等 `IsResetCompleted`（起位姿时钟 + `StartSimulationSubflowsAfterReset`，不自行 `DoStartMachine`，整机启动交给 `RX_PRE_WELD_REQUEST`）→ 7 注入 `RX_PRE_WELD_REQUEST`（同步起寻位段 X 推进，**发出才推进**）→ 8 等整机 Running + 线激光 PreWork → 20 等 PreWork 反馈 → 21 注入 `RX_PRE_WELD_POSE`（记录焊前位 X，发出才推进）→ 23 等寻位应答（超时用 `TryReinjectOnAckTimeout` 重发请求）→ 24 注入 `RX_WELD_START_POSE`（发出才推进）→ 25 等 `IsWeldStartAcknowledged`（超时重发）→ 30 到程收口。7/21/24 三处统一"发出才推进"（拒发原地重试，不空推进）。⛔ 禁旁路直调 `DoSubPrework`/`DoSubWork`（ADR-038 D7）；会话起点由 `ResetSimulationSessionState` 的 `restartFromHome` 决定 |
 | `CommCommandWork` | 指令转换后置位前增 **`IsCommandPreconditionMet`** 前置条件问询：`IoStart` 需整机 Stop 且无模组 ErrorAborted；`IoStop` 需整机 Running；不满足拒收留痕 |
 
 ---
@@ -308,8 +328,7 @@ ADR-020 裁定 C3：**不再监控机器人 pose**，`RobotPose` / `RobotCommand
 CommCommandWork 线程：DequeueCommand() → MapCommandToIo(cmd) → IsCommandPreconditionMet → SetVirtualIo(ioName)
 ```
 
-`MapCommandToIo` 现状：动作类指令写虚拟 IO（由 thIOWork 统一扫描），坐标类仅记录；`RxAbort` 记 Error 日志、
-`RxWeldStopPose` 缓存停止位。~~`DispatchCommand` + 其后的 `WeldStatusTrans()`~~ ⚠️ **2026-10-10 勘误**：
+`MapCommandToIo` 现状（**2026-11-23 三阶段命令驱动后**）：`RxHomePose`→`IoReset`（触发设备复位）· `RxPreWeldRequest`→`IoStart`（整机启动）**并额外置 `IoSubPrework`**（焊前准备，须在机器人移动期间启动）· `RxStopSafePose`→`IoStop`（停机）· `RxWeldStartPose`→`IoSubWork`（焊接启动）· `RxAbort` 同步急停 · `RxPreWeldPose`/`RxStartSafePose`/`RxPreStopPose`/`RxWeldStopPose` 仅记录坐标不驱动状态转换；动作类指令写虚拟 IO（由 thIOWork 统一扫描），坐标类仅记录；~~`DispatchCommand` + 其后的 `WeldStatusTrans()`~~ ⚠️ **2026-10-10 勘误**：
 `DispatchCommand` 已在指令驱动重构中消失，`WeldStatusTrans()` 的调用随之丢失（整条委托链曾长期零调用方）；
 **现调用点 = `CascadeWeldStatus()` 末尾**（[[decisions/ADR-061-WeldStatusTransCascadeWiring]]）。
 
@@ -341,7 +360,7 @@ CommCommandWork 线程：DequeueCommand() → MapCommandToIo(cmd) → IsCommandP
 | `void StartSimulation()` / `void DisableSimulation()` | 开/关模拟（Disable 幂等）。开启时**按连接态自动选相机**（`ShouldUseVirtualCamera` 为真 → `SelectVirtual()`，否则 `SelectIntelligentLaser()`）+ 套用 `SimLaserFrequencyHz` 至虚拟相机 `FrameRateHz` + `StartRobotXSimulation()` + `SimTestWorkOpen()` + **生产会话**（**2026-09-20 起走 `ProductFileRecordManager.BeginProductSession(CurrentProductSn, true)`**：状态记「模拟」、会话基名带「模拟」前缀）；关闭时停线程并 `EndProductSession("pass", "")`（归档三份记录文件 + 生产记录落库） |
 | `void LoadSimulation()` / `void SaveSimulation()` | INI 持久化（仅 `Simulation/LineLaserDataFrequencyHz`；⛔ 旧 `MotionControlWorkflow.ini` 回退迁移与 5 个旧键已删） |
 | `double GetEffectiveRobotX()` | 读模拟线程按节拍发布的 `_simRobotX`；未开启返回 0 |
-| `void StartRobotXSimulation()` / `void StopRobotXSimulation()` | 共享模拟 robotX 时钟启停（起点**随机 0~20**，速度内部常量 `SimDefaultSpeedMmPerS = 60.0`） |
+| `void StartRobotXSimulation()` / `void StopRobotXSimulation()` | 共享模拟 robotX 时钟启停（起点**随机 0~20**，速度内部常量 `SimDefaultSpeedMmPerS = 60.0`）。**2026-11-23 拆两步**：`StartRobotXSimulation` 改在 `DoSubPrework` 调（**只启动时钟与位姿喂入、X 保持起点不动**——保位姿时效使地图可入图）；`StartRobotXMoving()` 在 `DoSubWork` 调（机器人起步，等效真实收到 PreWork 完成反馈），必须在 `BeginWeldMonitor` 前（它读 `GetEffectiveRobotX()` 当行程起点） |
 | `void StartSimulationLineLaser()` / `void StopSimulationLineLaser()` / `void ResetSimulationLineLaser()` | 线激光模拟生命周期编排入口（UI 只经这些方法触发） |
 | `int SimLaserFrequencyHz`（get/set） | 线激光数据频率 30/60/80/120Hz（`_robotXLock` 保护） |
 | `bool ShouldUseVirtualCamera` | 模拟中且 `_lineLaser.State != Connected` → true（自动用虚拟相机） |
@@ -359,7 +378,7 @@ CommCommandWork 线程：DequeueCommand() → MapCommandToIo(cmd) → IsCommandP
 ## 模拟测试自动终止契约（2026-09-20，[[decisions/ADR-039-SimulationTestAutoTerminationAndRecordCacheRelease]]）
 
 - `CheckWeldProgress()`：行程到程须调 `DisableSimulation()`（停 robotX 时钟 + 落盘），不能只 `DoSubStop()` 级联模组 Stop（陷阱九）。
-- `SimScheduleTick()`：顶部守卫——`Current == Alarm || Current == EStop` 或任一模组 `WeldStatus == ErrorAborted` 时，立即 `EndProductSessionSafely("fail", …)` + `DisableSimulation()` 后 return（陷阱十三）。
+- `SimScheduleTick()`：顶部守卫——`Current == EStop` 或任一模组 `WeldStatus == ErrorAborted` 时，立即 `EndProductSessionSafely("fail", …)` + `DisableSimulation()` 后 return。⛔ **不判 `Current == Alarm`**：初始化部分失败（如监控相机缺失）会残留 Alarm，模拟不判真实硬件态，启动窗口误杀（陷阱十三）。
 - **2026-09-24 焊缝收尾语义（业主口径，见 [[decisions/ADR-044-SeamEndSemanticsAndMotionAxisScope]]）**：`BeginWeldMonitor` 的 `_weldTargetMm = 焊缝终止行程`（⛔ **不叠加前置量**）；另设 `_laserStopStrokeMm = max(0, 终止行程 − 前置量)`。`CheckWeldProgress` 先判**线激光收工行程**（命中即 `LineLaserWorkflow.Instance.FinishMeasureByStroke()`：关外设 + 停入图，**但不改线激光 `WeldStatus`**），再判**终止行程**（命中才 `DoSubStop`）——**机器人必须实际走到焊缝终止 X 才停止**。语义：线激光装在焊枪前方一个前置量上，机器人到 (终止X − 前置量) 时激光恰好扫过焊缝末端；末端这段内高斯窗仍有点（`MinSmoothPoints = 3`）⇒ 查图不回落、轴目标不跳变。
 - **两条独立时间线（关键口径）**：收工后 ① **入图结束**——无数据帧 ⇒ 入图键 (X+前置距离) 与 CSPinY **冻结**；② **焊接继续**——线激光流程态保持 `Working` ⇒ 运控继续出图，`CSPoutY`／`实时Y`／SeamTraceY 记录**一路到焊缝行程结束**（机器人走到终止 X），届时主控 `DoSubStop` 统一收口。⛔ 早期把「收工」做成「焊接结束」会让运控停在段未走完时清缓冲（`4359` + 坐标系残留 ⇒ 下次启动标定位回归超时）。
 - **2026-09-24 终止位来源**：优先机器人上报停止位 X（`RX_WELD_STOP_POSE` 经 `CommandCore.TrySplitPayload` 拆「指令名 + 载荷」，首个数值即停止位 X → `ApplyRobotStopPose(X)` 缓存 `_robotStopPoseX/_hasRobotStopPose`，监视激活时即时改写终止行程）；模拟测试的停止状态同样由机器人发来，兜底取 `_simWeldLengthMm`；**真实模式现为占位空缺**（无上报 → 不做线激光收工判断，日志标注「真实占位空缺(待机器人下发)」，协议细化后由机器人下发终止 X 取代）。
@@ -607,6 +626,20 @@ bool robotOnline = main.IsRobotOnline;
 | `DisableSimulation()` | `_motion.Stop()` + `_motion.ClearSeamAlarm()` + `_motion.RequestWeldStatus(Standby)`；`_weldHead.RequestWeldStatus(Standby)`（均包 try/catch） | 补齐 ADR-039 决 5「对称复位」的缺口——原只复位线激光/焊参/监控，**遗漏运控与焊接头** → 停止汇总恒显 `V3跟踪：ErrorAborted` |
 
 > ⚠️ 判据：**状态位的「置位」与「清除」必须成对出现在启、停两个入口**；级联到几个模组，停止就复位几个。
+
+### 会话复位单一入口（2026-11-24）
+
+`ResetSimulationSessionState(reason, restartFromHome)` 是模拟会话变量的**唯一复位入口**，`StartSimulation` 与 `DisableSimulation` 两端共用，清 **17 项**：
+
+| 组 | 项 | 说明 |
+|---|---|---|
+| 阶段应答 | `_resetAckPending` / `_preWorkAckPending` / `_weldStartAckPending` | 复位 / 焊前 / 焊接启动三态应答 |
+| 提交挂起 | `_subWorkPending` / `_subWorkPendingLogTs` | 门控未开时的焊接启动挂起；不清则下一轮门一开即**未经机器人指令**补执行 `DoSubWork` |
+| 调度 | `_simSchedStep` / `_simInjectLastTime` / `_simAckWaitStart` | 步号与注入节流、应答超时基准 |
+| 位姿时钟 | `_robotXSimEnabled` / `_simRobotXMoving` / `_simPreWorkArrived` / `_simRobotX` / `_simStartX` / `_simStartTime` / `_simPreWorkTargetX` | `_robotXLock` 内清 |
+| 焊前位 | `_hasRobotPreWeldPose` / `_robotPreWeldPoseX` | `_weldMonLock` 内清 |
+
+四条硬约束：① 启动传 `restartFromHome=true`，停止传 `false`（步 0 无 case ⇒ 停止中的线程不会在 Stop 态注入 `RX_HOME_POSE`）；② 复位早于 `SimTestWorkOpen()`（线程已在跑时残留步号会让首拍按上一轮步骤执行）；③ 使能快照配 `_simHardwareSuspended` 标志；④ 开启端另补一次 `WeldParamManager.ResetSeamTracking("模拟会话开启复位")` —— 缺值累计/位姿锚点的公开清零点只有 `ResetSeamTracking` / `ResetTrackingForWeldStart`，后者在复位完成后才执行，属"晚清"，异常退出跨轮时会先留残留。
 
 ## 关联
 

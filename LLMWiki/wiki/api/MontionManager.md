@@ -8,6 +8,8 @@ source: AdaWeldSystem/MotionControl/MontionManager.cs
 
 # API — MontionManager 运动管理器
 
+> 🔄 **2026-11-20 回零完成判据变更**：`WaitAxisHomed` 改为以 `HomeVerified && Home_Status==0 && 速度稳定` 为达成权威；位置与 `HomeOffset` 不符时只记 Warning 不阻断（扭矩回零 -3 下驱动器把 offset 反向应用，填 +1.0mm 终位 -1.0mm，旧位置硬门误判 NOT_REACHED）。见 [[decisions/ADR-080-DeltaTorqueHomingSignedModeAndDetectParams]] 演进记录。
+>
 > **位置**：`MotionControl/MontionManager.cs`（命名空间 `AdaWeldSystem.MotionControl`）
 > **2026-09-07 新增**：取代已删除的 `MotionManager`（见 ADR-027（2026-09-17 删除，内容并入整合页；映射见 [[decisions/ADR-Index]]））。
 > **定位**：业务层唯一装配点。面向 [[modules/MotionControl]] 的 L2 抽象（`IMotion/`）编程；厂商具体类型 `Delta*` **仅在本文件 `Initialization()` 中出现一次**。

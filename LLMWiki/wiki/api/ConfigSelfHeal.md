@@ -28,6 +28,7 @@ status: accepted
 4. **回读校验**：写后重新解析并再次比对模板；仍有缺键 → Warning。
 5. **缺失文件**：生成完整默认模板并记「配置缺失，已生成默认配置 <文件名>」。
 6. **日志**：`配置补缺 <文件>：新增 N 键（K=v…；来源 代码默认）`，单文件一条。
+7. **路径来源唯一**：`fullPath` 必须取自 `ConfigFileManager` 的载体路径（`ModuleAbsolutePath` / `ModuleRelativeDir`），⛔ 不得由调用方手拼 `Config\...` 历史目录 —— 否则「判存在 → 生成模板」与「真实 Read/Write」落在两个文件上，表现为每次启动都报「配置缺失」而配置其实正常。
 
 ## 哪些路径会写盘
 
@@ -37,9 +38,9 @@ status: accepted
 | `DeltaMotionConfig.LoadConfig(bool, bool allowHeal)` | 方向键已存在时加载期补缺；缺失文件推迟 | 是（一次） |
 | `MontionManager.EnsureMotionConfigKeys` | 迁移判定后合并补写方向 + 其它缺键 | 是（一次，幂等） |
 | `LineLaserConfig.LoadConfig(bool allowHeal)` | 缺文件生成模板 + 缺键补写 | 是 |
-| `MonitorCamConfig.LoadFromIni(string, bool allowHeal)` | 缺文件模板 + 缺键补写 | 是 |
+| `MonitorCamConfig.LoadFromIni(string, bool allowHeal)` | 缺文件模板 + 缺键补写（路径 = `DefaultConfigPath` → 载体路径） | 是 |
 | `WeldParamManager.HealAlgorithmsConfigKeys` | 工艺 XML + 工艺 INI 镜像补缺 | 是 |
-| `CommunicationManager.HealCommunicationIni` | 通讯 INI 7 开关补缺 | 是 |
+| `CommunicationManager.HealCommunicationIni` | 通讯 INI 9 开关补缺（路径 = `ModuleAbsolutePath`） | 是 |
 | `FilebackupPage.LoadProjectXmlRows` / `ApplyDeltaView` / 差异审计 | `LoadConfig(false)` / `LoadConfig(reader)` | **否** |
 
 ## 补键与一次性迁移的先后（2026-11-06，ADR-086 D8）

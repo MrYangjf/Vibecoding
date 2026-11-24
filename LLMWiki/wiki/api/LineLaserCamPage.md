@@ -1,23 +1,25 @@
 ---
-title: ILCamPage 英莱线激光相机页
+title: LineLaserCamPage 英莱线激光相机页
 date: 2026-11-17
-updated: 2026-11-17
-tags: [API, UI, 线激光, 英莱, 权限, 页面生命周期, ADR-105]
-source: AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs + .Designer.cs
+updated: 2026-11-23
+tags: [API, UI, 线激光, 英莱, 权限, 页面生命周期, ADR-105, ADR-112]
+source: AdaWeldSystem/UIDesign/TabPage/LineLaserCamPage.cs + .Designer.cs
 ---
 
-# ILCamPage — 英莱线激光相机页
+# LineLaserCamPage — 英莱线激光相机页
 
 > 页面职责：显示线激光相机连接态、轮廓预览、识别结果、JOB 与帧率设置。**只查询、不直连硬件**；连接/断开统一交 `LineLaserWorkflow` 后台线程，页面释放不断设备。
+>
+> 页面于 ADR-112 轮由 `ILCamPage` 改名为 `LineLaserCamPage`（与类名、文件路径对齐）。
 
 ## 基本信息
 
 | 项 | 值 |
 |---|---|
-| 类 | `AdaWeldSystem.UIDesign.TabPage.ILCamPage` |
+| 类 | `AdaWeldSystem.UIDesign.TabPage.LineLaserCamPage` |
 | 基类 | `UserControl`（由 `NavPage` 挂载） |
-| 文件 | `UIDesign/TabPage/ILCamPage.cs` + `.Designer.cs` |
-| 挂载 | `FormMain` → `navPageParam.LoadTabs(..., ("线激光设置", new ILCamPage(), ...))` |
+| 文件 | `UIDesign/TabPage/LineLaserCamPage.cs` + `.Designer.cs` |
+| 挂载 | `FormMain` → `navPageParam.LoadTabs(..., ("线激光设置", new LineLaserCamPage(), ...))` |
 | 真相源 | 连接态 = `LineLaserWorkflow.State`；硬件回填由 `StateSwitched` 边沿触发 |
 
 ## 连接与断开（ADR-105）
@@ -47,6 +49,11 @@ source: AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs + .Designer.cs
 
 `HandleDestroyed` 只做：退订 `WeldStatusChanged` / `StateSwitched` / `InitializationCompleted` / `MatUpdated` / `JobParamsChanged`、释放 `_displayedClone`。**不断设备、不改设备态**；设备断开归主设备关闭链。
 
+## 轮廓画面
+
+- 画面由 `LineLaserManager` 驱动渲染（算法层 `LineLaserContourAlgorithm.Render`），页面只取 `CurrentMat` 克隆后贴到 `imageBox`（`StretchImage`，整图缩放不裁切）。
+- 校准框 / 轮廓 / 毫米刻度栅格共用同一套仿射变换（见 [[api/LineLaserContourAlgorithm]] 与 [[decisions/ADR-113-line-laser-calib-affine-render-transform]]）。
+
 ## 其它交互（不受本轮改动影响）
 
 - 扫描相机（UDP 广播发现）→ 选中后自动填 IP 并保存配置。
@@ -56,6 +63,9 @@ source: AdaWeldSystem/UIDesign/TabPage/ILCamPage.cs + .Designer.cs
 ## 相关页面
 
 - [[decisions/ADR-105-page-action-workflow-and-permission-gate]]
+- [[decisions/ADR-112-ui-page-split-and-dialog-cleanup]]
+- [[decisions/ADR-113-line-laser-calib-affine-render-transform]]
 - [[api/LineLaserWorkflow]]
 - [[api/LineLaserManager]]
+- [[api/LineLaserContourAlgorithm]]
 - [[modules/UIDesign]]

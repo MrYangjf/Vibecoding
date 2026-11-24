@@ -5,9 +5,11 @@ tags: [API, UI, 文档备份, 通讯配置, 工艺配置, 系统配置, 台达�
 source: AdaWeldSystem/UIDesign/TabPage/FilebackupPage.cs + .Designer.cs
 ---
 
-# FilebackupPage — 文档备份设置页（两 Tab 分区）
+# FilebackupPage — 设置备份页（单页 · 配置生成与设置包）
 
-> 🔄 **2026-09-29 更名 + Tabs 改造（业主令）**：类与文件 `CommPage` → **`FilebackupPage`**（页面显示名由「通讯设置」改为「**文档备份设置**」）。根容器 **`tabsBackup`**（`AntdUI.Tabs`，`Type = Card`，`TabMenuVisible=false`，`Dock=Fill`），~~三页：① 通讯配置文件 → ② 工艺配置文件 → ③ 系统配置文件~~ ⇒ **2026-11-03 两页**：**① 通讯配置文件**（`tabPageCommCfg`）→ **② 系统配置文件**（`tabPageSystemCfg`）。两页索引 0/1，`SelectedIndex=1`（默认系统配置文件，不越界）。
+> 🔄 **2026-11-20 拆分（[[decisions/ADR-112-ui-page-split-and-dialog-cleanup]]）**：原 `tabsBackup` 两 Tab 拆为两个同级独立页 —— 通讯配置文件 Tab 迁出为 **`CommSettingPage`**（见 [[api/CommSettingPage]]）；本页去掉 `tabsBackup`/`tabPageCommCfg`/`tabPageSystemCfg` 外壳，以 `panelSystemCfg` 为根，**只保留配置文档生成与 `.awcfg` 导入导出**。本页不再持有任何通讯控件（inputLog/chkEnableRobot 等）与 RSI 调试逻辑，`DisposeComponents()` 只释放 `_tableMenu`。两页在 `navPageParam.LoadTabs` 中同级挂载（通讯设置 → 设置备份）。
+>
+> 🔄 **2026-09-29 更名 + Tabs 改造（业主令，已被上条拆分取代）**：类与文件 `CommPage` → **`FilebackupPage`**。根容器 `tabsBackup` 曾承载 通讯配置文件 / 系统配置文件 两 Tab（`SelectedIndex=1`）。
 > ~~业主需求原文：工艺/系统配置文件「将……内容导出成一个打包的文件备份到本地，支持单项保存打包也支持全部参数打包」——故每类备份均提供单项复制与整目录打包（zip）两级粒度。~~ ⇒ **2026-11-03 被业主推翻**：「工艺配置文件已经失去意义删除」⇒ 删除 `tabPageProcessCfg` 整页及其单项复制/整目录打包助手，备份能力统一由 `.awcfg` 整站包承接。
 
 ## 基本信息

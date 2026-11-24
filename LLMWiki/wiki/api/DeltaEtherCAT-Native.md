@@ -8,6 +8,27 @@ source: "D:/Program Files (x86)/Delta Industrial Automation/EtherCAT/inc/C#/Ethe
 
 # 台达 EtherCAT 原生 API 速查（EtherCAT_DLL）
 
+> 🔄 **2026-11-23 错误码与模式门禁（三轮假设证伪后的定论）**：
+> **0x12xx 段错误码对照（台达《EtherCAT 程式開發手冊》§33-4，PDF P941）**——判定时务必按码区分，勿混为一谈：
+> | 十进制 | 十六进制 | 常量 | 官方问题描述 |
+> |---|---|---|---|
+> | 4608 | 0x1200 | `ERR_ECAT_RING_BUFFER_FULL` | 週期通訊暫存器（MailBox）已滿 |
+> | 4609 | 0x1201 | `ERR_ECAT_API_PARAMETER` | **API 參數輸入錯誤** |
+> | **4610** | **0x1202** | **`ERR_ECAT_SLAVE_TYPE`** | **此模組不支援此 API** |
+> | 4611 | 0x1203 | `ERR_ECAT_TARGET_REACHED` | 目標到達訊號，超過等待時間仍未被觸發 |
+> | 4612 | 0x1204 | `ERR_ECAT_MODE_NOT_SUPPORT` | **此運動模式下不支援此 API**（模式问题看这个，不是 4610） |
+> | 4613 | 0x1205 | `ERR_ECAT_MOTION_TYPE` | 該軸不支援此運動模式（可能被群組化功能限制） |
+> | 4614 | 0x1206 | `ERR_ECAT_PDO_NOT_MAPPING` | 該運動模式的 OD 碼項目未映射在 PDO 列表 |
+> | 4615 | 0x1207 | `ERR_ECAT_MODULE_REVISION` | **不支援此模組的韌體版本** |
+> | 4618 | 0x120A | `ERR_ECAT_HOME_OFFSET` | 原點復歸參數中的原點偏移量設置錯誤（⚠️ 勿与 4610 混淆） |
+> ⇒ **4610 的准确语义 = 「该模块（从站/驱动器）不支持这个 API」**，既不是参数错（4609）、也不是模式错（4612）、也不是固件版本不匹配（4615）。现场遇到 4610 即应判定"该驱动器不支持该 API"，而非继续调参数。
+> - `4610` = `0x1202` = `ERR_ECAT_SLAVE_TYPE`，官方释义「**此模块不支持此 API**」。同轴同 API 先失败后成功 ⇒ **状态相关的临时拒绝**。
+> - ⛔ 已证伪的两条假设：① 「新建坐标系表未激活」——`BufferStart` 成功（诊断 `运行 1`）后写段**仍 4610**；② 「先 Start 后写段」——空缓冲先 Start 后写段**也 4610**。
+> - ✅ **真因 = 建系与首次写段的间隔过久**：原始可工作代码是「建系 → 下一拍即写段」（≈10ms），改版后变成「建系 → 1.4s 后才写段」⇒ 坐标系表闲置失效。**建系必须紧贴首次写段**。
+> - ✅ **CSP 缓冲工作语义（业主现场口径）**：**开启后按缓存内容自动移动，直到缓存消耗完；结束后须重新开启**。⇒ ① 缓存写不进去就没有可执行内容，开启只是空转 ⇒ **写缓存失败即故障，⛔ 不容忍预载期失败**；② 开启条件 = **成功写入预载段数**（⛔ 不用尝试次数）；③ 空拍 `≥ BufferIdleTicksToDrain(60)` 判缓存耗尽 ⇒ 置 `_cspBufferRunning=false` ⇒ 下次写段成功后重新 `BufferStart`（不重建坐标系）。
+> - 台达手册 P9-11：「MotionBuffer 類 API **只在 CSP 運動模式下有作用**」。`CS_ECAT_Slave_CSP_Start_Move`（点位运动）**本身就是 CSP API、不切模式** ⇒ 「点位运动切离 CSP」不成立。但 `Set_MoveMode` 返回值被忽略会静默失败，故新增 `EnsureCspMode()` 显式校验读回。
+> - 配套：`BufferStop(Mode 1)` 已清 FIFO 并解坐标系 ⇒ Stop 成功后**必须**同步清「已启动」标志，否则后续再 Stop/Clear 必报 `4352`（`ERR_ECAT_NEED_INITIAL`）形成假报错。
+
 
 ## 章节导航
 

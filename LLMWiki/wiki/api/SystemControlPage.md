@@ -8,6 +8,8 @@ source: AdaWeldSystem/UIDesign/TabPage/SystemControlPage.cs + .Designer.cs + Sub
 
 # SystemControlPage — 系统设置页（四 Tab 分区）
 
+> 🔄 **2026-11-20 温度显示迁出（ADR-112 演进）**：激光头页温控区 `panelTempSys`→`gridTemp` 的**实时温度显示**（保护镜/腔体/温升/切割气压 4 项 + 报警状态 `lblTempState`）与采集链 `CollectTemperature`/`ApplyTemperature`/`TemperatureSnapshot` 已迁至 [[api/DeviceMonitorPage]]（由新页自有 500ms Timer 驱动）。本页温控区**只保留**：① 焊接头节点设置（`swWeldHeadEnable` + `numWeldHeadNode`，在 `flowPanel3` 内）② 6 项阈值（温度警告/报警、温升警告/报警、气压报警/延时，由 `LoadTempFromConfig` 回填、`ApplyLaserHeadOnForm` 写回）。温度自动刷新开关 **`swTempRefresh` 已删除**（显示迁走后无刷新对象），其容器 `flowPanel3` 保留（承载焊接头启用开关）；`_tempAutoRefresh` 与 `RefreshSnapshot.Temp/Temperature` 分发分支同步清零，其余四刷新开关（TA/LA/振镜/轴表）机制不变。
+
 > 🔄 **2026-09-29 二次重构（业主令，现行）**：页面显示名由「运控设置」改为「**系统设置**」；`tabsSystem` 由五分区（输入IO / 输出IO / 轴控配置 / 气缸操作 / 导入导出）**整体重排为四分区**——**① 跟踪系统参数**（`tabPageTrajectoryParam`：**轨迹点设定**（自 [[api/ProcessControlPage]] 迁入）+ **Y 向电机轴配置**（`tableAxis`））→ **② 光丝系统参数**（`tabPageLaserHeadParam`，占位）→ **③ 温控系统参数**（`tabPageLaserHeadParam`，占位）→ **④ 模拟测试**（`tabPageSimTest`，自 `ProcessControlPage` 迁入，单开一页）。⛔ **输入IO / 输出IO / 气缸操作三表取消**（`tableInputIO` / `tableOutputIO` / `tableCylinder` + `IORow` / `CylinderRow` 行模型一并删除；业主裁定「后续回归为各个系统参数设置」）；⛔ **CSV/XML 导入导出区（`flpToolbar` 整条：目录选择 + 导入/导出 + 保存/重载 XML + 自动刷新 / 刷新轴）迁出至 [[api/FilebackupPage]]「系统配置文件」页**。⚠️ **轴表只渲染 Y 轴**（业主裁定「只显示 Y 轴，因为它属于跟踪系统的轴」）——`LoadAxisRows()` 经 `IsTraceAxis()` 按关键字 `{ "Y", "横梁", "跟踪" }` 过滤，其余轴不进表；**轴表 19 列操作（JOG / 回零 / 使能 / 绝对移动等）与 `AxisRow` 行模型零改动**。下述「五分区」已被本次重构取代。
 
 > 🔄 **2026-09-29 更名 + Tabs 改造（业主令）**：类与文件 `MotionControlPage` → **`SystemControlPage`**（`csproj` 四处条目、`FormMain.cs` 实例化同步）；`panel1` 内的 `panelInner`（`TableLayoutPanel` 1 列 × 5 行）**删除**，改由 `tabsSystem`（`AntdUI.Tabs`）+ 4 个 `AntdUI.TabPage` 承载四张表，`flpToolbar` 由 `Dock=Fill` 改 `Dock=Top`（高 76，两行按钮不裁切）——⛔ 该项于**同日 14:32 二次调整中被取代**（见本框末句）。目的：**四表纵向堆叠须整页下拉**（`AutoScroll`）→ Tab 分区消除页面级滚动。**表数据链路/行模型/事件派发零改动**，仅容器更替（布局容器自由化 [[decisions/ADR-010-LayoutContainerFreedom|ADR-010]]，无新 ADR）。**同日 14:32 二次调整（业主令）**：`flpToolbar`（文件导入导出区 + 自动刷新 / 刷新IO）**不再置于 `panel1` 顶栏**，移入**独立 `AntdUI.TabPage` `tabPageConfigIO`「导入导出」**（`Dock=Fill`）；`panel1` 只挂 `tabsSystem`（`Dock=Fill`），`tabsSystem` 由 4 分区扩为 **5 分区**。各 Tab 内容分配由业主持续进行。
@@ -265,6 +267,10 @@ if (!hasSensor) { StretchLight/CenterLight/RetractLight = 灰/未知; return; }
 
 **三按钮语义（不变）**：读取（文件 → UI，含 `LoadAlgorithmsConfig` + `LoadWeldHeadConfig` + 线激光 `LoadConfig`）/ 修改（UI → 内存，不落盘）/ 保存（内存 → 文件，**①System 区** + 线激光配置）。
 
+> ℹ️ **2026-11-19 ADR-076 D8**：本页「流程控制与测试」TabPage 的 5 个工艺启用开关（`swEnableAdapt` / `swEnableGalvoWeaveQuick` / `swEnableSeamTrace` / `swEnableWireAlign` / `swEnableTempCtrl`）已拆为独立的 **②′ Flow 区**（`AlgorithmsZone.Flow`），落盘走**独立 INI 文件** `WeldParamControlAlgorithmFlow.ini` ⇒ 与工艺页共用 `PROCESS_CONTROL` section 的键互不覆盖；本页「轨迹跟踪参数设置」TabPage 的跟踪阈值归 `WeldParamControlAlgorithmTrajectory.ini`。
+>
+> ℹ️ **2026-11-18**：`headCfg.DefaultGalvo` 类型由 `GalvoParams` 改为 **`GalvoGlobalParams`**（只含全局项；图形与宽/长/频已清理掉，见 [[decisions/ADR-070-GalvoWeaveAsWidthSource]] §五）—— 本条描述的 `DefaultGalvo.XCenter/YCenter` 字段名不变，结论不受影响。
+>
 > ⚠️ **仍待业主裁决**：**振镜中心 X/Y**（`txtOptGalvoXCenter`/`txtOptGalvoYCenter`）写入 `headCfg.DefaultGalvo.XCenter/YCenter`，而生产链路 `LaserWeldHeadWorkflow.ApplyGalvoAmplitude` 每拍写 `galvo.XCenter = _galvoCenterXmm`（光丝对中中心补偿**单写口**，ADR-059）⇒ **运行期被覆盖，界面改了不生效**。详见 [[decisions/ADR-076-SettingsZoneSaveWiring]]。
 
 ## 2026-10-26 自动刷新分区门控 · LA 四键 · 使能改按钮（ADR-075）
@@ -274,7 +280,7 @@ if (!hasSensor) { StretchLight/CenterLight/RetractLight = 灰/未知; return; }
 | LA 控制键 | `gridLa` 末行 **四键一行**（高 44）：`btnOptMotorBack`（后退）· `btnOptMotorFwd`（前进）· `btnOptMotorMoveTo`（移动到目标，带文字 + `AimOutlined`）· `btnOptMotorEnable`（纯图标 `CheckSquareOutlined` + Tooltip）；新增 `lblOptMotorTarget` + `txtOptMotorTarget`（默认 `0`，与「步距」「量纲」同列布局） |
 | LA 控制口径 | 四键全走 `WeldHeadSlaveDevice`（LA = WSX 从站 `0x7000`/`0x6020`，**非 MontionAxis**，不适用 ADR-073 的 MontionManager 六函数）：`ReadMotorStatus()` 取 `CurrentPositionMm`/`IsReady` → `SetMotorPosEnable(目标mm, 使能)` 是唯一 PDO 写口。**使能按钮为动作型**：读当前 `IsReady` 后取反再写；**移动到目标**要求已使能（与步进同判据） |
 | 使能控件形态 | `swLaMotorEnable` / `swGalvoEnable` 两个 Switch **已删**，改为 `btnOptMotorEnable` / `btnOptGalvoEnable`（同 `TaServoBtn` 范式：`Ghost` + `Cursor=Hand` + 宋体 12F + `BackHover(3,169,244)` + `IconSvg`，**纯图标 + Tooltip**）。**状态由标签承载**：LA → `lblOptMotorState`；振镜 → `lblOptGalvoEnableValue`（0x6010 `GalvoOn`）。振镜「焊接中置灰」门控保留（载体由 Switch 改 `Button.Enabled`） |
-| 自动刷新开关 | **五个** Switch：`swTARefresh` / `swLARefresh` / `swGalvoRefresh` / `swTempRefresh`（激光头四区）+ `swAutoRefresh`（轨迹页轴表，2026-10-26 新增/改自 Button），**Designer 全部默认 `Checked = true`**；标志 `_taAutoRefresh` / `_laAutoRefresh` / `_galvoAutoRefresh` / `_tempAutoRefresh` / `_autoRefresh` 初值在 `BindEvents()` 内**从设计器 `Checked` 同步**（设计器是默认值唯一真相源）；开启时立即刷一次本区/本页 |
+| 自动刷新开关 | ~~**五个** Switch~~ ⇒ **2026-11-20 起四个**：`swTARefresh` / `swLARefresh` / `swGalvoRefresh`（激光头三区）+ `swAutoRefresh`（轨迹页轴表）；~~`swTempRefresh` 已删（温度显示迁 DeviceMonitorPage）~~，标志 `_tempAutoRefresh` 同步删除；**Designer 全部默认 `Checked = true`**；标志初值在 `BindEvents()` 内从设计器 `Checked` 同步；开启时立即刷一次本区/本页 |
 | 刷新门控（**2026-10-26 已按实机复查修订 + 适用面扩展**，见 [[decisions/ADR-075-LaserHeadUiControlConsistency]] §五/§六；**2026-11-03 判定时机再修正**，见本节末） | **两个前置条件分治，⛔ 不得合并进同一个提前返回**：① 连接态判定**已移至事件回调**（`MotionControlWorkflow.StateSwitched` / `DeviceControlWork.InitializationCompleted` → `ApplyRefreshSwitchesByMotionState()`）：`IsMotionReady()` 不满足 ⇒ `SuspendRefreshSwitchesByDisconnect()` **把五个开关（四区 + 轨迹页轴表）自动回退 `Checked = false`** 并清五标志（`_refreshSuspendedByDisconnect` 幂等标记，仅回退一次 + 一条告警日志），**连接恢复后 `ResumeRefreshSwitchesAfterConnect()` 自动恢复到默认 ON**；② `IsRefreshPageVisible()`（原 `CanRefreshNow`，只判 `Visible`）不满足 ⇒ **只跳过刷新、开关状态原样保留**。两判据通过后按 `tabsSystem.SelectedIndex` **精确分发**（`LaserHeadTabIndex=1` ⇒ 四区 / `TraceTabIndex=0` ⇒ 轴表；⛔ 不用 `else` 兜底 —— 模拟测试页不属于任何刷新区） |
 | 刷新开关前置校验 | 未连接时用户手动拨到 ON 会被 `AcceptRefreshSwitchOn(toggle, zoneName)` **拒绝并立即回退**（否则开关会在 ON/OFF 间反复跳）；程序回写 `Checked` 一律经 `_syncingRefreshSwitch` 抑制（回写点 2 处：`AcceptRefreshSwitchOn` / `SetRefreshSwitches` 批量 5 开关），五个处理器首行守卫均为 `if (… \|\| _syncingRefreshSwitch) return;` |
 | 刷新开关作用范围 | **五个**「自动刷新」Switch：`swTARefresh` / `swLARefresh` / `swGalvoRefresh` / `swTempRefresh`（激光头四区）+ `swAutoRefresh`（轨迹页轴表，**2026-10-26 由 `btnAutoRefresh` Button 改 Switch、默认 ON**）。⚠️ ~~轨迹页 `btnAutoRefresh`（`_autoRefresh`）未纳入自动回退/恢复~~ → **已纳入**；配套**删除**轨迹页「刷新轴状态」按钮 `btnAxisRefresh`（配置编辑后的重载走 `OpenAxisEditor`，运行态由开关按拍刷新；删除后 `LoadAxisRows()` 仍余 2 处消费者） |
@@ -409,3 +415,47 @@ if (!hasSensor) { StretchLight/CenterLight/RetractLight = 灰/未知; return; }
 - 真正的拒绝主防线在**流程层**门禁（`MotionControlWorkflow` / `LaserWeldHeadWorkflow`），按钮置灰只是辅助提示。
 
 - 关联：[[decisions/ADR-075-LaserHeadUiControlConsistency]] · [[decisions/ADR-100-state-union-and-action-gate]]
+
+## 标定参数区接收跟踪几何项（2026-11-18）
+
+> 业主裁定：工艺设置页「YT 设置」下的跟踪几何项**迁到本页「轨迹跟踪参数设置」TabPage 的标定参数区**（`gridLaserCalib`），且**取消 Y 轴行程上下限**（该设置在 Y 轴点击设置里已有）。
+
+- **标定参数区现有项**：线激光-水平轴角度（原有）+ 跟踪几何 7 项（轴/激光比例系数 · 偏差方向 · 激光超前量 · 机器人Y补偿系数 · 示教Y锁定坐标 · 标定中心点Y/Z）。
+- **落盘链路**：本页 `button1`「读取参数」→ `LoadLaserCalibOnForm()` 回填；`button2`「修改参数」→ `BtnApplyParams_Click()` 写内存；`button3`「保存参数」→ `BtnSaveLocal_Click()` 落 ①System 区（XML `WeldParamControl.xml`）。
+- ⛔ **本页 XML 独占**：工艺设置页已不再落 ①System 区 ⇒ XML 文件成为「轨迹跟踪 TabPage」独占文件，跨 TabPage 保存不再互相覆盖（INI 侧拆分见 ADR-076 D6 遗留项）。
+- **Y 轴行程上下限**：本页不提供该设置；限幅与越界判据改取**轴软限位**（轴配置弹窗「正向/负向软限位」，`PositiveLimit`/`NegativeLimit`，0 = 不启用）。
+- 关联：[[decisions/ADR-076-SettingsZoneSaveWiring]] D6/D7 · [[api/ProcessControlPage]] · [[api/MotionControlWorkflow]]
+
+## 读/改/存三按钮的 TabPage 边界（2026-11-19 ADR-076 D9）
+
+| 按钮 | 所在 TabPage | 刷新区 | 说明 |
+|---|---|---|---|
+| `BtnReadLocal`（读取本地参数） | 轨迹跟踪参数设置 | `System`（XML 几何/标定 + INI 阈值） | 只回填本 TabPage 的轨迹点/标定/超时控件 |
+| `BtnApplyParams`（修改应用参数） | 轨迹跟踪参数设置 | 只写内存（29 项） | 弹提示「尚未落盘」 |
+| `BtnSaveLocal`（保存参数） | 轨迹跟踪参数设置 | `System`（落盘） | 另落线激光配置 + 流程超时快照 |
+| 5 个 Enable 开关 | 流程控制与测试 | `Flow`（改即存） | `SaveProcessEnable` 逐开关落盘 |
+
+⛔ **「读取」只写回现有配置对象**（`LoadAlgorithmsZone` 先 `Reload()` 再读指定 zone，不替换实例）⇒ 其它 TabPage 未保存的内存改动不会被丢弃。
+
+⛔ **跨 TabPage 回填已移除**：`BtnReadLocal` 不再刷新流程控制 TabPage 的 5 个 Enable 开关（它们由页面构造时的批量回填与本 TabPage 自己的入口负责）。
+
+- 关联：[[decisions/ADR-076-SettingsZoneSaveWiring]] D9 · [[lessons/UiButtonZoneBoundary]] · [[api/WeldParamManager]]
+
+## 标定参数区布局（2026-11-19 业主裁定）
+
+「线激光辅助参数 → 标定参数」区（`gridLaserCalib`，5 列 × 10 行）：
+
+| 行 | 列 0/1 | 列 2/3 |
+|---|---|---|
+| 0 | 线激光辅助参数（标题） | — |
+| 1 | 标定参数（标题） | — |
+| 2 | 标定角度(mm) | — |
+| 3 | 轴/激光比例系数 | 偏差方向 |
+| 4 | 激光超前量(mm) | 机器人Y补偿系数 |
+| 5 | **标定中心点Y(mm)** | **标定中心点Z(mm)** |
+| 6 | **示教Y轴锁定坐标(mm)** | — |
+
+- 三个标定项与四个几何项同为 **XML `System` 区**（`SEAM_GUIDE` + `LASER_CALIBRATION`）⇒ 由「读取本地参数」/`BtnReadLocal` 刷 System 区回填，由「修改应用参数」/`BtnApplyParams` 写内存，由「保存参数」/`BtnSaveLocal` 落盘。
+- ⛔ **工艺设置页「YT 设置」区不再含标定/几何项**（2026-11-18 迁出）—— 该区现只剩 Y 指令三选项（`radioQuickYAuto` / `radioQuickYForceCalibPose` / `radioQuickYForceHome`）。
+
+- 关联：[[decisions/ADR-109-UiButtonTabPageBoundary]] · [[lessons/MigrationCompletenessAudit]]

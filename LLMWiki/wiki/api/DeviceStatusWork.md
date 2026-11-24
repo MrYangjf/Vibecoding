@@ -7,6 +7,8 @@ source: AdaWeldSystem/MainDeviceControl/DeviceStatusWork.cs
 
 # API — DeviceStatusWork 安全/IO/状态管控
 
+> 🔄 **2026-11-23 单动作锁与运行态未就绪都不丢指令**：`DispatchAction` 返回值改为「是否已派发」——前一动作未结束时**保留虚拟 IO 供下一拍重试**（原为直接丢弃）；`ScanPulseIo` 的 `requireRunning` 未满足时**同样保留 IO 供下一拍重试**（原为取走后丢弃）。原因：① TA_Auto 会阻塞等力矩建立（有限等待），此窗口内到达的焊接启动命令若被丢弃会导致流程永久卡死；② `IoStart` 是**异步派发**，紧随其后的 `IoSubPrework` 若在 Running 前到达被丢弃则真实流程永久断链。⛔ 「先取走再派发」的队列语义，取走与派发之间若可能失败必须回填重试。见 [[lessons/SimulationAutoBranching]] 陷阱廿五。
+
 > **本页述 `DeviceStatusWork`（单例，安全/IO/状态管控）**，见 [[decisions/ADR-013-ThreeStateModelRefactor]]。
 > 安全类**不对外暴露模组状态**，仅以 `IsSafe` / `LastResult` 供主设备 `DeviceControlWork` 门控消费。
 >

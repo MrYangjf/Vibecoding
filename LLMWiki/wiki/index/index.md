@@ -14,7 +14,7 @@
 
 | 你要做的事 | 直接读这 1~3 页 | 硬约束提示 |
 |---|---|---|
-| 不知道某功能在哪块代码 / 代码依附关系 / 要不要全盘扫代码 | [[architecture/CodeMap]]（总览·代码记忆卡）+ [[architecture/CodeMap-Files]]（详表） | ⛔ Phase0 先读总览建立代码记忆，命中再读具体代码块；禁一上来全库 Grep；逐文件查详表 |
+| 不知道某功能在哪块代码 / 代码依附关系 / 要不要全盘扫代码 | [[architecture/CodeMap]]（总览·模块骨架+定位陷阱） | ⛔ Phase0 先读总览定位模块，再读对应符号分片；命中即读代码块；禁一上来全库 Grep |
 | 第一次评审优化（41 条需求）在做什么 / 改动落在哪 | [[project/ReviewOptimization-P1-StructureDesign]] + [[architecture/CodeMap]] | P1 五份产物；⛔ P2 落地后结构冻结，只可追加不可挪位 |
 | 代码精简 / 注释精简 / 日志规范 | [[standards/CodeSimplification]] | 强制排除仅 `*.Designer.cs`；约束归知识库，0 消费预留成员禁删 |
 | UI 状态判断 / 按钮 text / 连接态刷新 | [[standards/UiStateSimplification]] | 与 CodeSimplification 互补，二者都要看 |
@@ -73,12 +73,12 @@
 |---|---|---|
 | [一、项目总览](#一项目总览) | 3 个页面 · 概览 / 架构 / 工作流规范 | 概览 / 架构 / 工作流规范 |
 | [二、模块详解](#二模块详解) | 16 个页面 · 模块边界与协作 | 模块边界与协作 |
-| [三、API 参考](#三api参考) | 45 个页面 · 公共契约（调用前查） | 公共契约（调用前查） |
+| [三、API 参考](#三api参考) | 50 个页面 · 公共契约（调用前查） | 公共契约（调用前查） |
 | [四、规范标准](#四规范标准) | 13 个页面 · 强制遵守（违反即不合格） | 强制遵守（违反即不合格） |
-| [五、历史教训](#五历史教训) | 47 个页面 · 47 条坑 · 编码前门禁（逐条规避） | 编码前门禁（逐条规避） |
+| [五、历史教训](#五历史教训) | 60 个页面 · 60 条坑 · 编码前门禁（逐条规避） | 编码前门禁（逐条规避） |
 | [六、操作指导](#六操作指导) | 14 个页面 · 怎么做（查阅型） | 怎么做（查阅型） |
-| [五、历史教训 lessons](#五历史教训) | 47 条坑 | 编码前门禁 |
-| [七、设计决策 ADR](#七设计决策) | 100 条（001~107 连续，另 7 个旧号并入他页） | 理解「为什么」/ 查约束 |
+| [五、历史教训 lessons](#五历史教训) | 60 条坑 | 编码前门禁 |
+| [七、设计决策 ADR](#七设计决策) | 107 条（001~114 连续，另 7 个旧号并入他页） | 理解「为什么」/ 查约束 |
 | [八、历史归档](#八历史归档现归-project) | 5 个页面 · 项目级台账与审计 | 追溯，不引用 |
 | [九、专员职责](#九专员职责) | 10 个角色 | 分派任务 |
 | [十、来源索引](#十来源索引) | raw/ 映射 | 溯源 |
@@ -118,12 +118,16 @@
 | 页面 | 摘要 | 标签 |
 |---|---|---|
 | [[api/AlgorithmManager]] | AlgorithmManager — EmguALG 统一调度入口（承接原 AlgorithmManager 与 PipelineManager 可复用职责 | #算法 #管理器 #EmguALG #配置 |
+| [[api/CommSettingPage]] | CommSettingPage 通讯设置页 | #UI #通讯设置 #RSI #调试面板 |
 | [[api/CommandCore]] | API — CommandCore 机器人指令协议（const string，取代 CommandTable | #指令协议 #机器人 #主控 #CommandCore |
 | [[api/CommunicationManager]] | CommunicationManager API 参考（通讯管理器 · 模块唯一门面 | #通讯 #管理器 #门面 #KUKA |
+| [[api/ConfigFileManager]] | API · ConfigFileManager（全局配置文档总管 | #配置 #Manager #ConfigFileControl #抽象层 |
 | [[api/ConfigSelfHeal]] | ConfigSelfHeal 配置自愈 API | #配置 #自愈 |
+| [[api/ConfigSnapshot]] | API · ConfigSnapshot（配置快照与差异审计 | #配置 #快照 #差异审计 #ConfigFileControl |
 | [[api/DataReviewerPage]] | DataReviewerPage API 参考（数据追溯页 · 区间筛选 + 多选合并 + 悬停读数 | #数据追溯 #区间筛选 #多选 #悬停读数 |
 | [[api/DeltaEtherCAT-Native]] | 台达 EtherCAT 原生 API 速查（EtherCAT_DLL | #运控 #台达 #EtherCAT #P/Invoke |
 | [[api/DeviceControlWork]] | DeviceControlWork API 参考（整机主控 · 主设备运行态 MainDeviceStatus | #工作流 #主控 #上电初始化 #机器人交互 |
+| [[api/DeviceMonitorPage]] | DeviceMonitorPage 设备监控页 | #UI #设备监控 #温度显示 #焊接头 |
 | [[api/DeviceStateApiCore]] | DeviceStateApiCore API 参考（设备状态核心 · DeviceStateBase / DeviceWorkflowBase | #主设备控制 #状态机 #流程基类 #契约 |
 | [[api/DeviceStatusWork]] | API — DeviceStatusWork 安全/IO/状态管控（+ SafetyFlow / SafetyInterlockChecker | #安全检查 #安全互锁 #工作流 #PLC |
 | [[api/FilebackupPage]] | FilebackupPage 文档备份设置页（原 CommPage | #UI #文档备份 #通讯配置 #工艺配置 |
@@ -132,12 +136,12 @@
 | [[api/HikCam]] | HikCam — 监控相机海康 MVS 实现类（IMonitorCamApi 落地 | #相机 #监控 #海康 #MVS |
 | [[api/HonorMachineTest-IOReference]] | HonorMachineTest IO 监控与执行参考基线 | #IO #线程模型 #参考基线 #DeviceStatusWork |
 | [[api/ILAlgorithmEditForm]] | ILAlgorithmEditForm 算法编辑弹窗 | #UI #算法 #配置 #SubDialog |
-| [[api/ILCamPage]] | ILCamPage 英莱线激光相机页 | #UI #线激光 #英莱 #权限 |
 | [[api/IntelligentLaserCam]] | IntelligentLaserCam API 参考 | #相机 #英莱 #线激光 #ADR-007 |
 | [[api/IntelligentLaserSDK_CSharp_DevManual]] | IntelligentLaser SDK（C# 版）开发手册 |  |
 | [[api/KUKARobot]] | KUKARobot API 参考（KUKA 机器人通讯 · RSI 单一通道现行契约与协议知识 | #KUKA #机器人 #通讯 #RSI |
 | [[api/LaserWeldHeadWorkflow]] | LaserWeldHeadWorkflow API 参考（焊接头工作流 · 骨架期 | #工作流 #焊接头 #RunStep #SubDeviceWeldStatus |
 | [[api/LeadshineLSnmc-Reference]] | 雷赛 LSnmcControler 参考基线 | #运控 #雷赛 #Leadshine #参考基线 |
+| [[api/LineLaserCamPage]] | LineLaserCamPage 英莱线激光相机页 | #UI #线激光 #英莱 #权限 |
 | [[api/LineLaserContourAlgorithm]] | LineLaserContourAlgorithm API 参考（线激光轮廓 Mat 渲染算法 | #线激光 #算法 #EmguALG #渲染 |
 | [[api/LineLaserManager]] | API — LineLaserManager 线激光管理器（业务层单例 + 结果/轮廓业务处理点 | #相机 #线激光 #管理器 #单例 |
 | [[api/LineLaserWorkflow]] | LineLaserWorkflow API 参考（三态模型：SubDeviceState / SubDeviceWeldStatus | #工作流 #英莱 #线激光 #SubDeviceWeldStatus |
@@ -157,6 +161,7 @@
 | [[api/SQLiteDatabaseManager]] | SQLiteDatabaseManager API 参考（SQLite 数据库管理器 · 模块唯一入口 | #数据库 #SQLite #管理器 #单例 |
 | [[api/SeamMapTrackingAlgorithm]] | API — SeamMapTrackingAlgorithm 焊缝目标地图算法（前置量对齐 + 测量时刻轴值基准 | #线激光 #Y轴 #CSP #焊缝跟踪 |
 | [[api/SeamTrackingAlgorithm]] | API — SeamTrackingAlgorithm 线激光焊缝几何轨迹跟踪算法 | #线激光 #Y轴 #PVT #焊缝跟踪 |
+| [[api/SimulationConfig]] | SimulationConfig 模拟参数配置 API | #模拟测试 #配置 #MainDeviceControl |
 | [[api/SystemControlPage]] | SystemControlPage 系统设置页（原 MotionControlPage | #UI #系统设置 #运控 #参数页 |
 | [[api/VirtualCam]] | VirtualCam API 参考（虚拟调试相机 | #相机 #虚拟 #模拟 #ADR-003 |
 | [[api/WeldParamAdjustmentAlgorithm]] | API — WeldParamAdjustmentAlgorithm 焊缝宽度驱动的参数调整算法 | #焊接 #参数调整 #焊缝宽度 #查表 |
@@ -190,13 +195,19 @@
 | [[lessons/AntdUI-Modal-Content-Disposed-Before-Commit]] | AntdUI Modal 内容控件在 open 返回前已被销毁 → 弹窗内改的参数不生效、再开复原 |  |
 | [[lessons/CSharp-Language-Pitfalls]] | C# 语言与编译常见陷阱汇总 | #C# #编译错误 #汇总 |
 | [[lessons/CodeSimplification-Scope-DesignerOnly]] | 代码精简范围裁定：强制排除仅 Designer.cs | #代码精简 #范围 #Designer.cs #UIDesign |
+| [[lessons/CommentMetadataCleanup]] | 注释元信息清零：内容判据补齐 + 精确整行批改 |  |
 | [[lessons/CommentSimplificationBatchPitfalls]] | 批量注释/逻辑精简的三个坑 | #代码精简 #注释 #BOM #XML注释 |
+| [[lessons/CommentStripToolchain]] | 全库注释瘦身工具链的四个坑 | #注释 #批量改造 #行尾 #BOM |
+| [[lessons/ConfigFileSplitByTabPage]] | 配置文件按 TabPage 拆分的迁移与隔离判据 | #配置 #拆分 #TabPage #INI |
 | [[lessons/ConfigHealDirectionOrdering]] | 配置自愈补出的默认值不是现场值：方向键必须后补 | #配置 #迁移 #幂等 |
+| [[lessons/ConfigKeyRemovalAndTruthSourceMigration]] | 配置键删除与真相源迁移的连带门禁 | #配置 #真相源 #删除配置项 #镜像同步 |
+| [[lessons/ConfigOwnershipByManager]] | 配置所有权归 Manager 与跨页写入粒度 | #配置 #Manager #写入粒度 #键级写入 |
 | [[lessons/ConfigZoneSaveWiring]] | "配置分区落盘接线：改了不生效 / 保存了没落盘 / 落到了别人的区" | #配置架构 #分区落盘 #AlgorithmsZone #接线完整性 |
 | [[lessons/DocDemoDllLookupOrder]] | 控件与 SDK 用法参考顺序：文档 → demo → DLL | #AntdUI #英莱 #监控相机 #demo |
 | [[lessons/FaultRecoveryDeviceKey]] | Lesson - 故障恢复设备键名必须与策略注册 key 精确匹配 | #陷阱 #Safety #故障恢复 #状态机 |
 | [[lessons/FormatDrivenPacketParsingPitfalls]] | 格式驱动收发的运行时陷阱：文本节点误判 / 节存在≠契约正确 / 回复盲发 | #lessons #RSI #格式驱动 #XML |
 | [[lessons/GitHubSyncPitfalls]] | GitHub 云端同步陷阱（AdaWeldSystem / LLMWiki |  |
+| [[lessons/HomeStatusAuthorityPitfall]] | 拿位置硬门覆盖驱动器回零完成信号的现场坑 | #运控 #回零 #台达 |
 | [[lessons/IntelligentLaser-Callback-Mechanism]] | IntelligentLaser-Callback-Mechanism | #相机 #英莱 #IntelligentLaser #汇总 |
 | [[lessons/IntelligentLaser-Delegate-Gc]] | IntelligentLaser-Delegate-Gc | #相机 #英莱 #IntelligentLaser #汇总 |
 | [[lessons/IntelligentLaser-Job-System]] | IntelligentLaser-Job-System | #相机 #英莱 #IntelligentLaser #汇总 |
@@ -205,9 +216,15 @@
 | [[lessons/IntelligentLaser-Ui-State]] | IntelligentLaser-Ui-State | #相机 #英莱 #IntelligentLaser #汇总 |
 | [[lessons/JudgementDimensionGap]] | 判据维度缺失：查「存在性」不等于查「唯一性」 | #lessons #判据 #静态校验 #幂等 |
 | [[lessons/JudgementThresholdScaleMismatch]] | 判据阈值与信号尺度失配 — 四类「改对了却没生效/生效了却更糟」的坑 | #阈值 #尺度失配 #自锁 #配置覆盖 |
+| [[lessons/LargeUserControlSplitPitfalls]] | 大类 UserControl 拆分的两类编译坑 | #UI #页面拆分 #Designer #编译错误 |
 | [[lessons/MecaVision-NativeDllLoadNRE]] | 麦格威 MVSDK 原生 DLL 未部署导致 NullReferenceException | #麦格威 #MecaVision #MVSDK #DLL部署 |
+| [[lessons/MigrationCompletenessAudit]] | 跨页迁移的完整性核查与编译结论时效性 | #迁移 #完整性核查 #控件 #编译 |
 | [[lessons/NodeAddressCollision]] | 节点号撞号：配置声明的设备不在总线上，握手打到他人节点 |  |
 | [[lessons/ProtocolDirectionalConstraints]] | 协议方向性硬约束：RSI 的 SEND 段禁 STRING，写入关键词不可上行 | #lessons #协议 #RSI #KUKA |
+| [[lessons/PythonEditByteSafety]] | Python 脚本改 .cs 的字节安全三坑 | #工具坑 #Python #字节安全 #BOM |
+| [[lessons/RefactorPostChecklist]] | 大动作收归后的四项核查清单 | #重构 #收归 #核查 #死代码 |
+| [[lessons/RepomapCSharpCallEdgeGap]] | repomap 官方 C# 解析器缺口（只收 public 方法 · 零方法调用点）与补齐方式 | #代码地图 #repomap #tree-sitter #C# |
+| [[lessons/ScottPlotSignalXyMonotonicPitfall]] | ScottPlot SignalXY 的 X 单调约束与显示层回退剔除 | #UI #ScottPlot #SignalXY #单调 |
 | [[lessons/SignatureAndWiringConsistency]] | "签名-调用点一致性（改签名必查调用点，否则「全绿却编译不过」）" | #编译错误 #签名 #调用点 #静态校验 |
 | [[lessons/SimulationAutoBranching]] | 模拟测试按设备连接态自动分支（取消模式选择 | #模拟 #线激光 #运控 #工作流 |
 | [[lessons/StartupInitializationOrderGates]] | 启动初始化时序门禁：静态构造重入日志 / 界面未就绪开硬件 / UI 回调未判句柄 | #lessons #启动 #初始化 #静态构造 |
@@ -227,6 +244,7 @@
 | [[lessons/TaSharedTorqueLimit]] | 扭矩上限不是「越小越丝滑」——CSP/CST 共用一个值 |  |
 | [[lessons/TorqueActionNoPositionEndpoint]] | 力矩类指令不要自造位置终点判据 | #TA #力矩 #CST #位置判据 |
 | [[lessons/TorqueModeAsUiGate]] | UI 开关兼任可用性门禁会导致操作后不可恢复 | #UI门控 #Radio #Fill |
+| [[lessons/UiButtonZoneBoundary]] | UI 读改存按钮的分区边界与零调用甄别 | #UI #分区 #TabPage #零调用 |
 | [[lessons/UiLayoutChangeSyncPitfalls]] | UI 布局改版的同步与所有权门禁 | #UI #Designer #事件订阅 #跨线程 |
 | [[lessons/UiModuleRemovalCleanup]] | UI 功能模块删除的连带清理门禁 | #UI #Designer #模块删除 #控件清理 |
 | [[lessons/UiRefreshUnifiedEntry]] | UI 状态刷新统一入口 | #UI #状态刷新 #代码精简 #重构 |
@@ -254,7 +272,7 @@
 
 ## 七、设计决策
 
-> **全量登记表唯一权威 = [[decisions/ADR-Index]]**（001~107 连续无断号，含每条的主题/状态/日期；7 个旧号已并入他页，以指针行留档）。本页不重复该表。
+> **全量登记表唯一权威 = [[decisions/ADR-Index]]**（001~114 连续无断号，含每条的主题/状态/日期；7 个旧号已并入他页，以指针行留档）。本页不重复该表。
 > 新增决策前先跑 `tools/adr_new.py check <关键词>`——命中同主题则**合并**进既有页，不新建页；`check` 会按**落地实体符号 Jaccard** 判疑似重复（≥0.40 即拦截新建），命中即走 `adr_new.py merge`（规则见 [[standards/WikiPageFormatSpec]] §三）。
 
 ## 八、历史归档（现归 project/）

@@ -1,0 +1,345 @@
+[
+ {
+  "ns": "AdaWeldSystem",
+  "功能": "程序入口 · 根命名空间（仅 Program.cs）",
+  "规模": "1 文件 / 32 行",
+  "模块归属": "（无专属模块页，见功能描述）",
+  "约束 ADR": "ADR-001"
+ },
+ {
+  "ns": "AdaWeldSystem.MainDeviceControl.DeviceWorkflow",
+  "功能": "主控 · 五个模组工作流",
+  "规模": "5 文件 / 5201 行",
+  "模块归属": "[[modules/DeviceControl]]",
+  "约束 ADR": "ADR-016/038/041/044"
+ },
+ {
+  "ns": "AdaWeldSystem.Comm.Communication.Implementations",
+  "功能": "通讯 · 各厂商通道实现",
+  "规模": "4 文件 / 2812 行",
+  "模块归属": "[[modules/Comm]]",
+  "约束 ADR": "ADR-025/026/027"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.TabPage",
+  "功能": "UI · 系统参数设置子页",
+  "规模": "5 文件 / 5674 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-008/036/055/057"
+ },
+ {
+  "ns": "AdaWeldSystem.MainDeviceControl",
+  "功能": "主控层 · 整机编排",
+  "规模": "2 文件 / 3622 行",
+  "模块归属": "[[modules/DeviceControl]]",
+  "约束 ADR": "ADR-013/014/017/038/041"
+ },
+ {
+  "ns": "AdaWeldSystem.MotionControl.DeltaEtherCAT",
+  "功能": "运控 · 台达 EtherCAT 三层",
+  "规模": "14 文件 / 6039 行",
+  "模块归属": "[[modules/MotionControl]]",
+  "约束 ADR": "ADR-027/030/040/079"
+ },
+ {
+  "ns": "AdaWeldSystem.ProductFileControl",
+  "功能": "记录 · Manager",
+  "规模": "7 文件 / 3075 行",
+  "模块归属": "[[modules/SQLiteDatabase]]",
+  "约束 ADR": "ADR-031/037"
+ },
+ {
+  "ns": "AdaWeldSystem.WeldParamControl",
+  "功能": "焊参 · Manager 与配置",
+  "规模": "4 文件 / 3450 行",
+  "模块归属": "[[modules/WeldParamControl]]",
+  "约束 ADR": "ADR-033/043"
+ },
+ {
+  "ns": "AdaWeldSystem.WeldParamControl.Algorithms",
+  "功能": "焊参 · 算法实现",
+  "规模": "5 文件 / 2564 行",
+  "模块归属": "[[modules/WeldParamControl]]",
+  "约束 ADR": "ADR-042/043"
+ },
+ {
+  "ns": "AdaWeldSystem.PCLOperate.Render",
+  "功能": "点云 · 三维渲染与曲面重建",
+  "规模": "3 文件 / 2442 行",
+  "模块归属": "[[modules/Comm]]",
+  "约束 ADR": "ADR-035"
+ },
+ {
+  "ns": "AdaWeldSystem.EmguALG.Core",
+  "功能": "图像算法 · 核心算子",
+  "规模": "9 文件 / 1917 行",
+  "模块归属": "[[modules/EmguALG]]",
+  "约束 ADR": "ADR-022"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.ControlPage",
+  "功能": "UI · 主内容页（主页面/数据追溯）",
+  "规模": "3 文件 / 2607 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-008/049/053"
+ },
+ {
+  "ns": "AdaWeldSystem.MotionControl",
+  "功能": "运控 · Manager 与从站设备",
+  "规模": "6 文件 / 2049 行",
+  "模块归属": "[[modules/MotionControl]]",
+  "约束 ADR": "ADR-027/028/030"
+ },
+ {
+  "ns": "AdaWeldSystem.FileOperate",
+  "功能": "文件 · 配置读写与日志",
+  "规模": "6 文件 / 2039 行",
+  "模块归属": "[[modules/FileOperate]]",
+  "约束 ADR": "ADR-033/040/079"
+ },
+ {
+  "ns": "AdaWeldSystem.LineLaserCam.IntelligentLaserCam",
+  "功能": "线激光 · 英莱 SDK 实现",
+  "规模": "1 文件 / 1347 行",
+  "模块归属": "[[modules/LineLaserCam]]",
+  "约束 ADR": "ADR-024/051"
+ },
+ {
+  "ns": "AdaWeldSystem.Comm.Communication",
+  "功能": "通讯 · 通道管理（唯一出口）",
+  "规模": "1 文件 / 1192 行",
+  "模块归属": "[[modules/Comm]]",
+  "约束 ADR": "ADR-025/026"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.DataReviewerDialog",
+  "功能": "UI · 弹窗 · 数据回溯",
+  "规模": "4 文件 / 974 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009/036"
+ },
+ {
+  "ns": "AdaWeldSystem.MotionControl.IMotion",
+  "功能": "运控 · 抽象契约（轴/IO/缸）",
+  "规模": "9 文件 / 1043 行",
+  "模块归属": "[[modules/MotionControl]]",
+  "约束 ADR": "ADR-006/027"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.IntelligentLaserDialog",
+  "功能": "UI · 弹窗 · 英莱相机",
+  "规模": "4 文件 / 1033 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009/012/036"
+ },
+ {
+  "ns": "AdaWeldSystem.SQLiteDBControl.Helpers",
+  "功能": "数据库 · Helper（禁外部 new）",
+  "规模": "4 文件 / 1173 行",
+  "模块归属": "[[modules/SQLiteDatabase]]",
+  "约束 ADR": "ADR-033/043"
+ },
+ {
+  "ns": "AdaWeldSystem.LineLaserCam",
+  "功能": "线激光 · 管理与配置",
+  "规模": "3 文件 / 972 行",
+  "模块归属": "[[modules/LineLaserCam]]",
+  "约束 ADR": "ADR-023/024"
+ },
+ {
+  "ns": "AdaWeldSystem.MotionControl.DeltaEtherCAT.Native",
+  "功能": "运控 · 台达 P/Invoke 封装",
+  "规模": "8 文件 / 918 行",
+  "模块归属": "[[modules/MotionControl]]",
+  "约束 ADR": "ADR-027"
+ },
+ {
+  "ns": "AdaWeldSystem.MonitorCam.HikCam",
+  "功能": "监控相机 · 海康 MVS 实现",
+  "规模": "1 文件 / 868 行",
+  "模块归属": "[[modules/MonitorCam]]",
+  "约束 ADR": "ADR-047"
+ },
+ {
+  "ns": "AdaWeldSystem.MainDeviceControl.DeviceStateApiCore",
+  "功能": "主控 · 三态契约与命令常量",
+  "规模": "4 文件 / 906 行",
+  "模块归属": "[[modules/DeviceControl]]",
+  "约束 ADR": "ADR-013/038"
+ },
+ {
+  "ns": "AdaWeldSystem.SQLiteDBControl.SQLiteCore",
+  "功能": "数据库 · SQLite 封装",
+  "规模": "1 文件 / 671 行",
+  "模块归属": "[[modules/SQLiteDatabase]]",
+  "约束 ADR": "ADR-033"
+ },
+ {
+  "ns": "AdaWeldSystem.MonitorCam",
+  "功能": "监控相机 · Manager 与配置",
+  "规模": "2 文件 / 628 行",
+  "模块归属": "[[modules/MonitorCam]]",
+  "约束 ADR": "ADR-019/021/047/094"
+ },
+ {
+  "ns": "AdaWeldSystem.LineLaserCam.ILineLaser",
+  "功能": "线激光 · 抽象契约",
+  "规模": "4 文件 / 539 行",
+  "模块归属": "[[modules/LineLaserCam]]",
+  "约束 ADR": "ADR-024"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.CommConfigDialog",
+  "功能": "UI · 弹窗 · 通讯配置",
+  "规模": "1 文件 / 460 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009/036"
+ },
+ {
+  "ns": "AdaWeldSystem.PCLOperate.DataIO",
+  "功能": "点云 · 读写",
+  "规模": "2 文件 / 519 行",
+  "模块归属": "[[modules/Comm]]",
+  "约束 ADR": "ADR-035"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.MotionControlDialog",
+  "功能": "UI · 弹窗 · 运控配置",
+  "规模": "3 文件 / 477 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009/036"
+ },
+ {
+  "ns": "AdaWeldSystem.EmguALG.LineLaserContour",
+  "功能": "图像算法 · 线激光轮廓",
+  "规模": "2 文件 / 408 行",
+  "模块归属": "[[modules/EmguALG]]",
+  "约束 ADR": "ADR-022/024"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.ParamContolDialog",
+  "功能": "UI · 弹窗 · 焊参配置",
+  "规模": "2 文件 / 392 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009/036"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.MainWindow",
+  "功能": "UI · 主窗体",
+  "规模": "1 文件 / 358 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-008"
+ },
+ {
+  "ns": "AdaWeldSystem.EmguALG.Manager",
+  "功能": "图像算法 · Manager 唯一口",
+  "规模": "3 文件 / 335 行",
+  "模块归属": "[[modules/EmguALG]]",
+  "约束 ADR": "ADR-022"
+ },
+ {
+  "ns": "AdaWeldSystem.LineLaserCam.VirtualCam",
+  "功能": "线激光 · 虚拟相机（模拟）",
+  "规模": "1 文件 / 263 行",
+  "模块归属": "[[modules/LineLaserCam]]",
+  "约束 ADR": "ADR-032/039"
+ },
+ {
+  "ns": "AdaWeldSystem.Comm.SystemComm",
+  "功能": "通讯 · 全局单例与事件",
+  "规模": "2 文件 / 351 行",
+  "模块归属": "[[modules/Comm]]",
+  "约束 ADR": "ADR-025"
+ },
+ {
+  "ns": "AdaWeldSystem.MonitorCam.IMonitorCam",
+  "功能": "监控相机 · 抽象契约",
+  "规模": "4 文件 / 258 行",
+  "模块归属": "[[modules/MonitorCam]]",
+  "约束 ADR": "ADR-019/021/047"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.UserManagerDialog",
+  "功能": "UI · 弹窗 · 登录与用户管理（权限来源）",
+  "规模": "2 文件 / 210 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009/036"
+ },
+ {
+  "ns": "AdaWeldSystem.PCLOperate.Models",
+  "功能": "PLC · 数据模型",
+  "规模": "2 文件 / 223 行",
+  "模块归属": "（无专属模块页，见功能描述）",
+  "约束 ADR": "ADR-025"
+ },
+ {
+  "ns": "AdaWeldSystem.EmguALG.RealtimeMonitor.WireFeedDistance",
+  "功能": "图像算法 · 光丝对中（领域包装）",
+  "规模": "3 文件 / 247 行",
+  "模块归属": "[[modules/EmguALG]]",
+  "约束 ADR": "ADR-022/056"
+ },
+ {
+  "ns": "AdaWeldSystem.EmguALG.RealtimeMonitor.WeldQuality",
+  "功能": "图像算法 · 焊缝质量检测",
+  "规模": "3 文件 / 169 行",
+  "模块归属": "[[modules/EmguALG]]",
+  "约束 ADR": "ADR-022"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.MonitorCamDialog",
+  "功能": "UI · 弹窗 · 监控相机扫描",
+  "规模": "1 文件 / 145 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009/046"
+ },
+ {
+  "ns": "AdaWeldSystem.Comm.Communication.Abstractions",
+  "功能": "通讯 · 抽象契约（CommChannelBase）",
+  "规模": "1 文件 / 107 行",
+  "模块归属": "[[modules/Comm]]",
+  "约束 ADR": "ADR-025/006"
+ },
+ {
+  "ns": "AdaWeldSystem.SQLiteDBControl.ISQLiteHelper",
+  "功能": "数据库 · 抽象契约（Helper 基类）",
+  "规模": "1 文件 / 105 行",
+  "模块归属": "[[modules/SQLiteDatabase]]",
+  "约束 ADR": "ADR-033/006"
+ },
+ {
+  "ns": "AdaWeldSystem.EmguALG.Abstractions",
+  "功能": "图像算法 · 抽象契约（IAlgorithm / IConfigurableAlgorithm）",
+  "规模": "2 文件 / 72 行",
+  "模块归属": "[[modules/EmguALG]]",
+  "约束 ADR": "ADR-022"
+ },
+ {
+  "ns": "AdaWeldSystem.SQLiteDBControl",
+  "功能": "数据库 · 核心",
+  "规模": "1 文件 / 72 行",
+  "模块归属": "[[modules/SQLiteDatabase]]",
+  "约束 ADR": "ADR-033"
+ },
+ {
+  "ns": "AdaWeldSystem.UIDesign.SubDialog.FormMainDialog",
+  "功能": "UI · 弹窗 · 主窗体辅助（初始化等待）",
+  "规模": "1 文件 / 56 行",
+  "模块归属": "[[modules/UIDesign]]",
+  "约束 ADR": "ADR-009"
+ },
+ {
+  "ns": "AdaWeldSystem.WeldParamControl.Curves",
+  "功能": "焊参 · 标定曲线与摆幅取值（2026-10-08 新增，ADR-053）",
+  "规模": "1 文件 / 438 行",
+  "模块归属": "[[modules/WeldParamControl]]",
+  "约束 ADR": "ADR-053（曲线与量纲）/ 红线原文 `api/WeldParamControlWorkflow.md`（⛔ 不用自创公式；⚠️ ADR-043 正文无此条款，原标注为悬空引用，2026-10-08 审计改指）/ ADR-033（四点闭环）"
+ },
+ {
+  "ns": "AdaWeldSystem.WeldParamControl.Abstractions",
+  "功能": "焊参 · 抽象契约（WeldAlgorithmBase）",
+  "规模": "1 文件 / 26 行",
+  "模块归属": "[[modules/WeldParamControl]]",
+  "约束 ADR": "ADR-006/043"
+ }
+]

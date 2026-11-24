@@ -43,6 +43,31 @@ status: accepted
 ### 负面
 - 标准需随实践迭代维护（由 AI 在 Ingest 时更新）。
 
+## 演进记录
+
+### D2 · 注释精简口径升级（2026-11-19 业主裁定）
+
+业主在配置收归重构后追加要求：**移除 `<remarks>` 这类注释，只留 `<summary>`；summary 严格 20 字以内一行，只记作用，不要历史决策与判断。**
+
+| 项 | 旧口径 | 新口径 |
+|---|---|---|
+| `<remarks>` | 至多 1~2 行，只写「为什么」级个性约束 | **一律移除**（1137 处 / 128 文件全清） |
+| `<summary>` 超 20 字 | 余文**移入** `<remarks>` | 余文**直接删除**（不迁 remarks、不迁 wiki） |
+| `<summary>` 内容 | 可含过程/裁定说明 | **只记作用**；日期 / 业主裁定 / ADR 号 / 「原为 X 现为 Y」一律不出现在代码注释 |
+| 承载方 | 注释 + wiki 并存 | **单一 wiki**（CodeMap + api/lessons 承载记忆，注释不再复述） |
+
+**执行工具**：`scripts/simplify_strip_docs.py`（新增）—— 删 remarks + 压 summary；复用 `simplify_guard.check_text` 做写回前守卫（花括号/XML 标签配对/缩进/行尾/BOM/成员不丢）+ 逐文件快照回滚。
+
+⚠️ **与既有工具的分工**：`simplify_apply_docs.py`（既有）压缩超长 summary 时把余文**塞进** `<remarks>`；本轮口径与其相反 ⇒ 两个工具**并存不冲突**（前者补 param/returns，后者删 remarks/压 summary），但**执行顺序须为「先 apply_docs 补齐、再 strip_docs 瘦身」**（否则 strip 会删掉 apply 补的内容）。
+
+**判据（`lessons/CommentSimplificationBatchPitfalls` 的补充）**：
+
+- ⛔ **批量改注释后必须做「剥离注释后逐字比对」** —— 证明代码字符零改动（`lessons/CommentSimplificationBatchPitfalls` 坑三）。本轮 173 文件比对：代码字符差异 **0**。
+- ⛔ **`<see cref="X"/>` 是自闭合标签** ⇒ 标签配对判据必须排除自闭合计数，否则误报 26 处。
+- ⛔ **行尾守恒**：读时归一化 CRLF→LF，写时按原状加回（否则纯 LF 文件被写成 CRLF ⇒ 引入混行）。
+- ⛔ **行尾基线用「本轮 backup 包」而非 `git show HEAD:`** —— HEAD blob 与工作区行尾可能本就不同（`core.autocrlf=true`），用 HEAD 会误报数十处「变化」。
+- ⛔ **批量脚本禁跨脚本共享 cache** —— 后跑的脚本会用旧 cache 覆盖先跑的成果（本轮实际踩中：8 处接入被覆盖成 0）。正解：**每个文件独立读→改→立即写回**。
+
 ## 相关页面
 
 - [[standards/CodeSimplification]] —— 标准详情（唯一标准源，覆盖除 `*.Designer.cs` 外的全部业务源码，`UIDesign/` 非设计器 `.cs` 同适用）

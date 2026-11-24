@@ -1,8 +1,8 @@
 ---
 title: ADR-103 缺值保持与自适应按距离分段
 date: 2026-11-17
-updated: 2026-11-17
-tags: [决策, 焊缝跟踪, 缺值, 报警, 自适应, 分段]
+updated: 2026-11-18
+tags: [决策, 焊缝跟踪, 缺值, 报警, 自适应, 分段, 输出触发, 段落长度]
 status: accepted
 ---
 
@@ -51,6 +51,22 @@ N09 要求「缺值期间禁止回落标定位、禁止续焊，Y 取最后有�
 - `WeldParamAdjustmentAlgorithm.AccumulateSeamWidth` / 按距离分段分支
 - `ProcessControlPage` / `ProcessControlPage.Designer`
 - `DeviceControlWork.EvaluateHeartbeatLevel` / `IsNoValueOverLimit` / `LogHeartbeatEdge`
+
+### 2026-11-18 · 落地演进 · 工艺参数输出触发由「时间周期」改为「段落长度」
+
+> 业主 2026-11-18 裁定：自适应输出不再按时间周期节流，**改用段落长度**（替代周期功能）。
+
+- **删除** `WeldAlgorithmsConfig.ParamOutputHz`（③Adapt 区，INI `PARAM_OUTPUT_HZ`）与其 UI 落点 `selParamOutputHz`（见 [[decisions/ADR-076-SettingsZoneSaveWiring]] 决策 D5）。
+- `WeldParamControlWorkflow.TickXlOutput` 的时间维节流（`Environment.TickCount` + `intervalMs`）⇒ **距离维节流**：机器人 X 位移达 `SegmentDistanceMm` 才输出一次（首拍立即输出）。
+- 节流阈值**复用** `SegmentDistanceMm`（同一把距离尺：分段算宽 + 按段输出）⇒ ⛔ 不另设「输出间隔距离」配置项、⛔ 不新增变量（`_lastXlOutputTick` 被 `_lastXlOutputRobotX` **替换**而非叠加）。
+- **依据**：自动模式下机器人 RSI 的输出频率固定，节拍不由上位机定时器决定；模拟测试的线激光频率属 `VirtualCam.FrameRateHz`（系统设置页「线激光数据频率」，独立位置，不动）。
+- **Manual 分支同口径**：Manual 源（振镜未启用）走的也是按段触发（宽度恒定但仍按段落长度推进），不再是「恒定周期重发」。
+- 本演进把「按距离分段」从**计算分段**扩展到**输出触发** —— 同一把尺子贯穿两段。
+
+### 2026-11-23 演进 · 自适应复位后首帧播种（不算突变）
+- **决策**：`WeldParamAdjustmentAlgorithm` 新增 `_seamWidthSeeded`；复位后首个**有效宽度（>0）**直接作为会话初始值播种 `CurrentSeamWidth` 并同步 `_lastLoggedSeamWidth`，不计入变化次数、不打「宽度变化」日志；后续变化才按原判据留痕。Laser 源首拍未成段（宽度 0）不播种，等首个段均值产生再播种。
+- **理由**：现场日志证实复位后首帧 0→1.0 被记成「第 1 次变化」，业主裁定「重载完成就要有初始数据，不能一出来做第一次突变判断」。
+- **边界**：只改变化留痕的基准播种，查表 / 分段 / 缺值报警口径不变。见 [[lessons/SimulationAutoBranching]] 陷阱廿三。
 
 ## 相关页面
 

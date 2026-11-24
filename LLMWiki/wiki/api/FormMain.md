@@ -32,7 +32,7 @@ source: AdaWeldSystem/UIDesign/MainWindow/FormMain.cs + .Designer.cs
 | 方法 | 说明 |
 |------|------|
 | `FormMain()` | 设计器模式早退；加载配置（MontionManager.Instance.MoveData/SimulationController/MonitorAlgorithmManager）→ UI 主题 → 实例化 3 子页 → `LoadNavAndPages()` → 订阅线激光状态、关闭前询问、设备初始化（`DeviceControlWork.Instance.InitializeMachine()` + `StartMachine()`，ADR-034） |
-| `LoadNavAndPages()` | 构建顶部 4 项 Segmented（主页面/设备监控/系统参数设置/数据追溯）+ 4 个 Tabs，建立 Segmented↔Tabs 双向联动（重入守卫 `syncing`），并把默认索引显式置 0（主页面）；两处联动末尾在目标为「数据追溯」(index 3) 时调 `dataPage.EnsureLoaded()` —— 这是**用户交互**触发点，页面内部再以运行态标志硬闸（H11）；Tab0 主页面内 `AddContourLineChart()`/`AddNewDataLineChart()` 初始化图表并订阅英莱轮廓事件；**Tab1「设备监控」为空占位页**（无控件、无类，后续在 Designer 补内容）；Tab2 承载 `navPageParam`（5 个子页：工艺设置/系统设置/线激光设置/监控相机设置/文档备份设置，ADR-051 演进） |
+| `LoadNavAndPages()` | 构建顶部 4 项 Segmented（主页面/设备监控/系统参数设置/数据追溯）+ 4 个 Tabs，建立 Segmented↔Tabs 双向联动（重入守卫 `syncing`），并把默认索引显式置 0（主页面）；两处联动末尾在目标为「数据追溯」(index 3) 时调 `dataPage.EnsureLoaded()` —— 这是**用户交互**触发点，页面内部再以运行态标志硬闸（H11）；Tab0 主页面内 `AddContourLineChart()`/`AddNewDataLineChart()` 初始化图表并订阅英莱轮廓事件；**Tab1「设备监控」挂 `DeviceMonitorPage` 空页**（2026-11-20 由原无控件无类的空占位实体化，ADR-112；见 [[api/DeviceMonitorPage]]）；Tab2 承载 `navPageParam`（6 个子页：工艺设置/系统设置/线激光设置/监控相机设置/通讯设置/设置备份，后两者 2026-11-20 由 FilebackupPage 拆出，ADR-112） |
 | ~~`InitializeSystemStatusLabel`/`OnMainDeviceStatusChanged`/`UpdateSystemStatusLabel`~~ | **2026-09-08 整页删除**：整机状态显示迁移至 `MainPage.LabelStatus`（文本「设备状态：{状态值}」+ 设备颜色映射，见 [[api/MainPage]]） |
 | `OnWorkflowStateChanged(object, WeldStatusChangedEventArgs)` | 线激光焊接过程态变更回调（订阅 `LineLaserWorkflow.Instance.WeldStatusChanged`，ADR-034），`BeginInvoke` 封送后调 `UpdateStatusLabel` |
 | `UpdateStatusLabel(SubDeviceWeldStatus)` | 线激光焊接过程态映射为状态栏文本（NoReset/Standby/PreWork/Working/Stopping/ErrorAborted/ManualStopped） |

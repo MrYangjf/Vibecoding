@@ -261,6 +261,33 @@ merged_from: [ADR-033, ADR-044, ADR-045, ADR-046, ADR-047, ADR-048, ADR-049, ADR
 ### 负面
 - （待补）
 
+### 2026-11-23 演进 · PreWork 起跟踪 + 写段失败挂起重试（消除 4610）
+
+> ⚠️ **2026-11-23 焊前寻位改版后本条部分被取代**：X 由「PreWork 期间不动」改为「PreWork 期间移向寻位起点」——因为 X 不动则地图建不起、Y 拿不到焊接点目标。寻位的完整口径见 [[decisions/ADR-114-prework-seek-position]]。本条仍成立的：写段失败不推进账本 + 跨拍挂起重试（4610 处置）、PreWork 只激活跟踪不开缺值量测、建系后留稳定窗口再写段。
+
+- **背景**：现场日志出现 `CSP 缓冲写入失败 返回码 4610`。查台达官方手册：`4610` = `0x1202` = `ERR_ECAT_SLAVE_TYPE`，释义「此模块不支持此 API」；报错发生在「建系完成、缓冲尚未 Start」窗口的首段写入，后续同 API 写段成功 ⇒ 瞬态状态拒绝，非轴类型永久不支持。
+- **决策 D1 · PreWork 建系**：新增 `TryStartPreWorkTracking()`——判据 = Y 轴已到标定位（`_calReturnReady`）+ 线激光已有数据（`Profile.HasResult`）⇒ 建坐标系 + 激活地图跟踪；**起焊沿 `StartCspOutput()` 复用已建系，不再收尾重建**（收尾会解坐标系，等于把 PreWork 的准备作废、又回到原窗口）。PreWork 期间 `UpdateSeamTracking` 在 `StepReady` 阶段即驱动 `OutputCspTick()`，跟踪在焊接开始前进入稳态。
+- **决策 D2 · 缺值量测不提前开**：PreWork 只激活地图跟踪（`WeldParamManager.BeginSeamTrackingForPreWork`），**⛔ 不启缺值量测**（`BeginSeamTrackingCorrection` 会开量测 + 清零距离）；PreWork 引导未稳，量测若开必误累计并触发 `NoValueAlarm` 停焊。量测仍留到起焊沿启用。
+- **决策 D3 · 写段失败不推进账本 + 挂起重试**：`QueueCspSegment` 写段返回非 0 时**不推进** `_cspLastQueuedPos` / 段计数（原实现无条件推进 ⇒ 软件账本与 FIFO「账实不符」）；段**挂起**，延时 `CspWriteRetryDelaySeconds = 0.05s` 跨拍重写同一段（4610 多为台达侧状态未就绪，需给就绪时间，⛔ 不可同拍立即重试）。连续失败达 `CspWriteFailMaxRetry = 3` ⇒ 报警停焊暴露原因；会话收尾清挂起段（未入 FIFO，写了会串场）。
+- **决策 D4 · 模拟位姿时钟两段式**（⚠️ 已被 [[decisions/ADR-114-prework-seek-position]] 修订）：模拟 X 时钟改在 `DoSubPrework` 启动（**只喂位姿、X 不动**，保位姿时效使地图可入图），`DoSubWork` 才调 `StartRobotXMoving()` 起步——对齐真实「机器人收到 PreWork 完成反馈才移动」（ADR-038）。**焊前寻位改版后**：X 改为模拟开启即移向「焊接前寻位起点 X」、到达即停，起焊段再继续前进（X 必须动，否则地图建不起）。
+- **边界不变式**：预载 3 段后 `MotionBuffer_Start` 的时序不变；「以写代查」不变（⛔ 不用 `BufferMotionStatus.status` 做 Start 就绪门禁——其语义现场未核实）；真实链路不变。
+
+### 2026-11-23 演进 · 坐标系表提前激活 + CSP 模式显式确保（消除 4610 二度复发）
+
+> **触发**：模拟复测再次报 `CSP 缓冲写入失败 返回码 4610`（连 3 次 → `Fail()` → 运控异常终止），且**Y 轴在焊前寻位阶段纹丝未动**（轴反馈恒 -37.000 / 命令 -37.000 / 脉冲 -37000 / 段距 0.0000）。业主线索：「早几天模拟测试没问题，那时候 CSP 缓存模式提前开启了」。
+
+- **背景 · 4610 的真正含义**：`4610` = `0x1202` = `ERR_ECAT_SLAVE_TYPE`，官方释义「此模块不支持此 API」。同轴同 API **先失败后成功** ⇒ 不是「轴类型永久不支持」⇒ 是**状态相关的临时拒绝**。两处状态差异被排除：① 轴运动模式——`CS_ECAT_Slave_CSP_Start_Move`（点位运动）本身即 CSP API，**不切模式**，轴全程在 CSP；② 未 Start 不许写——ADR-042 §153 实证「**预载 3 段后** `MotionBuffer_Start`」是现场验证过的正确时序 ⇒ Start 前写段合法。⇒ **唯一剩下的解释：新建的坐标系表尚未激活**（表被启动过的会话写段正常，未启动过的新表写段被拒）。
+- **决策 D5 · ⛔ 建系必须紧贴首次写缓存，且全程一条缓冲流（4610 定论）**：现场实测证伪两条早期假设——① 「坐标系表未激活」：`BufferStart` 返回 0、诊断 `运行 1` 后写段**仍 4610**；② 「先 Start 后写段」：空缓冲先 Start 后写段**也 4610**。**真因是建系与首次写段的间隔**：原始可工作代码是**建系 → 下一拍即写段**（≈10ms）；插入焊前寻位后曾变成「建系 → 等 1.4s X 到位才写段」⇒ 坐标系表闲置失效 ⇒ `ERR_ECAT_SLAVE_TYPE`「此模块不支持此 API」。⇒ **PreWork 启动即建系并立即开始写段**（`TryStartPreWorkTracking` → `TryStartPreWorkCsp`），Y 边扫边跟。
+- **决策 D5b · 焊前寻位与焊接共用同一条 CSP 缓冲流（业主口径 2026-11-23）**：**CSP 一直入、一直按 X 出，⛔ 不在「到达焊前 X」处停止再启动**。停启会打断段流连续性，并在重启窗口再次暴露坐标系状态问题。⇒ 起焊沿 `StartCspOutput` 走**复用分支**（不重建系、不收尾）；PreWork→Working 的切换不动 CSP，仅切换焊接态与缺值量测。仅**停焊沿** `StopCspOutput`（`BufferStop( Mode 1 )` 清 FIFO 并解坐标系）作为会话收尾，下一场重新建系。
+- **决策 D5c · 写缓存失败即故障，4610 三次重试后报错终止（2026-11-23 业主第二次裁定，覆盖此前「降级 Debug」）**：写段返回非 0 ⇒ `ReportCspResult`（Error）+ `_cspWriteFailCount++` + 跨拍挂起重写，达 `CspWriteFailMaxRetry = 3` 即 `Fail` 终止焊接暴露原因。**4610 不再降级**——业主明确「4610 确实是没有移动的报错」⇒ 它是"轴没动"的直接表征，必须暴露。**Start 阈值始终用成功段数**（`_cspQueuedSegments`）。
+- **决策 D5e · 4610 排查结论与现场原型基准参数（2026-11-23，业主提供早期可运行原型）**：已对照官方 `EtherCAT_DLL.cs` 与手册 P9-150 范例，排除写段签名、脉冲当量（日志「当量 0.001」= 1000 脉冲/mm）、NodeID 语义等错因。**以现场早期确能动起来的原型为基准逐项校准**：① `Set_Crd_Parameters`：`axisNum`（原型 2 轴；单轴场景 `MultiAxis2` 写 1 亦被支持）、`sycMaxVel/sycMaxAcc = 200000 × 脉冲当量`、**`sCurveTime = 10`**、`maxIOAdvanceTime = 0`、**`orgFlag = 1`（需要工作坐标偏移）**、`tableNo = 0`、`fifoNo = 0`，且**上限须远大于段速**（手册 9.7.1「运动参数超越坐标系最大值则回传错误」；段速会被积压提速短时放大 ⇒ 取标称值 ×`CrdMaxLimitScale=4`）；② 写段：`Line_MultiAxis`（8 参，原型所用）或 `Line_MultiAxis2`（`AxesNum = 1`），`absMode = 1` 绝对；③ 启动：写段 → `MotionBuffer_Start`，**⛔ 不调用 `MotionBuffer_Disable`**；④ 余量：`Get_Remain_Buffer_Size` 读剩余缓存（诊断行「余量」即此值）。⚠️ **此前 `orgFlag` 与 `sCurveTime` 误为 0/0**（与原型不符）——坐标系未按该驱动器要求建立，是 4610 的高度可疑项，已改为 **1/10**。若校准后仍 4610，则判定该驱动器固件不支持缓冲插补，需升级固件/更换 `EtherCAT_DLL`，或改用「周期点位运动」替代。
+- **决策 D5d · 现场标准时序（业主口径，2026-11-23 复核）**：① 线激光**提前扫**（PreWork 即出帧建库）；② **提前写缓存**（建系后立即写预载段，建系紧贴写缓存）；③ **到位后开启**（成功写满预载段 → `MotionBuffer_Start`）；④ **监控空拍防缓存清零**（`_cspIdleTicks ≥ BufferIdleTicksToDrain = 60` ⇒ `_cspBufferRunning = false`）；⑤ **清零后重新启动**（下次写段成功后重新 `BufferStart`，`_cspBufferStartedOnce` 为真时阈值降为 1 段，不重建坐标系）。②③④ 全程连续，到达焊前 X 与起焊沿**均不停启**。
+- **决策 D6 · CSP 模式显式确保**：`DeltaMontionAxis.EnsureCspMode()`（读 `GetMoveMode()`，非 CSP 则 `Set_MoveMode(CSP)` **并校验读回**）。调用点：建系前、预载/写段失败时；`ServoOn()` 的模式切换**返回值不再忽略**。⚠️ `CS_ECAT_Slave_CSP_Start_Move`（点位运动）**本身就是 CSP API、不切模式** ⇒「点位运动把轴切离 CSP」不成立（已证伪）。
+- **决策 D7 · 收尾清缓冲不得重复**：`StopCspOutput` 中 `BufferStop(Mode 1)` 成功后**必须** `_cspBufferStartedOnce = false`——否则后续 `ResetSeamAxisBufferBeforeMove` 会再 Stop 一次（坐标系已解除 ⇒ 4352 `NEED_INITIAL`），兜底 `BufferClear` 也报 4352，日志出现「收尾清缓冲异常」的**假报错**。
+- **决策 D8 · 寻位判据须区分「轴真的动过」**：`DoPreWorkSeek` 记录起始轴位置 `_preWorkSeekStartAxisPos`；到位 = 引导目标有效 **且** `|targetY − axisPos| ≤ 容差` **且**（目标偏离起点时）**轴累计位移 ≥ `PreWorkSeekMinMoveMm = 0.002mm`**。⛔ 禁止「目标恰好≈当前位置」直接判到位。
+- **决策 D9 · 寻位完成须用独立标志，⛔ 不得复用 `_calReturnReady`**：`_calReturnReady` 在 `StepReturnToCal`（回归标定位）就置位，**早于寻位步** ⇒ 主控按拍问询看到它为真就判 PreWork 完成 ⇒ **寻位刚开始就发焊接启动指令**（现场实测：寻位开始 0.147s 后即报「焊前阶段完成」）。新增 `_preWorkSeekReady` + `IsPreWorkSeekReady`；主控 `CheckPreWorkCompleted` 与 `IsSubWorkGateOpen` 均改判此值。
+- **决策 D10 · 寻位是会话态，必须随复位清零**：`_preWorkSeekStartTicks` / `_preWorkXArrived` / `_preWorkSeekReady` / `_preWorkSeekStartAxisPos` 在 `ClearStatus()` 与 `ResetProcess()` **双清零**。⚠️ 不清则真实循环第二轮沿用上一轮计时起点 ⇒ 一进寻位即超时失败。
+
 ## 相关页面
 
 - 模块：[[modules/WeldParamControl]] · [[modules/MotionControl]] · [[modules/Comm]] · [[modules/LineLaserCam]] · [[modules/UIDesign]]

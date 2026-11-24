@@ -1,8 +1,8 @@
 ﻿---
 title: ProcessControlPage 工艺设置页（原 ParamConfigPage）
 date: 2026-09-17
-updated: 2026-11-02
-tags: [API, UI, 工艺设置, 工艺调试快捷设定, 线激光标定, 光丝对中, NavPage, ADR-032, ADR-042, ADR-042, ADR-042, ADR-066, ADR-067, ADR-068]
+updated: 2026-11-18
+tags: [API, UI, 工艺设置, 工艺调试快捷设定, 线激光标定, 光丝对中, NavPage, ADR-032, ADR-042, ADR-042, ADR-042, ADR-066, ADR-067, ADR-068, GA设置区, 控件删除]
 source: AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs + .Designer.cs
 ---
 
@@ -325,13 +325,17 @@ source: AdaWeldSystem/UIDesign/TabPage/ProcessControlPage.cs + .Designer.cs
 | r0 标题 40 | `lblGalvoTitle`「振镜（功能与图形）」 | 整行 fill |
 | r1 控件 30 | 圆 / 八字 / 直线 / 圆弧（4 图形按钮，四列） | |
 | r2 控件 30 | 手动演示 / 回到零位（两格 160，右侧留空） | |
-| r3 控件 30 | 手动焊缝宽度(mm) 标签 + 输入（160 160，右侧留空） | ADR-070 |
+| r3 控件 30 | 手动焊缝宽度(mm) 标签 + 输入（160 160，右侧留空） | ADR-070 ⛔ **2026-11-18 已删**（改由 GA 档宽度承担） |
 | r4 控件 30 | **开启摆动/停止摆动 + 开关（最后一行）** | 业主裁定：开关移至最后一行 |
 
 - **文案修正**：`lblGalvoWeave`「振镜摆动启用」→ **「开启摆动/停止摆动」**（运动控制开关，直接启停摆动）；快捷区 `lblEnableGalvoWeaveQuick`「振镜摆动」→ **「振镜跟随摆动工艺」**（工艺启停：自适应过程中是否启用振镜跟随焊缝摆动）；两控件同绑 `EnableGalvoWeave`，文案为同一开关的两个操作视角
 - `lblProcessEnableTip` 补「振镜跟随摆动工艺控制自适应过程中是否启用振镜跟随焊缝摆动」
 
-### 手动焊缝宽度入振镜卡（2026-10-15 ADR-070）
+### 手动焊缝宽度入振镜卡（2026-10-15 ADR-070）· ⛔ 2026-11-18 已废
+
+> 本小节为**历史演进记录**。2026-11-18 业主裁定：手动宽度「完全不需要，外面 GA 设置也有一个」⇒
+> `ManualSeamWidthMm` 配置项、GA 卡 `txtManualWidth`/`lblManualWidth`、轨迹点区 `txtParamManualWidth` **全部删除**，
+> Manual 源的恒定宽度改取 **GA 档宽度**（见文末「GA 按图形分档 + 手动/自动两套模式」节与 [[decisions/ADR-076-SettingsZoneSaveWiring]] 决策 D5）。
 
 - 新增 `lblManualWidth`（「手动焊缝宽度(mm)」）+ `txtManualWidth`（`AntdUI.Input`），挂 `gridLaserGalvo` 第 4 行（`30:160 160`，见上方行序表；首轮为 `40:165 120`，三轮改 160/30）
 - **失焦即存**：`txtManualWidth_Leave` → 正数校验（≤0/解析失败**还原原值** + warn）→ 写 `ManualSeamWidthMm` → `SaveAlgorithmsZone(Adapt)` → Manual 源且有当前参数时 `RefreshSpotWidthByGain()`
@@ -411,7 +415,7 @@ tabPageAdaptiveSetup → panelWeldList → gridWeldZones(Span "20% 80%" ← 2026
 | `lblLaSpot1`(20,57) + `txtLaSpot1`(195,50,110×29) | 「LA Spot1 光斑(mm)」 | `WeldAlgorithmsConfig.LaSpot1Mm` |
 | `lblLaSpot2`(330,57) + `txtLaSpot2`(505,50) | 同行右列 | `LaSpot2Mm` |
 | `lblLaPose1`(20,102) + `txtLaPose1`(195,95) | 「LA Pose1 位(mm)」 | `LaPose1Mm` |
-| `lblLaPose2`(330,102) + `txtLaPose2`(505,95) | 同行右列 | `LaPose2Mm` |
+| `lblLaPose2`(330,102) + `txtLaPose2`(505,95) | 同行右列 | `LaPose2Mm`（**2026-11-18 改名** `lblLaDefaultFocus` / `txtLaDefaultFocus` / `LaDefaultFocusMm`，见文末节） |
 | `lblSpotTarget`(20,147) + `txtLaSpotTarget`(215,140) | 「目标光斑(mm)·auto用」 | `LaSpotTargetMm` |
 
 > ⚠️ 2026-10-19 起 `btnSaveLaParam`/`btnReadLaParam`/`btnApplyLaParam`（及 TA 三键、Tracking 三键）**已删除**，统一收口到 flowPanel2 三按钮，见下节。
@@ -471,8 +475,8 @@ tabPageAdaptiveSetup → panelWeldList → gridWeldZones(Span "20% 80%" ← 2026
 |---|---|
 | Tracking 指令 | `gridQuickTracking` 三项 Radio：`Y_AutoTracking`（默认，清 `LockYCalib`、Y 轴跟随线激光）/ `Y_ForceCalibPose`（移到 `TeachLockYMm` 并置 `LockYCalib`）/ `Y_ForceHome`（`MontionManager.HomeAxis` 强制回零）；原 `chkLockYCalib` 删除 |
 | 指令文本 | 三个指令区 Radio 一律 `XXX_XXX` 短文本（`Y_*` / `LA_*` / `TA_*`），中文释义全部放 `TooltipComponent` 悬停提示 |
-| LA 图形组 | `LA_GalvoCircle/Eight/Line/Arc` 与 `LA_Auto/Spot1/Spot2/Pose1/Pose2` **分属两个独立容器**（`gridQuickLaGalvo` / `gridQuickLaFocus`）：组内互斥、跨组独立（可同时各选一个）；`_syncingLaRadios` 只负责 Radio↔`selGalvoPattern` 双向同步抑制（2026-11-02 起删除 `_laMotionRadio`/`_laPatternRadio`/`RestoreLa*`） |
-| 振镜工艺设置 | 原 4 个图形按钮删除 → `selGalvoPattern`（4 项 Select，与 `LA_Galvo*` 图形 Radio 双向同步）；新增 `txtGalvoWidth/txtGalvoLength/txtGalvoFreq`（自系统设置页迁入）；`swEnableGalvoWeave` 与 `lblGalvoWeave` 删除（硬件使能归系统设置 ~~`swGalvoEnable`~~ **`btnOptGalvoEnable`（2026-10-26 由 Switch 改按钮，见 [[decisions/ADR-075-LaserHeadUiControlConsistency]]）**，工艺摆动入口保留快捷区 `swEnableGalvoWeaveQuick`） |
+| LA 图形组 | `LA_GalvoCircle/Eight/Line/Arc` 与 `LA_Auto/Spot1/Spot2/Pose1/Pose2` **分属两个独立容器**（`gridQuickLa` / `tlPLASetting`）：组内互斥、跨组独立（可同时各选一个）；`_syncingLaRadios` 已随图形 Select 删除而移除（2026-11-18），Radio 同父容器自动互斥 + `_loadingGalvoUi` 单标志即可覆盖回填抑制 |
+| 振镜工艺设置 | 原 4 个图形按钮删除 → `selGalvoPattern`（4 项 Select，与 `LA_Galvo*` 图形 Radio 双向同步）→ **2026-11-18 随 GA 设置区控件整体删除**（见文末节）；`txtGalvoWidth/txtGalvoLength/txtGalvoFreq`（自系统设置页迁入）保留；`swEnableGalvoWeave` 与 `lblGalvoWeave` 删除（硬件使能归系统设置 ~~`swGalvoEnable`~~ **`btnOptGalvoEnable`（2026-10-26 由 Switch 改按钮，见 [[decisions/ADR-075-LaserHeadUiControlConsistency]]）**，工艺摆动入口保留快捷区 `swEnableGalvoWeaveQuick`） |
 | 地图上限 | `焊缝地图点数上限`（`MaxMapPoints`）自本页 `gridWeldPonts` 迁至系统设置页 `gridFitterControl` 的「线激光点过滤」区 |
 
 > 读改存：`BtnReadLaserZone_Click` 增 `LoadGalvoActionUi()`；`BtnModifyLaserZone_Click` / `BtnSaveLaserZone_Click` 增 `ApplyGalvoParamsToHead()`（宽/长/频/图形 → `WeldHeadConfig.DefaultGalvo`），保存时 `SaveWeldHeadConfig()` + `SetGalvoParams()` 下发设备。
@@ -485,7 +489,7 @@ tabPageAdaptiveSetup → panelWeldList → gridWeldZones(Span "20% 80%" ← 2026
 |---|---|---|
 | **⑤工艺输出三项不落盘** | `BtnSaveAutoParam_Click` 弹「已保存」，重启后 `ManualSeamWidthMm`/`SpotWidthGain`/`ParamOutputHz` 回旧值 | 三项按 ADR-068 归 **③Adapt 区**，但代码**在 Adapt 落盘之后**才赋值，且随后调的是 `SaveAlgorithmsZone(System)`（不含这三个键）⇒ 改为：先赋值 → 再落 **Adapt** 区 |
 | **跨页副作用** | 系统设置页「仅修改未保存」的参数被本页「保存焊参调整」顺带写盘 | 「保存焊参调整」**不再落 ①System 区**（本按钮不写前馈安全/单调锁，该两项归系统设置页） |
-| **振镜图形全量保存污染** | 选一次图形连带重写 XML + 全部 INI 段 | 新增唯一入口 `SaveGalvoPattern()` → 落 **④Preset 区**；`SetGalvoPattern` 与 `selGalvoPattern_SelectedIndexChanged` 共用 |
+| **振镜图形全量保存污染** | 选一次图形连带重写 XML + 全部 INI 段 | 新增唯一入口 `SaveGalvoPattern()` → 落 **④Preset 区**；`SetGalvoPattern` 与 `selGalvoPattern_SelectedIndexChanged` 共用（**2026-11-18**：后者随 Select 删除而移除，现仅 `SetGalvoPattern` 一处） |
 | **Y 指令全量保存污染** | 选一次 Y 指令连带重写全部配置 | `radioQuickY_CheckedChanged` 三处改落 **②Quick 区**（`LockYCalib` 归属） |
 | **「读取参数」名不副实** | 振镜宽/长/频取的是内存旧值（`MontionManager` 初始化时只读过一次文件） | `BtnReadLaserZone_Click` 先调 `MontionManager.Instance.LoadWeldHeadConfig()`；并补 `LoadFlowSwitchOnForm()` + `LoadParamOutOnForm()` 两区回填 |
 | **重复接线** | 「修改参数」与「保存焊参调整」各写一遍同一批 6 项 | 收口为 `ApplyAdaptUiToMemory()`（UI→内存，不落盘），两按钮共用 |
@@ -706,3 +710,204 @@ tabPageAdaptiveSetup → panelWeldList → gridWeldZones(Span "20% 80%" ← 2026
 **TA 门禁**：`TA_Zero` 与其它 TA 指令**同口径** —— 一律要求「已使能 + 已回零」（`TaAvailable`）；「已回零」不区分来源。
 
 - 关联：[[decisions/ADR-063-CommandZoneRadioExclusivity]] · [[decisions/ADR-082-TaInitFourStepAndAvailability]]
+
+## GA 设置区控件删除与代码后置收敛（2026-11-18）
+
+> 业主在设计器删除「GA 设置区」与 GA 指令 / 系统设置重叠的 4 个控件，AI 负责代码后置收敛 + 编译修复。
+
+**删除的控件（Designer 层已清空，代码后置已同步收敛）**
+
+| 控件 | 类型 | 职责 | 重叠对象 |
+|---|---|---|---|
+| `selGalvoPattern` | `AntdUI.Select` | 振镜图形下拉（4 项） | GA 指令区 `radioQuickLaGalvo*` 图形 Radio |
+| `lblGalvoPattern` | `AntdUI.Label` | 「振镜图形」标题标签 | 同上 |
+| `btnGalvoDemo` | `AntdUI.Button` | 振镜演示 | GA 指令区图形组 |
+| `btnGalvoHome` | `AntdUI.Button` | 振镜回零位 | 系统设置页 `btnOptGalvoHome` |
+
+**代码后置收敛（`ProcessControlPage.cs`）**
+
+- ⛔ 删 `selGalvoPattern_SelectedIndexChanged` —— 控件已删 ⇒ 事件永不可能触发；方法内含 CS0103。
+- ⛔ `SetGalvoPattern` 去掉回写 Select 的赋值 ⇒ 落盘仍走 `SaveGalvoPattern`（④Preset 区），**图形落盘入口仍唯一**（ADR-076 §四 不变）。
+- ⛔ 删 `btnGalvoDemo_Click` / `btnGalvoHome_Click` —— 订阅点随控件删除，方法不可达。
+- ✅ **保留** workflow 层 `LaserWeldHeadWorkflow.GalvoDemo()` / `GalvoHome()`：`GalvoHome` 被系统设置页 `BtnOptGalvoHome_Click` 消费；`GalvoDemo` 虽 UI 侧唯一入口被删，但属 workflow 公共 API（[[api/LaserWeldHeadWorkflow]] 契约），删除属架构变更 ⇒ **本轮不动**，留待业主裁定。
+
+**布局同步（Designer）**
+
+- GA 图形 Radio 由第 1 行移至第 2 行，新增分组标题 `label7`「GA指令」/ `label8`「GA设置」（`AntdUI.Label`，`SetColumnSpan` 4 列）；`gridQuickLa` `RowCount` 10 → 11。
+- ⛔ `gridQuickLa` 为 `TableLayoutPanel`（非 `GridPanel`）⇒ 无 `Span` 串同步问题；`RowCount == RowStyles` / `ColumnCount == ColumnStyles` / 无格位冲突已机检通过。
+- 关联：[[lessons/UiModuleRemovalCleanup]] · [[lessons/UiLayoutChangeSyncPitfalls]] · [[decisions/ADR-076-SettingsZoneSaveWiring]]
+
+## GA 图形语义收敛 + 冗余清理（2026-11-18）
+
+> 业主裁定（完整链路）：「**没有开启振镜自动运行时是没有图形的；当配置启用了振镜功能，那么必须有一个图形，如果有设置就用设置，如果没有就落回默认 Line**」+「初始使用读取，未读到默认没有图形，图形始终以实际为准」。
+
+**三层语义（ADR-076 D3 + D4）**
+
+| 层 | 载体 | 语义 |
+|---|---|---|
+| 配置 | `WeldAlgorithmsConfig.GalvoPattern`（int） | `0` = 未设置（无图形）；`1..4` = 圆/八字/直线/圆弧；INI 越界 ⇒ 归 0 + 记 Warning（⛔ 不再静默回退 3） |
+| UI 选态 | GA 指令区 `radioQuickLaGalvo*` | **振镜未启用 ⇒ 没有图形**（清空整组选中 + 整组置灰）；**已启用 ⇒ 必有图形**（有设置用设置；无设置 ⇒ 落回 `Line` 并落盘） |
+| 设备下发 | `LaserWeldHeadWorkflow.ResolveGalvoPattern(int)` | `0`/越界 ⇒ **逻辑零位的直线**（协议枚举 `WsgGalvoPattern` 为 1..4 **无 0**，⛔ 禁下发非法值到 0x7010 子索引 1） |
+
+**振镜启用态的唯一真相源**：`LaserWeldHeadWorkflow.IsGalvoWeaveEnabled()` —— 实时读 `cfg.EnableGalvoWeave`（系统设置页 `swEnableGalvoWeaveQuick` 的落点）。⛔ 原 `LoadConfig()` 期快照字段 `_galvoWeaveEnabled` 已删（运行期改开关不刷新），现与 `WeldParamControlWorkflow.GetAmplitudeMm` 同口径。
+
+**跨页联动路径**：系统设置页切开关 → 落 ②Quick 区 → 切回工艺设置页触发 `ParamAutoPage_Shown` → `LoadAlgoConfigOnForm` → `LoadGalvoActionUi` → 图形选态与置灰自动收敛。
+
+**本轮精简（`ProcessControlPage.cs`）**
+
+- ⛔ **删 `_syncingLaRadios`** —— 原为「Radio↔Select 双向同步抑制」，Select 删除后职责消失；其赋值窗口与 `_loadingGalvoUi` **完全同生命周期**，且 Radio 同父容器自动互斥（置 `Checked=true` 只让同组其它变 false，`e.Value == false` 被首行守卫拦掉）⇒ `_loadingGalvoUi` 单标志已足够。
+- ⛔ **删字段 `_galvoPatternSelected`** —— 原为图形 Select 时代的双向同步缓存；Select 删除后其写点（`SetGalvoPattern`）**再无读者** ⇒ 图形状态不再缓存于 UI 字段，唯一真相源 = `WeldAlgorithmsConfig.GalvoPattern`（**以实际为准**）。
+- ⛔ `RadioToGalvoPattern` / `GalvoPatternToRadio` 的 `default` 由**静默兜底直线**改为**返回 null**；前者不匹配时记 Warning（防止新增图形 Radio 后被静默落成直线）。
+- ✅ **保留** `_loadingGalvoUi`（回填 `Checked` 会触发 `CheckedChanged`，见 [[lessons/UiLayoutChangeSyncPitfalls]] 坑三）、`SaveGalvoPattern` / `GalvoPatternText`。
+- ⚠️ **执行顺序**：清选中在 `RefreshActionStates()`（置灰）**之前**（避免对 Disabled 控件改 `Checked`）；清选中触发的 `CheckedChanged` 由 `_loadingGalvoUi` 抑制（⛔ 不误落盘）。
+- 关联：[[decisions/ADR-076-SettingsZoneSaveWiring]] · [[api/LaserWeldHeadWorkflow]] · [[lessons/UiModuleRemovalCleanup]]
+
+## GA 按图形分档 + 手动/自动两套模式（2026-11-18）
+
+> 业主裁定三条：① **图形设置完全由指令区接管**；② **GA 设置的宽度/长度/频率按每种图形各存一档**（没有配置时默认加载 Line 档）；③ **GA 设置就是「自适应参数没有输出时的宽度」** —— 手动模式的恒定宽度改由 GA 档承担。
+> 依据：[[decisions/ADR-070-GalvoWeaveAsWidthSource]] 演进节 · [[decisions/ADR-076-SettingsZoneSaveWiring]] 决策 D5 · [[decisions/ADR-103-no-value-hold-and-distance-segment]] 落地演进。
+
+### 一、GA 图形参数分 4 档
+
+| 项 | 载体 |
+|---|---|
+| 存储 | `WeldHeadConfig.GalvoShapePresets`（`Dictionary<WsgGalvoPattern, GalvoShapeParams>`，每图形一份宽/长/频） |
+| 持久化 | `WeldHeadSlave.xml` 的 `GALVO/<CIRCLE\|EIGHT\|LINE\|ARC>/WIDTH\|LENGTH\|FREQUENCY`；顶层 `GALVO/WIDTH\|LENGTH\|FREQUENCY` 保留为**存量迁移基准** |
+| 缺档回退 | 指定图形缺档 ⇒ 回退 **Line 档**（`GetGalvoShape`）；存量 XML 只有顶层一份 ⇒ 各档缺省取该旧单档值（读侧 `legacyWidth/legacyLength/legacyFrequency` 承接，不丢现场配置） |
+| 全局项 | 角度/起止角/中心/压缩/目标尺寸/斜椭校正仍属 `DefaultGalvo`（各图形共用），**只有宽/长/频分档** |
+
+**UI 联动**：`radioQuickLa_CheckedChanged` 的 GA 分支 ⇒ `SetGalvoPattern`（落盘图形值）+ `LoadGalvoShapeToInputs()`（载入该图形档）；`ApplyGalvoParamsToHead()`（保存）⇒ 写回**当前图形档**。
+
+**`DefaultGalvo` = 当前生效参数集合**：`WeldHeadConfig.SyncDefaultGalvoFromShape(pattern)` 把当前档镜像进 `DefaultGalvo`（图形 + 宽/长/频），三处调用点（页面加载 / 切换图形 / 保存档）。⛔ 原因：GA 分档后 `DefaultGalvo` 的宽/长/频不再被 UI 直接编辑，而「全量下发 `DefaultGalvo`」的路径仍在（工艺页保存、系统设置页保存）⇒ 不同步会把设备刷成陈旧旧值。
+
+### 二、手动 / 自动两套模式（互斥）
+
+| | 自动模式 | 手动模式 |
+|---|---|---|
+| 触发 | 自动焊接 / 自适应工艺启动 | UI 手动调试（GA 区「**手动下发 / 关闭退出**」按钮组 `btnGalvoManualStart/Stop`） |
+| 振镜下发 | `ApplyGalvoAmplitude` 每拍随动 | **输出一次**（`LaserWeldHeadWorkflow.GalvoManualStart`），不进随动循环 |
+| 宽度来源 | Laser（线激光实测） | Manual（恒定，取 **GA 档宽度**） |
+| 互斥 | ⛔ 自动模式下 UI 手动按钮不生效 | ⛔ 手动动作与生产流程互斥 |
+
+- 门禁复用 `LaserWeldHeadWorkflow.EnsureManualWeldHeadActionAllowed`（`IsAutoWeldingRunning` 时拒绝）——与既有手动动作同口径，不另立门禁。
+- UI 置灰：`btnGalvoManualStart/Stop` ← `laReady && !IsAutoWeldingRunning`；⛔ **不按振镜启用态禁用**（手动调试的目的正是「振镜未启用时也能下发看效果」）。
+- ⛔ 删 `GalvoDemo()`（零调用方 + UI 入口已删）⇒ 替代 API：`GalvoManualStart(pattern, shape)` / `GalvoManualStop()`。
+
+### 三、③自适应区瘦身后的宽度来源
+
+- ⛔ **删 `ManualSeamWidthMm`**（与 GA 设置区的手动宽度重复）⇒ Manual 源宽度 = `WeldParamAdjustmentAlgorithm.ManualFixedWidthMm()` ⇒ `GetGalvoShape(pattern).Width`；振镜未启用 ⇒ 没有图形 ⇒ 图形取配置（`ResolveGalvoPattern` 0/越界 ⇒ Line）⇒ 回退 **Line 档宽度**。
+- ⛔ **删 `SpotWidthGain`**（含查表算法 3 处乘算 + `RefreshSpotWidthDic`/`RefreshSpotWidthByGain` 四链）⇒ 查表光斑宽 = 焊缝宽（乘 1.0 恒等，**行为等价**）。
+- ⛔ **删 `ParamOutputHz`** ⇒ 工艺参数输出触发改**按段落长度**（`TickXlOutput` 时间维节流 → 距离维节流，阈值复用 `SegmentDistanceMm`，⛔ 不另设配置项、不新增变量）。
+- ⛔ **删 GA 卡 `txtManualWidth`/`lblManualWidth`** 与轨迹点区 `txtParamManualWidth`/`txtParamSpotGain`/`selParamOutputHz` 等 6 个控件（四落点 + 事件 + 专属字段 + 容器占位一并清）。
+- ⛔ **模拟基准宽度收敛为常量**：`VirtualCam.BaseSeamWidth` / `BaseSeamDepth` 改 `const`（无可设入口）⇒「模拟测试启用自适应调整时持续输入恒定基准宽度」。`VirtualCam.FrameRateHz` 有外部写入（系统设置页「线激光数据频率」）⇒ **不动**。
+- 关联：[[decisions/ADR-076-SettingsZoneSaveWiring]] D5 · [[decisions/ADR-070-GalvoWeaveAsWidthSource]] · [[decisions/ADR-103-no-value-hold-and-distance-segment]] · [[api/LaserWeldHeadWorkflow]] · [[lessons/UiModuleRemovalCleanup]]
+
+## 读/改/存三按钮的 TabPage 边界（2026-11-19 ADR-076 D9）
+
+| 按钮 | 所在 TabPage | 刷新区 | 回填控件 |
+|---|---|---|---|
+| `BtnReadAutoParam`（读取焊参调整） | 自适应工艺参数设置 | `Adapt` | 本 TabPage 的两个距离输入 + 焊参表 |
+| `BtnSaveAutoParam`（保存焊参调整） | 自适应工艺参数设置 | `Adapt`（落盘） | — |
+| `BtnReadLaserZone`（读取激光工艺参数） | 激光工艺设置 | `Preset` + `Quick` | GA / LA / TA 参数 + Y 指令 radio |
+| `BtnModifyLaserZone`（修改应用参数） | 激光工艺设置 | 只写内存 | — |
+| `BtnSaveLaserZone`（保存参数） | 激光工艺设置 | `Preset`（落盘） | — |
+| `BtnReadLaserZone` 附带 | — | 焊接头独立载体 `WeldHeadSlave.xml` | 振镜宽/长/频 + 阈值 |
+
+⛔ **「读取」只写回现有配置对象**（`LoadAlgorithmsZone` 先 `Reload()` 载体再读指定 zone，**不 new、不替换** `_algorithmsConfig`）⇒ 其它 TabPage 已「修改参数」但未保存的内存改动**不会被丢弃**。
+
+⛔ **跨 TabPage 回填已移除**：自适应区的读取不再刷新激光工艺区的 Y 指令 radio；激光工艺区的读取不再刷新自适应区的距离输入框。被移走的控件由**页面构造**时的批量回填（`LoadXxxOnForm`）与本 TabPage 自己的入口负责。
+
+- 关联：[[decisions/ADR-076-SettingsZoneSaveWiring]] D9 · [[lessons/UiButtonZoneBoundary]] · [[api/WeldParamManager]]
+
+## 默认长宽频清理 + LA 默认焦平面（2026-11-18）
+
+> 业主裁定三条：① **GA 分档后，原来没有按照图形区分的默认长宽频需要清理掉，不再任何地方起作用**；
+> ② **LA_Pose2 修改为 LA_DefaultFocus**，意为默认焦平面 LA 的位置，不再是随意设置 LA_POSE；
+> ③ 接入焊接头后（初始化连接结束）LA 自动回到该位置（LA 无轴 Home ⇒「回零」= 回工作位）。
+> 依据：[[decisions/ADR-070-GalvoWeaveAsWidthSource]] §五 · [[decisions/ADR-067-LATaSettingsSemanticRework]] 演进记录。
+
+### 一、默认长宽频清理（物理删除，非标记弃用）
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| `WeldHeadConfig.DefaultGalvo` 类型 | `GalvoParams`（协议结构，含图形/宽/长/频） | **`GalvoGlobalParams`**（只含 10 个全局项）⇒ 该实例上**物理不存在**图形与宽/长/频 |
+| 振镜下发 | `head.SetGalvoParams(headCfg.DefaultGalvo)` | `head.SetGalvoParams(headCfg.BuildGalvoParamsFor(pattern))`（全局项取 DefaultGalvo + 图形/宽长频取该档） |
+| XML 顶层 | 写 + 读 `GALVO/WIDTH\|LENGTH\|FREQUENCY` | **不再写、不再读进 DefaultGalvo**；宽长频一律落 `GALVO/<图形>/` |
+| 存量迁移 | — | 老 XML 顶层三键读一次作各档缺省值（缺省 = 协议默认 宽 1.0 / 长 1.0 / 频 50） |
+
+- ⛔ 禁直接下发 `DefaultGalvo`（会带出无来源的空位）。
+- ⛔ 上一轮的「镜像」方案（`SyncDefaultGalvoFromShape` / `SyncCurrentGalvoToDefault`）已随之删除 —— 镜像仍让 `DefaultGalvo` 保留无来源字段，与「清理掉」冲突。
+- `GalvoParams` 的图形/宽/长/频字段**保留**（协议下发要用），但注释已注明「配置路径已无来源，仅协议组装时由档填充」。
+
+### 二、LA 默认焦平面（语义改名 + 初始化回工作位）
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| Radio | `radioQuickLaPose2` / Text `LA_Pose2` | `radioQuickLaDefaultFocus` / Text `LA_DefaultFocus` |
+| 参数区 | `lblLaPose2` / `txtLaPose2` | `lblLaDefaultFocus`（"LA 默认焦平面(mm)"）/ `txtLaDefaultFocus` |
+| 配置项 | `LaPose2Mm` | `LaDefaultFocusMm` |
+| INI 键 | `LA_POSE2_MM` | `LA_DEFAULT_FOCUS_MM`（旧键一次性迁移 + 记 Info，之后停写） |
+| workflow | `LaPose2()` | `LaDefaultFocus()` |
+| UI 处理器 | `DoLaPose2()` | `DoLaDefaultFocus()` |
+
+- **动作语义不变**（仍是「直接移到配置的 LA 电机绝对位置」，与 `Spot*` 的「设光斑 + 按 TA 推算」相对）；变化的是业务含义 —— 从"调试位"升为"默认工作位"。
+- `LA_Pose1` 保留（另一个调试位）；**TA 侧 Pose1/Pose2 不动**（另一条链路）。
+- **初始化后自动就位**：`LaserWeldHeadWorkflow.MoveToDefaultFocus()`（非阻塞下发、不等到位、不走手动门禁），由 `DeviceControlWork` 初始化收尾处**主动调用**。
+  - ⛔ **不在 workflow 构造期订阅 `DeviceControlWork.InitializationCompleted`** —— `DeviceControlWork` 的 `readonly _weldHead = LaserWeldHeadWorkflow.Instance` 会在其构造期创建 workflow，此时读 `DeviceControlWork.Instance` 会触发整机初始化。
+  - ⛔ 不属 ADR-099「初始化只连接使能」范畴（LA 无轴 Home，此处是**移到工作位**而非轴回零）。
+
+- 关联：[[decisions/ADR-070-GalvoWeaveAsWidthSource]] · [[decisions/ADR-067-LATaSettingsSemanticRework]] · [[api/LaserWeldHeadWorkflow]] · [[lessons/ConfigKeyRemovalAndTruthSourceMigration]]
+
+## 配置文件按 TabPage 拆分（2026-11-19 ADR-076 D8）
+
+> 业主裁定：「完成逐项逐文件迁移」—— 配置文档按 TabPage 分割成不同文件，页面保存/修改不影响其它页面的值。
+
+### 一、实测修正了 D6 方案表（三处偏差）
+
+| D6 原表 | 实测真相 |
+|---|---|
+| ②Quick 开关归工艺页 | ❌ 5 个 Enable 开关在**系统页·流程控制与测试**（`tLPFlowSetting`） |
+| ④Preset 归工艺页 | ✅ 但**同 zone 内部跨 TabPage**：`LockYCalib` 在工艺页、Enable 开关在系统页 |
+| XML 拆 3 文件 | ❌ XML 只有 ①System 一区，拆不了；要拆的是 INI |
+
+⇒ **zone 粒度不足以表达 TabPage 归属** ⇒ 新增 `AlgorithmsZone.Flow`（②′）。
+
+### 二、本页（工艺页）的落盘归属
+
+| TabPage | INI 文件 | section | 项 |
+|---|---|---|---|
+| 激光工艺设置 | `WeldParamControlAlgorithm.ini` | `PROCESS_CONTROL` | Preset 12 项（LA/TA/GA 预设）+ `LOCK_Y_CALIB` |
+| 自适应工艺参数设置 | `WeldParamControlAlgorithmAdaptive.ini` | `WELD_PARAM_ADJUST` | `SEGMENT_DISTANCE_MM` + `MAX_CONSECUTIVE_FAILURES` |
+
+- 本页 `SaveAlgorithmsZone(Preset)` / `(Quick)` / `(Adapt)` **各自只落自己的文件** ⇒ 不再覆盖系统页未保存的值。
+- ⛔ 4 个零引用死配置已物理删除：`LockSpotCalib` / `LockWirePos` / `SpotCalibPosMm` / `WireLockPosMm`（全仓引用 0，无 UI 落点）。
+
+- 关联：[[decisions/ADR-076-SettingsZoneSaveWiring]] D8 · [[lessons/ConfigFileSplitByTabPage]]
+
+## 跟踪几何项迁出 + 配置文件按 TabPage 分割（2026-11-18）
+
+> 业主裁定：① **YT 设置下的轴/激光比例系数、偏差方向、激光超前量(mm)、机器人Y补偿系数**等跟踪几何项，**迁到系统设置页·轨迹跟踪参数设置·标定参数区**；② **取消 Y 轴行程上限/下限**（Y 轴点击设置里已有）；③ 配置文件**按 TabPage 分割成不同文件**，保存/修改时不影响其他页面的值。
+
+**一、UI 迁移（7 项几何 + 标定项 → 系统设置页「标定参数」区）**
+
+| 项 | 旧位置 | 新位置 |
+|---|---|---|
+| 轴/激光比例系数 · 偏差方向 | 工艺页·YT 设置（`gridQuickTracking` 行 4） | 系统页·轨迹跟踪·标定参数区（`gridLaserCalib` 行 3） |
+| 激光超前量 · 机器人Y补偿系数 | 工艺页·YT 设置（行 5） | 同上（行 4） |
+| 示教Y锁定坐标 · 标定中心点Y/Z | 工艺页·YT 设置（行 7/8） | 同上（行 5/6） |
+| Y 轴行程下限/上限 | 工艺页·YT 设置（行 6） | ⛔ **删除**（改用轴软限位） |
+
+- 落盘入口随之迁移：系统页 `button2`「修改参数」写内存 → `button3`「保存参数」落 ①System 区（XML）。
+- ⛔ 工艺设置页**不再落 ①System 区** ⇒ XML 文件成为「轨迹跟踪 TabPage」独占文件。
+
+**二、Y 轴行程上下限取消（重复性核查结论）**
+
+两套配置**并存但判断不重复**：轴软限位（`DeltaMotionConfig` 的 `POSITIVE_LIMIT`/`NEGATIVE_LIMIT`，UI 在轴配置弹窗）**仅存储不下发**（`SoftLimitMode` 无下发路径），未参与任何运行时判断；工艺侧 `YAxisMinMm`/`YAxisMaxMm` 是 `MotionControlWorkflow` 唯一做限幅与越界判据的地方。
+⇒ 删工艺侧两项，限幅改接**轴软限位**（`TryGetSeamAxisSoftLimit`；0 = 不启用 ⇒ 不限幅）。
+⚠️ **行为变化**：原区间 `[-15,+15]`；改接后取轴软限位（现场实测 正 20 / 负 **-1**，负值疑为占位值）⇒ 区间变 `[-1,20]`，**需现场把 Y 轴正/负软限位配成真实行程**。
+
+**三、配置文件按 TabPage 分割（ADR-076 D6，本轮落地第一步）**
+
+- XML 侧：`SEAM_GUIDE` 几何 4 项由 ④Preset 区**迁入 ①System 区** ⇒ `LoadZoneXmlPreset`/`SaveZoneXmlPreset` 整体删除 ⇒ **section 名不变 ⇒ 存量文件零迁移**。
+- ⛔ **zone ≠ TabPage**：分区落盘只保证 zone 之间互不写，跨 TabPage 隔离**必须靠物理分文件**。INI 侧拆文件（工艺设置页两个 TabPage 各自一套）与存量逐键迁移列为下一轮任务。
+- 关联：[[decisions/ADR-076-SettingsZoneSaveWiring]] D6/D7 · [[api/SystemControlPage]] · [[api/MotionControlWorkflow]] · [[lessons/PythonEditByteSafety]]

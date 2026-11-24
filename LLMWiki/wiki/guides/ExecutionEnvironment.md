@@ -96,6 +96,7 @@ status: accepted
 | `wiki_toc.py` | 超大页生成章节导航 |
 | `adr_new.py` / `lesson_new.py` | ADR / 教训「先合并后新建」助手 |
 | `wiki_audit.py` `lint_scan.py` `drift_scan_precise.py` `ingest_purity_scan.py` | 既有四扫描器 |
+| `codemap_build.py` | **代码地图生成器**（官方 `coderepomap` 引擎 + 自研 C# 调用边抽取）；产物入 `wiki/architecture/` 分片 |
 
 **调用范式**：
 ```powershell
@@ -103,6 +104,27 @@ $py = "D:\ProgramData\miniconda3\python.exe"
 $T  = "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudddy\Vicoding管理平台\LLMWiki\tools"
 & $py "$T\wiki_format.py"
 ```
+
+---
+
+## 五之二、第三方依赖：`coderepomap`（代码地图引擎）
+
+**⛔ PyPI 上没有 `coderepomap`**（实测 `pypi.org/pypi/coderepomap/json` 返回 404）⇒ `pip install coderepomap` 必然失败（镜像源报「找不到版本」）。**只能从源码装**：
+
+```powershell
+$py = "D:\ProgramData\miniconda3\python.exe"
+# ① 取源码（GitHub tarball）
+& $py -c "import urllib.request,ssl;ctx=ssl.create_default_context();ctx.check_hostname=False;ctx.verify_mode=ssl.CERT_NONE;open(r'D:\tmp\coderepomap.tar.gz','wb').write(urllib.request.urlopen('https://codeload.github.com/sputnicyoji/coderepomap/tar.gz/refs/heads/main',context=ctx,timeout=120).read())"
+# ② 解压到持久目录（本机留 `C:\Users\yangjingfeng\.coderepomap-src`）
+# ③ 在解压目录内装（带 C# extra）
+cd C:\Users\yangjingfeng\.coderepomap-src
+& $py -m pip install --user ".[csharp]"
+```
+
+- **必须带 `[csharp]` extra**（装 `tree-sitter` + `tree-sitter-c-sharp`）；漏装时报 `No parser plug-in for lang 'csharp'`。
+- **调用形式恒为 `python -m coderepomap ...`**（`repomap.exe` 装在用户 scripts 目录，通常不在 PATH）。
+- 本机持久源码副本：`C:\Users\yangjingfeng\.coderepomap-src`（重装机器时从 GitHub 重新取即可）。
+- ⚠️ **官方 C# 解析器有缺口**（只收 public 方法、零方法调用点）⇒ 不可直接当定位索引用，补齐方式见 [[lessons/RepomapCSharpCallEdgeGap]]。
 
 ---
 
@@ -116,6 +138,9 @@ $T  = "d:\A-A-项目类\04_研发项目\MRDF-2608 自适应焊接系统\workbudd
 | 4 | 改页后整库 diff 膨胀 | Python 默认换行把 LF 写成 CRLF | 按字节读写 + 保持行尾同质（见 [[lessons/WikiDriftCorrectionPitfalls]]） |
 | 5 | frontmatter 解析全部失败（判定「无 frontmatter」） | BOM 文件首行是 `\ufeff---`，`strip()` 后不等于 `---` | 判定前先剥 BOM |
 | 6 | 脚本看似成功但字段未补 | 同上：BOM 导致解析分支未进 | 加 BOM 专项自检 |
+| 7 | `pip install coderepomap` 报「找不到版本」 | 该包**未发布到 PyPI**（pypi.org 返回 404），镜像源同步不到 | 从 GitHub 源码装：`pip install --user ".[csharp]"`（见第五之二节） |
+| 8 | `codemap_build.py` 报 `No parser plug-in for lang 'csharp'` | 装包时漏了 `[csharp]` extra | 重装：`pip install --user ".[csharp]"` |
+| 9 | 编译报 `MSB3883 意外的异常：已添加项。字典中的关键字:"HTTPS_PROXY"所添加的关键字:"https_proxy"` | Windows 环境变量本身大小写不敏感，但 Roslyn 在收集环境变量时用**大小写敏感**字典 ⇒ 同时存在 `HTTPS_PROXY` 与 `https_proxy`（本机代理变量两者都有）即撞键 | 编译前 `unset https_proxy http_proxy`（保留大写版）再跑 `simplify_run.py --build-only`；⛔ 这是环境问题，别去改 csproj 或代码 |
 
 ---
 

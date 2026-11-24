@@ -1,8 +1,8 @@
 ---
 title: ADR-067 LA/TA 工艺语义重构（指令→设置 · 三区改名 · LA 随动换轨 · TA_Retract（原 TA_Recheck））
 date: 2026-10-14
-updated: 2026-11-05
-tags: [ADR, 工艺设置, LA, TA, 随动, 曲线反查, TA_Retract, Radio, ProcessControlPage, LaserWeldHeadWorkflow, WeldAlgorithmsConfig]
+updated: 2026-11-18
+tags: [ADR, 工艺设置, LA, TA, 随动, 曲线反查, TA_Retract, Radio, ProcessControlPage, LaserWeldHeadWorkflow, WeldAlgorithmsConfig, 默认焦平面]
 status: accepted
 ---
 
@@ -85,7 +85,7 @@ LA 的「光斑1/光斑2/Pose1/Pose2」本质是**标定参数**（供曲线反�
 - 新增 `LoadLaParamUi` / `BtnSaveLaParam_Click` / `BtnReadLaParam_Click`，照 **ADR-066 TA 参数区范式**：Spot1/Spot2/Target 必须 >0 校验、Pose1/2 解析失败保旧值、`SaveAlgorithmsZone(AlgorithmsZone.Preset)` 分区落盘。
 - `LoadGalvoActionUi` 移除 `txtLaSpotTarget` 回填（归属移交 LA 参数区）；`LoadAlgoConfigOnForm` 加 `LoadLaParamUi()`；删 5 个 `btnLa*_Click` + `btnApplySpotTarget_Click`。
 
-### 六、配置备注同步（WeldAlgorithmsConfig.cs）
+### 六、配置备注同步（WeldAlgorithmsConfig.cs，现役 WeldParamConfig.cs）
 
 5 个 LA 属性 remarks UI 落点同步为「工艺设置页·LA 参数区 txtLaXxx（BtnSaveLaParam 保存）」：`LaSpot1Mm` / `LaSpot2Mm` / `LaPose1Mm` / `LaPose2Mm` / `LaSpotTargetMm`。
 
@@ -131,3 +131,33 @@ LA 的「光斑1/光斑2/Pose1/Pose2」本质是**标定参数**（供曲线反�
 - **作废**：2026-11-05 版的「进入零位容差 → 撤力 → CSP 锁位」及配套的 `WaitTaRetractReach`、`CutTaTorqueAndLock`、
   `InstructionRetractReverseGuardMm`、按行程动态超时全部删除（现场日志「到位 0.032mm / 撤力回 CSP 达成」即否证证据）。
 - **口径**：见 [[decisions/ADR-082-TaInitFourStepAndAvailability]] D20/D21/D23（已作废）、D24~D29（定稿）与 [[lessons/TorqueActionNoPositionEndpoint]]。
+
+### 2026-11-18 LA Pose2 → LA 默认焦平面（语义改名 + 初始化后回工作位）
+
+> 业主裁定：「**LA_Pose2 修改为 LA_DefultFocus，意为默认焦平面 LA 的位置，不再是随意设置 LA_POSE**」
+> +「在接入焊接头后作为初始化连接结束后回零的默认位置（因为 LA 没有轴的 Home 动作，这里的回零指的是回工作位）」。
+
+**一、语义定位**
+
+| 项 | 旧 | 新 |
+|---|---|---|
+| 槽位含义 | 第 2 个随意设置的调试位（与 Pose1 同质） | **LA 的默认工作位**（默认焦平面） |
+| 控件 | `radioQuickLaPose2` / Text `LA_Pose2` | `radioQuickLaDefaultFocus` / Text `LA_DefaultFocus` |
+| 参数区 | `lblLaPose2`（"LA Pose2 位(mm)"）/ `txtLaPose2` | `lblLaDefaultFocus`（"LA 默认焦平面(mm)"）/ `txtLaDefaultFocus` |
+| 配置项 | `LaPose2Mm` | `LaDefaultFocusMm` |
+| INI 键 | `LA_POSE2_MM` | `LA_DEFAULT_FOCUS_MM`（旧键**一次性迁移**后停写，记一条 Info） |
+| workflow | `LaPose2()` | `LaDefaultFocus()` |
+| UI 处理器 | `DoLaPose2()` | `DoLaDefaultFocus()` |
+
+- **动作语义不变**（仍是「直接移到配置的 LA 电机绝对位置」，与 `Spot*` 的「设光斑 + 按 TA 推算」相对）；变化的是**业务含义** —— 从"调试位"升为"默认工作位"。
+- `LA_Pose1` 保留（仍是另一个调试位）；**TA 侧 `Pose1/Pose2` 属另一条链路，不动**。
+- ⚠️ 拼写：代码用标准拼写 `Default`（业主原文写作 `Defult`）。
+
+**二、初始化后自动就位（新增行为）**
+
+- `LaserWeldHeadWorkflow.MoveToDefaultFocus()`：读 `cfg.LaDefaultFocusMm` → `≤0` 跳过（未配置位置）→ 从站未就绪跳过 → **非阻塞**下发（`LaMoveTo`，不等到位，初始化流程不得阻塞）。
+- 调用点：`DeviceControlWork` 初始化收尾处，`InitializationCompleted` 事件**之后**主动调用 `_weldHead.MoveToDefaultFocus()`。
+- ⛔ **不在 workflow 构造期订阅 `DeviceControlWork.InitializationCompleted`**：`DeviceControlWork` 的 `readonly _weldHead = LaserWeldHeadWorkflow.Instance` 会在其构造期创建 workflow，此时读 `DeviceControlWork.Instance` 会触发整机初始化（违反「构造期禁读 `DeviceControlWork.Instance`」纪律）⇒ 只能由 `DeviceControlWork` 主动调。
+- ⛔ **不走手动门禁**（`EnsureManualWeldHeadActionAllowed`）：初始化不是手动动作。
+- ⛔ **不属 ADR-099「初始化只连接使能，回零归复位入口」范畴**：LA 无轴 Home，此处是**移到工作位**而非轴回零。
+- 失败只记日志，**不影响初始化结论**（初始化结论已在事件前落定）。

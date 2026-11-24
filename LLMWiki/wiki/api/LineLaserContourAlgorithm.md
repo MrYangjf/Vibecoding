@@ -1,6 +1,7 @@
 ---
 title: LineLaserContourAlgorithm API 参考（线激光轮廓 Mat 渲染算法）
 date: 2026-09-17
+updated: 2026-11-23
 tags: [API, 线激光, 算法, EmguALG, 渲染, Mat, ADR-007, ADR-028]
 source: AdaWeldSystem/EmguALG/LineLaserContour/LineLaserContourAlgorithm.cs
 ---
@@ -47,19 +48,22 @@ LineLaserContourAlgorithm : ILineLaserContourAlgorithm（画布渲染）
 ## 渲染要点（源码确认）
 
 - 画布常量：`CanvasW = 834`、`CanvasH = 554`、`Margin = 30f`。
-- 缩放率：校准模式按四角尺寸与画布内边距取 `min(rateX, rateY)`；回退模式按轮廓 Y/Z 范围自动缩放。
-- 坐标变换：校准模式 `center + 物理值×rate`（原点对齐图像中心）；回退模式按 min 值平移。
-- mm 刻度步长自适应：`stepMm = max(1, round(40 / rate))`。
+- 缩放率：校准模式按**四角毫米包围盒跨度**与画布内边距取 `min(rateX, rateY)`；回退模式按轮廓 Y/Z 范围自动缩放。
+- 坐标变换：校准模式为单一仿射变换 `pixelX = origin.X + mmX×rate`、`pixelY = origin.Y - mmZ×rate`（Z 取反），`origin` 取使四角包围盒居中于画布的落点；角点、轮廓点与毫米刻度栅格共用 `ToPixel()` 唯一入口。回退模式按 min 值平移。
+- 视图锚点：十字线与中心绿点锚定 `calib.Center` 变换后的位置，越出标定区域时回退包围盒中心。
+- mm 刻度步长自适应：`stepMm = max(1, round(40 / rate))`；毫米范围按 `origin` 反算可见区间，标签为真实毫米值。
 - 轮廓点上限取 `LineLaserProfileData.MaxPoints`（2048）。
 - 十字架与四角交点由 `CalcTwoLineCrossPoint` 求两直线交点（平行返回 (-1,-1)）。
+- 现行决策见 [[decisions/ADR-113-line-laser-calib-affine-render-transform]]（统一仿射变换，废止 demo「毫米原点居中」假设）。
 
 ## 内部结构（2026-09-22 精简）
 
-`Render` 由 200 行 / 35 局部变量收敛为 27 行骨架 + 6 个静态绘制方法，几何量集中于私有嵌套类 `ViewGeometry`（缩放 / 中心 / 角点 / 十字交点 / 回退范围）：
+`Render` 由 200 行 / 35 局部变量收敛为 27 行骨架 + 6 个静态绘制方法，几何量集中于私有嵌套类 `ViewGeometry`（缩放 / 原点 / 中心 / 角点 / 十字交点 / 回退范围）：
 
 | 成员 | 职责 |
 |---|---|
-| `BuildViewGeometry(calib, hasCalib, profile, count)` | 一次算全视图几何（校准按角点定标，回退按轮廓范围缩放） |
+| `BuildViewGeometry(calib, hasCalib, profile, count)` | 一次算全视图几何（校准按四角包围盒定比例与原点，回退按轮廓范围缩放） |
+| `ToPixel(origin, rate, mm)` | 毫米 → 像素的唯一换算入口（Z 取反） |
 | `DrawFallbackGrid` / `DrawCalibrationBackdrop` | 回退参考网格 / 校准标定框 + 十字 + 中心点 |
 | `DrawProfile(g, profile, count, view, hasCalib, result)` | 轮廓折线 + 特征点（坐标变换委托在本段内构建） |
 | `DrawMillimeterGrid` / `DrawRangeLabels` | 毫米刻度栅格 / 回退模式 Y-Z 范围标注 |
@@ -72,3 +76,4 @@ LineLaserContourAlgorithm : ILineLaserContourAlgorithm（画布渲染）
 - [[modules/LineLaserCam]] — 线激光采集模块
 - [[decisions/ADR-022-EmguALGThreeLayer]] — EmguALG 三层架构
 - [[decisions/ADR-019-MonitorCamBoundaryAndEmguALGRefinement]] — 监控相机边界与 EmguALG 精化
+- [[decisions/ADR-113-line-laser-calib-affine-render-transform]] — 校准渲染统一仿射变换（现行坐标变换决策）

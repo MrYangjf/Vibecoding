@@ -56,6 +56,12 @@ status: accepted
 - 后果：真实态轮廓帧 RobotX 由 0 变为真实坐标，历史记录数据语义改变（业主明确批准）。
 - 配套：配置实例所有权收归 Manager（`MontionManager.CreatePreviewMotionConfig()` / `AlgorithmManager.CreateEmptyPipelineConfig()`），UI 不再外部 `new`。
 
+### 2026-11-23 演进 · 模拟位姿时钟启动时机：PreWork 完成后才移动
+- **决策**：`StartRobotXSimulation` 从 `StartSimulation`（开模拟即跑）移到 `DoSubWork`（下发 Working）内、`BeginWeldMonitor` 之前启动；PreWork 期间 X 固定在起点，与真实链路「机器人收到主控 PreWork 完成反馈才移动」（ADR-038）一致。
+- **配套**：模拟起点复位由全复位 `ResetSeamTracking` 改为 `ResetTrackingForWeldStart`（只复位 PVT + 地图、不清工艺调整），避免清掉自适应首帧播种。
+- **理由**：现场日志证实旧实现在 PreWork 期间 X 已从起点跑到 660mm，形成大截「未引导数据」触发 `NoValueAlarm` 停焊；延后时钟后起点即真实起焊位，消除假缺值。
+- **边界**：喂入机制（预测器 / 单入口 `UpdateRobotPose`）不变，仅改时钟启动时刻；真实 RSI 链路不受影响。见 [[lessons/SimulationAutoBranching]] 陷阱廿三。
+
 ## 相关页面
 
 - [[decisions/ADR-042-SeamTrackingConsolidated]]（写入时刻机器人 Y 差分被本决策由阶梯演进为连续）

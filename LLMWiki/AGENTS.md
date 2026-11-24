@@ -79,7 +79,9 @@ LLMWiki/
 ├── wiki/index/           ← 索引层（独立于日志）
 │   └── index.md           ← 全库内容索引（内容导向，按分类组织）
 │
-├── tools/                 ← 脚本工具链（24 个：8 个扫描闸门 / 索引 / 日志与历史 / 治理 / 规范化 / 结构 / 出包）
+├── tools/                 ← 脚本工具链（25 个：8 个扫描闸门 / 索引 / 代码地图 / 日志与历史 / 治理 / 规范化 / 结构 / 出包）
+│   ├── codemap_build.py    ← 代码地图生成器（官方 coderepomap 引擎 + 自研 C# 调用边抽取）；产物入 wiki/architecture/ 分片
+│   └── data/               ← 脚本数据源（routes.tsv 路由表 / namespace_meta.json 命名空间人工判断层）
 ├── scripts/               ← 代码审查与批量脚本（csharp_review.py / scan_by_folder.sh）
 ├── skills/                ← 工作流 Skill 的仓库副本（双副本之一）
 │   # 双副本纪律（2026-11-02 收口）：本目录 + 用户级 `~/.trae-cn/skills/vibecoding-llmwiki/` 必须内容一致（行尾同为 LF）
@@ -202,6 +204,7 @@ Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 > 本节只作通俗别名（Query=Phase 0、Ingest=Phase 3、Lint=Phase 4），**不得**据此另立流程。
 
 **Phase 0 Query（知识检索）**：读 `wiki/index/index.md` → 按 ⚡ 速查路由定位 1~3 页 → 读该页。⛔ 不得跳过 [[architecture/CodeMap]]（先查代码地图再 Grep）。
+   代码地图 = 总览页 + 机器分片（符号分片 `CodeMap-Symbols-<模块>.md` / 关系分片 `CodeMap-Relations*.md`），⛔ 分片由 `tools/codemap_build.py` 生成、禁手工编辑；刷新用 `python tools/codemap_build.py`，同步校验用 `--check`。
 **Phase 3 Ingest（知识沉淀）**：更新 `modules/` / `api/` / `decisions/` / `lessons/` → 重建 index（`tools/wiki_index_build.py`）→ 追加 log（`tools/wiki_log.py append`，时间戳自动取）。
 **Phase 4 Lint（健康检查）**：跑五扫描器 + 人工清单。
 

@@ -9,6 +9,8 @@ source: raw/skills/02-Development/UISpecialist.md
 # UIDesign 模块 — UI界面
 
 > 全部用户界面的设计与实现。基于 WinForms + **AntdUI（MIT 许可）**，25 组页面/弹窗，三级导航结构。
+>
+> **2026-11-20 页面拆分与死弹窗清理（[[decisions/ADR-112-ui-page-split-and-dialog-cleanup]]）**：① `FilebackupPage` 去 `tabsBackup` 外壳、以 `panelSystemCfg` 为根改作「设置备份」页（只做配置文档生成 + `.awcfg` 导入导出），新建 `CommSettingPage` 承载 RSI 通讯配置/调试/日志，两页同级挂入 `navPageParam.LoadTabs`；② 删除零消费弹窗 `ConfigForm`/`IoConfigForm`/`CylinderConfigForm`；③ 新建 `DeviceMonitorPage` 挂入 FormMain 的 `tabMonitor`（替换原空占位），同日接收自 `SystemControlPage` 迁入的焊接头实时温度显示（自有 500ms Timer；旧页只留节点号+6 项阈值，删温度刷新开关）。拆分坑见 [[lessons/LargeUserControlSplitPitfalls]]。
 > UI 框架已于 2026-07-28 从 SunnyUI 全量迁移至 AntdUI（25/25 文件），见 [[decisions/ADR-008-UIFrameworkMigration]]。
 > **开发范式唯一权威**：[[guides/AntdUI-Reference]]（布局/事件/Table/Chart/Designer.cs 铁律；原 `新WIKI/UI/AntdUI-DesignParadigm.md` 已并入）。
 
@@ -24,7 +26,7 @@ UIDesign/
 │   ├── NavPage.cs               ← 统一导航页面（替代 ImagePage/ParamPage，通过 LoadTabs() 接受不同子页配置，实例化两次分别作为参数界面和图形界面；左侧垂直 AntdUI.Menu 导航 + 右侧 Tabs 内容区，TabMenuVisible=false；Vertical 模式，BackActive=White，BackHover=Gray，Round=false）
 │   └── DataReviewerPage.cs        ← 数据回顾页面（原 DataReview.cs，**2026-08-05 布局重构，2026-08-07 分页控件升级**：外层 uiTableLayoutPanel1（AntdUI.GridPanel）「左 25% panelLeft / 右 75% panelRight」；panelLeft 内嵌 uiGridPanelLeft「35px 日历 / fill 表格 / fill Pagination 分页 / 30px 页脚」；panelRight 内嵌 uiGridPanelRight「35px 复选框流式布局 / fill 图表 / 20px 进度标签 / 40px 滑块 → **2026-11-02 滑块行移除，底行合并**」；全部 GroupBox 替换为 AntdUI.Panel（白底+灰边框+阴影动画）；btnRenerView 以 Modal.open 弹窗展示 HelixRenderForm）
 ├── TabPage/                     ← 原 Sub2UI/（2026-08-05 重命名）
-│   ├── ILCamPage.cs             ← **线激光/英莱相机工作页面（核心，已替代 LLCamWorkJob）**（完全使用英莱，替代线激光页面挂载；TableLayoutPanel + AntdUI.Panel/Button/Label/Select + Emgu ImageBox 显示轮廓 Mat；IP 输入(初始化读本地配置 `LoadSavedIp`) + 扫描按钮 + 连接 + 开激光/开相机 toggle + JOB select + 算法编辑按钮 + 参数编辑按钮 + 轮廓点/分析结果；**2026-08-17 新增「自动显示」AntdUI.Switch（默认关闭）**：用状态机 `LineLaserWorkflow.State` 判断自动运行中→禁用全部手动按钮、switch 控制轮廓刷新，空闲→恢复按钮；事件订阅放代码后置）；**2026-08-24 UI 状态刷新统一入口重构**：原 `UpdateConnectionUi`/`UpdateModeUi`/`SyncFromHardwareAfterConnect` 三碎片入口内联为 private `*Core` 方法，统一收敛到单入口 `RefreshUi(RefreshUiScope scope)`（`[Flags]` 枚举 Connection/Mode/Hardware 可组合，内置 InvokeRequired 封送），构造函数/btnConnect/工作流态回调/状态机态回调全部只调 `RefreshUi`；**2026-08-24 传感器控制精简**：启停传感器改用 `SetSensor`、弃 `SetCaptureCamera`（非线激光方式），激光/传感器按钮 text 与 `ExtraMouseDown` 收敛到单一 `UpdateLaserSensorUi()`（基于 `IsLaserOn()`/`IsCameraOn()` 真相源，移除 `_isLaserOn`/`_isCameraOn` 本地副本），消除 btnLaser/btnCaptureCamera/SyncFromHardware/UpdateConnectionUi 四处重复 set text
+│   ├── LineLaserCamPage.cs      ← **线激光/英莱相机工作页面（核心，已替代 LLCamWorkJob）**（完全使用英莱，替代线激光页面挂载；TableLayoutPanel + AntdUI.Panel/Button/Label/Select + Emgu ImageBox 显示轮廓 Mat；IP 输入(初始化读本地配置 `LoadSavedIp`) + 扫描按钮 + 连接 + 开激光/开相机 toggle + JOB select + 算法编辑按钮 + 参数编辑按钮 + 轮廓点/分析结果；**2026-08-17 新增「自动显示」AntdUI.Switch（默认关闭）**：用状态机 `LineLaserWorkflow.State` 判断自动运行中→禁用全部手动按钮、switch 控制轮廓刷新，空闲→恢复按钮；事件订阅放代码后置）；**2026-08-24 UI 状态刷新统一入口重构**：原 `UpdateConnectionUi`/`UpdateModeUi`/`SyncFromHardwareAfterConnect` 三碎片入口内联为 private `*Core` 方法，统一收敛到单入口 `RefreshUi(RefreshUiScope scope)`（`[Flags]` 枚举 Connection/Mode/Hardware 可组合，内置 InvokeRequired 封送），构造函数/btnConnect/工作流态回调/状态机态回调全部只调 `RefreshUi`；**2026-08-24 传感器控制精简**：启停传感器改用 `SetSensor`、弃 `SetCaptureCamera`（非线激光方式），激光/传感器按钮 text 与 `ExtraMouseDown` 收敛到单一 `UpdateLaserSensorUi()`（基于 `IsLaserOn()`/`IsCameraOn()` 真相源，移除 `_isLaserOn`/`_isCameraOn` 本地副本），消除 btnLaser/btnCaptureCamera/SyncFromHardware/UpdateConnectionUi 四处重复 set text
 │   ├── ProcessControlPage.cs     ←— **焊接工艺参数配置页（2026-09-17 面板重组，ADR-032；2026-09-22 二度重组 ADR-031）**：根容器 `tabsConfig`（`AntdUI.Tabs`，2026-09-29 由 `tableLayoutPanel7` 2×2 网格改造）四 Tab 分区承载 4 面板——「焊参调整」`tabPageAdaptiveSetup`→`panelWeldList`→`tbPanelAdaparam`（「焊接工艺自适应调参模型」工艺自适应调参；2026-09-17 新增「焊参调整」段：EnableGuide/MaxConsecutiveFailures/IsCountType/CountNum 由轨迹滤波算法面板迁入）、「线激光标定」`tabPageLaserProcess`→`panel1`→`tbpanelweldponts`（**线激光标定：2026-09-22 ADR-031 收窄为纯标定 5 项——线激光-水平轴角度 / 标定中心Z / 标定中心点Y / 示教Y轴锁定坐标 / 趋近阈值，6 列 × 5 行；跟踪几何 9 项已迁出至轨迹点控制面板**，原 `tlPanelWeldPoints` 改名）、「轨迹点控制」`tabPageAlgoControl`→`panel2`→`tbPanelAlogControl`（**「轨迹点控制」：2026-09-22 ADR-031 由「轨迹滤波算法」改名重排，**4 列 × 35 行（2026-09-22 ADR-030 增「最终目标最大突变(mm)」）**，按 ① 线激光点过滤 ② 方向平滑 ③ CSP 输出 ④ 折返监测 ⑤ 跟踪几何 五组分区；PVT 参数 11 个控件真删、5 项停止持久化**；详见 [[api/ProcessControlPage]]）、「模拟测试」`tabPageSimTest`→`panel3`→`tbPanelSimTest`（模拟测试：由 `SystemControlPage`（原 `MotionControlPage`）整体迁入 `cmbFreq`/`btnSaveSim`/`btnStartSim` + `lblSimTestTitle`，见 [[api/ProcessControlPage]]）；线激光标定与轨迹点控制模型参数经 `WeldParamManager.Instance.SaveAlgorithmsConfig()` 落盘，模拟方法 `BtnStartSim_Click` 等随控件迁入代码后置。**2026-09-29 更名 + 重排**：`tabsConfig` → `tabsProcess`，四页改为 工艺调试快捷设定 / 自适应调整工艺设置 / 线激光追踪工艺设置 / 光丝对中工艺设置，**轨迹点控制与模拟测试迁出至 `SystemControlPage`**，详见 [[api/ProcessControlPage]]；**2026-11-02（[[decisions/ADR-063-CommandZoneRadioExclusivity|ADR-063]] 分组互斥演进）**：LA 指令区两套独立电机分组——对焦组 5 项（`LA_Auto`~`LA_Pose2`）挂 `gridQuickLaFocus`、振镜组 4 项（`LA_GalvoCircle`~`LA_GalvoArc`）挂 `gridQuickLaGalvo`，外层 `gridQuickLa` 改 4 格（`Span="40:fill;60:fill;30:fill;30:fill"`）；组内互斥由容器天然成立、跨组可同时各选一个（此前 9 项同挂 `gridQuickLa` 导致整区互斥）；同轮三指令区默认 Auto + 连机置灰（`RefreshActionStates` 唯一入口）+ TA_Auto 力矩门控；**2026-11-03**：TA_Auto 启动置灰修复——清残留选中仅限 `taReady && !taTorqueMode`（未就绪保留默认 Auto），TA 轴判定改用 `GetAxisByKeys(TaAxisKeys)` 与力矩位同路径，新增 `DeviceControlWork.InitializationCompleted` 首填 + `MontionManager.TaTorqueModeChanged` 跨页回填与 Tooltip/日志原因提示，详见 [[api/ProcessControlPage]]
 │   ├── FilebackupPage.cs              ← 合并通讯页面（三选一模式：机器人/通用/PLC，GridPanel 四行布局：Radio→Tabs→Checkbox→Input；2026-09-15 重做：radio→tabs 单向联动、启停合并走 CommunicationManager 门面 ConnectRobot/DisconnectRobot、启用开关即时写 IsRobotEnabled、「打开配置」按模式弹 FileEditorForm 编辑 Manager 自持 RobotServerXdoc/RobotClientXdoc，见下方 FilebackupPage 章节与 [[modules/Comm]]）；**2026-09-29 更名为 `FilebackupPage`（显示名「文档备份设置」）并新增 `tabsBackup` 三分区：通讯配置文件（本页原内容零改动）/ 工艺配置文件 / 系统配置文件（承接 `SystemControlPage` 迁出的 CSV/XML 导入导出）**；**2026-11-03 职能收口（业主口径）**：`tabPageSystemCfg` 只承担两件事——① 原始配置文档 → 项目 XML（`btnDeltaGen` 链路）、② `.awcfg` 打包/解包（配置转移）；删除二次保存入口 `btnSaveConfig`、「XML→运行时」`btnReloadConfig`、反向出表 `btnExportCsv`，`gridBackupOps` 缩为 4 控件（`Span="40:fill;fill:160 fill 160"`，以业主手工版式为基准），见 [[api/FilebackupPage]]（2026-11-03 ESI 判据修正：取带 `ProductCode` 的 `Type`，⛔ 不取文档首个 `Type`））
 │   ├── MonitorCamPage.cs        ← 监控相机页面（Tabs：焊接相机设置 / 焊接回放，ADR-048/094）
@@ -47,12 +49,9 @@ UIDesign/
     │   ├── ILParamForm.cs       ← **英莱相机参数编辑页**（原 `ILParamPage`，2026-09-07 改名；UserControl + AntdUI.Table 单元格编辑，Modal 承载；表头 参数名/当前值(SetEditable+DoubleClick)/单位/说明；编辑**相机参数**：曝光/激光强度/抗弧光，复用 [[api/IntelligentLaserCam]] 的 FetchCameraParams/ApplyCameraParams；**与 Job 参数（算法参数）分离**）；**2026-08-24 状态精简**：删除 `_ilConnected` 本地缓存，`UpdateConnLabel`/`LoadParams`/按钮守卫统一直读 `IsConnected` 真相源
     │   └── ILScanForm.cs        ← **英莱相机扫描结果弹窗**（原 `ILScanDialog`，2026-09-07 改名；UserControl + AntdUI.Table，Modal 承载；表头 No.+选取(ColumnCheck 单选互斥)+IP+序列号+软件版本+传感器类型；`SelectedIp` 属性 + 确定回填；见 [[guides/AntdUI-Reference]]）
     ├── MotionControlDialog/     ← 运控配置域（命名空间 AdaWeldSystem.UIDesign.SubDialog.MotionControlDialog）
-    │   ├── AxisConfigForm.cs     ← **2026-09-18 由 `TabPage/MotionConfigEditors/AxisConfigEditor` 迁入并改名**（ADR-036 归位）：轴参数编辑对话窗（UserControl，Modal 承载，owner `this.FindForm()`），`(DeltaAxisConfig config)` 构造，`Commit()` 写回配置；详见 [[api/SystemControlPage]]
-    │   ├── IoConfigForm.cs        ← 同上（`IoConfigEditor`→`IoConfigForm`，`(DeltaIOConfig config)`）
-    │   └── CylinderConfigForm.cs ← 同上（`CylinderConfigEditor`→`CylinderConfigForm`，`(DeltaCylinderConfig config)`）
+    │   └── AxisConfigForm.cs     ← **2026-09-18 由 `TabPage/MotionConfigEditors/AxisConfigEditor` 迁入并改名**（ADR-036 归位）：轴参数编辑对话窗（UserControl，Modal 承载，owner `this.FindForm()`），`(DeltaAxisConfig config)` 构造，`Commit()` 写回配置；详见 [[api/SystemControlPage]]
     ├── ParamContolDialog/       ← 参数控制域（命名空间 AdaWeldSystem.UIDesign.SubDialog.ParamContolDialog）
-    │   ├── AutoParamForm.cs     ← 自动参数弹窗（UserControl）
-    │   └── ConfigForm.cs        ← 系统配置弹窗（UserControl + AntdUI.Table + AntdUI.Pagination，Modal 承载；2026-08-12 InitTableColumns 设 `AutoSizeColumnsMode=ColumnsMode.Fill` 列宽填满区域）
+    │   └── AutoParamForm.cs     ← 自动参数弹窗（UserControl）
     └── UserManagerDialog/       ← 用户管理域
         ├── LoginForm.cs         ← 登录弹窗（原 `FormLogin`，2026-09-07 改名；UserControl，Modal 承载；命名空间 AdaWeldSystem.UIDesign.SubDialog.UserManagerDialog；见 [[guides/AntdUI-Reference]]）
         └── UserEditForm.cs      ← 用户编辑弹窗（原 `UserEdit`，2026-09-07 改名；UserControl + AntdUI.Table；命名空间 AdaWeldSystem.UIDesign.SubDialog.UserManagerDialog）
@@ -67,7 +66,7 @@ UIDesign/
 |----------|------|------|----------|----------|
 | `MainWindow/` | 主窗口（唯一） | `AntdUI.Window` | `AdaWeldSystem.UIDesign.MainWindow` | `FormMain` |
 | `ControlPage/` | 页面级 UserControl（由 FormMain 的 Tabs 承载） | `UserControl` | `AdaWeldSystem.UIDesign.ControlPage` | `MainPage` / `NavPage` / `DataReviewerPage` |
-| `TabPage/` | 页面级 UserControl（功能分页） | `UserControl` | `AdaWeldSystem.UIDesign.TabPage` | `ILCamPage` / `ProcessControlPage` / `FilebackupPage` / `MonitorCamPage` / `SystemControlPage` |
+| `TabPage/` | 页面级 UserControl（功能分页） | `UserControl` | `AdaWeldSystem.UIDesign.TabPage` | `LineLaserCamPage` / `ProcessControlPage` / `FilebackupPage` / `MonitorCamPage` / `SystemControlPage` |
 | `SubDialog/<业务域>Dialog/` | **Modal 承载的对话窗 UserControl**（由调用点 `AntdUI.Modal.open` 弹出） | `UserControl` | `AdaWeldSystem.UIDesign.SubDialog.<业务域>` | `MotionControlDialog/{AxisConfigForm,IoConfigForm,CylinderConfigForm}` 等 |
 
 **归位红线（硬约束）**：
@@ -155,8 +154,8 @@ UIDesign/
 ### ILAlgorithmEditForm（`AdaWeldSystem.UIDesign.SubDialog.IntelligentLaserDialog`，UserControl，Modal 承载）
 算法编辑弹窗：`tabsAlgo`（**`AntdUI.Tabs`**）按 `CameraSelector.Active` 接口 `AddTabSelect` 挂载 `ILAlgoForm`（⚠️ 原 `EmguAlgoPage` 分支已随文件移除，当前仅英莱一页）（英莱 Job Parameter 编辑 + 实时识别结果只读）。接口分隔决策见 [[decisions/ADR-012-AlgorithmEditInterfaceSplit]]（框架层描述已按 AntdUI 落地）。2026-07-30 经 `ADR-028` 由 `AntdUI.Window` 改为 `UserControl` 并迁入 `SubView/`，调用点 `ILCamPage.btnEditJob_Click`（原 `LLCamWorkJob`）以 `AntdUI.Modal.open(...)` 弹出；原 `FormClosing` 停英莱页定时器逻辑改订阅 `HandleDestroyed`（不重写 `Dispose(bool)`）。详见 [[api/ILAlgorithmEditForm]]。
 
-### ILCamPage（`AdaWeldSystem.UIDesign.TabPage`，UserControl，已替代 LLCamWorkJob）
-线激光/英莱相机工作核心页：IP 输入+扫描+连接、开激光/开传感器按钮、Job 下拉+应用按钮、帧率模式下拉+应用按钮、算法编辑按钮、参数编辑按钮、轮廓画面+分析结果表。**已完全替代原 `LLCamWorkJob`**（Sub2UI 时代线激光页面，文件已改名并迁至 `UIDesign/TabPage/ILCamPage.cs`）。Workflow 事件全部 `InvokeRequired` 守卫。详见 [[lessons/IntelligentLaser-Pitfalls]]（§5.17，原 IntelligentLaserSensorControl 页 2026-09-17 并入）。
+### LineLaserCamPage（`AdaWeldSystem.UIDesign.TabPage`，UserControl，已替代 LLCamWorkJob）
+线激光/英莱相机工作核心页：IP 输入+扫描+连接、开激光/开传感器按钮、Job 下拉+应用按钮、帧率模式下拉+应用按钮、算法编辑按钮、参数编辑按钮、轮廓画面+分析结果表。**已完全替代原 `LLCamWorkJob`**（Sub2UI 时代线激光页面，文件已改名并迁至 `UIDesign/TabPage/LineLaserCamPage.cs`）。Workflow 事件全部 `InvokeRequired` 守卫。详见 [[lessons/IntelligentLaser-Pitfalls]]（§5.17，原 IntelligentLaserSensorControl 页 2026-09-17 并入）。
 **2026-09-30 Tabs 化（[[decisions/ADR-051-ILCamPageTabsConversion]]）**：根容器由 `uiTableLayoutPanel1` 直挂改为 `tabsIL`（`AntdUI.Tabs`，`Dock=Fill`）→ `tabPageLaserCapture`（`Text="线激光采集设置"`）→ `uiTableLayoutPanel1`（原四行布局与内部控件零改动）；**`Controls.Add` + `Pages.Add` 双写**；`tabsIL.Text="线激光设置"`（= NavPage 名，2026-11-13 随页面并入系统参数设置改名）；**只改设计器，`.cs` 零改动**（该页 `.cs` 对控件仅「只使用」）。控件与组件全归设计器（字段 29→31，Tabs/TabPage 三项齐备）。⚠️ 遗留待裁定：`uiTableLayoutPanel1` 的 `RowCount=4` 而 `RowStyles` 5 条（业主 VS 中间态，未改）。
 
 ### AutoParamForm（`AdaWeldSystem.UIDesign.SubDialog.ParamContolDialog`，UserControl，Modal 承载）
@@ -221,7 +220,7 @@ UIDesign/
 | `HelixRenderForm` | `_viewer`（new PointCloudViewer，含 WPF Viewport3DX） | `DisposeComponents()` ← `HandleDestroyed`（Designer.cs 已还原为标准生成代码） |
 | `SystemControlPage`（原 `MotionControlPage`） | `LineLaserWorkflow.StateChanged` | `HandleDestroyed` 退订 + 停止/清理路径退订 |
 | `FormMain` | `LineLaserWorkflow.StateChanged` | `FormClosed` 退订 |
-| `ILCamPage` | `_ilCamera.ContourFrameReady` + StateChanged + `_displayedClone`（Mat） | `HandleDestroyed` 直接释放 |
+| `LineLaserCamPage` | `_ilCamera.ContourFrameReady` + StateChanged + `_displayedClone`（Mat） | `HandleDestroyed` 直接释放 |
 | `LLCamWorkJob` | JobSwitched + StateChanged×4 + `_statusTimer` + `_displayedClone` | `HandleDestroyed` → `UnsubscribeEvents` |
 | `LLCameraSetting` | 自建配置资源 | `HandleDestroyed` 直接释放 |
 
@@ -256,7 +255,7 @@ UIDesign/
 | `UserEdit.cs` | `UserManagerDialog/UserEditForm.cs` | `UserEdit` → `UserEditForm` |
 | `InitWaitingPanel.cs` | `FormMainDialog/InitWaitingForm.cs` | `InitWaitingPanel` → `InitWaitingForm` |
 | `FileTraceForm.cs` / `HelixRenderForm.cs` / `RecordConfigForm.cs` / `RenderParamForm.cs` | `DataReviewerDialog/`（同名） | 无 |
-| `AutoParamForm.cs` / `ConfigForm.cs` | `ParamContolDialog/`（同名） | 无 |
+| `AutoParamForm.cs` / `ConfigForm.cs`（后者已于 2026-11-20 删除，ADR-112） | `ParamContolDialog/`（同名） | 无 |
 
 ⚠️ **代码内残留旧标识（非阻塞，待清理）**：Designer 的 `this.Name` 仍是旧值（`DataReviewerPage.Designer.cs:336` = `"DataReviewPage"`、`ILAlgoForm.Designer.cs:197` = `"ILAlgoPage"`、`InitWaitingForm.cs:59` = `"InitWaitingPanel"`）；`ILAlgoForm.cs` 内 6 处日志标签仍写 `"AlgorithmEditForm"`；`ILAlgorithmEditForm.cs` 事件处理器名仍为 `AlgorithmEditForm_HandleDestroyed`。
 
@@ -303,7 +302,7 @@ UIDesign/
 | 约定 | 内容 |
 |---|---|
 | 只查询不直连 | 页面不调相机/轴硬件连接方法，连接类动作统一经工作流后台线程 |
-| 连接态真相源 | `ILCamPage` 以 `LineLaserWorkflow.State` 判定，硬件回填由 `StateSwitched` 边沿触发 |
+| 连接态真相源 | `LineLaserCamPage` 以 `LineLaserWorkflow.State` 判定，硬件回填由 `StateSwitched` 边沿触发 |
 | 释放不断设备 | `HandleDestroyed` 只退订事件、释放预览；设备断开归主设备关闭链 |
 | 动作门控 | 关闭中 / 初始化中 / 权限不足三档拒绝并给原因；线激光手动连接需工程师及以上 |
 | 模拟测试 | 启动仅管理员（`EnsureAdminForWrite`），停止与清理不受限；默认关闭、不落盘 |

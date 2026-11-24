@@ -1,7 +1,7 @@
 ---
 title: IntelligentLaser-Callback-Mechanism
 date: 2026-10-30
-updated: 2026-10-30
+updated: 2026-11-23
 tags: [教训, 相机, 英莱, IntelligentLaser, 汇总, Job]
 status: active
 ---
@@ -286,7 +286,7 @@ using (var commCtrl = new IntelligentSdkCommCtrl())
 
 ## 4. 校准框绘制
 
-### 4.1 demo 校准框角点公式隐含「原点在中心」假设
+### 4.1 校准框角点公式隐含「毫米原点居中」假设（两阶段修复）
 
 **问题现象**
 
@@ -312,9 +312,7 @@ LeftBottom = (m_posCenter.X - |LeftBottomCorner[0] * rate|, m_posCenter.Y + |Lef
 
 当真机 `Center[1] ≠ 0`（高度 mm 原点不在矩形中心）时，二者不一致 → 顶边上移 `Center[1]*rate` 像素 → **顶部被裁**、校准框歪斜、十字不居中。
 
-**修复方案（2026-08-18 终版）**
-
-**恢复 demo 原版角点公式，仅改 `center` 为图像中心**：
+**第一阶段修复（2026-08-18）—— 只解决 demo 的 `fPersent/dwOffset` 中心偏移**
 
 ```csharp
 // rate = cornerW/cornerH（同 demo，不变）
@@ -331,7 +329,33 @@ trans = (y, z) => (center.X + y*rate, center.Y - z*rate);
 screen_x = center.X + mm*rate;  screen_y = center.Y - mm*rate;
 ```
 
-**关键**：demo 的角点/trans 公式本身正确，只是 `center` 的 `fPersent/dwOffset` 计算未对齐图像中心。修复只需改 `center` 为 `(w/2, h/2)`，其他全部保留 demo 原版。
+该阶段消除了十字线不居中，**但遗留第二重假设**：`center ± |corner*rate|` 把绝对角点毫米坐标当作相对中心的偏移量展开，等价于要求「毫米原点恰在标定框中心」（`LeftTopCorner[1] = -LeftBottomCorner[1]`）。旧相机数据恰好满足，缺陷不可见。
+
+**第二阶段修复（2026-11-23，现行终版）—— 统一仿射变换**
+
+换用新英莱相机后，线激光调试页黄色标定框只显示一半、顶边被裁：新相机标定数据的毫米原点相对标定框偏置，`center.Y - |LeftTopCorner[1]|*rate` 越过画布上边界（数值仿真：旧实现 y 范围 [-52.3, 441.7]，新实现 [30, 524]）。
+
+废止「绝对值展开」，改为单一仿射变换（[[decisions/ADR-113-line-laser-calib-affine-render-transform]]）：
+
+```csharp
+// 比例取四角毫米包围盒跨度；原点落点使包围盒居中
+spanX = maxX - minX;  spanZ = maxZ - minZ;              // 四角毫米包围盒
+rate  = min((w-2m)/spanX, (h-2m)/spanZ);
+origin = (w/2 - (minX+maxX)/2*rate, h/2 + (minZ+maxZ)/2*rate);
+
+// 唯一换算入口：角点、轮廓点、毫米刻度栅格共用
+ToPixel(mm) = (origin.X + mm[0]*rate, origin.Y - mm[1]*rate);
+```
+
+要点：
+
+1. **单一变换**：校准框、轮廓折线、刻度栅格全部经 `ToPixel()`，校准框与轮廓必然对齐。
+2. **比例与原点由数据决定**：毫米原点偏置多少都完整可见，比例尺与标定数据一致。
+3. **锚点用标定中心点**（`calib.Center`），越出标定区域时回退包围盒中心。
+4. **形状不变**：梯形仍是梯形，只做平移与等比缩放。
+5. **对称数据零回归**：标定框对中时 `origin` 恰为画布中心、四角像素与旧实现完全一致。
+
+**关键**：demo 公式在「数据对称 + 中心对齐」时正确，跨相机不可靠；渲染层应按数据自身的包围盒定标定，而非假设毫米原点居中。
 
 **中间弯路（must not repeat）**
 
@@ -345,6 +369,8 @@ screen_x = center.X + mm*rate;  screen_y = center.Y - mm*rate;
 1. **移植厂商 demo 几何公式时，先核实其坐标系假设**（如「原点=画面中心」）。demo 数据对称时公式看似正确，换真机数据即失效。
 2. **"居中显示" ≠ "校正形状"**：默认只平移/缩放、保持被观察对象真实拓扑。
 3. **以标定中心点（而非 mm 原点）为视图基准**：`calib.Center` 是唯一有意义的锚点，所有屏幕坐标应相对它计算。
+4. **同一物理坐标系内的多个图元必须共用一套变换**：校准框、轮廓点、刻度栅格若各用各的换算，误差会以「框线错位」而非「框线缺失」暴露，排查成本更高。
+5. **换相机后渲染异常先查渲染端坐标系假设，再查设备状态**：新相机数据一旦不满足旧公式的前提，先验假设（而非设备状态）才是首要怀疑对象。
 
 ---
 
